@@ -2,12 +2,15 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.contrib.postgres.constraints import ExclusionConstraint
+from django.contrib.postgres.fields import DateTimeRangeField, RangeBoundary, RangeOperators
+from django.db.models import Q, F, Func
 
 
 class Facility(models.Model):
     """Obiekt tenisowy (klub, centrum)."""
     SURFACE_CHOICES = [
-        ('clay', 'Mczka'),
+        ('clay', 'Mączka'),
         ('hard', 'Twarda'),
         ('grass', 'Trawa'),
         ('carpet', 'Dywanowa'),
@@ -68,6 +71,12 @@ class Court(models.Model):
         return f"Kort {self.number} - {self.facility.name}"
 
 
+class TsTzRange(Func):
+    """PostgreSQL TSTZRANGE function for datetime ranges."""
+    function = 'TSTZRANGE'
+    output_field = DateTimeRangeField()
+
+
 class Reservation(models.Model):
     """Rezerwacja kortu."""
     STATUS_CHOICES = [
@@ -97,20 +106,41 @@ class Reservation(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def clean(self):
+        """Walidacja czasu rezerwacji."""
+        if self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ValidationError('Czas końca musi być późniejszy niż czas rozpoczęcia.')
+
     class Meta:
         db_table = 'reservations'
         verbose_name = 'Rezerwacja'
         verbose_name_plural = 'Rezerwacje'
         ordering = ['start_time']
+        constraints = [
+            # Blokuje end_time <= start_time
+            models.CheckConstraint(
+                condition=Q(end_time__gt=F('start_time')),
+                name='reservations_end_after_start'
+            ),
+            # Blokuje nakładające się rezerwacje tego samego kortu
+            # (tylko dla pending i confirmed)
+            ExclusionConstraint(
+                name='reservations_no_overlap_per_court',
+                expressions=[
+                    (
+                        TsTzRange('start_time', 'end_time', RangeBoundary()),
+                        RangeOperators.OVERLAPS
+                    ),
+                    ('court', RangeOperators.EQUAL),
+                ],
+                condition=Q(status__in=['pending', 'confirmed'])
+            ),
+        ]
         indexes = [
             models.Index(fields=['court', 'start_time']),
             models.Index(fields=['user', '-start_time']),
             models.Index(fields=['status']),
         ]
-
-    def clean(self):
-        if self.end_time <= self.start_time:
-            raise ValidationError('Czas koDca musi by p�zniejszy ni| czas rozpoczcia.')
 
     def __str__(self):
         return f"{self.court} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"

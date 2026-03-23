@@ -1,10 +1,13 @@
 """Friends and friend requests."""
 from django.db import models
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.db.models import Q, F
+from django.db.models.functions import Least, Greatest
 
 
 class Friendship(models.Model):
-    """Relacja znajomo[ci midzy u|ytkownikami."""
+    """Relacja znajomości między użytkownikami."""
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -17,15 +20,43 @@ class Friendship(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def clean(self):
+        """Walidacja - blokuje self-relation."""
+        if self.user_id and self.friend_id and self.user_id == self.friend_id:
+            raise ValidationError("Nie można dodać siebie do znajomych.")
+
+    def save(self, *args, **kwargs):
+        """Normalizacja pary - zawsze user_id < friend_id."""
+        if self.user_id and self.friend_id and self.user_id > self.friend_id:
+            self.user_id, self.friend_id = self.friend_id, self.user_id
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
     class Meta:
         db_table = 'friendships'
-        verbose_name = 'Znajomo['
-        verbose_name_plural = 'Znajomo[ci'
-        unique_together = [['user', 'friend']]
+        verbose_name = 'Znajomość'
+        verbose_name_plural = 'Znajomości'
         ordering = ['-created_at']
+        constraints = [
+            # Blokuje self-relation (A,A)
+            models.CheckConstraint(
+                condition=~Q(user=F('friend')),
+                name='friendships_no_self_relation'
+            ),
+            # Blokuje odwrócone duplikaty (A,B) i (B,A)
+            models.UniqueConstraint(
+                Least('user_id', 'friend_id'),
+                Greatest('user_id', 'friend_id'),
+                name='friendships_unique_normalized_pair'
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['friend']),
+        ]
 
     def __str__(self):
-        return f"{self.user.username} � {self.friend.username}"
+        return f"{self.user.username} ↔ {self.friend.username}"
 
 
 class FriendRequest(models.Model):
@@ -62,4 +93,4 @@ class FriendRequest(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.sender.username} � {self.receiver.username} ({self.status})"
+        return f"{self.sender.username} → {self.receiver.username} ({self.status})"
