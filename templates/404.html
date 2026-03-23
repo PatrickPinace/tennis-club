@@ -1,0 +1,22 @@
+<!-- templates/404.html -->
+{% extends 'tennis-club.html' %}
+{% load static %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/errors.css" type="text/css">
+{% endblock %}
+
+{% block content %}
+<div class="error-page-main">
+    <div class="error-container">
+        <div class="error-code">404</div>
+        <div class="error-heading">Nie znaleziono strony</div>
+        <div class="error-details">
+            Przepraszamy, strona, której szukasz, nie mogła zostać znaleziona.
+        </div>
+        <div class="error-actions">
+            <a href="{% url 'dashboard' %}" class="btn btn-success btn-lg"><i class="bi bi-house-fill"></i> Wróć do strony głównej</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

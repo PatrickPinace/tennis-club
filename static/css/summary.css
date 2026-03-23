@@ -1,0 +1,72 @@
+.main-summary {
+  max-width: var(--content-width);
+  margin: auto;
+}
+
+.card-summary.bar-container {
+  width: 20%;
+  padding: 0 5px;
+}
+
+.card-summary th {
+    font-size: 16px;
+}
+
+.card-summary td {
+    font-size: calc(14px + 0.1vw);
+}
+
+.card-summary .double {
+  font-size: 13px;
+}
+
+.summary-cols-match {
+  width:20%;
+}
+
+.summary-cols-set {
+  width:20%;
+}
+
+.summary-cols-gem {
+  width:20%;
+}
+
+.card-summary .team-name h6 {
+  font-size: calc(14px + 0.1vw);
+}
+
+@media screen and (max-width: 576px) {  
+
+  .card-summary h4 {
+    font-size: 14px;
+  }
+
+  .card-summary th {
+    font-size: 1.6vw;
+  }
+
+  .card-summary td {
+    font-size: calc(10px + 0.1vw);
+  }
+  
+  .summary-cols-match {
+  width:60px;
+  }
+
+  .summary-cols-set {
+    width:60px;
+  }
+
+  .summary-cols-gem {
+    width:60px;
+  }
+
+  .card-summary .team-name h6 {
+    font-size: calc(8px + 0.1vw);
+  }
+
+  .card-summary .double {
+    font-size: 7px;
+  }
+}

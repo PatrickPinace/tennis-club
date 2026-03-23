@@ -1,0 +1,21 @@
+.activities-col-period {
+    width: 80px;
+  }
+
+@media screen and (max-width: 576px) {  
+  .card-activities h4 {
+    font-size: 15px;
+  }
+
+  .card-activities table {
+    font-size: 9px;
+  }
+  
+  .card-activities table tr th {
+    font-size: 10px;
+  }
+  
+  .activities-col-period {
+    width: 50px;
+  }
+}

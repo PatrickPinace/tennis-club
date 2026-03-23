@@ -1,0 +1,14 @@
+.footer
+{
+    color: white;
+    background-color: var(--color2);
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    margin-left: 16px;
+    border-radius: 10px;
+    width: calc(100% - 32px);
+    text-align: center;
+    font-size: 8px;
+    clear: both;
+}

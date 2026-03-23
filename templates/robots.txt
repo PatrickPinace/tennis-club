@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /manage/
+Disallow: /accounts/
+Allow: /
+
+Sitemap: https://tennisclub.ovh/sitemap.xml

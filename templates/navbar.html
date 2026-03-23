@@ -1,0 +1,164 @@
+{% load chat_tags %}
+
+<link rel="stylesheet" href="/static/css/navbar.css" type="text/css">
+
+<style>
+  /* Style dla powiadomień na urządzeniach mobilnych */
+  @media (max-width: 576px) {
+    #notifications-dropdown-menu {
+      max-width: 90vw;
+      /* Ograniczenie szerokości menu do 90% szerokości ekranu */
+      overflow-x: auto;
+      /* Dodanie poziomego paska przewijania w razie potrzeby */
+    }
+
+    #notifications-dropdown-menu .dropdown-item {
+      white-space: nowrap;
+      /* Zapobieganie zawijaniu się tekstu w powiadomieniach */
+    }
+  }
+
+  .fa-user-circle {
+    /* Dodatkowa klasa na wypadek braku Gravatara */
+    font-size: 1.25rem;
+    /* Dopasowanie rozmiaru ikony */
+  }
+</style>
+
+<nav class="navbar navbar-expand-xl navbar-dark bg-success" {% if user.is_authenticated %}data-user-logged-in="true" data-user-id="{{ user.id }}" {% endif %}>
+  <div class="container-fluid">
+    {# Branding - Zawsze widoczne #}
+    <a class="navbar-brand" href="{% url 'dashboard' %}">
+      <div class="text-center">
+        <h1>Tennis Club</h1>
+        <h6 class="font-1">Klub miłośników tenisa</h6>
+      </div>
+    </a>
+
+    {# Przycisk Toggler - widoczny tylko gdy zalogowany lub potrzebne jest menu dla gości #}
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mynavbar">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="mynavbar">
+      {# Lewa strona - Tylko dla zalogowanych #}
+      <ul class="navbar-nav me-auto">
+        {% if user.is_authenticated %}
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'matches:matches_add_match' %}">
+            <i class="fa-solid fa-plus me-1"></i> Spotkanie
+          </a>
+        </li>
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'matches:matches_results' %}">
+            <i class="fa-solid fa-list-ul me-1"></i> Historia
+          </a>
+        </li>
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'matches:matches_summary' %}">
+            <i class="fa-solid fa-chart-column me-1"></i> Podsumowanie
+          </a>
+        </li>
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'tournaments:manage' %}">
+            <i class="fa-solid fa-trophy me-1"></i> Turnieje
+          </a>
+        </li>
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'friends_list' %}">
+            <i class="fa-solid fa-user-group me-1"></i> Znajomi
+          </a>
+        </li>
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'courts:facility-list' %}">
+            <i class="fa-solid fa-layer-group me-1"></i> Korty
+          </a>
+        </li>
+        {% endif %}
+        <li class="nav-item align-middle">
+          <a class="nav-link" href="{% url 'news:article_list' %}">
+            <i class="fa-solid fa-newspaper me-1"></i> Aktualności
+          </a>
+        </li>
+      </ul>
+
+      {# Prawa strona #}
+      <ul class="navbar-nav ms-auto">
+        {% if user.is_authenticated %}
+        {# Wiadomości #}
+        <li class="nav-item align-middle">
+          <a href="{% url 'chats:inbox' %}" class="nav-link d-flex align-items-center">
+            <span class="position-relative">
+              <i class="fa-solid fa-comment-dots fa-lg"></i>
+              {% unread_chat_messages_count user as total_unread %}
+              {% if total_unread > 0 %}
+              <span id="chat-notifications-count" class="badge badge-bell rounded-pill bg-danger position-absolute">{{ total_unread }}</span>
+              {% endif %}
+            </span>
+            <span class="d-xl-none ms-2">Wiadomości</span>
+          </a>
+        </li>
+
+        {# Powiadomienia #}
+        <li class="nav-item dropdown align-middle">
+          <a class="nav-link d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="position-relative">
+              <i class="fa-solid fa-bell fa-lg"></i>
+              <span id="notifications-count" class="badge badge-bell rounded-pill bg-danger position-absolute"></span>
+            </span>
+            <span class="d-xl-none ms-2">Powiadomienia</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end" id="notifications-dropdown-menu">
+            <li><a class="dropdown-item" href="#">Brak nowych powiadomień</a></li>
+          </ul>
+        </li>
+        {% endif %}
+
+        {# Menu Użytkownika/Gościa #}
+        <li class="nav-item dropdown align-middle {% if not user.is_authenticated %}d-xl-none{% endif %}">
+          <a class="nav-link d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="position-relative">
+              {% if user.is_authenticated %}
+              <i class="fa-solid fa-user-circle fa-lg"></i> {# Użycie fa-user-circle zamiast fa-user #}
+              {% endif %}
+            </span>
+            <span class="d-xl-none ms-2">
+              {% if user.is_authenticated %}
+              {{ user.first_name }} {{ user.last_name }}
+              {% else %}
+              Menu
+              {% endif %}
+            </span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end bg-body-tertiary">
+            {% if user.is_authenticated %}
+            <li><a class="dropdown-item" href="{% url 'users_edit' %}">Profil</a></li>
+            {% if user.username == 'lmoryl' %}
+            <li><a class="dropdown-item" href="{% url 'feedback:manage_feedback' %}">Zgłoszenia</a></li>
+            {% endif %}
+            <li><a class="dropdown-item" href="{% url 'logout' %}">Wyloguj</a></li>
+            {% else %}
+            <li><a class="dropdown-item" href="{% url 'login' %}">Logowanie</a></li>
+            <li><a class="dropdown-item" href="{% url 'register' %}">Rejestracja</a></li>
+            {% endif %}
+            {# Możesz dodać tutaj ogólne linki, jeśli są potrzebne, np. Strona główna #}
+          </ul>
+        </li>
+
+        {# Dodatkowe linki dla niezalogowanych, które nie są w menu rozwijanym #}
+        {% if not user.is_authenticated %}
+        <li class="nav-item d-none d-xl-block align-middle">
+          <a class="nav-link" href="{% url 'login' %}">
+            Logowanie
+          </a>
+        </li>
+        <li class="nav-item d-none d-xl-block align-middle">
+          <a class="nav-link" href="{% url 'register' %}">
+            Rejestracja
+          </a>
+        </li>
+        {% endif %}
+      </ul>
+    </div>
+  </div>
+</nav>

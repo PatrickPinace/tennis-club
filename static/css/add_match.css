@@ -1,0 +1,70 @@
+.card-add-match {
+    max-width: var(--content-width);
+}
+
+.form-select-player {
+  text-align: center;
+  background-image: none;
+  border: none;
+  padding: 1px 10px 1px 10px;
+  width: 100%;
+}
+
+.player-name-display {
+  text-align: center;
+}
+
+.form-control-score {
+    font-family: 'Special Elite', 'Lato', sans-serif;
+    font-size: 2rem;
+    text-align: center;
+    border: 1px solid #ced4da;
+    border-radius: .25rem;
+    max-width: 80px;
+    padding: .5rem;
+}
+
+.input-group-date {
+    width: fit-content;
+}
+
+.vs-label {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.doubles-separator {
+    display: block; /* Pokaż domyślnie na większych ekranach */
+}
+
+.score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 400px;
+}
+
+@media screen and (max-width: 576px) {
+  .form-select-player {
+      font-size: 1rem;
+      padding: 1px 1px 1px 1px;
+  }
+  .form-control-score {
+    font-size: 1.5rem;
+  }
+  .player-select {
+    flex-basis: 100%;
+    margin-bottom: 0.5rem;
+    min-width: auto; /* Resetuje min-width na urządzeniach mobilnych */
+  }
+
+  .doubles-separator {
+    display: none; /* Ukryj na ekranach mobilnych */
+  }
+}
+
+@media screen and (min-width: 577px) {
+  .player-select {
+    min-width: 200px; /* Zwiększa szerokość pól select na dużych ekranach */
+  }
+}

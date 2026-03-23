@@ -1,0 +1,117 @@
+.friends {
+  font-size: calc(10px + 0.3vw);
+}
+.friends h4 {
+  font-size: calc(14px + 0.3vw);
+}
+
+.friends .btn-sm {
+  font-size: calc(10px + 0.3vw);
+}
+
+/* Nowa siatka kart */
+.card-grid {
+    display: grid;
+    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.user-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    background-color: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.user-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+}
+
+.user-avatar {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #e9ecef;
+    font-size: 24px;
+    color: #6c757d;
+}
+
+.status-indicator {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+}
+
+.status-indicator.online {
+    background-color: #28a745;
+}
+
+.status-indicator.offline {
+    background-color: #dc3545;
+}
+
+.user-info {
+    flex-grow: 1;
+}
+
+.user-info h5 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.user-info small {
+    display: block;
+}
+
+.user-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Animacja dla nowych użytkowników */
+@keyframes glow {
+    0% { box-shadow: 0 0 5px #28a745; }
+    50% { box-shadow: 0 0 15px #28a745; }
+    100% { box-shadow: 0 0 5px #28a745; }
+}
+
+.new-user-highlight {
+    animation: glow 2s infinite;
+}
+
+/* Toast Notifications */
+.toast-notification.show {
+    transform: translateX(0);
+}
+
+.toast-notification .toast-header {
+    background: linear-gradient(135deg, #28a745, #20c997);
+}
+
+@media screen and (max-width: 576px) {
+  .friends {
+    font-size: calc(10px + 0.1vw);
+  }
+  .friends h4 {
+    font-size: calc(14px + 0.1vw);
+  }
+
+  .friends .btn-sm {
+    font-size: calc(10px + 0.1vw);
+  }
+}

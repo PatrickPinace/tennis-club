@@ -1,0 +1,287 @@
+{% load tennis-club %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2367968838330848"
+    crossorigin="anonymous"></script>
+
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <title>Tennis Club</title>
+  <link rel="canonical" href="{{ request.build_absolute_uri }}" />
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#198754">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <script src="https://kit.fontawesome.com/78cf555b9b.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Courgette&family=Lato:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/css/tennis-club.css" type="text/css">
+  <!-- Select2 -->
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+  <style>
+    #backToTopBtn {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1030;
+      /* Wyżej niż inne elementy, np. toasty */
+    }
+
+    #feedbackFab {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 1030;
+    }
+
+    .offcanvas-backdrop.show {
+      opacity: 0.7;
+    }
+
+    .offcanvas {
+      background-color: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(5px);
+    }
+
+    .form-control:focus {
+      border-color: #198754;
+      box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+    }
+
+    .alert-container {
+      min-height: 50px;
+      /* Zapewnia miejsce na komunikat, unikając przesunięcia layoutu */
+      display: none;
+      /* Ukryj domyślnie, pokaż tylko gdy jest komunikat */
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+
+  {% block styles %}{% endblock %}
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-0V81FWPFHN"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+
+    gtag('config', 'G-0V81FWPFHN');
+  </script>
+
+  <!--  Reklamy Google-->
+  <script async custom-element="amp-auto-ads"
+    src="https://cdn.ampproject.org/v0/amp-auto-ads-0.1.js">
+    </script>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+  <!--  Reklamy Google-->
+  <amp-auto-ads type="adsense"
+    data-ad-client="ca-pub-2367968838330848">
+  </amp-auto-ads>
+  <header>
+    {% include 'navbar.html' %}
+  </header>
+
+  <main>
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-12 col-md mt-3">{% block content %}{% endblock %}</div>
+      </div>
+    </div>
+  </main>
+
+  {% include 'footer.html' %}
+
+  <!-- Przycisk "Powrót na górę" -->
+  <button onclick="scrollToTop()" id="backToTopBtn" title="Wróć na górę" class="btn btn-primary rounded-circle"><i class="fa-solid fa-arrow-up"></i></button>
+
+  <!-- Przycisk do zgłaszania uwag -->
+  <button id="feedbackFab" class="btn btn-warning rounded-circle" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasFeedback" aria-controls="offcanvasFeedback" title="Zgłoś problem lub sugestię">
+    <i class="fa-solid fa-lightbulb"></i>
+  </button>
+
+  <!-- Wysuwany panel (Offcanvas) do zgłaszania uwag -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="offcanvasFeedback" aria-labelledby="offcanvasFeedbackLabel">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title" id="offcanvasFeedbackLabel"><i class="fa-solid fa-lightbulb text-warning me-2"></i>Masz pomysł lub znalazłeś błąd?</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <p>Twoja opinia jest dla nas bardzo ważna!</p>
+      <hr>
+      <div id="feedback-alert-container" class="alert-container"></div>
+      <form id="feedbackForm">
+        {% csrf_token %}
+        <input type="hidden" name="url" id="feedbackUrl" value="{{ request.build_absolute_uri }}">
+        <div class="mb-3">
+          <label for="id_subject" class="form-label">Temat zgłoszenia</label>
+          <input type="text" name="subject" class="form-control" id="id_subject" placeholder="Np. Błąd w wyświetlaniu wyników" required>
+        </div>
+        <div class="mb-3">
+          <label for="id_message" class="form-label">Treść wiadomości</label>
+          <textarea name="message" class="form-control" id="id_message" rows="5" placeholder="Opisz dokładnie problem..." required></textarea>
+        </div>
+        {% if not user.is_authenticated %}
+        <div class="mb-3">
+          <label for="id_email" class="form-label">Adres e-mail (opcjonalnie)</label>
+          <input type="email" name="email" class="form-control" id="id_email" placeholder="jan.kowalski@example.com">
+          <div class="form-text">Podaj e-mail, jeśli chcesz otrzymać odpowiedź na swoje zgłoszenie.</div>
+        </div>
+        {% endif %}
+        <button type="submit" class="btn btn-success w-100"><i class="fa-solid fa-paper-plane me-2"></i>Wyślij zgłoszenie</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Cookie Consent Banner -->
+  <div id="cookieConsent" class="fixed-bottom bg-dark text-white p-3 text-center" style="display: none; z-index: 1050;">
+    <div class="container d-flex flex-column flex-md-row justify-content-center align-items-center gap-3">
+      <span>Ta strona używa plików cookies w celu zapewnienia najlepszej jakości usług. Korzystając ze strony zgadzasz się na ich użycie. <a href="{% url 'privacy_policy' %}" class="text-white text-decoration-underline">Polityka Prywatności</a>.</span>
+      <button id="acceptCookies" class="btn btn-success btn-sm px-4">Akceptuję</button>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  {% if request.resolver_match.app_name != 'chats' %}
+  {% include 'notifications/toast.html' %}
+  {% endif %}
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js" integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q" crossorigin="anonymous"></script>
+  <script src="/static/js/tennis-club.js"></script>
+  <script src="/static/js/notifications.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', () => window.location.href = row.dataset.href);
+      });
+    });
+
+    // Logika dla przycisku "Powrót na górę"
+    var backToTopBtn = document.getElementById("backToTopBtn");
+
+    // Pokaż przycisk, gdy użytkownik przewinie 200px w dół
+    window.onscroll = function () {
+      if (document.body.scrollTop > 200 || document.documentElement.scrollTop > 200) {
+        backToTopBtn.style.display = "block";
+      } else {
+        backToTopBtn.style.display = "none";
+      }
+    };
+
+    // Funkcja przewijająca na górę strony
+    function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+
+    // Logika dla formularza zgłoszeń
+    document.getElementById('feedbackForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const form = this;
+      const formData = new FormData(form);
+      const alertContainer = document.getElementById('feedback-alert-container');
+      const submitButton = form.querySelector('button[type="submit"]');
+
+      // Reset alertów
+      alertContainer.innerHTML = '';
+      alertContainer.style.display = 'none'; // Ukryj kontener alertów przed nowym zgłoszeniem
+      submitButton.disabled = true;
+      submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Wysyłanie...';
+
+      fetch("{% url 'feedback:submit_feedback' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          let alertClass = data.success ? 'alert-success' : 'alert-danger';
+          let message = data.message;
+
+          if (!data.success && data.errors) {
+            message += '<ul>';
+            for (const field in data.errors) {
+              message += `<li>${data.errors[field]}</li>`;
+            }
+            message += '</ul>';
+          }
+
+          alertContainer.innerHTML = `<div class="alert ${alertClass} w-100">${message}</div>`;
+          alertContainer.style.display = 'flex'; // Pokaż kontener z komunikatem
+
+          if (data.success) {
+            form.reset();
+            document.getElementById('feedbackUrl').value = window.location.href; // Ustaw URL ponownie po resecie
+          }
+        })
+        .finally(() => {
+          submitButton.disabled = false;
+          submitButton.innerHTML = '<i class="fa-solid fa-paper-plane me-2"></i>Wyślij zgłoszenie';
+        });
+    });
+
+    // Dodatkowo, ukryj kontener alertów i zresetuj formularz, gdy offcanvas jest zamykany
+    const offcanvasFeedback = document.getElementById('offcanvasFeedback');
+    if (offcanvasFeedback) {
+      offcanvasFeedback.addEventListener('hidden.bs.offcanvas', function () {
+        const alertContainer = document.getElementById('feedback-alert-container');
+        if (alertContainer) {
+          alertContainer.innerHTML = '';
+          alertContainer.style.display = 'none';
+        }
+        const feedbackForm = document.getElementById('feedbackForm');
+        if (feedbackForm) {
+          feedbackForm.reset();
+          document.getElementById('feedbackUrl').value = window.location.href;
+        }
+      });
+    }
+
+    // Cookie Consent Logic
+    const cookieConsent = document.getElementById('cookieConsent');
+    const acceptCookiesBtn = document.getElementById('acceptCookies');
+
+    if (!localStorage.getItem('cookie_consent')) {
+      cookieConsent.style.display = 'block';
+    }
+
+    if (acceptCookiesBtn) {
+        acceptCookiesBtn.addEventListener('click', function() {
+        localStorage.setItem('cookie_consent', 'true');
+        cookieConsent.style.display = 'none';
+        });
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+
+  {# CSRF token for AJAX requests #}
+  {% csrf_token %}
+</body>
+
+</html>

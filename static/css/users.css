@@ -1,0 +1,71 @@
+ .users h6 {
+    font-size: 0.9em;
+  }   
+
+.users.login {
+  max-width: 450px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.09);
+  border-radius: 18px;
+  margin-top: 10px;
+}
+.users.login .card-header {
+  background: #198754;
+  color: #fff;
+  border-radius: 18px 18px 0 0;
+  text-align: center;
+}
+.user-form .btn-primary {
+  min-width: 100px;
+}
+
+.users.edit {
+  max-width: 630px;
+  margin-top: 10px;
+  border-radius: 18px;
+}
+.users.edit .card-header {
+  border-radius: 18px 18px 0 0;
+  background: #198754;
+  color: #fff;
+}
+.users.edit img.rounded-circle {
+  border: 3px solid #fff;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+.users.edit .form-control:focus {
+  border-color: #198754;
+  box-shadow: 0 0 0 0.2rem rgba(25,135,84,.15);
+}
+.users.edit .btn-success, .users.edit .btn-primary {
+  min-width: 120px;
+}
+
+.users.register {
+  max-width: 630px;
+  margin-top: 10px;
+  border-radius: 18px;
+}
+.users.register .card-header {
+  border-radius: 18px 18px 0 0;
+  background: #198754;
+  color: #fff;
+}
+.users.register .form-control:focus {
+  border-color: #198754;
+  box-shadow: 0 0 0 0.2rem rgba(13,110,253,.15);
+}
+.users.register .btn-primary {
+  min-width: 120px;
+}
+
+@media screen and (max-width: 576px) {   
+   .users h6 {
+    font-size: 0.7em;
+  }  
+}
+.profile-img-preview {
+  width: 150px; 
+  height: 150px; 
+  object-fit: cover; 
+  cursor: pointer;
+}

@@ -1,0 +1,83 @@
+/*
+ * Style dla elementów nawigacji i menu rozwijanego
+ */
+
+/* Zmiana koloru tekstu w menu rozwijanym po najechaniu i kliknięciu
+   Dodano !important dla :active, aby upewnić się, że nadpisuje domyślny styl Bootstrapa,
+   który może ustawiać kolor na biały/ciemny kolor tła.
+*/
+.dropdown-item:hover {
+    /* Utrzymano, dobry wybór koloru */
+    color: var(--bs-success); 
+    background-color: var(--bs-light); /* Dodano delikatne tło dla lepszej wizualizacji :hover */
+}
+
+.dropdown-item:active {
+    /* Upewnienie się, że kolor tekstu jest biały, gdy tło jest aktywne/kliknięte (bg-success) */
+    color: var(--bs-white) !important;
+    /* Domyślne tło jest ustawiane przez klasy Bootstrapa (.active), ale możemy wymusić sukces */
+    background-color: var(--bs-success) !important; 
+}
+
+/* Podstawowy styl paska nawigacyjnego */
+.navbar {
+    /* Cień jest dobry */
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+
+/* Styling logo / brandingu */
+.navbar-brand h1 {
+    font-family: "Special Elite", system-ui;
+    font-weight: 400;
+    letter-spacing: 2px;
+    margin-bottom: 0;
+    /* Dodatkowa poprawka: Upewnienie się, że tekst h1 jest czytelny na tle bg-success, 
+       chociaż navbar-dark powinien domyślnie dać biały kolor (var(--bs-white)). */
+    color: var(--bs-white); 
+}
+
+/* Styling linków nawigacyjnych */
+.navbar-nav .nav-link {
+    font-size: 1.08rem;
+    font-weight: 500;
+    transition: background 0.2s, color 0.2s;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    /* Dodatkowa poprawka: Upewnienie się, że kolor linku jest biały, 
+       szczególnie w kontekście navbar-dark i bg-success */
+    color: var(--bs-white) !important; 
+}
+
+/* Styling linków nawigacyjnych po najechaniu i aktywnych */
+.navbar-nav .nav-link:hover, 
+.navbar-nav .nav-link.active {
+    /* Zwiększona widoczność koloru tła dla aktywności i najechania */
+    background: #157347; /* To jest ciemniejszy odcień success, OK */
+    color: #fff !important; /* Wymuszenie białego koloru, aby nadpisać domyślny */
+}
+
+/* Styling menu rozwijanego (kontenera) */
+.dropdown-menu {
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+
+/* Styling ikon wewnątrz menu rozwijanego */
+.dropdown-item i {
+    /* Kolor #198754 to domyślny kolor sukcesu Bootstrapa (var(--bs-success)) - jest OK.
+       Nie trzeba dodawać !important, ale można użyć zmiennej dla spójności. */
+    color: var(--bs-success); 
+    margin-right: 0.5rem; /* Dodano margines dla lepszego odstępu */
+}
+
+/* Styling badge dla powiadomień */
+.badge-bell {
+    font-size: 0.4em;
+    padding: 0.4em 0.6em;
+    border-radius: 50%;
+    /* Ulepszone pozycjonowanie, aby był bardziej na zewnątrz ikony */
+    top: -8px; 
+    right: -8px; 
+    /* Upewnienie się, że badge jest ponad ikoną */
+    z-index: 10; 
+}

@@ -1,0 +1,77 @@
+.bar-chart {
+    width: 100%;
+}
+
+.progress-title {
+    font-size: 1rem;      /* Domyślny rozmiar czcionki (dla mobile) */
+    font-weight: 600;
+    margin-bottom: 0.3rem; /* Domyślny margines (dla mobile) */
+}
+
+.progress-bar-wrapper {
+    padding: 2px;
+}
+
+.progress-bar-container {
+    background-color: #e9ecef;
+    border-radius: 50rem;
+    height: 22px;
+    width: 100%;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.progress-bar {
+    flex-grow: 1;
+    height: 100%;
+    border-radius: 50rem;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    border-radius: 50rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+    transition: width 0.8s ease-in-out;
+    width: 0; /* Initial width for animation */
+}
+
+.progress-value {
+    padding: 0 8px;
+    font-weight: bold;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
+.progress-bar-text {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out 0.5s; /* Fade in after animation */
+}
+
+.progress-bar-fill[style*="width: 100%"] .progress-bar-text,
+.progress-bar-fill[style*="width: 9"] .progress-bar-text,
+.progress-bar-fill[style*="width: 8"] .progress-bar-text,
+.progress-bar-fill[style*="width: 7"] .progress-bar-text,
+.progress-bar-fill[style*="width: 6"] .progress-bar-text,
+.progress-bar-fill[style*="width: 5"] .progress-bar-text {
+    opacity: 1;
+}
+
+.progress-bar-danger { background: linear-gradient(to right, #dc3545, #c9302c); }
+.progress-bar-warning { background: linear-gradient(to right, #ffc107, #f0ad4e); }
+.progress-bar-success { background: linear-gradient(to right, #28a745, #218838); }
+
+/* Style for progress title on large screens */
+@media (min-width: 992px) { /* Corresponds to Bootstrap's lg breakpoint */
+    .progress-title {
+        font-size: 0.9rem; /* Zmniejszona czcionka */
+        margin-bottom: 0.2rem; /* Mniejszy odstęp od paska */
+    }
+}

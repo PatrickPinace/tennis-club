@@ -1,0 +1,125 @@
+:root
+{  
+  /* Custom sizes */
+  --content-width: 1000px;
+  --sidebar-width: 250px;
+  --adbar-width: 120px;
+}
+
+/* Fonts classes */
+.font-1 {
+    font-family: "Courgette", serif;
+    font-weight: 400;
+    font-style: normal;
+  }  
+
+.font-2 {
+  font-family: "Special Elite", system-ui;
+  font-weight: 400;
+  font-style: normal;
+}
+.font-3 {
+  font-family: "Lato", serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body
+{
+  background-color: var(--bs-light);
+  font-family: "Lato", serif;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Toast Notifications */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 350px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    transform: translateX(400px);
+    transition: transform 0.3s ease-in-out;
+    font-family: 'Lato', sans-serif;
+}
+
+.toast-notification.show {
+    transform: translateX(0);
+}
+
+.toast-notification .toast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #eee;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    border-radius: 8px 8px 0 0;
+}
+
+.toast-notification .toast-header strong {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.toast-notification .toast-header .btn-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    transition: background-color 0.2s;
+}
+
+.toast-notification .toast-header .btn-close:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+}
+
+.toast-notification .toast-header .btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+.toast-notification .toast-body {
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #333;
+}
+
+/* Animacja dla nowych użytkowników */
+@keyframes newUserPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.toast-notification.new-user {
+    animation: newUserPulse 0.6s ease-in-out;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .toast-notification {
+        width: calc(100vw - 40px);
+        right: 20px;
+        left: 20px;
+    }
+}

@@ -1,0 +1,22 @@
+ <!-- templates/500.html -->
+ {% extends 'tennis-club.html' %}
+ {% load static %}
+ 
+ {% block styles %}
+ <link rel="stylesheet" href="/static/css/errors.css" type="text/css">
+ {% endblock %}
+
+ {% block content %}
+ <div class="error-page-main">
+  <div class="error-container">
+   <div class="error-code">500</div>
+   <div class="error-heading">Wewnętrzny błąd serwera</div>
+   <div class="error-details">
+    Przepraszamy, coś poszło nie tak po naszej stronie. Pracujemy nad rozwiązaniem problemu.
+   </div>
+   <div class="error-actions">
+    <a href="{% url 'dashboard' %}" class="btn btn-success btn-lg"><i class="bi bi-house-fill"></i> Wróć do strony głównej</a>
+   </div>
+  </div>
+ </div>
+ {% endblock %}
