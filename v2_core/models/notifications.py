@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 
 
 class Notification(models.Model):
-    """Powiadomienie dla u|ytkownika."""
+    """Powiadomienie dla użytkownika."""
     TYPE_CHOICES = [
         ('info', 'Informacja'),
         ('match', 'Mecz'),
@@ -30,7 +30,7 @@ class Notification(models.Model):
     link = models.CharField(
         max_length=200,
         blank=True,
-        help_text='URL do przekierowania po klikniciu'
+        help_text='URL do przekierowania po kliknięciu'
     )
 
     # Status

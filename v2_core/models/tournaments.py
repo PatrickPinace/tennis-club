@@ -13,18 +13,18 @@ class Tournament(models.Model):
         ('registration', 'Rejestracja otwarta'),
         ('scheduled', 'Zaplanowany'),
         ('active', 'W trakcie'),
-        ('finished', 'ZakoDczony'),
-        ('cancelled', 'OdwoBany'),
+        ('finished', 'Zakończony'),
+        ('cancelled', 'Odwołany'),
     ]
 
     TYPE_CHOICES = [
-        ('round_robin', 'Liga (ka|dy z ka|dym)'),
+        ('round_robin', 'Liga (każdy z każdym)'),
         ('single_elimination', 'Puchar (pojedyncza eliminacja)'),
     ]
 
     FORMAT_CHOICES = [
         ('singles', 'Singiel'),
-        ('doubles', 'DebeB'),
+        ('doubles', 'Debl'),
     ]
 
     name = models.CharField(max_length=200)
@@ -46,7 +46,7 @@ class Tournament(models.Model):
     registration_deadline = models.DateTimeField(
         null=True,
         blank=True,
-        help_text='Termin zamknicia rejestracji'
+        help_text='Termin zamknięcia rejestracji'
     )
 
     # Status
@@ -67,7 +67,7 @@ class Tournament(models.Model):
     rank = models.PositiveIntegerField(
         default=1,
         validators=[MinValueValidator(1), MaxValueValidator(3)],
-        help_text='Ranga turnieju (1-3, wy|szy = wicej punktĂłw)'
+        help_text='Ranga turnieju (1-3, wyższy = więcej punktów)'
     )
     max_participants = models.PositiveIntegerField(default=16)
 
@@ -99,7 +99,7 @@ class Tournament(models.Model):
 
     def clean(self):
         if self.end_date <= self.start_date:
-            raise ValidationError('Data zakoDczenia musi by pĂłzniejsza ni| data rozpoczcia.')
+            raise ValidationError('Data zakończenia musi być późniejsza niż data rozpoczęcia.')
 
     def __str__(self):
         return self.name
@@ -117,14 +117,14 @@ class TournamentConfig(models.Model):
     # Match settings
     sets_to_win = models.IntegerField(
         default=2,
-        help_text='Liczba wygranych setĂłw potrzebna do wygranej'
+        help_text='Liczba wygranych setów potrzebna do wygranej'
     )
     games_per_set = models.IntegerField(
         default=6,
-        help_text='Liczba gemĂłw do wygrania seta'
+        help_text='Liczba gemów do wygrania seta'
     )
 
-    # Round Robin specific (u|ywane tylko dla league)
+    # Round Robin specific (używane tylko dla league)
     points_for_match_win = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -147,11 +147,11 @@ class TournamentConfig(models.Model):
     # Single Elimination specific
     use_seeding = models.BooleanField(
         default=True,
-        help_text='Czy u|ywa seedingu (ranking) w pierwszej rundzie'
+        help_text='Czy używa seedingu (ranking) w pierwszej rundzie'
     )
     third_place_match = models.BooleanField(
         default=True,
-        help_text='Czy rozgrywa mecz o 3. miejsce'
+        help_text='Czy rozgrywa mecz o 3. miejsce'
     )
 
     class Meta:
@@ -190,7 +190,7 @@ class Participant(models.Model):
     )
     display_name = models.CharField(
         max_length=100,
-        help_text='Nazwa wy[wietlana (auto z username lub custom)'
+        help_text='Nazwa wyświetlana (auto z username lub custom)'
     )
 
     # Tournament info
@@ -241,7 +241,7 @@ class TournamentMatch(models.Model):
         ('waiting', 'Oczekuje'),
         ('scheduled', 'Zaplanowany'),
         ('in_progress', 'W trakcie'),
-        ('completed', 'ZakoDczony'),
+        ('completed', 'Zakończony'),
         ('walkover', 'Walkower'),
     ]
 
@@ -270,7 +270,7 @@ class TournamentMatch(models.Model):
     # Round info (for elimination)
     round_number = models.PositiveIntegerField(
         default=1,
-        help_text='Numer rundy (1=pierwsza, 2=wierfinaB, etc.)'
+        help_text='Numer rundy (1=pierwsza, 2=ćwierćfinał, etc.)'
     )
     match_number = models.PositiveIntegerField(
         default=1,
