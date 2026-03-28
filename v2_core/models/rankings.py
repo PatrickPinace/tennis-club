@@ -31,7 +31,7 @@ class RankingHistory(models.Model):
     class Meta:
         db_table = 'ranking_history'
         verbose_name = 'Historia rankingu'
-        verbose_name_plural = 'Historie ranking�w'
+        verbose_name_plural = 'Historie rankingĂłw'
         ordering = ['-date', 'position']
         indexes = [
             models.Index(fields=['user', '-date']),
@@ -43,7 +43,7 @@ class RankingHistory(models.Model):
 
 
 class TournamentRankPoints(models.Model):
-    """Punkty rankingowe za turnieje r�|nej rangi."""
+    """Punkty rankingowe za turnieje rĂł|nej rangi."""
     rank = models.PositiveIntegerField(
         unique=True,
         validators=[MinValueValidator(1), MaxValueValidator(3)],

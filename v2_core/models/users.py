@@ -20,7 +20,7 @@ class Profile(models.Model):
         max_digits=10,
         decimal_places=2,
         default=0,
-        help_text='Punkty rankingowe z turniejów'
+        help_text='Punkty rankingowe z turniejÃ³w'
     )
 
     class Meta:

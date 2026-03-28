@@ -75,7 +75,7 @@ class Match(models.Model):
     match_date = models.DateField()
     description = models.CharField(max_length=200, default='Mecz towarzyski')
     court = models.ForeignKey(
-        'facilities.Court',
+        'Court',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

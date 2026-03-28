@@ -58,7 +58,7 @@ class Tournament(models.Model):
 
     # Metadata
     facility = models.ForeignKey(
-        'facilities.Facility',
+        'Facility',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -67,7 +67,7 @@ class Tournament(models.Model):
     rank = models.PositiveIntegerField(
         default=1,
         validators=[MinValueValidator(1), MaxValueValidator(3)],
-        help_text='Ranga turnieju (1-3, wy|szy = wicej punkt�w)'
+        help_text='Ranga turnieju (1-3, wy|szy = wicej punktĂłw)'
     )
     max_participants = models.PositiveIntegerField(default=16)
 
@@ -99,7 +99,7 @@ class Tournament(models.Model):
 
     def clean(self):
         if self.end_date <= self.start_date:
-            raise ValidationError('Data zakoDczenia musi by p�zniejsza ni| data rozpoczcia.')
+            raise ValidationError('Data zakoDczenia musi by pĂłzniejsza ni| data rozpoczcia.')
 
     def __str__(self):
         return self.name
@@ -117,11 +117,11 @@ class TournamentConfig(models.Model):
     # Match settings
     sets_to_win = models.IntegerField(
         default=2,
-        help_text='Liczba wygranych set�w potrzebna do wygranej'
+        help_text='Liczba wygranych setĂłw potrzebna do wygranej'
     )
     games_per_set = models.IntegerField(
         default=6,
-        help_text='Liczba gem�w do wygrania seta'
+        help_text='Liczba gemĂłw do wygrania seta'
     )
 
     # Round Robin specific (u|ywane tylko dla league)
@@ -304,7 +304,7 @@ class TournamentMatch(models.Model):
 
     # Court assignment
     court = models.ForeignKey(
-        'facilities.Court',
+        'Court',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

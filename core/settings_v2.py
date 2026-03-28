@@ -39,18 +39,21 @@ else:  # Production settings
         "www.tennisclub.ovh",
         "tennis-club.fun",
         "www.tennis-club.fun",
+        "tennis.mediprima.pl",
         '89.78.213.129'
     ]
     # SSL Security
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_PRELOAD = True
     CSRF_TRUSTED_ORIGINS = [
         "https://tennisclub.ovh",
         "https://www.tennisclub.ovh",
+        "https://tennis.mediprima.pl",
     ]
 
 # Application definition
@@ -90,7 +93,7 @@ if DJANGO_ENV == 'development':
     INSTALLED_APPS.append('debug_toolbar')
     MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
-ROOT_URLCONF = 'core.urls'
+ROOT_URLCONF = 'core.urls_v2'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
