@@ -2,11 +2,12 @@
 Tennis Club v2 - URL Configuration (Minimal for MVP)
 """
 from django.contrib import admin
+from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
-from v2_core.views import health_check
+from v2_core.views import health_check, signup, home
 
 urlpatterns = [
     # Health check
@@ -15,11 +16,16 @@ urlpatterns = [
     # Admin
     path('admin/', admin.site.urls),
 
+    # Authentication
+    path('login/', auth_views.LoginView.as_view(), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('signup/', signup, name='signup'),
+
+    # Home
+    path('', home, name='home'),
+
     # API (for mobile apps)
     # path('api/', include('v2_core.api_urls')),
-
-    # Home redirect
-    path('', RedirectView.as_view(url='/admin/', permanent=False)),
 ]
 
 # Media files in development
