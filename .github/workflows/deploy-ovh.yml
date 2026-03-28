@@ -1,0 +1,33 @@
+name: Deploy OVH Tennis
+
+on:
+  push:
+    branches:
+      - OVHTennis
+  workflow_dispatch:
+
+concurrency:
+  group: ovh-tennis-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.OVH_SSH_KEY }}
+
+      - name: Add OVH host to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.OVH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Run deploy script on OVH
+        run: |
+          ssh ${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }} "bash /opt/apps/tennis-club/deploy.sh"
