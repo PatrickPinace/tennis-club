@@ -256,7 +256,7 @@ class Participant(models.Model):
         null=True,
         blank=True,
         related_name='tournament_partnerships',
-        help_text='Partner w debelu'
+        help_text='Partner w deblu'
     )
     display_name = models.CharField(
         max_length=100,

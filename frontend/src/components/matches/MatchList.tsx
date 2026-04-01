@@ -188,7 +188,7 @@ export default function MatchList({ initialStatus, limit = 20, showCreateButton 
                     {match.court && ` • ${match.court.facility}`}
                   </p>
                   <p className="mt-1 text-[11px] font-normal leading-[16px] text-[#6B7280]">
-                    {match.is_doubles ? 'Debl' : 'Singiel'}
+                    {match.is_doubles ? 'Debel' : 'Singiel'}
                     {match.court && ` • ${match.court.surface}`}
                   </p>
                 </div>

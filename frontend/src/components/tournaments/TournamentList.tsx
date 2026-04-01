@@ -202,7 +202,7 @@ export default function TournamentList({ initialStatus, initialMyOnly = false, l
             const isRegistrationOpen = tournament.status === 'registration_open';
             const isFull = tournament.participant_count >= tournament.max_participants;
             const typeLabel = tournament.tournament_type === 'round_robin' ? 'Liga' : 'Puchar';
-            const formatLabel = tournament.match_format === 'singles' ? 'Singiel' : 'Debl';
+            const formatLabel = tournament.match_format === 'singles' ? 'Singiel' : 'Debel';
 
             return (
               <div

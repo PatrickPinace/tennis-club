@@ -179,7 +179,7 @@ export default function CreateTournamentModal({ isOpen, onClose, onSuccess }: Cr
                   className="w-full rounded-[10px] border border-slate-300 px-4 py-2 text-[14px] focus:border-[#4CAF50] focus:outline-none"
                 >
                   <option value="singles">Singiel</option>
-                  <option value="doubles">Debl</option>
+                  <option value="doubles">Debel</option>
                 </select>
               </div>
             </div>

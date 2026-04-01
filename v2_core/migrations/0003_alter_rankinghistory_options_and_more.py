@@ -167,7 +167,7 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='tournament',
             name='match_format',
-            field=models.CharField(choices=[('singles', 'Singiel'), ('doubles', 'Debl')], default='singles', max_length=10),
+            field=models.CharField(choices=[('singles', 'Singiel'), ('doubles', 'debel')], default='singles', max_length=10),
         ),
         migrations.AlterField(
             model_name='tournament',

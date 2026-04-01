@@ -22,7 +22,7 @@ Kompletny frontend do zarządzania turniejami jest gotowy. Możesz teraz tworzy�
 Kompletny formularz z walidacją:
 - Nazwa i opis
 - Typ turnieju (Puchar/Liga)
-- Format gry (Singiel/Debl)
+- Format gry (Singiel/Debel)
 - Widoczność (Publiczny/Prywatny/Tylko zaproszenia)
 - Tryb zapisów (Auto/Wymaga zatwierdzenia)
 - Obiekt (wybór z listy)

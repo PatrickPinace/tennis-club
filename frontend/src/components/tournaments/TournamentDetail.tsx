@@ -331,7 +331,7 @@ export default function TournamentDetail({ tournamentId, isStaff = false }: Tour
               <div>
                 <h3 className="text-[14px] font-semibold text-[#6B7280]">Format</h3>
                 <p className="mt-1 text-[16px] text-[#111827]">
-                  {tournament.match_format === 'singles' ? 'Singiel' : 'Debl'}
+                  {tournament.match_format === 'singles' ? 'Singiel' : 'Debel'}
                 </p>
               </div>
 
