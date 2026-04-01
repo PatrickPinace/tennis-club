@@ -1,0 +1,42 @@
+---
+/**
+ * Card Component
+ *
+ * Props:
+ * - variant: 'default' | 'interactive' | 'compact' | 'highlighted'
+ * - padding: boolean (default: true)
+ * - class: string (additional classes)
+ */
+
+interface Props {
+  variant?: 'default' | 'interactive' | 'compact' | 'highlighted';
+  padding?: boolean;
+  class?: string;
+}
+
+const {
+  variant = 'default',
+  padding = true,
+  class: className = ''
+} = Astro.props;
+
+const baseStyles = 'bg-white border border-slate-200 transition-all duration-200';
+
+const variantStyles = {
+  default: 'rounded-[16px]',
+  interactive: 'rounded-[16px] hover:border-[var(--color-primary-light)] cursor-pointer',
+  compact: 'rounded-[16px]',
+  highlighted: 'rounded-[16px] border-[var(--color-accent)] bg-gradient-to-br from-white to-green-50/30',
+};
+
+const paddingStyles = padding ? 'p-5 xl:p-6' : 'p-0';
+
+// Custom shadow classes
+const shadowClasses = 'shadow-[0_1px_2px_rgba(16,24,40,0.04),0_4px_10px_rgba(16,24,40,0.04)] hover:shadow-[0_2px_4px_rgba(16,24,40,0.06),0_10px_20px_rgba(16,24,40,0.06)]';
+
+const classes = `${baseStyles} ${variantStyles[variant]} ${paddingStyles} ${shadowClasses} ${className}`;
+---
+
+<div class={classes}>
+  <slot />
+</div>

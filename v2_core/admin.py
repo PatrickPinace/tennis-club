@@ -7,6 +7,7 @@ from .models import (
     Facility, Court, Reservation,
     Match,
     Tournament, TournamentConfig, Participant, TournamentMatch,
+    TournamentManager, TournamentEventLog,
     RankingHistory, TournamentRankPoints,
     Notification,
     Friendship, FriendRequest,
@@ -132,27 +133,33 @@ class MatchAdmin(admin.ModelAdmin):
 
 @admin.register(Tournament)
 class TournamentAdmin(admin.ModelAdmin):
-    list_display = ['name', 'tournament_type', 'match_format', 'start_date', 'status', 'rank']
-    list_filter = ['status', 'tournament_type', 'match_format', 'rank', 'start_date']
+    list_display = ['name', 'tournament_type', 'match_format', 'start_date', 'status', 'visibility', 'rank']
+    list_filter = ['status', 'tournament_type', 'match_format', 'visibility', 'registration_mode', 'rank', 'start_date']
     search_fields = ['name', 'description']
     date_hierarchy = 'start_date'
     inlines = [TournamentConfigInline]
-    readonly_fields = ['created_at']
+    readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
         ('Podstawowe informacje', {
             'fields': ('name', 'description', 'facility')
         }),
         ('Typ i format', {
-            'fields': ('tournament_type', 'match_format', 'rank', 'max_participants')
+            'fields': ('tournament_type', 'match_format', 'rank')
         }),
-        ('Daty', {
-            'fields': ('start_date', 'end_date', 'registration_deadline')
+        ('Widoczność i rejestracja', {
+            'fields': ('visibility', 'registration_mode', 'min_participants', 'max_participants')
+        }),
+        ('Daty rejestracji', {
+            'fields': ('registration_open_at', 'registration_deadline')
+        }),
+        ('Daty turnieju', {
+            'fields': ('start_date', 'end_date', 'finished_at', 'cancelled_at')
         }),
         ('Status', {
             'fields': ('status', 'winner')
         }),
         ('Metadata', {
-            'fields': ('created_by', 'created_at'),
+            'fields': ('created_by', 'updated_by', 'created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )
@@ -160,13 +167,17 @@ class TournamentAdmin(admin.ModelAdmin):
 
 @admin.register(Participant)
 class ParticipantAdmin(admin.ModelAdmin):
-    list_display = ['display_name', 'tournament', 'user', 'seed', 'status', 'points', 'matches_won']
+    list_display = ['display_name', 'tournament', 'user', 'seed', 'status', 'final_position', 'points', 'matches_won']
     list_filter = ['tournament', 'status']
     search_fields = ['user__username', 'display_name', 'tournament__name']
-    readonly_fields = ['created_at']
+    readonly_fields = ['joined_at', 'created_at']
     fieldsets = (
         ('Uczestnik', {
             'fields': ('tournament', 'user', 'partner', 'display_name', 'seed', 'status')
+        }),
+        ('Lifecycle tracking', {
+            'fields': ('joined_at', 'approved_at', 'withdrawn_at', 'withdrawal_reason', 'final_position'),
+            'classes': ('collapse',)
         }),
         ('Statystyki (Round Robin)', {
             'fields': (
@@ -181,30 +192,71 @@ class ParticipantAdmin(admin.ModelAdmin):
 
 @admin.register(TournamentMatch)
 class TournamentMatchAdmin(admin.ModelAdmin):
-    list_display = ['tournament', 'round_number', 'match_number', 'participant1', 'participant2', 'status', 'winner']
+    list_display = ['tournament', 'round_number', 'match_number', 'player1_participant', 'player2_participant', 'status', 'winner_participant']
     list_filter = ['tournament', 'status', 'round_number']
-    search_fields = ['tournament__name', 'participant1__display_name', 'participant2__display_name']
+    search_fields = ['tournament__name', 'player1_participant__display_name', 'player2_participant__display_name']
     readonly_fields = ['created_at', 'updated_at']
     fieldsets = (
         ('Mecz', {
-            'fields': ('tournament', 'round_number', 'match_number', 'status', 'court')
+            'fields': ('tournament', 'round_number', 'match_number', 'bracket_position', 'status', 'court')
         }),
         ('Uczestnicy', {
-            'fields': ('participant1', 'participant2')
+            'fields': ('player1_participant', 'player2_participant')
+        }),
+        ('Struktura drabinki', {
+            'fields': ('source_match_1', 'source_match_2'),
+            'classes': ('collapse',)
         }),
         ('Wyniki', {
             'fields': (
                 ('set1_p1', 'set1_p2'),
                 ('set2_p1', 'set2_p2'),
                 ('set3_p1', 'set3_p2'),
-                'winner'
+                'winner_participant',
+                'loser_participant',
+                'walkover_reason'
             )
         }),
         ('Harmonogram', {
-            'fields': ('scheduled_time',)
+            'fields': ('scheduled_time', 'completed_at')
         }),
         ('Metadata', {
             'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(TournamentManager)
+class TournamentManagerAdmin(admin.ModelAdmin):
+    list_display = ['tournament', 'user', 'role', 'created_at']
+    list_filter = ['tournament', 'role', 'created_at']
+    search_fields = ['tournament__name', 'user__username']
+    readonly_fields = ['created_at']
+    fieldsets = (
+        ('Manager', {
+            'fields': ('tournament', 'user', 'role')
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(TournamentEventLog)
+class TournamentEventLogAdmin(admin.ModelAdmin):
+    list_display = ['tournament', 'event_type', 'actor', 'created_at']
+    list_filter = ['event_type', 'tournament', 'created_at']
+    search_fields = ['tournament__name', 'actor__username']
+    date_hierarchy = 'created_at'
+    readonly_fields = ['created_at']
+    fieldsets = (
+        ('Zdarzenie', {
+            'fields': ('tournament', 'event_type', 'actor', 'payload')
+        }),
+        ('Metadata', {
+            'fields': ('created_at',),
             'classes': ('collapse',)
         }),
     )

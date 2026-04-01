@@ -1,0 +1,30 @@
+---
+import AppLayout from '@layouts/AppLayout.astro';
+import Card from '@components/ui/Card.astro';
+
+export const prerender = false;
+const user = Astro.locals.user;
+---
+
+<AppLayout title="Ranking - Tennis Club" user={user}>
+  <div class="max-w-4xl">
+    <h1 class="text-3xl font-bold text-[var(--color-text-primary)] mb-2">
+      Ranking 📊
+    </h1>
+    <p class="text-[var(--color-text-secondary)] mb-8">
+      Ranking klubowy i statystyki graczy
+    </p>
+
+    <Card>
+      <div class="text-center py-12">
+        <div class="text-6xl mb-4">🚧</div>
+        <h2 class="text-2xl font-bold text-[var(--color-text-primary)] mb-2">
+          Strona w budowie
+        </h2>
+        <p class="text-[var(--color-text-secondary)]">
+          Sekcja rankingu będzie dostępna w Sprint 5
+        </p>
+      </div>
+    </Card>
+  </div>
+</AppLayout>

@@ -1,0 +1,32 @@
+---
+/**
+ * Tournament Detail Page
+ * Shows tournament details, participants, bracket, and management controls
+ */
+
+import AppLayout from '@layouts/AppLayout.astro';
+import TournamentDetail from '@components/tournaments/TournamentDetail';
+
+export const prerender = false; // SSR - requires authentication
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const tournamentId = parseInt(Astro.params.id || '0');
+
+if (isNaN(tournamentId) || tournamentId <= 0) {
+  return Astro.redirect('/app/tournaments');
+}
+---
+
+<AppLayout title="Turniej - Tennis Club" user={user}>
+  <!-- Tournament Detail Component (React Island) -->
+  <TournamentDetail
+    client:load
+    tournamentId={tournamentId}
+    isStaff={user.is_staff || user.is_superuser}
+  />
+</AppLayout>

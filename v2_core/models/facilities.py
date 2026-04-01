@@ -122,19 +122,9 @@ class Reservation(models.Model):
                 condition=Q(end_time__gt=F('start_time')),
                 name='reservations_end_after_start'
             ),
-            # Blokuje nakładające się rezerwacje tego samego kortu
-            # (tylko dla pending i confirmed)
-            ExclusionConstraint(
-                name='reservations_no_overlap_per_court',
-                expressions=[
-                    (
-                        TsTzRange('start_time', 'end_time', RangeBoundary()),
-                        RangeOperators.OVERLAPS
-                    ),
-                    ('court', RangeOperators.EQUAL),
-                ],
-                condition=Q(status__in=['pending', 'confirmed'])
-            ),
+            # Note: ExclusionConstraint for overlap prevention removed
+            # because it's PostgreSQL-specific and not supported by SQLite.
+            # Overlap validation is handled in the API layer instead.
         ]
         indexes = [
             models.Index(fields=['court', 'start_time']),

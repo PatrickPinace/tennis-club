@@ -1,0 +1,61 @@
+---
+/**
+ * AppLayout
+ * Main application layout with sidebar and topbar
+ * Used for all authenticated pages
+ */
+
+import Sidebar from '@components/layout/Sidebar.astro';
+import Topbar from '@components/layout/Topbar.astro';
+import '@styles/global.css';
+
+interface Props {
+  title?: string;
+  user?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+}
+
+const {
+  title = 'Tennis Club',
+  user
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-[var(--color-bg-secondary)] min-h-screen">
+    <!-- Sidebar - fixed left -->
+    <Sidebar />
+
+    <!-- Main content area - with margin for sidebar -->
+    <div class="min-h-screen transition-all duration-200" style="margin-left: 0;">
+      <style>
+        @media (min-width: 1024px) {
+          .main-content-wrapper {
+            margin-left: 256px;
+          }
+        }
+      </style>
+      <div class="main-content-wrapper">
+        <!-- Topbar -->
+        <Topbar user={user} />
+
+        <!-- Page content -->
+        <main class="px-4 py-4 md:px-6 md:py-6">
+          <slot />
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

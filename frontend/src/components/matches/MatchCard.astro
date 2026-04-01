@@ -1,0 +1,87 @@
+---
+/**
+ * Match Card Component
+ * Displays a single match in a card format
+ *
+ * Props:
+ * - match: MatchListItem
+ * - onClick: optional click handler (for React islands)
+ */
+
+import Card from '../ui/Card.astro';
+import MatchStatusBadge from './MatchStatusBadge.astro';
+import type { MatchListItem } from '../../types/match';
+
+interface Props {
+  match: MatchListItem;
+  class?: string;
+}
+
+const { match, class: className = '' } = Astro.props;
+
+// Format date
+const matchDate = new Date(match.date);
+const formattedDate = matchDate.toLocaleDateString('pl-PL', {
+  day: 'numeric',
+  month: 'short'
+});
+
+// Format sets score
+const setsScore = match.sets.map(set => `${set.p1}:${set.p2}`).join(' ');
+
+// Get result color
+const resultColor = match.result === 'won' ? 'text-[#4CAF50]' : match.result === 'lost' ? 'text-red-600' : 'text-[#6B7280]';
+const resultText = match.result === 'won' ? 'Wygrana' : match.result === 'lost' ? 'Przegrana' : 'Brak wyniku';
+---
+
+<Card class={`cursor-pointer hover:shadow-lg transition-shadow ${className}`}>
+  <div class="p-6">
+    <!-- Header with date and status -->
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <p class="text-[13px] font-semibold leading-[18px] text-[#6B7280]">
+          {formattedDate}
+          {match.court && ` • ${match.court.facility}`}
+        </p>
+        <p class="mt-1 text-[11px] font-normal leading-[16px] text-[#6B7280]">
+          {match.is_doubles ? 'Debl' : 'Singiel'}
+          {match.court && ` • ${match.court.surface}`}
+        </p>
+      </div>
+      <MatchStatusBadge status={match.status} size="sm" />
+    </div>
+
+    <!-- Opponent -->
+    <h3 class="text-[16px] font-bold leading-[22px] tracking-[-0.01em] text-[#111827] mb-2">
+      vs {match.opponent}
+    </h3>
+
+    <!-- Result and score -->
+    {match.result && (
+      <div class="mt-3">
+        <p class={`text-[14px] font-bold leading-[20px] ${resultColor}`}>
+          {resultText}
+        </p>
+        {setsScore && (
+          <p class="mt-1 text-[18px] font-bold leading-[24px] tracking-[-0.01em] text-[#111827]">
+            {setsScore}
+          </p>
+        )}
+      </div>
+    )}
+
+    <!-- Court info -->
+    {match.court && (
+      <p class="mt-3 text-[13px] font-medium leading-[18px] text-[#6B7280]">
+        {match.court.name}
+      </p>
+    )}
+
+    <!-- Description if available -->
+    {match.description && match.description !== 'Mecz towarzyski' && (
+      <p class="mt-2 text-[13px] font-normal leading-[18px] text-[#6B7280] italic">
+        {match.description}
+      </p>
+    )}
+  </div>
+</Card>

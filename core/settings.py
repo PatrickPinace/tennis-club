@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django.contrib.sitemaps',
     'django.contrib.humanize',
+    'corsheaders',  # CORS support for Astro frontend
     'django_q',
     'allauth',
     'allauth.account',
@@ -126,6 +127,7 @@ SOCIALACCOUNT_AUTO_SIGNUP = False
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'apps.home.middleware.BlockBotsMiddleware', # Blokowanie botów na początku
+    'corsheaders.middleware.CorsMiddleware',  # CORS - musi być przed CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'allauth.account.middleware.AccountMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -171,26 +173,34 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DB_PASS = os.getenv('DB_PASS')
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'tennis_club',
-        'USER': 'superuser',
-        'PASSWORD': DB_PASS, # Pobierane ze zmiennej środowiskowej
-        "OPTIONS": {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_notes=0",  # sql_notes = 1, aby pokazywało ostrzeżenia po wysłaniu zapytania do bazy
+# Database configuration - SQLite dla dev, PostgreSQL dla production
+print(f"DEBUG: DJANGO_ENV = '{DJANGO_ENV}'")  # DEBUG
+print(f"DEBUG: Comparing: '{DJANGO_ENV}' == 'development' = {DJANGO_ENV == 'development'}")  # DEBUG
+
+if DJANGO_ENV == 'development':
+    print("DEBUG: Using SQLite")  # DEBUG
+    # Development - SQLite (łatwe testowanie)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-}
+else:
+    print("DEBUG: Using PostgreSQL")  # DEBUG
+    # Production - PostgreSQL (OVH)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'tennis_club',
+            'USER': 'superuser',
+            'PASSWORD': DB_PASS,
+            'HOST': '192.168.0.148',
+            'PORT': '3306',
+        }
+    }
 
-# Ustawienia bazy danych w zależności od środowiska
-if DJANGO_ENV == 'development':
-    DATABASES['default']['HOST'] = '127.0.0.1' # lub inny host lokalny
-    DATABASES['default']['PORT'] = '3306'
-else: # Produkcja
-    DATABASES['default']['HOST'] = '192.168.0.148'
-    DATABASES['default']['PORT'] = '3306'
+print(f"DEBUG: Final DB ENGINE = {DATABASES['default']['ENGINE']}")  # DEBUG
 
 
 # Password validation
@@ -377,3 +387,47 @@ Q_CLUSTER = {
     'catch_up': True, # Dodane: Zapewnia, że workerzy wznowią pracę nad nieukończonymi zadaniami po awarii.
     'log_level': 'INFO', # Dodane: Ułatwia monitorowanie w logach.
 }
+
+# CORS Configuration for Astro Frontend
+if DJANGO_ENV == 'development':
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:4321',  # Astro dev server
+        'http://127.0.0.1:4321',
+    ]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        'https://tennis.mediprima.pl',
+        'https://tennisclub.ovh',
+        'https://www.tennisclub.ovh',
+    ]
+
+CORS_ALLOW_CREDENTIALS = True  # Allow sessionid cookies
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Session cookie settings for API
+SESSION_COOKIE_HTTPONLY = True  # Not accessible from JavaScript
+SESSION_COOKIE_SAMESITE = 'Lax'  # CSRF protection
+SESSION_COOKIE_NAME = 'sessionid'
+
+# CSRF settings for Astro frontend
+if DJANGO_ENV == 'development':
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:4321',
+        'http://127.0.0.1:4321',
+    ]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://tennis.mediprima.pl',
+        'https://tennisclub.ovh',
+        'https://www.tennisclub.ovh',
+    ]

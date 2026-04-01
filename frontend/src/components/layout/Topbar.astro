@@ -1,0 +1,82 @@
+---
+/**
+ * Topbar Component
+ * Top navigation bar with search, notifications, and user menu
+ */
+
+import Avatar from '@components/ui/Avatar.astro';
+import Button from '@components/ui/Button.astro';
+
+interface Props {
+  user?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+}
+
+const { user } = Astro.props;
+
+const userName = user ? `${user.first_name} ${user.last_name}` : 'Użytkownik';
+---
+
+<header class="sticky top-0 z-20 bg-white border-b border-slate-200 h-20">
+  <div class="flex items-center justify-between px-6 h-full">
+    <!-- Mobile menu button + Search -->
+    <div class="flex items-center gap-4 flex-1">
+      <!-- Mobile menu button (będzie działał później z JS) -->
+      <button
+        class="lg:hidden p-2 rounded-lg hover:bg-[var(--color-gray-100)] transition-colors"
+        aria-label="Open menu"
+      >
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+
+      <!-- Search bar -->
+      <div class="hidden md:flex items-center gap-2 flex-1 max-w-[420px]">
+        <div class="relative w-full">
+          <input
+            type="search"
+            placeholder="Szukaj rezerwacji, graczy..."
+            class="w-full pl-10 pr-4 py-2.5 rounded-[12px] border border-slate-200 bg-slate-50 text-[14px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#4CAF50] focus:border-transparent transition-all"
+          />
+          <svg class="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right section: CTA + Notifications + User -->
+    <div class="flex items-center gap-4">
+      <!-- CTA Button -->
+      <button class="hidden sm:inline-flex h-11 rounded-[12px] bg-[#4CAF50] px-5 text-[14px] font-[700] text-white hover:bg-[#43A047] transition-colors items-center">
+        <span class="mr-1">+</span>
+        Nowa rezerwacja
+      </button>
+
+      <!-- Notifications -->
+      <button
+        class="relative p-2 rounded-[10px] hover:bg-slate-50 transition-colors"
+        aria-label="Notifications"
+      >
+        <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <!-- Notification badge -->
+        <span class="absolute -top-1 -right-1 w-5 h-5 bg-[#4CAF50] text-white text-xs font-bold rounded-full flex items-center justify-center">1</span>
+      </button>
+
+      <!-- User menu -->
+      <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+        <Avatar alt={userName} size="sm" />
+        <div class="hidden md:block">
+          <p class="text-[14px] font-[600] text-slate-900">{userName}</p>
+          <p class="text-[12px] text-slate-500">{user?.email}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

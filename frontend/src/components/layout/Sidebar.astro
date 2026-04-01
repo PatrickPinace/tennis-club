@@ -1,0 +1,98 @@
+---
+/**
+ * Sidebar Component
+ * Main navigation for Tennis Club app
+ */
+
+const currentPath = Astro.url.pathname;
+
+const navItems = [
+  { name: 'Start', href: '/app', icon: '🏠' },
+  { name: 'Rezerwacje', href: '/app/reservations', icon: '📅' },
+  { name: 'Mecze', href: '/app/matches', icon: '🎾' },
+  { name: 'Turnieje', href: '/app/tournaments', icon: '🏆' },
+  { name: 'Ranking', href: '/app/ranking', icon: '📊' },
+  { name: 'Profil', href: '/app/profile', icon: '👤' },
+  { name: 'Powiadomienia', href: '/app/notifications', icon: '🔔' },
+];
+
+const isActive = (href: string) => {
+  if (href === '/app') {
+    return currentPath === '/app' || currentPath === '/app/';
+  }
+  return currentPath.startsWith(href);
+};
+---
+
+<aside class="sidebar hidden lg:flex flex-col fixed inset-y-0 left-0 z-40 text-white shadow-xl w-64 min-w-[256px]" style="background-color: var(--color-sidebar);">
+  <!-- Logo -->
+  <div class="flex items-center gap-3 px-6 py-6 border-b border-white/10">
+    <div class="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-xl" style="background-color: var(--color-primary);">
+      🎾
+    </div>
+    <span class="text-xl font-bold text-white">Ace Club</span>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+    {navItems.map((item) => (
+      <a
+        href={item.href}
+        class={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 min-h-[44px] ${
+          isActive(item.href)
+            ? 'text-white shadow-sm'
+            : 'text-gray-300 hover:text-white'
+        }`}
+        style={isActive(item.href) ? 'background-color: var(--color-primary);' : ''}
+        onmouseover={!isActive(item.href) ? `this.style.backgroundColor='var(--color-sidebar-deep)'` : ''}
+        onmouseout={!isActive(item.href) ? `this.style.backgroundColor='transparent'` : ''}
+      >
+        <span class="text-lg">{item.icon}</span>
+        <span>{item.name}</span>
+      </a>
+    ))}
+  </nav>
+
+  <!-- Bottom section - User profile -->
+  <div class="p-4 border-t border-white/10">
+    <div class="flex items-center gap-3 px-3 py-2">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm" style="background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);">
+        MK
+      </div>
+      <div class="flex-1">
+        <p class="text-sm font-medium text-white">Marcin Kowalski</p>
+        <p class="text-xs text-gray-400">Członek VIP</p>
+      </div>
+      <button
+        class="p-1 rounded transition-colors"
+        onmouseover="this.style.backgroundColor='var(--color-sidebar-deep)'"
+        onmouseout="this.style.backgroundColor='transparent'"
+      >
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<style>
+  /* Scrollbar for sidebar */
+  .sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-gray-200);
+    border-radius: 3px;
+  }
+
+  .sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gray-300);
+  }
+</style>

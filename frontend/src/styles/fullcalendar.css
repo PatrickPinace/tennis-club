@@ -1,0 +1,191 @@
+/**
+ * FullCalendar Custom Styles for Tennis Club
+ * Styling for court availability calendar
+ *
+ * Note: FullCalendar v6 doesn't export CSS files, so we define all styles here
+ */
+
+/* Base FullCalendar styles (minimal needed) */
+.fc {
+  direction: ltr;
+  text-align: left;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border: 1px solid var(--fc-border-color, #ddd);
+}
+
+.fc-scrollgrid {
+  border-collapse: collapse;
+  border-spacing: 0;
+  width: 100%;
+}
+
+.fc-scrollgrid-section > * {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+
+.fc-timegrid {
+  position: relative;
+}
+
+.fc-timegrid-axis {
+  text-align: right;
+}
+
+.fc-timegrid-slot {
+  height: 1.5em;
+  border-bottom: 0;
+}
+
+.fc-timegrid-slot-label {
+  vertical-align: middle;
+}
+
+.fc-timegrid-col {
+  position: relative;
+}
+
+.fc-event {
+  position: relative;
+  display: block;
+  font-size: 0.85em;
+  line-height: 1.4;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+.fc-event-main {
+  position: relative;
+  z-index: 2;
+}
+
+.fc-timegrid-event {
+  position: absolute;
+  z-index: 1;
+  border-radius: 3px;
+}
+
+.fc-timegrid-now-indicator-line {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  right: 0;
+  border-style: solid;
+  border-color: red;
+  border-width: 1px 0 0;
+}
+
+.fc-highlight {
+  background: rgba(188, 232, 241, 0.3);
+}
+
+/* Calendar wrapper */
+.fullcalendar-wrapper {
+  --fc-border-color: var(--color-border, #e5e7eb);
+  --fc-button-bg-color: var(--color-primary, #1e3a5f);
+  --fc-button-border-color: var(--color-primary, #1e3a5f);
+  --fc-button-hover-bg-color: var(--color-primary-dark, #152d49);
+  --fc-today-bg-color: #f0fdf4;
+}
+
+/* Calendar container */
+.fullcalendar-wrapper .fc {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Time slots */
+.fullcalendar-wrapper .fc-timegrid-slot {
+  height: 3rem;
+}
+
+.fullcalendar-wrapper .fc-timegrid-slot-label {
+  border-right: 1px solid var(--fc-border-color);
+}
+
+/* Events - Booked slots */
+.fullcalendar-wrapper .fc-event.fc-booked {
+  background-color: #94a3b8;
+  border-color: #64748b;
+  color: white;
+}
+
+.fullcalendar-wrapper .fc-event.fc-booked:hover {
+  background-color: #64748b;
+}
+
+/* Events - Blocked slots */
+.fullcalendar-wrapper .fc-event.fc-blocked {
+  background-color: #f87171;
+  border-color: #dc2626;
+  color: white;
+  opacity: 0.7;
+}
+
+/* Events - My reservations */
+.fullcalendar-wrapper .fc-event.fc-my-reservation {
+  background-color: #4ade80;
+  border-color: #22c55e;
+  color: white;
+  font-weight: 600;
+}
+
+.fullcalendar-wrapper .fc-event.fc-my-reservation:hover {
+  background-color: #22c55e;
+}
+
+/* Event content */
+.fullcalendar-wrapper .fc-event-main {
+  padding: 4px 6px;
+}
+
+.fullcalendar-wrapper .fc-event-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Now indicator */
+.fullcalendar-wrapper .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;
+  border-width: 2px;
+}
+
+.fullcalendar-wrapper .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+}
+
+/* Selection (for creating new reservation) */
+.fullcalendar-wrapper .fc-highlight {
+  background-color: rgba(76, 175, 80, 0.2);
+}
+
+/* Scrollbar */
+.fullcalendar-wrapper .fc-scroller::-webkit-scrollbar {
+  width: 8px;
+}
+
+.fullcalendar-wrapper .fc-scroller::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.fullcalendar-wrapper .fc-scroller::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.fullcalendar-wrapper .fc-scroller::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fullcalendar-wrapper .fc-timegrid-slot {
+    height: 2.5rem;
+  }
+
+  .fullcalendar-wrapper .fc-event-title {
+    font-size: 0.75rem;
+  }
+}

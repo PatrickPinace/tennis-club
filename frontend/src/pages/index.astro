@@ -1,0 +1,17 @@
+---
+/**
+ * Root Page
+ * Redirects to dashboard if logged in, otherwise to login
+ */
+
+export const prerender = false;
+
+const user = Astro.locals.user;
+
+// Redirect based on authentication status
+if (user) {
+  return Astro.redirect('/app');
+} else {
+  return Astro.redirect('/login');
+}
+---

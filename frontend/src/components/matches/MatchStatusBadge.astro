@@ -1,0 +1,45 @@
+---
+/**
+ * Match Status Badge Component
+ * Displays status badge for matches with appropriate colors
+ *
+ * Props:
+ * - status: MatchStatus
+ * - size: 'sm' | 'md'
+ */
+
+import Badge from '../ui/Badge.astro';
+import type { MatchStatus } from '../../types/match';
+
+interface Props {
+  status: MatchStatus;
+  size?: 'sm' | 'md';
+}
+
+const { status, size = 'md' } = Astro.props;
+
+const statusConfig: Record<MatchStatus, { variant: 'success' | 'warning' | 'info' | 'neutral' | 'error', label: string }> = {
+  scheduled: {
+    variant: 'info',
+    label: 'Zaplanowany'
+  },
+  in_progress: {
+    variant: 'warning',
+    label: 'W trakcie'
+  },
+  completed: {
+    variant: 'success',
+    label: 'Zakończony'
+  },
+  cancelled: {
+    variant: 'error',
+    label: 'Anulowany'
+  }
+};
+
+const config = statusConfig[status];
+---
+
+<Badge variant={config.variant} size={size}>
+  {config.label}
+</Badge>

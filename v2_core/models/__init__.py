@@ -12,6 +12,8 @@ from .tournaments import (
     TournamentConfig,
     Participant,
     TournamentMatch,
+    TournamentManager,
+    TournamentEventLog,
 )
 from .rankings import RankingHistory, TournamentRankPoints
 from .notifications import Notification
@@ -31,6 +33,8 @@ __all__ = [
     'TournamentConfig',
     'Participant',
     'TournamentMatch',
+    'TournamentManager',
+    'TournamentEventLog',
     # Rankings
     'RankingHistory',
     'TournamentRankPoints',

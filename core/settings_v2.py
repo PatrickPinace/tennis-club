@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'widget_tweaks',
+    'corsheaders',
 
     # Local apps - v2 Core
     'v2_core',
@@ -80,6 +81,7 @@ SITE_ID = 1
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -87,6 +89,25 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CORS Configuration
+if DJANGO_ENV == 'development':
+    CORS_ALLOWED_ORIGINS = [
+        'http://localhost:4321',
+        'http://localhost:4322',
+        'http://localhost:4323',
+        'http://127.0.0.1:4321',
+        'http://127.0.0.1:4322',
+        'http://127.0.0.1:4323',
+    ]
+    CORS_ALLOW_CREDENTIALS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "https://tennisclub.ovh",
+        "https://www.tennisclub.ovh",
+        "https://tennis.mediprima.pl",
+    ]
+    CORS_ALLOW_CREDENTIALS = True
 
 # Add Debug Toolbar Middleware only in development
 if DJANGO_ENV == 'development':
@@ -127,28 +148,35 @@ DB_PORT = os.getenv('DB_PORT', '5432')
 DB_NAME = os.getenv('DB_NAME', 'tennis_club')
 DB_USER = os.getenv('DB_USER', 'postgres')
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': DB_NAME,
-        'USER': DB_USER,
-        'PASSWORD': DB_PASS,
-        'HOST': DB_HOST,
-        'PORT': DB_PORT,
-        'OPTIONS': {
-            # Connection pooling for better performance
-            # Note: For ASGI, consider disabling persistent connections
-            # and use native backend pooling or external solution like pgBouncer
-        },
+# Database configuration - SQLite dla dev, PostgreSQL dla production
+if DJANGO_ENV == 'development':
+    # Development - SQLite (łatwe testowanie)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
-
-# Connection pooling - safe for WSGI (Gunicorn)
-# For ASGI, set CONN_MAX_AGE = 0 and use external pooling
-if DJANGO_ENV == 'production':
-    DATABASES['default']['CONN_MAX_AGE'] = 600  # 10 minutes
 else:
-    DATABASES['default']['CONN_MAX_AGE'] = 0  # No persistent connections in dev
+    # Production - PostgreSQL (OVH)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DB_NAME,
+            'USER': DB_USER,
+            'PASSWORD': DB_PASS,
+            'HOST': DB_HOST,
+            'PORT': DB_PORT,
+            'OPTIONS': {
+                # Connection pooling for better performance
+                # Note: For ASGI, consider disabling persistent connections
+                # and use native backend pooling or external solution like pgBouncer
+            },
+        }
+    }
+
+    # Connection pooling - safe for WSGI (Gunicorn)
+    DATABASES['default']['CONN_MAX_AGE'] = 600  # 10 minutes
 
 
 # Password validation

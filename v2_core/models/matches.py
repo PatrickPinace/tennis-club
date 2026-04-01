@@ -117,7 +117,7 @@ class Match(models.Model):
         # Walidacja debeł vs singiel
         if self.is_doubles:
             if not self.player3_id or not self.player4_id:
-                raise ValidationError("Mecz deblowy wymaga player3 i player4.")
+                raise ValidationError("Mecz debelowy wymaga player3 i player4.")
         else:
             if self.player3_id or self.player4_id:
                 raise ValidationError("Mecz singlowy nie może mieć player3/player4.")

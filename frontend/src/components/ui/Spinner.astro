@@ -1,0 +1,43 @@
+---
+/**
+ * Spinner Component (Loading indicator)
+ *
+ * Props:
+ * - size: 'sm' | 'md' | 'lg'
+ * - class: string (additional classes)
+ */
+
+interface Props {
+  size?: 'sm' | 'md' | 'lg';
+  class?: string;
+}
+
+const {
+  size = 'md',
+  class: className = ''
+} = Astro.props;
+
+const sizeStyles = {
+  sm: 'w-4 h-4 border-2',
+  md: 'w-6 h-6 border-2',
+  lg: 'w-8 h-8 border-3',
+};
+
+const classes = `${sizeStyles[size]} border-[var(--color-primary)] border-t-transparent rounded-full animate-spin ${className}`;
+---
+
+<div class={classes} role="status" aria-label="Loading">
+  <span class="sr-only">Loading...</span>
+</div>
+
+<style>
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+</style>

@@ -1,0 +1,24 @@
+---
+/**
+ * Tournaments Page (Sprint 4)
+ * Displays tournaments with filters and registration
+ */
+
+import AppLayout from '@layouts/AppLayout.astro';
+import TournamentList from '@components/tournaments/TournamentList';
+
+export const prerender = false; // SSR - requires authentication
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+
+const userName = user.first_name || user.username;
+---
+
+<AppLayout title="Turnieje - Tennis Club" user={user}>
+  <!-- Tournament List Component (React Island) -->
+  <TournamentList client:load isStaff={user.is_staff || user.is_superuser} />
+</AppLayout>

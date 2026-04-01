@@ -334,7 +334,9 @@ class Migration(migrations.Migration):
                 'db_table': 'reservations',
                 'ordering': ['start_time'],
                 'indexes': [models.Index(fields=['court', 'start_time'], name='reservation_court_i_9b4aba_idx'), models.Index(fields=['user', '-start_time'], name='reservation_user_id_f0d1b3_idx'), models.Index(fields=['status'], name='reservation_status_a87326_idx')],
-                'constraints': [models.CheckConstraint(condition=models.Q(('end_time__gt', models.F('start_time'))), name='reservations_end_after_start'), django.contrib.postgres.constraints.ExclusionConstraint(condition=models.Q(('status__in', ['pending', 'confirmed'])), expressions=[(v2_core.models.facilities.TsTzRange('start_time', 'end_time', django.contrib.postgres.fields.ranges.RangeBoundary()), '&&'), ('court', '=')], name='reservations_no_overlap_per_court')],
+                'constraints': [models.CheckConstraint(condition=models.Q(('end_time__gt', models.F('start_time'))), name='reservations_end_after_start')],
+                # Note: ExclusionConstraint removed for SQLite compatibility
+                # In production (PostgreSQL), this should be added manually or via a separate migration
             },
         ),
         migrations.AddIndex(

@@ -1,0 +1,56 @@
+/**
+ * Button Component (React)
+ *
+ * Props:
+ * - variant: 'primary' | 'secondary' | 'ghost' | 'danger'
+ * - size: 'sm' | 'md' | 'lg'
+ * - disabled: boolean
+ * - className: string (additional classes)
+ */
+
+import type { ReactNode, ButtonHTMLAttributes } from 'react';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  children: ReactNode;
+  className?: string;
+}
+
+export default function Button({
+  variant = 'primary',
+  size = 'md',
+  disabled = false,
+  type = 'button',
+  className = '',
+  children,
+  ...props
+}: ButtonProps) {
+  const baseStyles = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+
+  const variantStyles = {
+    primary: 'rounded-[12px] bg-[#4CAF50] text-white hover:bg-[#43A047] focus:ring-[#4CAF50]',
+    secondary: 'rounded-[12px] bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-300',
+    ghost: 'rounded-[10px] bg-transparent text-slate-700 hover:bg-slate-50 focus:ring-slate-300',
+    danger: 'rounded-[12px] bg-red-600 text-white hover:bg-red-700 focus:ring-red-300',
+  };
+
+  const sizeStyles = {
+    sm: 'h-10 px-4 text-[14px] font-[600]',
+    md: 'h-11 px-5 text-[14px] font-[700]',
+    lg: 'h-12 px-6 text-[15px] font-[700]',
+  };
+
+  const classes = `${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+
+  return (
+    <button
+      type={type}
+      disabled={disabled}
+      className={classes}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}

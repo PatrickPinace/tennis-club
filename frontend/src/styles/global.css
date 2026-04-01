@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+/* Design Tokens - Tennis Club */
+
+:root {
+  /* Brand Colors - Ace Club Design System */
+  --color-sidebar: #162235;
+  --color-sidebar-deep: #101B2B;
+
+  /* Primary Green */
+  --color-primary: #4CAF50;
+  --color-primary-hover: #43A047;
+  --color-primary-dark: #2E7D32;
+  --color-primary-soft: #EAF7EA;
+
+  /* Secondary (keeping old primary as secondary for backwards compat) */
+  --color-secondary: #4CAF50;
+  --color-secondary-dark: #43A047;
+  --color-secondary-light: #66BB6A;
+
+  --color-accent: #4CAF50;
+  --color-accent-dark: #2E7D32;
+  --color-accent-light: #66BB6A;
+
+  /* UI Backgrounds */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #F3F5F7;
+  --color-bg-tertiary: #f3f4f6;
+  --color-surface: #ffffff;
+
+  /* Text Colors */
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #667085;
+  --color-text-tertiary: #98A2B3;
+  --color-text-muted: #98A2B3;
+
+  /* Borders */
+  --color-border: #E4E7EC;
+  --color-border-light: #f3f4f6;
+
+  /* Neutral Event Blocks */
+  --color-slate-block: #6B7A90;
+  --color-slate-block-text: #F8FAFC;
+
+  /* Semantic Colors */
+  --color-success: #2E7D32;
+  --color-warning: #F59E0B;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Neutrals - Keeping for compatibility */
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+
+  /* Spacing Scale */
+  --spacing-xs: 0.25rem;   /* 4px */
+  --spacing-sm: 0.5rem;    /* 8px */
+  --spacing-md: 1rem;      /* 16px */
+  --spacing-lg: 1.5rem;    /* 24px */
+  --spacing-xl: 2rem;      /* 32px */
+  --spacing-2xl: 3rem;     /* 48px */
+  --spacing-3xl: 4rem;     /* 64px */
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.75rem;    /* 12px */
+  --radius-xl: 1rem;       /* 16px */
+  --radius-2xl: 1.5rem;    /* 24px */
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+  /* Typography */
+  --font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-index */
+  --z-dropdown: 1000;
+  --z-modal: 2000;
+  --z-toast: 3000;
+  --z-tooltip: 4000;
+}
+
+/* Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  min-height: 100vh;
+}
+
+/* Focus Styles - Accessibility */
+*:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-accent-light);
+  color: white;
+}

@@ -1,0 +1,22 @@
+---
+/**
+ * Reservations Page
+ * Court booking and availability view
+ */
+
+import AppLayout from '@layouts/AppLayout.astro';
+import ReservationsView from '@components/reservations/ReservationsView';
+import '@styles/fullcalendar.css';
+
+export const prerender = false; // SSR - requires authentication
+
+const user = Astro.locals.user;
+
+if (!user) {
+  return Astro.redirect('/login');
+}
+---
+
+<AppLayout title="Rezerwacje - Tennis Club" user={user}>
+  <ReservationsView client:load />
+</AppLayout>
