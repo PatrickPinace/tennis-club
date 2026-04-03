@@ -1,5 +1,5 @@
 """
-Service layer for tournament bracket generation (single elimination).
+Service layer for tournament bracket generation (single elimination & round robin).
 Implements business logic from turnieje.md specification.
 """
 from django.contrib.auth.models import User
@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.utils import timezone
 from typing import List
+from itertools import combinations
 import math
 
 from v2_core.models import (
@@ -90,8 +91,8 @@ class TournamentBracketService:
         if tournament.status != 'participants_confirmed':
             raise ValidationError('Drabinkę można wygenerować tylko po zatwierdzeniu składu.')
 
-        if tournament.tournament_type != 'single_elimination':
-            raise ValidationError('Ta metoda obsługuje tylko single elimination.')
+        if tournament.tournament_type not in ['single_elimination', 'round_robin']:
+            raise ValidationError('Obsługiwane typy: Single Elimination i Round Robin.')
 
         # Get confirmed participants
         participants = list(
@@ -106,82 +107,122 @@ class TournamentBracketService:
                 f'Zbyt mało uczestników. Minimum: {tournament.min_participants}, obecnie: {len(participants)}.'
             )
 
-        # Apply seeding if enabled
-        if tournament.config.use_seeding:
-            participants = TournamentBracketService._apply_seeding(participants)
-
-        # Calculate bracket size (next power of 2)
-        bracket_size = TournamentBracketService._get_next_power_of_two(len(participants))
-        num_rounds = int(math.log2(bracket_size))
-
-        # Create all matches for the bracket
         matches = []
-        bracket_position = 1
 
-        # Round 1 - seed participants
-        round_1_matches = bracket_size // 2
-        for i in range(round_1_matches):
-            p1 = participants[i] if i < len(participants) else None
-            p2 = participants[bracket_size - 1 - i] if (bracket_size - 1 - i) < len(participants) else None
+        # ROUND ROBIN (Liga - każdy z każdym)
+        if tournament.tournament_type == 'round_robin':
+            # Wygeneruj wszystkie możliwe pary
+            match_number = 1
+            for player1, player2 in combinations(participants, 2):
+                match = TournamentMatch.objects.create(
+                    tournament=tournament,
+                    round_number=1,  # Wszystkie mecze w rundzie 1
+                    match_number=match_number,
+                    bracket_position=match_number,
+                    player1_participant=player1,
+                    player2_participant=player2,
+                    status='scheduled',
+                    source_match_1=None,
+                    source_match_2=None
+                )
+                matches.append(match)
+                match_number += 1
 
-            match = TournamentMatch.objects.create(
+            # Update tournament status
+            tournament.status = 'bracket_ready'
+            tournament.updated_by = actor
+            tournament.save()
+
+            # Log event
+            TournamentEventLog.objects.create(
                 tournament=tournament,
-                round_number=1,
-                match_number=i + 1,
-                bracket_position=bracket_position,
-                player1_participant=p1,
-                player2_participant=p2,
-                status='scheduled' if (p1 and p2) else 'ready',
-                source_match_1=None,
-                source_match_2=None
+                event_type='bracket_generated',
+                actor=actor,
+                payload={
+                    'tournament_type': 'round_robin',
+                    'num_participants': len(participants),
+                    'num_matches': len(matches),
+                    'timestamp': timezone.now().isoformat()
+                }
             )
-            matches.append(match)
-            bracket_position += 1
 
-        # Create subsequent rounds (initially without participants)
-        for round_num in range(2, num_rounds + 1):
-            num_matches = bracket_size // (2 ** round_num)
-            for match_num in range(num_matches):
-                source_1_idx = match_num * 2
-                source_2_idx = match_num * 2 + 1
+        # SINGLE ELIMINATION (Puchar)
+        else:
+            # Apply seeding if enabled
+            if tournament.config.use_seeding:
+                participants = TournamentBracketService._apply_seeding(participants)
 
-                # Find source matches from previous round
-                prev_round_matches = [m for m in matches if m.round_number == round_num - 1]
-                source_match_1 = prev_round_matches[source_1_idx] if source_1_idx < len(prev_round_matches) else None
-                source_match_2 = prev_round_matches[source_2_idx] if source_2_idx < len(prev_round_matches) else None
+            # Calculate bracket size (next power of 2)
+            bracket_size = TournamentBracketService._get_next_power_of_two(len(participants))
+            num_rounds = int(math.log2(bracket_size))
+
+            bracket_position = 1
+
+            # Round 1 - seed participants
+            round_1_matches = bracket_size // 2
+            for i in range(round_1_matches):
+                p1 = participants[i] if i < len(participants) else None
+                p2 = participants[bracket_size - 1 - i] if (bracket_size - 1 - i) < len(participants) else None
 
                 match = TournamentMatch.objects.create(
                     tournament=tournament,
-                    round_number=round_num,
-                    match_number=match_num + 1,
+                    round_number=1,
+                    match_number=i + 1,
                     bracket_position=bracket_position,
-                    player1_participant=None,
-                    player2_participant=None,
-                    status='scheduled',
-                    source_match_1=source_match_1,
-                    source_match_2=source_match_2
+                    player1_participant=p1,
+                    player2_participant=p2,
+                    status='scheduled' if (p1 and p2) else 'ready',
+                    source_match_1=None,
+                    source_match_2=None
                 )
                 matches.append(match)
                 bracket_position += 1
 
-        # Update tournament status
-        tournament.status = 'bracket_ready'
-        tournament.updated_by = actor
-        tournament.save()
+            # Create subsequent rounds (initially without participants)
+            for round_num in range(2, num_rounds + 1):
+                num_matches = bracket_size // (2 ** round_num)
+                for match_num in range(num_matches):
+                    source_1_idx = match_num * 2
+                    source_2_idx = match_num * 2 + 1
 
-        # Log event
-        TournamentEventLog.objects.create(
-            tournament=tournament,
-            event_type='bracket_generated',
-            actor=actor,
-            payload={
-                'num_participants': len(participants),
-                'bracket_size': bracket_size,
-                'num_rounds': num_rounds,
-                'num_matches': len(matches),
-                'timestamp': timezone.now().isoformat()
-            }
-        )
+                    # Find source matches from previous round
+                    prev_round_matches = [m for m in matches if m.round_number == round_num - 1]
+                    source_match_1 = prev_round_matches[source_1_idx] if source_1_idx < len(prev_round_matches) else None
+                    source_match_2 = prev_round_matches[source_2_idx] if source_2_idx < len(prev_round_matches) else None
+
+                    match = TournamentMatch.objects.create(
+                        tournament=tournament,
+                        round_number=round_num,
+                        match_number=match_num + 1,
+                        bracket_position=bracket_position,
+                        player1_participant=None,
+                        player2_participant=None,
+                        status='scheduled',
+                        source_match_1=source_match_1,
+                        source_match_2=source_match_2
+                    )
+                    matches.append(match)
+                    bracket_position += 1
+
+            # Update tournament status
+            tournament.status = 'bracket_ready'
+            tournament.updated_by = actor
+            tournament.save()
+
+            # Log event
+            TournamentEventLog.objects.create(
+                tournament=tournament,
+                event_type='bracket_generated',
+                actor=actor,
+                payload={
+                    'tournament_type': 'single_elimination',
+                    'num_participants': len(participants),
+                    'bracket_size': bracket_size,
+                    'num_rounds': num_rounds,
+                    'num_matches': len(matches),
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
 
         return matches
 

@@ -61,6 +61,102 @@ class TournamentMatchService:
             raise ValidationError('Wynik jest remisowy. Jeden z graczy musi wygrać więcej setów.')
 
     @staticmethod
+    def _update_participant_stats(match: TournamentMatch) -> None:
+        """
+        Update participant statistics after match completion.
+        Calculates points for Round Robin leagues based on TournamentConfig.
+        """
+        tournament = match.tournament
+        winner = match.winner_participant
+        loser = match.loser_participant
+
+        if not winner or not loser:
+            return
+
+        # Determine which participant is player1 and player2
+        if match.player1_participant == winner:
+            p1, p2 = winner, loser
+            p1_sets = [match.set1_p1, match.set2_p1, match.set3_p1]
+            p2_sets = [match.set1_p2, match.set2_p2, match.set3_p2]
+        else:
+            p1, p2 = loser, winner
+            p1_sets = [match.set1_p1, match.set2_p1, match.set3_p1]
+            p2_sets = [match.set1_p2, match.set2_p2, match.set3_p2]
+
+        # Calculate sets won/lost
+        p1_sets_won = 0
+        p2_sets_won = 0
+        p1_games_won = 0
+        p2_games_won = 0
+
+        for i in range(3):
+            if p1_sets[i] is not None and p2_sets[i] is not None:
+                p1_games_won += p1_sets[i]
+                p2_games_won += p2_sets[i]
+
+                if p1_sets[i] > p2_sets[i]:
+                    p1_sets_won += 1
+                else:
+                    p2_sets_won += 1
+
+        # Update match statistics
+        winner.matches_won += 1
+        loser.matches_lost += 1
+
+        if match.player1_participant == winner:
+            winner.sets_won += p1_sets_won
+            winner.sets_lost += p2_sets_won
+            winner.games_won += p1_games_won
+            winner.games_lost += p2_games_won
+
+            loser.sets_won += p2_sets_won
+            loser.sets_lost += p1_sets_won
+            loser.games_won += p2_games_won
+            loser.games_lost += p1_games_won
+        else:
+            winner.sets_won += p2_sets_won
+            winner.sets_lost += p1_sets_won
+            winner.games_won += p2_games_won
+            winner.games_lost += p1_games_won
+
+            loser.sets_won += p1_sets_won
+            loser.sets_lost += p2_sets_won
+            loser.games_won += p1_games_won
+            loser.games_lost += p2_games_won
+
+        # Calculate points for Round Robin leagues
+        if tournament.tournament_type == 'round_robin' and hasattr(tournament, 'config'):
+            config = tournament.config
+
+            # Calculate per-match statistics for point bonuses
+            if match.player1_participant == winner:
+                winner_sets_in_match = p1_sets_won
+                loser_sets_in_match = p2_sets_won
+                winner_games_in_match = p1_games_won
+                loser_games_in_match = p2_games_won
+            else:
+                winner_sets_in_match = p2_sets_won
+                loser_sets_in_match = p1_sets_won
+                winner_games_in_match = p2_games_won
+                loser_games_in_match = p1_games_won
+
+            # Winner points: base points + bonuses for sets/games won in THIS match
+            winner_points = config.points_for_match_win
+            winner_points += winner_sets_in_match * config.points_for_set_win
+            winner_points += winner_games_in_match * config.points_for_game_win
+
+            # Loser points: base points + penalties for sets/games lost in THIS match
+            loser_points = config.points_for_match_loss
+            loser_points += loser_sets_in_match * config.points_for_set_loss
+            loser_points += loser_games_in_match * config.points_for_game_loss
+
+            winner.points += winner_points
+            loser.points += loser_points
+
+        winner.save()
+        loser.save()
+
+    @staticmethod
     def _advance_winner_to_next_match(match: TournamentMatch, winner: Participant) -> None:
         """Advance winner to the next round match."""
         # Find matches where this match is a source
@@ -153,6 +249,9 @@ class TournamentMatchService:
         match.status = 'completed'
         match.completed_at = timezone.now()
         match.save()
+
+        # Update participant statistics and calculate points
+        TournamentMatchService._update_participant_stats(match)
 
         # Advance winner to next match
         TournamentMatchService._advance_winner_to_next_match(match, winner)

@@ -195,20 +195,63 @@ class TournamentConfig(models.Model):
     points_for_match_win = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=Decimal("3.00"),
+        default=Decimal("2.00"),
         help_text='Punkty za wygrany mecz (liga)'
     )
     points_for_match_loss = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=Decimal("0.00"),
+        default=Decimal("1.00"),
         help_text='Punkty za przegrany mecz (liga)'
     )
     points_for_set_win = models.DecimalField(
         max_digits=5,
         decimal_places=2,
-        default=Decimal("1.00"),
-        help_text='Punkty za wygrany set (liga)'
+        default=Decimal("0.50"),
+        help_text='Bonus za wygrany set (liga)'
+    )
+    points_for_set_loss = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text='Kara za przegrany set (liga)'
+    )
+    points_for_game_win = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.10"),
+        help_text='Bonus za wygrany gem (liga)'
+    )
+    points_for_game_loss = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("-0.10"),
+        help_text='Kara za przegrany gem (liga)'
+    )
+    points_for_tiebreak_point_win = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.05"),
+        help_text='Bonus za punkt w Super Tie-breaku (liga)'
+    )
+    points_for_tiebreak_point_loss = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("-0.05"),
+        help_text='Kara za punkt w Super Tie-breaku (liga)'
+    )
+
+    # Tiebreaker criteria for Round Robin (Liga)
+    TIEBREAKER_CHOICES = [
+        ('head_to_head', 'Bezpośrednie spotkanie'),
+        ('game_difference', 'Bilans gemów'),
+        ('set_difference', 'Bilans setów'),
+    ]
+    tiebreaker_criteria = models.CharField(
+        max_length=20,
+        choices=TIEBREAKER_CHOICES,
+        default='head_to_head',
+        help_text='Główne kryterium decydujące o kolejności w przypadku równej liczby punktów'
     )
 
     # Single Elimination specific

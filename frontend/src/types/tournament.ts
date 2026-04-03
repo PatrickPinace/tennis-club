@@ -165,6 +165,8 @@ export interface RegisterForTournamentPayload {
   partner_id?: number;
 }
 
+export type TiebreakerCriteria = 'head_to_head' | 'game_difference' | 'set_difference';
+
 export interface CreateTournamentPayload {
   name: string;
   description: string;
@@ -183,6 +185,16 @@ export interface CreateTournamentPayload {
   games_per_set?: number;
   use_seeding?: boolean;
   third_place_match?: boolean;
+  // Liga scoring
+  points_for_match_win?: number;
+  points_for_match_loss?: number;
+  points_for_set_win?: number;
+  points_for_set_loss?: number;
+  points_for_game_win?: number;
+  points_for_game_loss?: number;
+  points_for_tiebreak_point_win?: number;
+  points_for_tiebreak_point_loss?: number;
+  tiebreaker_criteria?: TiebreakerCriteria;
 }
 
 export interface ReportMatchResultPayload {

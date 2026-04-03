@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { createTournament } from '../../lib/api/tournaments';
+import { api } from '../../lib/api/client';
 import type { CreateTournamentPayload, TournamentType, TournamentFormat, TournamentVisibility, RegistrationMode } from '../../types/tournament';
 
 interface Facility {
@@ -43,17 +44,19 @@ export default function CreateTournamentModal({ isOpen, onClose, onSuccess }: Cr
     third_place_match: false
   });
 
-  // Load facilities
+  // Load facilities and ensure CSRF cookie is set
   useEffect(() => {
     const loadFacilities = async () => {
       try {
-        const response = await fetch('/api/facilities/');
-        if (response.ok) {
-          const data = await response.json();
-          setFacilities(data.facilities || []);
-          if (data.facilities && data.facilities.length > 0) {
-            setFormData(prev => ({ ...prev, facility_id: data.facilities[0].id }));
-          }
+        // First, ensure CSRF cookie is set
+        await api('/api/auth/csrf/');
+
+        // Then load facilities
+        const facilityList = await api<Facility[]>('/api/facilities/');
+        console.log('Loaded facilities:', facilityList);
+        setFacilities(facilityList);
+        if (facilityList.length > 0 && formData.facility_id === 0) {
+          setFormData(prev => ({ ...prev, facility_id: facilityList[0].id }));
         }
       } catch (err) {
         console.error('Failed to load facilities:', err);
@@ -220,14 +223,23 @@ export default function CreateTournamentModal({ isOpen, onClose, onSuccess }: Cr
                 Obiekt *
               </label>
               <select
+                required
                 value={formData.facility_id}
                 onChange={(e) => setFormData({ ...formData, facility_id: parseInt(e.target.value) })}
                 className="w-full rounded-[10px] border border-slate-300 px-4 py-2 text-[14px] focus:border-[#4CAF50] focus:outline-none"
               >
+                {facilities.length === 0 && (
+                  <option value="0">Ładowanie...</option>
+                )}
                 {facilities.map(facility => (
                   <option key={facility.id} value={facility.id}>{facility.name}</option>
                 ))}
               </select>
+              {facilities.length === 0 && (
+                <p className="mt-1 text-[12px] text-red-600">
+                  Brak dostępnych obiektów. Dodaj obiekt w panelu administracyjnym.
+                </p>
+              )}
             </div>
           </div>
 

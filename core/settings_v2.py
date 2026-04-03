@@ -101,6 +101,14 @@ if DJANGO_ENV == 'development':
         'http://127.0.0.1:4323',
     ]
     CORS_ALLOW_CREDENTIALS = True
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:4321',
+        'http://localhost:4322',
+        'http://localhost:4323',
+        'http://127.0.0.1:4321',
+        'http://127.0.0.1:4322',
+        'http://127.0.0.1:4323',
+    ]
 else:
     CORS_ALLOWED_ORIGINS = [
         "https://tennisclub.ovh",
@@ -229,6 +237,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_COOKIE_AGE = 30 * 24 * 60 * 60  # 30 days
+
+# CSRF settings
+CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript to read the CSRF cookie
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_AGE = 31449600  # 1 year
 
 # Cache configuration
 CACHES = {
