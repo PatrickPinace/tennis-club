@@ -1,0 +1,22 @@
+<div class="players-cell d-flex flex-column align-items-center">
+    <div class="team my-team mb-1">
+        <span class="player {% if match.winner == match.participant1 %} fw-bold text-success {% endif %}">
+            <i class="fa-solid fa-user"></i> {{ match.participant1.display_name }}
+        </span>
+    </div>
+    <div class="vs-label text-secondary fw-bold">
+        <small>
+            {{ match.tournament.name }}<br>
+            {% if match.round_number == 0 %}
+                (Mecz o 3 miejsce)
+            {% else %}
+                (Runda {{ match.round_number }})
+            {% endif %}
+        </small>
+    </div>
+    <div class="team opponent-team mt-1">
+        <span class="player {% if match.winner == match.participant2 %} fw-bold text-success {% endif %}">
+            <i class="fa-solid fa-user"></i> {{ match.participant2.display_name }}
+        </span>
+    </div>
+</div>

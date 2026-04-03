@@ -1,0 +1,141 @@
+{% extends "tennis-club.html" %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}Szczegóły Americano - {{ tournament.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1 fs-4 fs-md-2">
+        <a href="#tournamentRules" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="tournamentRules" class="text-decoration-none text-dark" title="Kliknij, aby zobaczyć zasady">
+          {{ tournament.name }} <i class="bi bi-info-circle-fill small text-muted"></i>
+        </a>
+      </h2>
+      <span class="badge bg-primary">{{ tournament.get_tournament_type_display }}</span>
+      <span class="badge bg-info">{{ tournament.get_status_display }}</span>
+    </div>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary d-none d-md-inline-block">
+      <i class="bi bi-arrow-left"></i>
+      <span class="d-none d-md-inline"> Powrót</span>
+    </a>
+  </div>
+
+
+  {% if tournament.description %}
+  <p class="lead">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% if tournament.americano_config %}
+  <div class="collapse" id="tournamentRules">
+    <div class="card bg-light my-4">
+      <div class="card-body">
+        <h5 class="card-title">Zasady i Ustawienia</h5>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="mb-1"><strong>System kojarzenia:</strong> {{ tournament.americano_config.get_scheduling_type_display }}</p>
+            <p class="mb-1"><strong>Liczba rund:</strong> {{ tournament.americano_config.number_of_rounds }}</p>
+            <p class="mb-1"><strong>Liczba punktów na mecz:</strong> {{ tournament.americano_config.points_per_match }}</p>
+          </div>
+          <div class="col-md-6">
+            {% if tournament.start_date %}<p class="mb-1"><strong>Data rozpoczęcia:</strong> {{ tournament.start_date|date:"Y-m-d H:i" }}</p>{% endif %}
+            {% if tournament.end_date %}<p class="mb-1"><strong>Data zakończenia:</strong> {{ tournament.end_date|date:"Y-m-d H:i" }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+
+  <div class="row mt-5">
+    <!-- Kolumna z tabelą wyników -->
+    <div class="col-lg-6">
+      <h4>Aktualna Tabela</h4>
+      {% if standings %}
+      <!-- Widok tabeli dla dużych ekranów (od md wzwyż) -->
+      <div class="d-none d-md-block table-responsive">
+        <table class="table table-striped table-hover align-middle">
+          <thead class="table-dark">
+            <tr>
+              <th>#</th>
+              <th>Uczestnik</th>
+              <th class="text-center" title="Punkty">Pkt</th>
+              <th class="text-center" title="Mecze rozegrane">M</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in standings %}
+            <tr>
+              <td><strong>{{ forloop.counter }}</strong></td>
+              <td>{{ item.participant.display_name }}</td>
+              <td class="text-center"><strong>{{ item.points }}</strong></td>
+              <td class="text-center">{{ item.matches_played }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Widok kart dla małych ekranów (poniżej md) -->
+      <div class="d-md-none">
+        {% for item in standings %}
+        <div class="card mb-3 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <h5 class="card-title mb-0">
+                <span class="badge bg-dark me-2">#{{ forloop.counter }}</span>
+                {{ item.participant.display_name }}
+              </h5>
+              <span class="fs-4 fw-bold text-primary">{{ item.points }} <small class="fs-6 text-muted">pkt</small></span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="alert alert-info">Brak uczestników do wyświetlenia w tabeli.</div>
+      {% endif %}
+    </div>
+
+    <!-- Kolumna z meczami -->
+    <div class="col-lg-6 mt-4 mt-lg-0">
+      <h4>Wyniki Spotkań</h4>
+      {% if rounds %}
+      <div class="accordion" id="roundsAccordion">
+        {% for round_number, round_matches in rounds.items %}
+        <div class="accordion-item">
+          <h2 class="accordion-header" id="heading-{{ round_number }}">
+            <button class="accordion-button {% if round_number != current_round_number %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ round_number }}" aria-expanded="{% if round_number == current_round_number %}true{% else %}false{% endif %}" aria-controls="collapse-{{ round_number }}">
+              Runda {{ round_number }}
+            </button>
+          </h2>
+          <div id="collapse-{{ round_number }}" class="accordion-collapse collapse {% if round_number == current_round_number %}show{% endif %}" aria-labelledby="heading-{{ round_number }}" data-bs-parent="#roundsAccordion">
+            <div class="accordion-body p-2">
+              {% for match in round_matches %}
+              <div class="card shadow-sm mb-2">
+                <div class="card-body">
+                  {% include "tournaments/partials/americano_match_item.html" with match=match user=request.user %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="alert alert-secondary">Brak meczów do wyświetlenia.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/reactions.js' %}"></script>
+{% endblock %}

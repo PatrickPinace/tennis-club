@@ -1,0 +1,78 @@
+{% extends 'tennis-club.html' %}
+
+<!-- Dodatkowe CSS -->
+{% block styles %}
+<link rel="stylesheet" href="/static/css/results.css" type="text/css">
+<link rel="stylesheet" href="/static/css/summary.css" type="text/css">
+{% endblock %}
+
+{% block content %}
+<div class="main-summary">
+  <div class="my-2 p-3 bg-dark text-white rounded">
+    <h2 class="text-center font-2 mb-0">Podsumowanie Spotkań</h2>
+  </div>
+
+  <div class="mb-3">
+    <form method="get">
+      <div class="input-group">
+        <span class="input-group-text bg-dark text-white border-0">Zawodnik</span>
+        <select name="user_id" id="player_select_summary" class="form-select" onchange="this.form.submit()">
+          <option value="{{ request.user.id }}" {% if target_user.id == request.user.id %}selected{% endif %}>
+            {{ request.user.first_name }} {{ request.user.last_name }} (Ty)
+          </option>
+          {% for player in all_players %}
+          {% if player.id != request.user.id %}
+          <option value="{{ player.id }}" {% if target_user.id == player.id %}selected{% endif %}>
+            {{ player.first_name }} {{ player.last_name }}
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      $('#player_select_summary').select2({
+        theme: 'bootstrap-5',
+        width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+      });
+    });
+  </script>
+
+  {% include 'matches/results/filters.html' %}
+
+  {% if matches %}
+  {% include 'matches/summary/summary_card.html' %}
+
+  {# Dodatkowe podsumowanie roczne, jeśli dostępne #}
+  {% if yearly_summary %}
+  {% include 'matches/summary/yearly_summary.html' %}
+  {% endif %}
+  {% else %}
+  <div class="alert alert-info mt-3">Brak meczów do wyświetlenia dla wybranych filtrów.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function setProgressBars() {
+    const bars = document.querySelectorAll('.progress-bar-fill');
+    bars.forEach(bar => {
+      const progress = bar.getAttribute('data-progress');
+      // Użyj setTimeout, aby animacja CSS zadziałała po załadowaniu DOM
+      setTimeout(() => {
+        bar.style.width = progress + '%';
+        // Znajdź rodzica, a następnie element z tekstem, aby poprawnie go pokazać
+        const textElement = bar.closest('.progress-bar-wrapper').querySelector('.progress-bar-text');
+        if (textElement) textElement.style.opacity = '1';
+
+      }, 100);
+    });
+  }
+
+  // Wywołanie funkcji po załadowaniu strony
+  document.addEventListener('DOMContentLoaded', setProgressBars);
+</script>
+{% endblock %}

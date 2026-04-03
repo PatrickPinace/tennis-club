@@ -1,0 +1,228 @@
+{% extends 'tennis-club.html' %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}Drabinka - {{ tournament.name }}{% endblock %}
+
+{% block styles %}
+<style>
+  .reaction-btn.active {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+  }
+
+  .reaction-btn .reaction-count {
+    font-size: 0.8em;
+    color: var(--bs-secondary-color);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1 fs-4 fs-md-2">
+        <a href="#tournamentRules" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="tournamentRules" class="text-decoration-none text-dark" title="Kliknij, aby zobaczyć zasady">
+          {{ tournament.name }} <i class="bi bi-info-circle-fill small text-muted"></i>
+        </a>
+      </h2>
+      <span class="badge bg-primary">{{ tournament.get_tournament_type_display }}</span>
+      <span class="badge bg-info">{{ tournament.get_status_display }}</span>
+    </div>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary d-none d-md-inline-block">
+      <i class="bi bi-arrow-left"></i>
+      <span class="d-none d-md-inline"> Powrót</span>
+    </a>
+  </div>
+
+
+  {% if tournament.description %}
+  <p class="lead">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% if tournament.ladder_config %}
+  <div class="collapse" id="tournamentRules">
+    <div class="card bg-light my-4">
+      <div class="card-body">
+        <h5 class="card-title">Zasady turnieju</h5>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Zasięg wyzwania:</strong> {{ tournament.ladder_config.challenge_range }} pozycj{% if tournament.ladder_config.challenge_range == 1 %}a{% elif tournament.ladder_config.challenge_range > 1 and tournament.ladder_config.challenge_range < 5 %}e{% else %}i{% endif %} w górę</p>
+                <p class="mb-1"><strong>Początkowe rozstawienie:</strong> {{ tournament.ladder_config.get_initial_seeding_display }}</p>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Format meczu:</strong> Do {{ tournament.ladder_config.sets_to_win }} wygranych setów</p>
+            <p class="mb-0"><strong>Format seta:</strong> Do {{ tournament.ladder_config.games_per_set }} wygranych gemów <small class="text-muted d-block">(trzeci set może być rozgrywany jako Super Tie-break do 10 punktów)</small></p>
+          </div>
+        </div>
+        <p class="mt-3 mb-0"><strong>Zasada przejęcia miejsca:</strong> Jeśli gracz wyzywający wygra mecz, zajmuje on miejsce w rankingu gracza wyzwanego. Gracz wyzwany spada na pozycję wyzywającego.</p>
+        <p class="mt-3 mb-0"><strong>Odrzucanie wyzwań:</strong> Każdy gracz może odrzucić jedno wyzwanie na rundę. Po odrzuceniu, wyzywający nie może ponownie rzucić wyzwania temu samemu graczowi aż do rozpoczęcia nowej rundy.</p>
+        <p class="mt-3 mb-0"><strong>Nowa runda:</strong> Nowa runda spotkań jest inicjowana przez organizatora, co resetuje blokady rewanżów i odrzuconych wyzwań, umożliwiając ponowne rzucanie wyzwań.</p>
+        <hr>
+        <div class="row mt-3">
+          <div class="col-md-6">
+            {% if tournament.start_date %}<p class="mb-1"><strong>Data rozpoczęcia:</strong> {{ tournament.start_date|date:"Y-m-d H:i" }}</p>{% endif %}
+          </div>
+          <div class="col-md-6">
+            {% if tournament.end_date %}<p class="mb-1"><strong>Data zakończenia:</strong> {{ tournament.end_date|date:"Y-m-d H:i" }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+
+  <h3 class="mt-5">Drabinka Turniejowa</h3>
+
+  <div class="row">
+    <!-- Kolumna z rankingiem (drabinką) -->
+    <div class="col-lg-6">
+      <h4>Ranking graczy</h4>
+      {% if participants %}
+      <div class="list-group">
+        {% for p in participants %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <span class="fw-bold me-3">{{ p.seed_number }}.</span>
+            <span>{{ p.display_name }}</span>
+            {% if p.user == request.user %}
+            <span class="badge bg-primary ms-2">Ty</span>
+            {% endif %}
+            {% if p.is_being_challenged %}
+            <span class="badge bg-warning text-dark ms-2">Wyzwany</span>
+            {% endif %}
+          </div>
+
+          <!-- Przycisk "Wyzwij" -->
+          {% if can_challenge and user_participant and p in challengeable_participants %}
+          <form method="post" action="{% url 'tournaments:create_challenge' tournament.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="challenger_id" value="{{ user_participant.id }}">
+            <input type="hidden" name="challenged_id" value="{{ p.id }}">
+            <button type="submit"
+              class="btn btn-sm btn-outline-success"
+              {% if p.is_in_active_match %}disabled title="Ten gracz jest już zaangażowany w inny mecz."
+              {% elif p.has_recent_match %}disabled title="Niedawno rozegrano już mecz z tym graczem."
+              {% elif p.has_rejected_us %}disabled title="Ten gracz odrzucił już Twoje wyzwanie w tej rundzie."
+              {% endif %}>
+              Wyzwij
+            </button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="alert alert-info">Brak uczestników w turnieju.</div>
+      {% endif %}
+    </div>
+
+    <!-- Kolumna z meczami -->
+    <div class="col-lg-6 mt-4 mt-lg-0">
+      <h4>Ostatnie i nadchodzące mecze</h4>
+      {% if matches %}
+      <div class="d-flex flex-column gap-3">
+        {% for match in matches %}
+        <div class="card shadow-sm"> {# Karta meczu #}
+          <div class="card-body">
+            <div class="d-grid mb-2">
+              {% if match.status == 'WAI' %}<span class="badge bg-secondary"><i class="bi bi-hourglass-split me-1"></i> {{ match.get_status_display }}</span>
+              {% elif match.status == 'SCH' %}<span class="badge bg-info text-dark"><i class="bi bi-calendar-check me-1"></i> {{ match.get_status_display }}</span>
+              {% elif match.status == 'INP' %}<span class="badge bg-warning text-dark"><i class="bi bi-play-circle me-1"></i> {{ match.get_status_display }}</span>
+              {% elif match.status == 'CMP' %}<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> {{ match.get_status_display }}</span>
+              {% else %}<span class="badge bg-dark">{{ match.get_status_display }}</span>
+              {% endif %}
+            </div>
+            <h5 class="card-title mb-0 text-center text-nowrap overflow-hidden text-overflow-ellipsis">
+              {{ match.participant1.display_name|default:"TBA" }}
+            </h5>
+            <p class="text-center text-muted small my-1">vs</p>
+            <h5 class="card-title mb-1 text-center text-nowrap overflow-hidden text-overflow-ellipsis">
+              {{ match.participant2.display_name|default:"TBA" }}
+            </h5>
+
+            <div class="card-text mt-2">
+              {% if match.status == 'CMP' and match.winner %}
+              <p class="mb-1">Zwycięzca: <strong class="text-success">{{ match.winner.display_name }}</strong></p>
+              <p class="mb-1 text-muted small">
+                Wynik:
+                {% if match.set1_p1_score is not None %}{{ match.set1_p1_score }}:{{ match.set1_p2_score }}{% endif %}
+                {% if match.set2_p1_score is not None %} | {{ match.set2_p1_score }}:{{ match.set2_p2_score }}{% endif %}
+                {% if match.set3_p1_score is not None %} | {{ match.set3_p1_score }}:{{ match.set3_p2_score }}{% endif %}
+              </p>
+              <p class="mb-0 text-muted small">Runda {{ match.round_number }} ({{ match.scheduled_time|date:"Y-m-d H:i" }})</p>
+              {% elif match.scheduled_time %}
+              <p class="mb-0 text-muted">Zaplanowano na: {{ match.scheduled_time|date:"Y-m-d H:i" }}</p>
+              {% else %}
+              <p class="mb-0 text-muted">Oczekuje na ustalenie terminu.</p>
+              {% endif %}
+            </div>
+
+            <div class="d-flex justify-content-end align-items-center mt-3 btn-toolbar">
+              <!-- Przycisk Rozpocznij -->
+              {% if request.user.is_authenticated and match.can_start %}
+              <form method="post" action="{% url 'tournaments:start_match' tournament.pk match.pk %}" class="d-inline me-2">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-success" title="Rozpocznij mecz">
+                  <i class="bi bi-play-fill"></i> Rozpocznij
+                </button>
+              </form>
+              {% endif %}
+              <!-- Przycisk edycji -->
+              <div class="btn-group me-2" role="group">
+                {% if match.can_edit %}
+                <a href="{% url 'tournaments:edit_match' tournament.pk match.pk %}" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-pencil-square"></i> Edytuj
+                </a>
+                {% else %}
+                <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}" class="btn btn-sm btn-outline-secondary" title="Zobacz szczegóły"><i class="bi bi-eye"></i></a>
+                {% endif %}
+              </div>
+              <!-- Sekcja Reakcji -->
+              {% if match.status == 'CMP' and request.user.is_authenticated %}
+              <div class="btn-group" role="group">
+                {% with reactions=match.reactions.all %}
+                <button class="btn btn-sm btn-outline-secondary reaction-btn {% if match.user_reaction == '👍' %}active{% endif %}" data-match-id="{{ match.pk }}" data-emoji="👍">
+                  👍 <span class="reaction-count">{{ reactions|filter_by_emoji:'👍'|length }}</span>
+                </button>
+                {% endwith %}
+              </div>
+              {% endif %}
+              <!-- Przycisk anulowania/odrzucenia wyzwania -->
+              {% if match.participant1.user == request.user and match.status in 'WAI,SCH' %}
+              <form method="post" action="{% url 'tournaments:cancel_challenge' tournament.pk match.pk %}" onsubmit="return confirm('Czy na pewno chcesz anulować to wyzwanie?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Anuluj wyzwanie">
+                  <i class="bi bi-x-circle"></i> Anuluj
+                </button>
+              </form>
+              {% elif match.participant2.user == request.user and match.status in 'WAI,SCH' %}
+              <form method="post" action="{% url 'tournaments:cancel_challenge' tournament.pk match.pk %}" onsubmit="return confirm('Czy na pewno chcesz odrzucić to wyzwanie?');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-warning text-dark" title="Odrzuć wyzwanie">
+                  <i class="bi bi-hand-thumbs-down"></i> Odrzuć
+                </button>
+              </form>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="alert alert-secondary">Brak meczów do wyświetlenia.</div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/reactions.js' %}"></script>
+{% endblock %}

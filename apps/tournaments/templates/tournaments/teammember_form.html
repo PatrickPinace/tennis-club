@@ -1,0 +1,40 @@
+{% extends 'tennis-club.html' %}
+{% load static %}
+
+{% block styles %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <h2>Dodaj członka zespołu — {{ participant.display_name }} ({{ tournament.name }})</h2>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form.visible_fields %}
+      <div class="mb-3">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <button class="btn btn-primary" type="submit">Zapisz</button>
+    <a class="btn btn-secondary ms-2" href="{% url 'tournaments:list_participants' tournament.pk %}">Anuluj</a>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    $('#id_user').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Wyszukaj i wybierz użytkownika',
+    });
+});
+</script>
+{% endblock %}

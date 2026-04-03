@@ -1,0 +1,465 @@
+{% extends "tennis-club.html" %}
+{% load tournaments %}
+{% load static %}
+
+{% block content %}
+{% block styles %}
+{# Importujemy style z czatu 1-na-1 #}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}" type="text/css">
+<style>
+    .score-board {
+        background-color: #2c3e50;
+        color: white;
+        border-radius: 10px;
+        padding: 20px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 1rem;
+    }
+    .score-board .player-name {
+        font-size: 1.2rem;
+        font-weight: bold;
+        word-break: break-word;
+    }
+    .score-board .set-score {
+        font-size: 1.8rem;
+        font-weight: bold;
+        min-width: 40px; /* Zapewnia równy odstęp */
+        text-align: center;
+    }
+    .score-board .set-header {
+        font-size: 0.8rem;
+        color: #95a5a6;
+        font-weight: bold;
+    }
+
+    .score-board .live-indicator {
+        font-size: 1rem;
+        color: #e74c3c;
+        font-weight: bold;
+        animation: blink 1.5s linear infinite;
+    }
+    @keyframes blink {
+        50% { opacity: 0; }
+    }
+    /* Dostosowanie kontenera wiadomości do widoku meczu */
+    .match-chat-messages {
+        overflow-y: auto;
+        background-color: #fff;
+        display: flex;
+        flex-direction: column;
+        min-height: 450px; /* Zapewnia minimalną wysokość dla czytelności */
+        max-height: 500px; /* Ogranicza maksymalną wysokość i wymusza przewijanie */
+        padding: 1rem;
+    }
+    .history-log {
+        height: 400px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        padding: 10px;
+        background-color: #f9f9f9;
+    }
+</style>
+{% endblock %}
+
+<div class="container py-5">
+    <div class="d-flex flex-column flex-sm-row justify-content-sm-between align-items-sm-center mb-4">
+        <div>
+            <h2 class="mb-0">{{ tournament.name }}</h2>
+            <p class="text-muted">Relacja na żywo</p>
+        </div>
+        <div class="d-flex gap-2 mt-2 mt-sm-0">
+            <a href="{{ next_url }}" class="btn btn-outline-secondary">
+                <i class="fa-solid fa-arrow-left"></i> Powrót
+            </a>
+        {% if match.status != 'CMP' and match.status != 'WDR' and match.status != 'CNC' and tournament.tournament_type != 'AMR' %}
+            <a href="{% url 'tournaments:edit_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}" class="btn btn-outline-danger">
+                <i class="fa-solid fa-pen-to-square"></i> Zaktualizuj wynik
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tablica wyników -->
+    <div class="score-board shadow-lg mb-4">
+        <div class="d-flex justify-content-center align-items-center mb-3">
+            {% if match.status == 'INP' %}
+            <span class="live-indicator me-3"><i class="fa-solid fa-circle"></i> LIVE</span>
+            {% endif %}
+            <h4 class="mb-0">Aktualny Wynik</h4>
+        </div>
+
+        <!-- WIDOK MOBILNY (widoczny tylko na xs) -->
+        <div class="d-block d-sm-none text-center">
+            <div class="player-name">
+                {% if tournament.match_format == 'DBL' and match.participant1 and match.participant2 %}
+                    {{ match.participant1.user|short_name }} / {{ match.participant2.user|short_name }}
+                {% else %}
+                    {{ match.participant1.display_name|default:"Gracz 1" }}
+                {% endif %}
+            </div>
+            <div class="my-2" style="font-size: 1rem; color: #95a5a6;">VS</div>
+            <div class="player-name mb-3">
+                {% if tournament.match_format == 'DBL' and match.participant3 and match.participant4 %}
+                    {{ match.participant3.user|short_name }} / {{ match.participant4.user|short_name }}
+                {% else %}
+                    {{ match.participant2.display_name|default:"Gracz 2" }}
+                {% endif %}
+            </div>
+
+            <div class="row">
+                <div class="col-4">
+                    <div class="set-header">SET 1</div>
+                    <div class="set-score">{{ match.set1_p1_score|default:"0" }}</div>
+                    <div class="set-score">{{ match.set1_p2_score|default:"0" }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="set-header">SET 2</div>
+                    <div class="set-score">{{ match.set2_p1_score|default:"0" }}</div>
+                    <div class="set-score">{{ match.set2_p2_score|default:"0" }}</div>
+                </div>
+                <div class="col-4">
+                    <div class="set-header">SET 3</div>
+                    <div class="set-score">{{ match.set3_p1_score|default:"0" }}</div>
+                    <div class="set-score">{{ match.set3_p2_score|default:"0" }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WIDOK DESKTOP (ukryty na xs) -->
+        <div class="d-none d-sm-block">
+            <!-- Nagłówki setów -->
+            <div class="row text-center mb-2">
+                <div class="col-sm-5"></div>
+                <div class="col-sm-7">
+                    <div class="row">
+                        <div class="col-4 set-header">SET 1</div>
+                        <div class="col-4 set-header">SET 2</div>
+                        <div class="col-4 set-header">SET 3</div>
+                    </div>
+                </div>
+            </div>
+            <!-- Wynik gracza 1 -->
+            <div class="row align-items-center mb-2">
+                <div class="col-sm-5 text-end player-name">
+                    {% if tournament.match_format == 'DBL' and match.participant1 and match.participant2 %}
+                        {{ match.participant1.user|short_name }} / {{ match.participant2.user|short_name }}
+                    {% else %}
+                        {{ match.participant1.display_name|default:"Gracz 1" }}
+                    {% endif %}
+                </div>
+                <div class="col-sm-7">
+                    <div class="row text-center"><div class="col-4"><span class="set-score">{{ match.set1_p1_score|default:"0" }}</span></div><div class="col-4"><span class="set-score">{{ match.set2_p1_score|default:"0" }}</span></div><div class="col-4"><span class="set-score">{{ match.set3_p1_score|default:"0" }}</span></div></div>
+                </div>
+            </div>
+            <!-- Wynik gracza 2 -->
+            <div class="row align-items-center">
+                <div class="col-sm-5 text-end player-name">
+                    {% if tournament.match_format == 'DBL' and match.participant3 and match.participant4 %}
+                        {{ match.participant3.user|short_name }} / {{ match.participant4.user|short_name }}
+                    {% elif tournament.match_format != 'DBL' %}
+                        {{ match.participant2.display_name|default:"Gracz 2" }}
+                    {% else %}
+                        TBA
+                    {% endif %}
+                </div>
+                <div class="col-sm-7">
+                    <div class="row text-center"><div class="col-4"><span class="set-score">{{ match.set1_p2_score|default:"0" }}</span></div><div class="col-4"><span class="set-score">{{ match.set2_p2_score|default:"0" }}</span></div><div class="col-4"><span class="set-score">{{ match.set3_p2_score|default:"0" }}</span></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historia i Czat -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header"><i class="fa-solid fa-comments me-2"></i>Czat meczowy</div>
+                <div class="card-body d-flex flex-column p-0">
+                    <div class="match-chat-messages mb-0 flex-grow-1" id="chat-messages">
+                        {% if not chat_messages %}
+                            <p class="text-muted text-center mt-3">Rozpocznij dyskusję!</p>
+                        {% endif %}
+                        {% for message in chat_messages %}
+                            <div id="message-{{ message.id }}" class="message {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+                                <div class="message-bubble">
+                                    {% if message.sender != request.user %}
+                                        <div class="message-sender">
+                                            <strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    {% if message.content %}
+                                        <div class="message-content">
+                                            {{ message.content|linebreaksbr }}
+                                        </div>
+                                    {% endif %}
+
+                                    <div class="message-images">
+                                        {% for image in message.images.all %}
+                                        <a href="{{ image.image.url }}" target="_blank">
+                                            <img src="{{ image.image.url }}" alt="Zdjęcie w wiadomości" class="img-thumbnail">
+                                        </a>
+                                        {% endfor %}
+                                    </div>
+
+                                    <div class="message-meta" data-timestamp="{{ message.timestamp.isoformat }}">
+                                        {{ message.timestamp|date:"d M Y, H:i" }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="chat-form">
+                        {% if user.is_authenticated %}
+                            <form id="match-chat-form" method="post" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                <div id="image-preview-container" class="mb-2"></div>
+                                <div class="d-flex">
+                                    <div class="flex-grow-1 me-2">
+                                        {{ form.content }}
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <label for="id_images" class="btn btn-secondary me-2"><i class="bi bi-paperclip"></i></label>
+                                        {{ form.images }}
+                                        <button type="submit" class="btn btn-success"><i class="bi bi-send"></i></button>
+                                    </div>
+                                </div>
+                                <div id="form-errors" class="alert alert-danger mt-2 p-2" style="display: none;">
+                                    {# Błędy formularza AJAX będą wstawiane tutaj #}
+                                </div>
+                            </form>
+                        {% else %}
+                            <p class="text-center text-muted m-0">
+                                <a href="{% url 'login' %}?next={{ request.path }}">Zaloguj się</a>, aby dołączyć do dyskusji.
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header"><i class="fa-solid fa-timeline me-2"></i>Historia wyniku</div>
+                <div class="card-body">
+                    <div class="history-log">
+                        {% if not score_history %}
+                            <p class="text-muted text-center mt-3">Brak historii zmian wyniku.</p>
+                        {% endif %}
+                        <ul class="list-group list-group-flush">
+                            {% for entry in score_history %}
+                            {# --- ZMIANA: Wyświetlaj wpis tylko, jeśli zawiera jakikolwiek wynik --- #}
+                            {% if entry.set1_p1_score is not None or entry.set2_p1_score is not None or entry.set3_p1_score is not None %}
+                            <li class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <div class="mb-1">
+                                        <i class="fa-solid fa-pen-to-square me-2"></i>
+                                        {% if entry.is_recent %}
+                                            <small class="text-muted">{{ entry.updated_at|timesince }} temu</small>
+                                        {% else %}
+                                            <small class="text-muted">{{ entry.updated_at|date:"d M Y, H:i" }}</small>
+                                        {% endif %}
+                                        {# Wyświetl wynik tylko dla setów, które zostały wprowadzone #}
+                                        <div class="ps-3">
+                                            {% if entry.set1_p1_score is not None %}<div><b>Set 1:</b> {{ entry.set1_p1_score }}-{{ entry.set1_p2_score }}</div>{% endif %}
+                                            {% if entry.set2_p1_score is not None %}<div><b>Set 2:</b> {{ entry.set2_p1_score }}-{{ entry.set2_p2_score }}</div>{% endif %}
+                                            {% if entry.set3_p1_score is not None %}<div><b>Set 3:</b> {{ entry.set3_p1_score }}-{{ entry.set3_p2_score }}</div>{% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Zaktualizowano przez: {{ entry.updated_by.get_full_name|default:entry.updated_by.username }}</small>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+{# Kopiujemy skrypt z czatu 1-na-1, usuwając logikę związaną z 'otherUserUsername' #}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const matchId = {{ match.pk }};
+
+    // --- Logika przewijania okna czatu ---
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // --- Logika podglądu obrazków ---
+    const imageInput = document.getElementById('id_images');
+    if (imageInput) {
+        const previewContainer = document.getElementById('image-preview-container');
+        imageInput.style.display = 'none';
+        const dataTransfer = new DataTransfer();
+
+        function updateFileInput() {
+            imageInput.files = dataTransfer.files;
+        }
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                dataTransfer.items.add(file);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const previewWrapper = document.createElement('div');
+                    previewWrapper.className = 'image-preview-wrapper';
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    previewWrapper.appendChild(img);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn-close';
+                    removeBtn.onclick = function() {
+                        previewWrapper.remove();
+                        const newFiles = new DataTransfer();
+                        Array.from(dataTransfer.files).forEach(f => {
+                            if (f !== file) newFiles.items.add(f);
+                        });
+                        dataTransfer.items.clear();
+                        Array.from(newFiles.files).forEach(f => dataTransfer.items.add(f));
+                        updateFileInput();
+                    };
+                    previewWrapper.appendChild(removeBtn);
+                    previewContainer.appendChild(previewWrapper);
+                };
+                reader.readAsDataURL(file);
+            });
+            updateFileInput();
+        }
+        imageInput.addEventListener('change', () => handleFiles(imageInput.files));
+    }
+
+    // --- Logika odpytywania o nowe wiadomości ---
+    function formatTimestamp(isoString) {
+        const date = new Date(isoString);
+        const options = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+        return date.toLocaleDateString('pl-PL', options).replace(',', '');
+    }
+
+    function createMessageElement(msg) {
+        const messageClass = msg.is_sent_by_user ? 'sent' : 'received';
+        let imagesHTML = '';
+        msg.images.forEach(img => {
+            imagesHTML += `<a href="${img.url}" target="_blank"><img src="${img.url}" alt="Zdjęcie w wiadomości" class="img-thumbnail"></a>`;
+        });
+        let senderHTML = '';
+        if (!msg.is_sent_by_user) {
+            senderHTML = `<div class="message-sender"><strong>${msg.sender_name}</strong></div>`;
+        }
+        const messageHTML = `
+            <div id="message-${msg.id}" class="message ${messageClass}">
+                <div class="message-bubble">
+                    ${senderHTML}
+                    ${msg.content ? `<div class="message-content">${msg.content.replace(/\n/g, '<br>')}</div>` : ''}
+                    <div class="message-images">${imagesHTML}</div>
+                    <div class="message-meta" data-timestamp="${msg.timestamp}">${formatTimestamp(msg.timestamp)}</div>
+                </div>
+            </div>
+        `;
+        return messageHTML;
+    }
+
+    async function fetchNewMessages() {
+        const lastMessageMeta = chatMessages.querySelector('.message-meta:last-of-type');
+        let lastTimestamp = new Date(0).toISOString(); // Jeśli nie ma wiadomości, pobierz wszystko
+        if (lastMessageMeta) {
+            lastTimestamp = lastMessageMeta.dataset.timestamp;
+        }
+        
+        const url = `/chat/api/match-check-new/${matchId}/?last_timestamp=${lastTimestamp}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            if (data.messages && data.messages.length > 0) {
+                const isScrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 5;
+
+                data.messages.forEach(msg => {
+                    if (!document.getElementById(`message-${msg.id}`)) {
+                        const messageElement = createMessageElement(msg);
+                        chatMessages.insertAdjacentHTML('beforeend', messageElement);
+                    }
+                });
+
+                if (isScrolledToBottom) {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+            }
+        } catch (error) {
+            console.error("Błąd podczas sprawdzania nowych wiadomości:", error);
+        }
+    }
+
+    setInterval(fetchNewMessages, 3000);
+
+    // --- Logika wysyłania wiadomości przez AJAX ---
+    const chatForm = document.getElementById('match-chat-form');
+    if (chatForm) {
+        const formErrorsContainer = document.getElementById('form-errors');
+
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(chatForm);
+            const submitButton = chatForm.querySelector('button[type="submit"]');
+            const originalButtonContent = submitButton.innerHTML;
+
+            // Zablokuj przycisk i pokaż spinner
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+            formErrorsContainer.style.display = 'none';
+            formErrorsContainer.innerHTML = '';
+
+            try {
+                const response = await fetch(chatForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    },
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Wiadomość wysłana pomyślnie. Dodajemy ją od razu do widoku.
+                    const messageElement = createMessageElement(data.message);
+                    chatMessages.insertAdjacentHTML('beforeend', messageElement);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                    chatForm.reset();
+                    document.getElementById('image-preview-container').innerHTML = '';
+                    const dataTransfer = new DataTransfer();
+                    document.getElementById('id_images').files = dataTransfer.files;
+                } else {
+                    // Wyświetl błędy walidacji
+                    let errorHtml = '<ul>';
+                    for (const field in data.errors) {
+                        data.errors[field].forEach(error => {
+                            errorHtml += `<li>${error}</li>`;
+                        });
+                    }
+                    errorHtml += '</ul>';
+                    formErrorsContainer.innerHTML = errorHtml;
+                    formErrorsContainer.style.display = 'block';
+                }
+            } catch (error) {
+                console.error("Błąd podczas wysyłania wiadomości:", error);
+            } finally {
+                // Odblokuj przycisk
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonContent;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

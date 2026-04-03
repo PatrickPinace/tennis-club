@@ -1,0 +1,415 @@
+{% extends 'tennis-club.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            <article>
+                <!-- Nagłówek artykułu -->
+                <header class="mb-4">
+                    <h1 class="fw-bolder mb-1 article-title">{{ article.title }}</h1>
+                    <div class="text-muted fst-italic mb-2 d-flex justify-content-between align-items-center flex-wrap article-meta">
+                        <div>
+                            Opublikowano: {{ article.published_at|date:"d.m.Y H:i" }} przez {{ article.author.get_full_name|default:article.author.username }}
+                        </div>
+                        {% if user == article.author %}
+                        <a href="{% url 'news:article_edit' article.slug %}" class="btn btn-sm btn-outline-secondary mt-2 mt-md-0">
+                            <i class="bi bi-pencil me-md-1"></i><span class="d-none d-md-inline">Edytuj</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% for category in article.categories.all %}
+                        <span class="badge bg-secondary text-decoration-none link-light">{{ category.name }}</span>
+                    {% endfor %}
+                </header>
+                
+
+
+                <!-- Treść artykułu -->
+                <section class="mb-5 article-content" style="overflow-x: auto;">
+                    <div class="article-text mb-4 text-break">
+                        {{ article.content|safe }}
+                    </div>
+                </section>
+            </article>
+
+            <!-- Pasek akcji -->
+            <div class="d-flex justify-content-between align-items-center border-top border-bottom py-3 mb-5">
+                <!-- Powrót (lewa strona) -->
+                <a href="{% url 'news:article_list' %}" class="btn btn-outline-secondary rounded-pill px-3 px-md-4">
+                     <i class="bi bi-arrow-left me-md-2"></i><span class="d-none d-md-inline">Wróć</span>
+                </a>
+
+                <!-- Akcje (prawa strona) -->
+                <div class="d-flex align-items-center gap-2 gap-md-3">
+                    <!-- Komentarze -->
+                    <a href="#comments-section" class="btn btn-light rounded-pill border d-flex align-items-center gap-2">
+                        <i class="bi bi-chat"></i>
+                        <span class="fw-bold comment-count">{{ comments.count }}</span>
+                    </a>
+
+                    <!-- Polubienia -->
+                    <form action="{% url 'news:like_article' article.slug %}" method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-light rounded-pill border d-flex align-items-center gap-2 {% if is_liked %}text-primary{% endif %}" {% if not user.is_authenticated %}disabled{% endif %}>
+                            {% if is_liked %}
+                                <i class="bi bi-hand-thumbs-up-fill"></i>
+                            {% else %}
+                                <i class="bi bi-hand-thumbs-up"></i>
+                            {% endif %}
+                            <span class="fw-bold d-none d-md-inline">Lubię to</span>
+                            <span class="text-muted border-start ps-2 ms-1 like-count">{{ article.likes.count }}</span>
+                        </button>
+                    </form>
+
+                    <!-- Udostępnij -->
+                    <button onclick="shareArticle()" class="btn btn-light rounded-pill border d-flex align-items-center gap-2">
+                        <i class="bi bi-share-fill"></i>
+                        <span class="d-none d-md-inline fw-bold">Udostępnij</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sekcja komentarzy -->
+    <div class="row justify-content-center mt-4" id="comments-section">
+        <div class="col-12">
+            <h4 class="mb-4 fw-bold">Komentarze ({{ comments.count }})</h4>
+
+            <!-- Formularz dodawania (na górze) -->
+            <div class="mb-5 d-flex gap-3">
+                 <div class="flex-shrink-0">
+                    {% if user.is_authenticated %}
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; font-size: 1.2rem;">
+                            {{ user.first_name|first|default:user.username|first|upper }}
+                        </div>
+                    {% else %}
+                         <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                            <i class="bi bi-person"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="flex-grow-1">
+                    {% if user.is_authenticated %}
+                        <form method="post" action="{% url 'news:add_comment' article.slug %}">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                {{ comment_form.content }}
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="reset" class="btn btn-text rounded-pill">Anuluj</button>
+                                <button type="submit" class="btn btn-primary rounded-pill px-3">Skomentuj</button>
+                            </div>
+                        </form>
+                    {% else %}
+                         <input type="text" class="form-control border-bottom border-0 rounded-0 bg-transparent px-0" placeholder="Dodaj komentarz..." disabled>
+                         <div class="mt-2 text-end">
+                            <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm rounded-pill">Zaloguj się, aby skomentować</a>
+                         </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Lista komentarzy -->
+            <div id="comments-list">
+                {% if comments %}
+                    {% for comment in comments %}
+                        {% if not comment.parent %}
+                            {% include 'news/partials/comment.html' with comment=comment %}
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5 text-muted" id="no-comments-message">
+                        <i class="bi bi-chat-square-dots display-4 d-block mb-3"></i>
+                        <p>Brak komentarzy. Bądź pierwszą osobą, która podzieli się opinią!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .article-content {
+        line-height: normal;
+    }
+    .article-text {
+        font-size: 0.7rem;
+        line-height: 1.6;
+    }
+    .article-text img {
+        max-width: 100% !important;
+        height: auto !important;
+    }
+
+    .article-title {
+        font-size: 1.5rem;
+    }
+    .article-meta {
+        font-size: 0.7rem;
+    }
+    @media (min-width: 992px) {
+        .article-title {
+            font-size: 2.5rem;
+        }
+        .article-text {
+            font-size: 1.25rem; /* Equivalent to fs-5 */
+            line-height: 1.8;
+        }
+
+        .article-meta {
+            font-size: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function shareArticle() {
+        if (!navigator.clipboard) {
+            // Fallback for non-secure contexts (HTTP)
+            fallbackCopyTextToClipboard(window.location.href);
+            return;
+        }
+        navigator.clipboard.writeText(window.location.href).then(function() {
+            alert('Link do artykułu został skopiowany do schowka!');
+        }, function(err) {
+            console.error('Async: Could not copy text: ', err);
+            fallbackCopyTextToClipboard(window.location.href);
+        });
+    }
+
+    function fallbackCopyTextToClipboard(text) {
+        var textArea = document.createElement("textarea");
+        textArea.value = text;
+        
+        // Avoid scrolling to bottom
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.position = "fixed";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            var successful = document.execCommand('copy');
+            if (successful) {
+                alert('Link do artykułu został skopiowany do schowka!');
+            } else {
+                 prompt("Nie udało się skopiować automatycznie. Skopiuj link ręcznie:", text);
+            }
+        } catch (err) {
+            console.error('Fallback: Oops, unable to copy', err);
+            prompt("Nie udało się skopiować automatycznie. Skopiuj link ręcznie:", text);
+        }
+
+        document.body.removeChild(textArea);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const likeForm = document.querySelector('form[action*="like"]');
+        if (likeForm) {
+            likeForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const url = this.action;
+                const btn = this.querySelector('button');
+                const icon = btn.querySelector('i');
+                const countSpan = btn.querySelector('.like-count');
+                const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.liked) {
+                        icon.classList.remove('bi-hand-thumbs-up');
+                        icon.classList.add('bi-hand-thumbs-up-fill');
+                        btn.classList.add('text-primary');
+                    } else {
+                        icon.classList.remove('bi-hand-thumbs-up-fill');
+                        icon.classList.add('bi-hand-thumbs-up');
+                        btn.classList.remove('text-primary');
+                    }
+                    countSpan.textContent = data.count;
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        }
+
+        const commentForm = document.querySelector('form[action*="add_comment"]');
+        if (commentForm) {
+            commentForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const url = this.action;
+                const formData = new FormData(this);
+                const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
+                const commentsCountHeaders = document.querySelectorAll('h4, .comment-count');
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.html) {
+                        const emptyState = document.getElementById('no-comments-message');
+                        if (emptyState) emptyState.remove();
+                        
+                        const commentsList = document.getElementById('comments-list');
+                        if (commentsList) {
+                            commentsList.insertAdjacentHTML('afterbegin', data.html); // Insert at top
+                        }
+
+                        commentsCountHeaders.forEach(el => {
+                            if (el.tagName === 'H4') el.textContent = `Komentarze (${data.count})`;
+                            else if (el.tagName === 'SPAN') el.textContent = data.count;
+                        });
+
+                        commentForm.reset();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+            });
+        }
+    
+        // Obsługa delegowanie zdarzeń dla dynamicznie dodawanych elementów (reakcje i odpowiedzi)
+        const commentsSection = document.getElementById('comments-section');
+        if (commentsSection) {
+            commentsSection.addEventListener('click', function(e) {
+                // Reakcje (Like/Dislike)
+                const btnReact = e.target.closest('.btn-react');
+                if (btnReact) {
+                    const url = btnReact.dataset.url;
+                    const action = btnReact.dataset.action;
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                    
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRFToken': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: `action=${action}`
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Znajdź oba przyciski w tej samej grupie (używamy div.d-flex żeby pominąć button.d-flex)
+                        const parentDiv = btnReact.closest('div.d-flex');
+                        const likeBtn = parentDiv.querySelector('[data-action="like"]');
+                        const dislikeBtn = parentDiv.querySelector('[data-action="dislike"]');
+                        const likeIcon = likeBtn.querySelector('i');
+                        const dislikeIcon = dislikeBtn.querySelector('i');
+                        
+                        // Aktualizuj UI - Like
+                        if (data.liked) {
+                            likeIcon.classList.remove('bi-hand-thumbs-up');
+                            likeIcon.classList.add('bi-hand-thumbs-up-fill');
+                            likeIcon.classList.add('text-primary');
+                        } else {
+                            likeIcon.classList.remove('bi-hand-thumbs-up-fill');
+                            likeIcon.classList.add('bi-hand-thumbs-up');
+                            likeIcon.classList.remove('text-primary');
+                        }
+                        
+                        // Aktualizuj UI - Dislike
+                        if (data.disliked) {
+                            dislikeIcon.classList.remove('bi-hand-thumbs-down');
+                            dislikeIcon.classList.add('bi-hand-thumbs-down-fill');
+                            dislikeIcon.classList.add('text-danger');
+                        } else {
+                            dislikeIcon.classList.remove('bi-hand-thumbs-down-fill');
+                            dislikeIcon.classList.add('bi-hand-thumbs-down');
+                            dislikeIcon.classList.remove('text-danger');
+                        }
+                        
+                        likeBtn.querySelector('.like-count').textContent = data.likes_count;
+                        dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+
+                // Pokaż formularz odpowiedzi
+                const btnReply = e.target.closest('.btn-reply');
+                if (btnReply) {
+                    const commentId = btnReply.dataset.commentId;
+                    const formContainer = document.getElementById(`reply-form-${commentId}`);
+                    // Ukryj inne otwarte formularze? Opcjonalnie.
+                    formContainer.classList.toggle('d-none');
+                }
+
+                // Anuluj odpowiedź
+                const btnCancel = e.target.closest('.btn-cancel-reply');
+                if (btnCancel) {
+                    const formContainer = btnCancel.closest('.reply-form-container');
+                    formContainer.classList.add('d-none');
+                }
+            });
+
+            // Obsługa wysyłania odpowiedzi (Delegacja submit)
+            commentsSection.addEventListener('submit', function(e) {
+                if (e.target.matches('.reply-form')) {
+                    e.preventDefault();
+                    const form = e.target;
+                    const url = form.action;
+                    const formData = new FormData(form);
+                    const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
+                    const formContainer = form.closest('.reply-form-container');
+                    const parentCommentDiv = formContainer.closest('.d-flex.mb-4') || formContainer.parentElement.closest('.d-flex.mb-4'); // szukamy głównego kontenera komentarza
+                    // Uwaga: struktura partiala to div.d-flex.mb-4 -> div.ms-3.w-100 -> form-container 
+                    // a odpowiedzi są w div.replies.mt-3 wewnątrz div.ms-3.w-100
+                    
+                    fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.html) {
+                            let repliesDiv = formContainer.nextElementSibling;
+                            // Jeśli div.replies nie istnieje (pierwsza odpowiedź), stwórz go
+                            if (!repliesDiv || !repliesDiv.classList.contains('replies')) {
+                                repliesDiv = document.createElement('div');
+                                repliesDiv.className = 'replies mt-3';
+                                formContainer.parentNode.appendChild(repliesDiv);
+                            }
+                            
+                            repliesDiv.insertAdjacentHTML('beforeend', data.html);
+                            
+                            // Aktualizuj liczniki
+                            const commentsCountHeaders = document.querySelectorAll('h4, .comment-count');
+                            commentsCountHeaders.forEach(el => {
+                                if (el.tagName === 'H4') el.textContent = `Komentarze (${data.count})`;
+                                else if (el.tagName === 'SPAN') el.textContent = data.count;
+                            });
+
+                            form.reset();
+                            formContainer.classList.add('d-none');
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

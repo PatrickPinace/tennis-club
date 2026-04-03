@@ -1,0 +1,563 @@
+{% extends "tennis-club.html" %}
+{% load tournaments %}
+
+{% block title %}{{ facility.name }}{% endblock %}
+
+{% block content %}
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="{% url 'courts:facility-list' %}" class="btn btn-outline-secondary">&laquo; Powrót do listy</a>
+    {% if user == facility.owner %}
+      <a href="{% url 'courts:update-facility' pk=facility.pk %}" class="btn btn-secondary">Edytuj obiekt</a>
+    {% endif %}
+  </div>
+
+  <div class="row g-5">
+    <div class="col-md-6">
+      {% if facility.image %}
+        <img src="{{ facility.image.url }}" alt="Zdjęcie obiektu {{ facility.name }}" class="img-fluid rounded-3 shadow-sm w-100" style="object-fit: cover; max-height: 450px;">
+      {% else %}
+        <div class="d-flex align-items-center justify-content-center bg-light rounded-3" style="height: 450px;">
+          <p class="text-muted">Brak zdjęcia</p>
+        </div>
+      {% endif %}
+    </div>
+    <div class="col-md-6">
+      <h1 class="mb-3">{{ facility.name }}</h1>
+      <hr>
+      <dl class="row">
+        <dt class="col-sm-4">Adres</dt>
+        <dd class="col-sm-8">{{ facility.address }}</dd>
+
+        <dt class="col-sm-4">Kontakt</dt>
+        <dd class="col-sm-8">{{ facility.contact_phone }}</dd>
+
+        <dt class="col-sm-4">Nawierzchnia</dt>
+        <dd class="col-sm-8">{{ facility.get_surface_display }}</dd>
+      </dl>
+      {% if facility.description %}
+        <hr>
+        <h5 class="mt-4">Opis</h5>
+        <p>{{ facility.description|linebreaks }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mt-5">
+    {% if facility.reservation %}
+    <div class="d-flex align-items-center mb-3">
+      <h2 class="mb-0">Dostępne korty</h2>
+      {% if user == facility.owner %}
+        <a href="{% url 'courts:create-court' facility_pk=facility.pk %}" class="btn btn-success btn-sm ms-3" title="Dodaj kort">
+          <i class="fa-solid fa-plus"></i>
+        </a>
+      {% endif %}
+    </div>
+
+    <!-- Nawigacja po dniach -->
+    <ul id="day-navigation" class="nav nav-pills mb-4 justify-content-center">
+      {% for day in next_seven_days %}
+        <li class="nav-item">
+          <a class="nav-link {% if day == selected_date %}active{% endif %}" href="?date={{ day|date:'Y-m-d' }}">
+            <div class="d-flex flex-column align-items-center">
+              <span class="fw-bold">{{ day|date:"D" }}</span>
+              <small>{{ day|date:"d.m" }}</small>
+            </div>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+
+    <div class="timeline-grid-container" id="timeline-container">
+      <div class="timeline-grid" id="timeline-grid">
+        <!-- Nagłówek z godzinami -->
+        <div class="timeline-header-row" id="timeline-header">
+          <div class="court-info-header"></div> {# Pusta komórka w rogu #}
+          <div class="slots-header" id="slots-header"></div>
+        </div>
+        <!-- Wiersze kortów -->
+        <div id="courts-rows-container">
+           <!-- Wiersze kortów będą renderowane przez JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <div class="d-block d-md-flex justify-content-md-between align-items-md-center mt-4">
+      <!-- Wspólna legenda -->
+      <div class="d-flex justify-content-center justify-content-md-start align-items-center gap-3 flex-wrap mb-3 mb-md-0">
+        <small><span class="legend-dot my-reservation"></span> Rezerwacja</small>
+        <small><span class="legend-dot pending"></span> Oczekuje</small>
+        <small><span class="legend-dot booked"></span> Zajęty</small>
+      </div>
+      <!-- Formularz do wysyłania zaznaczonych rezerwacji -->
+      <div class="d-grid d-md-block">
+        <form id="reservation-form" class="d-flex justify-content-center justify-content-md-end" action="{% url 'courts:create-reservation' %}" method="post" data-is-owner="{{ is_owner|yesno:"true,false" }}">
+          {% csrf_token %}
+          <input type="hidden" name="selected_slots" id="selected-slots-input">
+          <input type="hidden" name="selected_date" id="selected_date" value="{{ selected_date|date:'Y-m-d' }}">
+          <button type="submit" class="btn btn-primary" id="reserve-button">Zarezerwuj kort</button>
+        </form>
+      </div>
+    </div>
+    {% else %}
+      <div class="alert alert-info mt-4">
+        System rezerwacji online jest wyłączony dla tego obiektu. Skontaktuj się z właścicielem telefonicznie.
+      </div>
+    {% endif %}
+  </div>
+
+  {% block extra_js %}
+  <style>
+    .nav-pills .nav-link {
+      padding: 0.4rem 0.6rem;
+    }
+    @media (max-width: 450px) {
+      .nav-pills .nav-link {
+        padding: 0.3rem 0.4rem;
+      }
+      .nav-pills .nav-link .fw-bold {
+        font-size: 0.8rem;
+      }
+    }
+    @media (max-width: 767.98px) {
+      .court-info-header, .court-info {
+        width: 60px;
+        padding: 1rem 0.25rem;
+      }
+    }
+    .time-slot.available {
+      cursor: pointer;
+    }
+    .timeline-container {
+      scrollbar-width: thin;
+      scrollbar-color: #aaa #f1f1f1;
+    }
+    .timeline-container::-webkit-scrollbar {
+      height: 8px;
+    }
+    .timeline-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 10px;
+    }
+    .timeline-container::-webkit-scrollbar-thumb {
+      background: #aaa;
+      border-radius: 10px;
+    }
+    .timeline-container::-webkit-scrollbar-thumb:hover {
+      background: #888;
+    }
+    .timeline-grid-container {
+      overflow-x: auto;
+      border: 1px solid #dee2e6;
+      border-radius: .5rem;
+    }
+    .timeline-grid {
+      display: inline-block;
+      min-width: 100%;
+    }
+    .timeline-header-row, .court-row {
+      display: flex;
+      align-items: center;
+    }
+    .court-row {
+      border-top: 1px solid #dee2e6;
+    }
+    .court-info-header, .court-info {
+      flex-shrink: 0;
+      width: 60px;
+      padding: 1rem 0.5rem;
+    }
+    .slots-header, .slots-row {
+      display: flex;
+    }
+    .hourly-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      border-right: 2px solid #dee2e6;
+    }
+    .hourly-block:last-child {
+      border-right: none;
+    }
+    .hourly-block:first-child {
+      border-left: none;
+    }
+    .hour-label {
+      font-size: 0.75rem;
+      font-weight: bold;
+      color: #6c757d;
+      margin-bottom: 4px;
+    }
+    .slot-pair {
+      display: flex;
+    }
+    .time-slot-header-cell {
+      width: 55px; /* Szerokość dopasowana do slotu */
+      height: 1px;
+    }
+    .time-slot-wrapper {
+      padding: 2px;
+    }
+    .time-slot {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 55px; 
+      height: 55px; 
+      border: 1px solid #dee2e6;
+      text-decoration: none;
+      color: #212529;
+      transition: background-color 0.2s, border-color 0.2s;
+      position: relative;
+      background-color: #fff; /* Domyślnie białe tło */
+      border-radius: 4px; /* Zaokrąglone rogi */
+    }
+    .time-slot.available:hover {
+      background-color: #e9f5ec;
+      border-color: #28a745;
+      z-index: 1;
+    }
+    .time-slot.selected {
+      background-color: #cff4fc; /* Niebieski - Zaznaczony do rezerwacji */
+      border-color: #9eeaf9;
+      z-index: 2;
+    }
+    .time-slot.booked {
+      background-color: #f8d7da; /* Czerwony - Zajęty przez innych */
+      color: #721c24;
+      cursor: not-allowed;
+    }
+    .time-slot.my-reservation {
+      background-color: #d1e7dd; /* Zielony - Twoja potwierdzona */
+      color: #0f5132;
+      cursor: help;
+    }
+    .time-slot.pending {
+      background-color: #fff3cd; /* Żółty - Oczekuje */
+      color: #664d03;
+      cursor: help;
+      position: relative;
+    }
+    .time-slot.past {
+      background-color: #e9ecef;
+      color: #6c757d;
+      cursor: not-allowed;
+    }
+    .time-slot .action-buttons {
+        display: none;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 3;
+        white-space: nowrap;
+    }
+    .time-slot:hover .action-buttons {
+        display: block;
+    }
+    .court-number-icon {
+      width: 48px;
+      height: 48px;
+      background-color: #fff;
+      border: 1px solid #dee2e6;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .court-number-icon span {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+      border: 1px solid #ccc;
+    }
+    .legend-dot.available { background-color: #fff; }
+    .legend-dot.selected-dot { background-color: #cff4fc; border-color: #9eeaf9; }
+    .legend-dot.my-reservation { background-color: #d1e7dd; border-color: #a3cfbb; }
+    .legend-dot.pending { background-color: #fff3cd; border-color: #ffe69c; }
+    .legend-dot.booked { background-color: #f8d7da; border-color: #f1aeb5; }
+    .legend-dot.past { background-color: #e9ecef; border-color: #ced4da; }
+  </style>
+  {% endblock %}
+
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const facilityId = {{ facility.pk }};
+    const timeSlots = [{% for slot in time_slots %}"{{ slot }}",{% endfor %}];
+    const urls = {
+        timeline_data: "{% url 'courts:api-timeline-data' pk=0 %}".replace('0', facilityId),
+        create_reservation: "{% url 'courts:create-reservation' %}",
+        confirm_reservation: "{% url 'courts:confirm-reservation' pk=0 %}",
+        reject_reservation: "{% url 'courts:reject-reservation' pk=0 %}",
+        delete_reservation: "{% url 'courts:delete-reservation' pk=0 %}",
+    };
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    const slotsHeader = document.getElementById('slots-header');
+    const courtsRowsContainer = document.getElementById('courts-rows-container');
+    const reservationForm = document.getElementById('reservation-form');
+    const selectedDateInput = document.getElementById('selected_date');
+    const isOwner = reservationForm ? reservationForm.dataset.isOwner === 'true' : false;
+
+    let selectedSlots = {};
+
+    function renderTimelineHeader() {
+        let headerHtml = '';
+        for (let i = 0; i < timeSlots.length; i += 2) {
+            headerHtml += `
+                <div class="hourly-block">
+                    <div class="hour-label">${timeSlots[i].slice(0, 2)}:00</div>
+                    <div class="slot-pair">
+                        <div class="time-slot-wrapper"><div class="time-slot-header-cell"></div></div>
+                        <div class="time-slot-wrapper"><div class="time-slot-header-cell"></div></div>
+                    </div>
+                </div>
+            `;
+        }
+        slotsHeader.innerHTML = headerHtml;
+    }
+
+    function renderTimeline(data) {
+        let courtsHtml = '';
+        const currentTimeStr = new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+        const isToday = selectedDateInput.value === new Date().toISOString().slice(0, 10);
+
+        data.courts_data.forEach(court => {
+            selectedSlots[court.id] = []; // Reset selection
+            let slotsHtml = '';
+            for (let i = 0; i < timeSlots.length; i += 2) {
+                slotsHtml += '<div class="hourly-block"><div class="slot-pair">';
+                // Slot 1 (e.g., 08:00)
+                slotsHtml += renderSlot(court, timeSlots[i], isToday, currentTimeStr, data);
+                // Slot 2 (e.g., 08:30)
+                if (i + 1 < timeSlots.length) {
+                    slotsHtml += renderSlot(court, timeSlots[i + 1], isToday, currentTimeStr, data);
+                }
+                slotsHtml += '</div></div>';
+            }
+
+            courtsHtml += `
+                <div class="court-row">
+                    <div class="court-info text-center">
+                        <div class="court-number-icon shadow-sm"><span>${court.court_number}</span></div>
+                    </div>
+                    <div class="slots-row">${slotsHtml}</div>
+                </div>
+            `;
+        });
+        courtsRowsContainer.innerHTML = courtsHtml;
+        addSlotClickListeners();
+    }
+
+    function renderSlot(court, slot, isToday, currentTimeStr, data) {
+        const slotDetails = data.courts_data.find(c => c.id === court.id)?.timeline_slots[slot];
+        let slotHtml = '<div class="time-slot-wrapper">';
+
+        if (isToday && slot < currentTimeStr) {
+            slotHtml += '<div class="time-slot past" title="Termin minął"></div>';
+        } else if (slotDetails) {
+            let classes = 'time-slot';
+            let title = '';
+            let actions = '';
+            
+            if (isOwner) {
+                classes += ' owner-actions';
+                title = `Rezerwacja: ${slotDetails.user_full_name}`;
+                if (slotDetails.status === 'PENDING') {
+                    classes += ' pending';
+                    actions += `<form class="d-inline" data-action="${urls.confirm_reservation.replace('0', slotDetails.reservation_id)}" data-confirm-message="Czy na pewno chcesz ZAAKCEPTOWAĆ rezerwację dla ${slotDetails.user_full_name}?\n\nTermin: ${selectedDateInput.value} od ${slotDetails.start_time} do ${slotDetails.end_time}" title="Akceptuj..."><button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-check"></i></button></form>`;
+                    actions += `<form class="d-inline" data-action="${urls.reject_reservation.replace('0', slotDetails.reservation_id)}" data-confirm-message="Czy na pewno chcesz ODRZUCIĆ rezerwację dla ${slotDetails.user_full_name}?\n\nTermin: ${selectedDateInput.value} od ${slotDetails.start_time} do ${slotDetails.end_time}" title="Odrzuć..."><button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-times"></i></button></form>`;
+                } else if (slotDetails.status === 'CONFIRMED') {
+                    classes += ' booked'; // Potwierdzona rezerwacja innego użytkownika jest dla właściciela "zajęta"
+                    actions += `<form class="d-inline" data-action="${urls.delete_reservation.replace('0', slotDetails.reservation_id)}" data-confirm-message="ANULOWAĆ rezerwację dla ${slotDetails.user_full_name}?\n\nTermin: ${selectedDateInput.value} od ${slotDetails.start_time} do ${slotDetails.end_time}"><button type="submit" class="btn btn-sm btn-danger" title="Anuluj..."><i class="fa-solid fa-trash-can"></i></button></form>`;
+                }
+            } else if (slotDetails.is_current_user) {
+                classes += ' user-actions';
+                title = `Twoja rezerwacja (${slotDetails.status_display})`;
+                classes += slotDetails.status === 'CONFIRMED' ? ' my-reservation' : ' pending';
+                actions = `<form class="d-inline" data-action="${urls.delete_reservation.replace('0', slotDetails.reservation_id)}" data-confirm-message="Anulować rezerwację?\n\nTermin: ${selectedDateInput.value} od ${slotDetails.start_time} do ${slotDetails.end_time}"><button type="submit" class="btn btn-sm btn-danger" title="Anuluj rezerwację"><i class="fa-solid fa-trash-can"></i></button></form>`;
+            } else {
+                classes += ' booked';
+                title = 'Zajęty';
+            }
+            slotHtml += `<div class="${classes}" title="${title}"><div class="action-buttons">${actions}</div></div>`;
+        } else {
+            slotHtml += `<div class="time-slot available" data-court-id="${court.id}" data-slot-time="${slot}" title="Wybierz termin od ${slot}"></div>`;
+        }
+        slotHtml += '</div>';
+        return slotHtml;
+    }
+
+    async function fetchTimelineData(date) {
+        try {
+            const response = await fetch(`${urls.timeline_data}?date=${date}`);
+            if (!response.ok) throw new Error('Network response was not ok.');
+            const data = await response.json();
+            renderTimeline(data);
+        } catch (error) {
+            console.error('Fetch error:', error);
+            courtsRowsContainer.innerHTML = '<div class="alert alert-danger m-3">Nie udało się załadować danych. Spróbuj ponownie.</div>';
+        }
+    }
+
+    function addSlotClickListeners() {
+        courtsRowsContainer.querySelectorAll('.time-slot.available').forEach(slot => {
+            slot.addEventListener('click', function() {
+                const courtId = this.dataset.courtId;
+                const slotTime = this.dataset.slotTime;
+                const index = selectedSlots[courtId].indexOf(slotTime);
+
+                if (index > -1) {
+                    selectedSlots[courtId].splice(index, 1);
+                    this.classList.remove('selected');
+                } else {
+                    selectedSlots[courtId].push(slotTime);
+                    this.classList.add('selected');
+                }
+            });
+        });
+
+        courtsRowsContainer.querySelectorAll('.action-buttons form').forEach(form => {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const url = this.dataset.action;
+                if (!url) return;
+
+                const confirmMessage = this.dataset.confirmMessage;
+                if (confirmMessage && !confirm(confirmMessage)) {
+                    return; // Zatrzymaj, jeśli użytkownik kliknie "Anuluj"
+                }
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': csrfToken,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    if (!response.ok) throw new Error('Action failed.');
+                    await fetchTimelineData(selectedDateInput.value); // Refresh timeline
+                } catch (error) {
+                    console.error('Action error:', error);
+                    alert('Wystąpił błąd. Spróbuj ponownie.');
+                }
+            });
+        });
+    }
+
+    document.querySelectorAll('#day-navigation .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelector('.nav-link.active').classList.remove('active');
+            this.classList.add('active');
+            const newDate = new URL(this.href).searchParams.get('date');
+            selectedDateInput.value = newDate;
+            history.pushState(null, '', `?date=${newDate}`);
+            fetchTimelineData(newDate);
+        });
+    });
+
+
+
+    if (reservationForm) {
+        reservationForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const finalSelection = Object.fromEntries(Object.entries(selectedSlots).filter(([_, v]) => v.length > 0));
+            if (Object.keys(finalSelection).length === 0) {
+                alert('Proszę wybrać przynajmniej jeden termin do rezerwacji.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', csrfToken);
+            formData.append('selected_slots', JSON.stringify(finalSelection));
+            formData.append('selected_date', selectedDateInput.value);
+
+            if (isOwner) {
+                formData.append('confirm_as_owner', 'true');
+                try {
+                    const response = await fetch(urls.create_reservation, { method: 'POST', body: formData, headers: {'X-Requested-With': 'XMLHttpRequest'} });
+                    if (!response.ok) throw new Error('Reservation failed.');
+                    await fetchTimelineData(selectedDateInput.value); // Refresh on success
+                } catch (error) {
+                    console.error('Owner reservation error:', error);
+                    alert('Wystąpił błąd podczas rezerwacji.');
+                }
+            } else {
+                // For regular users, we still redirect to the summary page
+                const hiddenInput = document.getElementById('selected-slots-input');
+                hiddenInput.value = JSON.stringify(finalSelection);
+                e.target.submit(); // Submit the form normally to go to summary
+            }
+        });
+    }
+
+    {% if facility.reservation %}
+    // Initial Load
+    renderTimelineHeader();
+    fetchTimelineData(selectedDateInput.value);
+    {% endif %}
+  });
+  </script>
+
+  {% if displayable_tournaments %}
+  <div class="mt-5">
+    <h2 class="mb-3">Turnieje na tym obiekcie</h2>
+    <div class="list-group">
+      {% for tournament in displayable_tournaments %}
+          {% url 'tournaments:details_round_robin' pk=tournament.pk as details_url_rr %}
+          {% url 'tournaments:details_elimination' pk=tournament.pk as details_url_sgl %}
+          {% url 'tournaments:details_double_elimination' pk=tournament.pk as details_url_dbe %}
+          {% url 'tournaments:details_ladder' pk=tournament.pk as details_url_ldr %}
+          {% url 'tournaments:details_americano' pk=tournament.pk as details_url_amr %}
+          {% url 'tournaments:details_swiss' pk=tournament.pk as details_url_sws %}
+          <a href="{% if tournament.tournament_type == 'RND' %}{{ details_url_rr }}{% elif tournament.tournament_type == 'SGL' %}{{ details_url_sgl }}{% elif tournament.tournament_type == 'DBE' %}{{ details_url_dbe }}{% elif tournament.tournament_type == 'LDR' %}{{ details_url_ldr }}{% elif tournament.tournament_type == 'AMR' %}{{ details_url_amr }}{% elif tournament.tournament_type == 'SWS' %}{{ details_url_sws }}{% else %}#{% endif %}" class="list-group-item list-group-item-action">
+            <div class="d-grid d-sm-none mb-2">
+              <span class="badge
+                  {% if tournament.status == 'REG' %}bg-info text-dark
+                  {% elif tournament.status == 'SCH' %}bg-primary
+                  {% elif tournament.status == 'ACT' %}bg-success
+                  {% elif tournament.status == 'FIN' %}bg-dark
+                  {% else %}bg-secondary{% endif %}
+              ">{{ tournament.get_status_display }}</span>
+            </div>
+            <div class="d-flex w-100 align-items-center justify-content-between">
+              <div class="me-3 text-center" style="width: 40px;">
+                {% if tournament.tournament_type == 'RND' %}
+                  <i class="fa-solid fa-circle-nodes fa-2x text-primary"></i>
+                {% elif tournament.tournament_type == 'SGL' or tournament.tournament_type == 'DBE' %}
+                  <i class="fa-solid fa-sitemap fa-2x text-danger"></i>
+                {% elif tournament.tournament_type == 'LDR' %}
+                  <i class="fa-solid fa-stairs fa-2x text-success"></i>
+                {% elif tournament.tournament_type == 'AMR' %}
+                  <i class="fa-solid fa-people-arrows fa-2x text-info"></i>
+                {% elif tournament.tournament_type == 'SWS' %}
+                  <i class="fa-solid fa-list-ol fa-2x text-warning"></i>
+                {% endif %}
+              </div>
+              <div class="flex-grow-1">
+                <h5 class="mb-1 me-2">{{ tournament.name }}</h5>
+                <small class="text-muted">{{ tournament.get_tournament_type_display }}</small>
+              </div>
+              <span class="badge rounded-pill d-none d-sm-inline-block
+                  {% if tournament.status == 'REG' %}bg-info text-dark
+                  {% elif tournament.status == 'SCH' %}bg-primary
+                  {% elif tournament.status == 'ACT' %}bg-success
+                  {% elif tournament.status == 'FIN' %}bg-dark
+                  {% else %}bg-secondary{% endif %}
+              ">{{ tournament.get_status_display }}</span>
+            </div>
+          </a>
+      {% endfor %}
+   </div>
+  </div>
+  {% endif %}
+
+  <!-- W tym miejscu można zaimplementować dynamiczną siatkę rezerwacji -->
+{% endblock %}

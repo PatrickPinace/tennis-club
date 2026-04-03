@@ -1,0 +1,28 @@
+{% load widget_tweaks %}
+
+<div class="player-row d-flex justify-content-center align-items-center my-3 flex-wrap">
+  <div class="player-select">
+    {% comment %} Zawsze renderujemy pole wyboru. Logika formularza dba o zawartość. {% endcomment %}
+    {% if leader == 'p1' %} {% with field=form.p1 %}
+      {{ field }}
+      {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+    {% endwith %} {% elif leader == 'p2' %} {% with field=form.p2 %}
+      {{ field }}
+      {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+    {% endwith %} {% endif %}
+  </div>
+
+  <div id="doubles-separator-{{ friend }}" class="doubles-separator mx-2 {% if not is_doubles %}d-none{% endif %}">/</div>
+
+  <div id="player-{{ friend }}-col" class="player-select {% if not is_doubles %}d-none{% endif %}">
+    {% if friend == 'p3' %}
+      {% with field=form.p3 %}
+        {{ field }}
+        {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+      {% endwith %}
+    {% elif friend == 'p4' %} {% with field=form.p4 %}
+        {{ field }}
+        {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+      {% endwith %} {% endif %}
+  </div>
+</div>

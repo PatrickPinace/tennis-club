@@ -1,0 +1,323 @@
+{% extends "tennis-club.html" %}
+{% load tournaments %}
+{% load static %}
+
+{% block content %}
+<style>
+    /* Style dla reakcji */
+    .reaction-btn.active {
+        border-color: var(--bs-primary);
+        background-color: var(--bs-primary-bg-subtle);
+    }
+
+    .reaction-btn .reaction-count {
+        font-size: 0.8em;
+        color: var(--bs-secondary-color);
+    }
+
+    /* Style dla drabinki turniejowej */
+    .bracket-container {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        /* Umożliwia przewijanie w poziomie na mniejszych ekranach */
+        padding-bottom: 1rem;
+        align-items: flex-start;
+
+        /* Definiujemy zmienne CSS dla spójnego odstępu */
+        --match-box-height: 130px;
+        /* Wysokość pojedynczego bloku meczu */
+        --match-vertical-gap: 30px;
+        /* Odstęp pionowy między meczami */
+        --match-total-slot-height: calc(var(--match-box-height) + var(--match-vertical-gap));
+    }
+
+    .round {
+        display: flex;
+        flex-direction: column;
+        min-width: 250px;
+        /* Minimalna szerokość kolumny rundy */
+        padding: 0 1rem;
+        flex-shrink: 0;
+    }
+
+    .round-matches-wrapper {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .match {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+        position: relative;
+        /* Potrzebne dla linii łączących */
+        margin-bottom: var(--match-vertical-gap);
+        /* Domyślny margines dolny */
+        height: var(--match-box-height);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    /* Dla rund > 1, margines dolny jest zerowany, bo góra jest obliczana dynamicznie */
+    .round:not(:first-child) .match {
+        margin-bottom: 0;
+    }
+
+    /* --- Logika linii łączących --- */
+
+    /* 1. Linie poziome (::before) */
+    /* Linia wychodząca dla Rundy 1 */
+    .round:first-child:not(:last-child) .match::before {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 100%;
+        width: 1rem;
+        height: 2px;
+    }
+
+    /* Linia "przelotowa" dla rund pośrednich (R > 1 i nie ostatnia) */
+    .round:not(:first-child):not(:last-child) .match::before {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        transform: translateY(-50%);
+        left: -1rem;
+        width: calc(100% + 2rem);
+        height: 2px;
+    }
+
+    /* Linia wchodząca dla ostatniej rundy (jeśli nie jest pierwszą) */
+    .round:last-child:not(:first-child) .match::before {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        transform: translateY(-50%);
+        right: 100%;
+        width: 1rem;
+        height: 2px;
+    }
+
+    /* 2. Linie pionowe (::after) */
+    /* Linia pionowa w dół (dla meczów nieparzystych we wszystkich rundach oprócz ostatniej) */
+    .round:not(:last-child) .match:nth-child(odd)::after {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        right: -1rem;
+        width: 2px;
+        height: calc(var(--connector-height) / 2);
+    }
+
+    /* Linia pionowa w górę (dla meczów parzystych we wszystkich rundach oprócz ostatniej) */
+    .round:not(:last-child) .match:nth-child(even)::after {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        bottom: 50%;
+        right: -1rem;
+        width: 2px;
+        height: calc(var(--connector-height) / 2);
+    }
+
+    .match-content {
+        padding: 0.75rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .participant {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.25rem 0;
+    }
+
+    .participant.winner {
+        font-weight: bold;
+        color: #198754;
+        /* Kolor sukcesu Bootstrapa */
+    }
+
+    .participant-name {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .score {
+        font-weight: normal;
+        padding-left: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .set-score {
+        display: inline-block;
+        width: 1.8em;
+        /* Zmniejszona szerokość dla mniejszych odstępów */
+        text-align: center;
+        /* Dodajemy pionową linię po prawej stronie */
+        border-right: 1px solid #dee2e6;
+        /* Kolor linii dopasowany do ramki meczu */
+        padding: 0 0.2em;
+        /* Mały padding, aby tekst nie przylegał do linii */
+    }
+
+    .set-score:last-child {
+        border-right: none;
+    }
+
+    /* Usuwamy linię z ostatniego wyniku seta */
+    .set-score.set-winner {
+        font-weight: bold;
+    }
+
+    /* Pogrubienie zwycięzcy seta */
+    .bye {
+        color: #6c757d;
+        /* Kolor secondary Bootstrapa */
+        font-style: italic;
+    }
+</style>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-1 fs-4 fs-md-2">
+                <a href="#tournamentRules" data-bs-toggle="collapse" role="button" aria-expanded="false"
+                    aria-controls="tournamentRules" class="text-decoration-none text-dark"
+                    title="Kliknij, aby zobaczyć zasady">
+                    {{ tournament.name }} <i class="bi bi-info-circle-fill small text-muted"></i>
+                </a>
+            </h2>
+            <span class="badge bg-primary">{{ tournament.get_tournament_type_display }}</span>
+            <span class="badge bg-info">{{ tournament.get_status_display }}</span>
+        </div>
+        <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary d-none d-md-inline-block">
+            <i class="bi bi-arrow-left"></i>
+            <span class="d-none d-md-inline"> Powrót</span>
+        </a>
+    </div>
+
+
+    {% if tournament.description %}
+    <p class="lead">{{ tournament.description }}</p>
+    {% endif %}
+
+    {% if tournament.elimination_config %}
+    <div class="collapse" id="tournamentRules">
+        <div class="card bg-light my-4">
+            <div class="card-body">
+                <h5 class="card-title">Zasady turnieju</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Format meczu:</strong> Do {{ tournament.elimination_config.sets_to_win }} wygranych setów</p>
+                        <p class="mb-1"><strong>Format seta:</strong> Do {{ tournament.elimination_config.games_per_set }} wygranych gemów <small class="text-muted d-block">(trzeci set może być rozgrywany jako Super Tie-break)</small></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>Parowanie 1. rundy:</strong> {{ tournament.elimination_config.get_initial_seeding_display }}</p>
+                        <p class="mb-1"><strong>Mecz o trzecie miejsce:</strong>
+                            {% if tournament.elimination_config.third_place_match %}Tak{% else %}Nie{% endif %}</p>
+                    </div>
+                </div>
+                <hr>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        {% if tournament.start_date %}<p class="mb-1"><strong>Data rozpoczęcia:</strong> {{ tournament.start_date|date:"Y-m-d H:i" }}</p>{% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        {% if tournament.end_date %}<p class="mb-1"><strong>Data zakończenia:</strong> {{ tournament.end_date|date:"Y-m-d H:i" }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+
+    {% include "tournaments/partials/tournament_winner.html" %}
+
+    <h3 class="mt-5">Drabinka Turniejowa</h3>
+
+    {% if matches_exist %}
+    <div class="bracket-container">
+        {% for round_num, round_matches in rounds.items %}
+        <div class="round">
+            <h5 class="round-header text-center mb-4">
+                {% with match_count=round_matches|length %}
+                    {% if match_count == 1 %}Finał{% elif match_count == 2 %}Półfinał{% elif match_count == 4 %}Ćwierćfinał{% else %}Runda {{ round_num }}{% endif %}
+                {% endwith %}
+            </h5>
+            <div class="round-matches-wrapper">
+
+                {% for match in round_matches %}
+                {% if round_num > 1 %}
+                {% with pow_r=2|pow:round_num %}
+                {% with pow_r_minus_1=pow_r|divide:2 %}
+                {% with pow_r_minus_2=pow_r|divide:4 %}
+                {% if forloop.counter0 == 0 %}
+                {# First match in a round > 1 #}
+                {% with margin_multiplier=pow_r_minus_2|subtract:0.5 %}
+                <div class="match"
+                    style="margin-top: calc(var(--match-total-slot-height) * {{ margin_multiplier|force_dot }}); --connector-height: calc(var(--match-total-slot-height) * {{ pow_r_minus_1|force_dot }});">
+                    {% include "tournaments/partials/match_content.html" %}</div>
+                {% endwith %}
+                {% else %}
+                {# Subsequent matches in a round > 1 #}
+                {% with margin_multiplier=pow_r_minus_1 %}
+                <div class="match"
+                    style="margin-top: calc(var(--match-total-slot-height) * {{ margin_multiplier|force_dot }} - var(--match-box-height)); --connector-height: calc(var(--match-total-slot-height) * {{ pow_r_minus_1|force_dot }});">
+                    {% include "tournaments/partials/match_content.html" %}</div>
+                {% endwith %}
+                {% endif %}
+                {% endwith %}
+                {% endwith %}
+                {% endwith %}
+                {% else %} {# round_num == 1 #}
+                <div class="match" style="--connector-height: var(--match-total-slot-height);">{% include "tournaments/partials/match_content.html" %}</div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div> {# Koniec .round #}
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info mt-3">
+        Drabinka nie została jeszcze wygenerowana. Organizator musi najpierw <a
+            href="{% url 'tournaments:manage_matches' pk=tournament.pk %}" class="alert-link">wygenerować mecze</a>.
+    </div>
+    {% endif %}
+
+    {% if third_place_match %}
+    <div class="mt-5">
+        <h3 class="text-center">Mecz o 3. miejsce</h3>
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-6 col-lg-4">
+                <div class="match" style="height: auto;">
+                    {% with match=third_place_match %}{% include "tournaments/partials/match_content.html" %}{% endwith %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/reactions.js' %}"></script>
+{% endblock %}

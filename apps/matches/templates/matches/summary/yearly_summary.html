@@ -1,0 +1,187 @@
+{% load matches %}
+
+<div class="my-4">
+    <h3 class="text-center mb-3">Podsumowanie roczne</h3>
+
+    <div class="accordion" id="yearlySummaryAccordion">
+        {% for year, summary_data in yearly_summary.items %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading{{ year }}">
+                <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ year }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ year }}">
+                    Rok {{ year }}
+                </button>
+            </h2>
+            <div id="collapse{{ year }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading{{ year }}" data-bs-parent="#yearlySummaryAccordion">
+                <div class="accordion-body">
+                    <!-- Widok dla dużych ekranów (desktop) -->
+                    <div class="d-none d-lg-block">
+                        <div class="table-responsive">
+                            <!-- Podsumowanie roczne dla przeciwnika -->
+                            <table class="table table-striped table-hover align-middle">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Przeciwnik (podsumowanie roczne)</th>
+                                        <th class="text-center">Mecze</th>
+                                        <th class="text-center">Sety</th>
+                                        <th class="text-center">Gemy</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for opponent_name, opponent_data in summary_data.opponents.items %}
+                                    <tr>
+                                        <td>
+                                            <div class="fw-bold">
+                                                {% for player_name in opponent_data.team.opponent %}
+                                                    {{ player_name }}{% if not forloop.last %} / {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                        <td style="min-width: 200px;">
+                                            {% with s=opponent_data.stats.match %}
+                                                {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                            {% endwith %}
+                                        </td>
+                                        <td style="min-width: 200px;">
+                                            {% with s=opponent_data.stats.set %}
+                                                {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                            {% endwith %}
+                                        </td>
+                                        <td style="min-width: 200px;">
+                                            {% with s=opponent_data.stats.gem %}
+                                                {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                            {% endwith %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Podsumowanie miesięczne (desktop) -->
+                        {% for opponent_name, opponent_data in summary_data.opponents.items %}
+                            {% with year_data=opponent_data.years|get_item:year %}
+                                {% if year_data and year_data.months %}
+                                    <div class="mt-4">
+                                        <h5 class="text-center mb-3">Podsumowanie miesięczne</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-striped table-hover align-middle">
+                                                <thead class="table-secondary">
+                                                    <tr>
+                                                        <th>Miesiąc</th>
+                                                        <th class="text-center">Mecze</th>
+                                                        <th class="text-center">Sety</th>
+                                                        <th class="text-center">Gemy</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for month, month_data in year_data.months.items %}
+                                                        {% if month_data.stats.match.all > 0 %}
+                                                            <tr>
+                                                                <td>{{ month }}</td>
+                                                                <td style="min-width: 150px;">
+                                                                    {% with s=month_data.stats.match %}
+                                                                        {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                                                    {% endwith %}
+                                                                </td>
+                                                                <td style="min-width: 150px;">
+                                                                    {% with s=month_data.stats.set %}
+                                                                        {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                                                    {% endwith %}
+                                                                </td>
+                                                                <td style="min-width: 150px;">
+                                                                    {% with s=month_data.stats.gem %}
+                                                                        {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                                                    {% endwith %}
+                                                                </td>
+                                                            </tr>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+
+                    <!-- Widok dla małych ekranów (mobile) -->
+                    <div class="d-lg-none">
+                        <!-- Podsumowanie roczne dla przeciwnika (mobile) -->
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header bg-dark text-white text-center">
+                                <h5 class="mb-0">Przeciwnik (podsumowanie roczne)</h5>
+                            </div>
+                            {% for opponent_name, opponent_data in summary_data.opponents.items %}
+                            <div class="card-body">
+                                <h6 class="text-center fw-bold">
+                                    {% for player_name in opponent_data.team.opponent %}
+                                        {{ player_name }}{% if not forloop.last %} / {% endif %}
+                                    {% endfor %}
+                                </h6>
+                                <div class="mb-3">
+                                    <h6 class="text-center text-muted">Mecze</h6>
+                                    {% with s=opponent_data.stats.match %}
+                                        {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                    {% endwith %}
+                                </div>
+                                <div class="mb-3">
+                                    <h6 class="text-center text-muted">Sety</h6>
+                                    {% with s=opponent_data.stats.set %}
+                                        {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                    {% endwith %}
+                                </div>
+                                <div>
+                                    <h6 class="text-center text-muted">Gemy</h6>
+                                    {% with s=opponent_data.stats.gem %}
+                                        {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Podsumowanie miesięczne (mobile) -->
+                        {% for opponent_name, opponent_data in summary_data.opponents.items %}
+                            {% with year_data=opponent_data.years|get_item:year %}
+                                {% if year_data and year_data.months %}
+                                    <h5 class="text-center mb-3">Podsumowanie miesięczne</h5>
+                                    {% for month, month_data in year_data.months.items %}
+                                        {% if month_data.stats.match.all > 0 %}
+                                            <div class="card shadow-sm mb-3">
+                                                <div class="card-header bg-secondary text-white text-center">
+                                                    <h6 class="mb-0">{{ month }}</h6>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="mb-3">
+                                                        <h6 class="text-center text-muted">Mecze</h6>
+                                                        {% with s=month_data.stats.match %}
+                                                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                                        {% endwith %}
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <h6 class="text-center text-muted">Sety</h6>
+                                                        {% with s=month_data.stats.set %}
+                                                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                                        {% endwith %}
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="text-center text-muted">Gemy</h6>
+                                                        {% with s=month_data.stats.gem %}
+                                                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                                        {% endwith %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>

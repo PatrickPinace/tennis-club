@@ -1,0 +1,142 @@
+<div class="card card-results {% if page != 'home' %}mx-auto{% endif %}">
+  {% if page == 'activities' %}
+  <div class="card-header bg-dark text-white">
+    <h4 class="card-title text-center font-2 mb-0">
+      {% if card_title == 'online_single' %}
+      SINGIEL
+      <br><i class='fas fa-user'></i> VS <i class='fas fa-user'></i>
+      {% elif card_title == 'online_double' %}
+      DEBEL
+      <br><i class='fas fa-user-friends'></i> VS <i class='fas fa-user-friends'></i>
+      {% elif card_title == 'offline_single' %}
+      SINGIEL
+      <br><i class='fas fa-user'></i> VS <i class='fas fa-user'></i>
+      <br><small>(Offline)</small>
+      {% elif card_title == 'offline_double' %}
+      DEBEL
+      <br><i class='fas fa-user-friends'></i> VS <i class='fas fa-user-friends'></i>
+      <br><small>(Offline)</small>
+      {% else %}
+      ---
+      {% endif %}
+      <br><small>GRUPA</small>
+      <br><small>(ostatnie 7 dni)</small>
+    </h4>
+  </div>
+  {% endif %}
+
+  <div class="card-body card-body-results px-0">
+    {% if matches %}
+    <table class="table table-striped">
+      <thead>
+        <tr class="align-middle text-center">
+          <th class="results-col-date"></th>
+          <th class="results-col-players"></th>
+          <th class="results-col-set">SET1</th>
+          <th class="results-col-set">SET2</th>
+          <th class="results-col-set">SET3</th>
+          <th class="results-col-menu"></th>
+        </tr>
+      </thead>
+      <tbody class="table-group-divider">
+        {% for match in matches %}
+        <tr class="align-middle text-center">
+          <td class="table-col-date px-0 py-4 {% if page != 'activities' %}{{ match.user }}{% endif %}">
+            {% if match.is_tournament %}
+            <i class="fas fa-trophy text-warning mb-1" title="Mecz turniejowy"></i><br>
+            {% endif %}
+            <span class="date-cell">
+              {{ match.match_date|date:'d' }}<br>
+              {{ match.match_date|date:'F' }}<br>
+              {{ match.match_date|date:'Y' }}
+            </span>
+          </td>
+          <td class="table-col-players p-0">
+            <div class="players-cell d-flex flex-column align-items-center">
+              {% if match.match_double %}
+              <div class="team my-team mb-1 double">
+                <span class="player {% if match.win == 'p1' %}winner{% endif %}">
+                  <i class="fa-solid fa-user"></i> {{ match.p1 }} / {{ match.p3 }}
+                </span>
+              </div>
+              <div class="vs-label text-secondary fw-bold">VS</div>
+              <div class="team opponent-team mt-1 double">
+                <span class="player {% if match.win == 'p2' %}winner{% endif %}">
+                  <i class="fa-solid fa-user"></i> {{ match.p2 }} / {{ match.p4 }}
+                </span>
+              </div>
+              {% else %}
+              <div class="team my-team mb-1">
+                <span class="player {% if match.win == 'p1' %}winner{% endif %}">
+                  <i class="fa-solid fa-user"></i> {{ match.p1 }}
+                </span>
+              </div>
+              <div class="vs-label text-secondary fw-bold">VS</div>
+              <div class="team opponent-team mt-1">
+                <span class="player {% if match.win == 'p2' %}winner{% endif %}">
+                  <i class="fa-solid fa-user"></i> {{ match.p2 }}
+                </span>
+              </div>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <div class="row">
+              <div class="col p-0"><span class="{% if match.p1_set1 > match.p2_set1 %} win-set {% endif %}">{{ match.p1_set1 }}</span></div>
+            </div>
+            <div class="row">
+              <div class="col p-0"><span>---</span></div>
+            </div>
+            <div class="row">
+              <div class="col p-0"><span class="{% if match.p2_set1 > match.p1_set1 %} win-set {% endif %}">{{ match.p2_set1 }}</span></div>
+            </div>
+          </td>
+          <td>
+            <div class="{% if match.p2_set2 == 0 and match.p1_set2 == 0 or match.p2_set2 is None and match.p1_set2 is None %} d-none {% endif %}">
+              <div class="row">
+                <div class="col p-0"><span class="{% if match.p1_set2 > match.p2_set2 %} win-set {% endif %}">{{ match.p1_set2 }}</span></div>
+              </div>
+              <div class="row">
+                <div class="col p-0"><span>---</span></div>
+              </div>
+              <div class="row">
+                <div class="col p-0"><span class="{% if match.p2_set2 > match.p1_set2 %} win-set {% endif %}">{{ match.p2_set2 }}</span></div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="{% if match.p2_set3 == 0 and match.p1_set3 == 0 or match.p2_set3 is None and match.p1_set3 is None %} d-none {% endif %}">
+              <div class="row">
+                <div class="col p-0"><span class="{% if match.p1_set3 > match.p2_set3 %} win-set {% endif %}">{{ match.p1_set3 }}</span></div>
+              </div>
+              <div class="row">
+                <div class="col p-0"><span>---</span></div>
+              </div>
+              <div class="row">
+                <div class="col p-0"><span class="{% if match.p2_set3 > match.p1_set3 %} win-set {% endif %}">{{ match.p2_set3 }}</span></div>
+              </div>
+            </div>
+          </td>
+          <td class="dropdown" style="position:static;">
+            <a class="dropdown-toggle table-menu" data-bs-toggle="dropdown"><i class='fas fa-ellipsis-v'></i></a>
+            <ul class="dropdown-menu">
+              {% if match.is_tournament %}
+              <li><a class="dropdown-item dropdown-item-results" href="{% url 'matches:match_detail' match.id %}">Statystyki</a></li>
+              {% else %}
+              <li><a class="dropdown-item dropdown-item-results" href="{% url 'matches:match_detail' match.id %}">Statystyki</a></li>
+              {% endif %}
+              {% if not match.is_tournament %}
+              {% if request.user.pk == match.p1_id or request.user.pk == match.p2_id or request.user.pk == match.p3_id or request.user.pk == match.p4_id %}
+              <li><a class="dropdown-item dropdown-item-results" href="{% url 'matches:matches_edit_match' match.id %}">Edytuj</a></li>
+              <li><a class="dropdown-item dropdown-item-results" href="{% url 'matches:matches_remove' match.id %}">Usuń</a></li>
+              {% endif %}
+              {% endif %}
+            </ul>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
+</div>

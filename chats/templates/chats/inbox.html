@@ -1,0 +1,43 @@
+{% extends 'tennis-club.html' %}
+
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Skrzynka odbiorcza</h2>
+    {% if friends_to_chat_with %}
+      <div class="dropdown">
+        <button class="btn btn-success" type="button" id="startChatDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-plus-circle"></i> Rozpocznij czat
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="startChatDropdown">
+          {% for friend in friends_to_chat_with %}
+            <li>
+              <a class="dropdown-item" href="{% url 'chats:conversation' username=friend.username %}">
+                {{ friend.get_full_name|default:friend.username }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="list-group">
+    {% for item in latest_messages %}
+      {% if item.message.sender == request.user %}
+        {% with other_user=item.message.recipient %}
+          {% include "chats/inbox_item.html" with other_user=other_user message=item.message unread_count=item.unread_count %}
+        {% endwith %}
+      {% else %}
+        {% with other_user=item.message.sender %}
+          {% include "chats/inbox_item.html" with other_user=other_user message=item.message unread_count=item.unread_count %}
+        {% endwith %}
+      {% endif %}
+    {% empty %}
+      <div class="alert alert-info" role="alert">
+        Nie masz jeszcze żadnych wiadomości.
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

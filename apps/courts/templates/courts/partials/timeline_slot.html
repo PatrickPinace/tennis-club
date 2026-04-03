@@ -1,0 +1,45 @@
+{% load tournaments %}
+<div class="time-slot-wrapper">
+  {% if current_time_str and slot_to_render < current_time_str %}
+    <div class="time-slot past" title="Termin minął"></div>
+  {% else %}
+    {% with slot_details=data.timeline_slots|get_item:slot_to_render %}
+      {% if slot_details %}
+        {% if user == facility.owner %}
+          <div class="time-slot owner-actions {% if slot_details.status == 'CONFIRMED' %}booked{% else %}pending{% endif %}" title="Rezerwacja: {{ slot_details.user_full_name }}">
+            <div class="action-buttons">
+              {% if slot_details.status == 'PENDING' %}
+                {# Dla rezerwacji oczekujących, właściciel widzi tylko Akceptuj/Odrzuć #}
+                <form data-action="{% url 'courts:confirm-reservation' pk=slot_details.reservation_id %}" method="post" class="d-inline" title="Akceptuj rezerwację dla: {{ slot_details.user_full_name }}">
+                    {% csrf_token %}<button type="submit" class="btn btn-sm btn-success"><i class="fa-solid fa-check"></i></button>
+                </form>
+                <form data-action="{% url 'courts:reject-reservation' pk=slot_details.reservation_id %}" method="post" class="d-inline" title="Odrzuć rezerwację dla: {{ slot_details.user_full_name }}">
+                    {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger"><i class="fa-solid fa-times"></i></button>
+                </form>
+              {% elif slot_details.status == 'CONFIRMED' %}
+                {# Dla rezerwacji potwierdzonych, właściciel widzi tylko Anuluj #}
+                <form data-action="{% url 'courts:delete-reservation' pk=slot_details.reservation_id %}" method="post" class="d-inline" onsubmit="return confirm('Czy na pewno chcesz ANULOWAĆ rezerwację dla {{ slot_details.user_full_name }}?');">
+                    {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger" title="Anuluj rezerwację dla: {{ slot_details.user_full_name }}"><i class="fa-solid fa-trash-can"></i></button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+        {% elif slot_details.is_current_user and slot_details.status == 'CONFIRMED' or slot_details.is_current_user and slot_details.status == 'PENDING' %}
+          <div class="time-slot user-actions {% if slot_details.status == 'CONFIRMED' %}my-reservation{% else %}pending{% endif %}" title="Twoja rezerwacja ({{ slot_details.status|lower }})">
+            <div class="action-buttons">
+              <form data-action="{% url 'courts:delete-reservation' pk=slot_details.reservation_id %}" method="post" class="d-inline" onsubmit="return confirm('Czy na pewno chcesz anulować tę rezerwację?');">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-danger" title="Anuluj rezerwację"><i class="fa-solid fa-trash-can"></i></button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <div class="time-slot booked" title="Zajęty">
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="time-slot available" data-court-id="{{ data.court.pk }}" data-slot-time="{{ slot_to_render }}" title="Wybierz termin od {{ slot_to_render }}">
+        </div>
+      {% endif %}
+    {% endwith %}
+  {% endif %}
+</div>

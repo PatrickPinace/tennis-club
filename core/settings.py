@@ -169,28 +169,16 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DB_PASS = os.getenv('DB_PASS')
-
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'tennis_club',
-        'USER': 'superuser',
-        'PASSWORD': DB_PASS, # Pobierane ze zmiennej środowiskowej
-        "OPTIONS": {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_notes=0",  # sql_notes = 1, aby pokazywało ostrzeżenia po wysłaniu zapytania do bazy
-        }
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'tennis_club'),
+        'USER': os.getenv('DB_USER', 'tennis_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', ''),
+        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
-
-# Ustawienia bazy danych w zależności od środowiska
-if DJANGO_ENV == 'development':
-    DATABASES['default']['HOST'] = '127.0.0.1' # lub inny host lokalny
-    DATABASES['default']['PORT'] = '3306'
-else: # Produkcja
-    DATABASES['default']['HOST'] = '192.168.0.148'
-    DATABASES['default']['PORT'] = '3306'
 
 
 # Password validation

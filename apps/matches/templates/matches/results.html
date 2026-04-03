@@ -1,0 +1,53 @@
+{% extends 'tennis-club.html' %}
+
+<!-- Dodatkowe CSS -->
+{% block styles %}
+<link rel="stylesheet" href="/static/css/results.css" type="text/css">
+{% endblock %}
+
+{% block content %}
+<div class="main-results">
+  <div class="my-2 p-3 bg-dark text-white rounded">
+    <h2 class="text-center font-2 mb-0 mt-2">Wyniki Spotkań</h2>
+  </div>
+
+  <div class="mb-3">
+    <form method="get">
+      <div class="input-group">
+        <span class="input-group-text bg-dark text-white border-0">Zawodnik</span>
+        <select name="user_id" id="player_select_results" class="form-select" onchange="this.form.submit()">
+          <option value="{{ request.user.id }}" {% if target_user.id == request.user.id %}selected{% endif %}>
+            {{ request.user.first_name }} {{ request.user.last_name }} (Ty)
+          </option>
+          {% for player in all_players %}
+          {% if player.id != request.user.id %}
+          <option value="{{ player.id }}" {% if target_user.id == player.id %}selected{% endif %}>
+            {{ player.first_name }} {{ player.last_name }}
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      $('#player_select_results').select2({
+        theme: 'bootstrap-5',
+        width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
+      });
+    });
+  </script>
+
+  {% include 'matches/results/filters.html' %}
+
+  {% if matches %}
+  {% include 'matches/results/result_card.html' %}
+  {% else %}
+  <div class="alert alert-info mt-3">Brak meczów do wyświetlenia dla wybranych filtrów.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}

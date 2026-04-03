@@ -1,0 +1,91 @@
+{% load static %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="articles-container">
+    {% for article in articles %}
+    <div class="col">
+        <div class="card h-100 shadow-sm border-0">
+            {% if article.image %}
+            <img src="{{ article.image.url }}" class="card-img-top" alt="{{ article.title }}" style="height: 200px; object-fit: cover;">
+            {% else %}
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                <i class="bi bi-newspaper fs-1 text-muted"></i>
+            </div>
+            {% endif %}
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title fw-bold">
+                    <a href="{{ article.get_absolute_url }}" class="text-decoration-none text-dark stretched-link">
+                        {{ article.title }}
+                    </a>
+                </h5>
+                <h6 class="card-subtitle mb-2 text-muted small">
+                    <i class="bi bi-calendar-event me-1"></i>{{ article.published_at|date:"d.m.Y" }}
+                    {% if article.author %}
+                    <span class="ms-2"><i class="bi bi-person me-1"></i>{{ article.author.get_full_name|default:article.author.username }}</span>
+                    {% endif %}
+                </h6>
+                <p class="card-text text-secondary mt-2 flex-grow-1">
+                    {{ article.lead|default:article.content|truncatewords:20 }}
+                </p>
+                
+                <div class="mt-3">
+                    {% for category in article.categories.all %}
+                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">{{ category.name }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer bg-white border-top-0 text-end">
+                <small class="text-primary fw-bold">Czytaj dalej <i class="bi bi-arrow-right"></i></small>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12 text-center py-5">
+        <div class="alert alert-info d-inline-block">
+            <i class="bi bi-info-circle me-2"></i>
+            {% if request.GET.q %}
+            Brak wyników dla zapytania "{{ request.GET.q }}".
+            {% else %}
+            Brak opublikowanych artykułów w tej chwili.
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination (only show if not searching or if handling pagination with search later, for now we hide it on search for simplicity or keep it) -->
+{% if is_paginated and not request.GET.q %}
+<nav aria-label="Nawigacja po stronach artykułów" class="mt-5">
+  <ul class="pagination justify-content-center">
+    {% if page_obj.has_previous %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Poprzednia">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    </li>
+    {% else %}
+    <li class="page-item disabled">
+      <span class="page-link">&laquo;</span>
+    </li>
+    {% endif %}
+
+    {% for i in paginator.page_range %}
+      {% if page_obj.number == i %}
+        <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+      {% else %}
+        <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+      {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <li class="page-item">
+      <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Następna">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    </li>
+    {% else %}
+    <li class="page-item disabled">
+      <span class="page-link">&raquo;</span>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}

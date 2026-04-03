@@ -1,0 +1,234 @@
+  {% if tournaments %}
+  
+  {% regroup tournaments by end_date.year as tournaments_by_year %}
+
+  {% for group in tournaments_by_year %}
+    {% if group.grouper %}
+        <h3 class="border-bottom pb-2 mb-3 mt-4 text-secondary">{{ group.grouper }}</h3>
+    {% else %}
+        <h3 class="border-bottom pb-2 mb-3 mt-4 text-secondary">Inne</h3>
+    {% endif %}
+
+    <div class="row row-cols-1 g-3">
+    {% for t in group.list %}
+    <div class="col">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <!-- Status dla widoku mobilnego -->
+          <div class="d-grid d-sm-none mb-2">
+            <span class="badge
+              {% if t.status == 'DRF' %}
+                bg-secondary
+              {% elif t.status == 'REG' %}
+                bg-info
+              {% elif t.status == 'SCH' %}
+                bg-primary
+              {% elif t.status == 'ACT' %}
+                bg-success
+              {% elif t.status == 'FIN' %}
+                bg-dark
+              {% else %}
+                bg-danger {# Fallback for unknown or CAN #}
+              {% endif %}
+            ">{{ t.get_status_display }}</span>
+          </div>
+
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+              <div class="me-3 text-center" style="width: 40px;">
+                {% if t.tournament_type == 'RND' %}
+                  <i class="fa-solid fa-circle-nodes fa-2x text-primary"></i>
+                {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}
+                  <i class="fa-solid fa-sitemap fa-2x text-danger"></i>
+                {% elif t.tournament_type == 'LDR' %}
+                  <i class="fa-solid fa-stairs fa-2x text-success"></i>
+                {% elif t.tournament_type == 'AMR' %}
+                  <i class="fa-solid fa-people-arrows fa-2x text-info"></i>
+                {% elif t.tournament_type == 'SWS' %}
+                  <i class="fa-solid fa-list-ol fa-2x text-warning"></i>
+                {% endif %}
+              </div>
+              <div class="flex-grow-1">
+                {# Main tournament link #}
+                {% if t.tournament_type == 'RND' %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="{% url 'tournaments:details_round_robin' t.pk %}">
+                {% elif t.tournament_type == 'SGL' %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="{% url 'tournaments:details_elimination' t.pk %}">
+                {% elif t.tournament_type == 'DBE' %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="{% url 'tournaments:details_double_elimination' t.pk %}">
+                {% elif t.tournament_type == 'LDR' %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="{% url 'tournaments:details_ladder' t.pk %}">
+                {% elif t.tournament_type == 'AMR' %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="{% url 'tournaments:details_americano' t.pk %}">
+                {% elif t.tournament_type == 'SWS' %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="{% url 'tournaments:details_swiss' t.pk %}">
+                {% else %}
+                  <a class="text-decoration-none text-dark stretched-link-sm-only" href="#">
+                {% endif %}
+                  <h5 class="card-title mb-1 mobile-title-small">{{ t.name }}</h5>
+                  <p class="card-subtitle text-muted small mobile-subtitle-small">
+                    {% if t.tournament_type == 'SGL' %}
+                      Puchar
+                    {% else %}
+                      {{ t.get_tournament_type_display }}
+                    {% endif %} — {{ t.get_match_format_display }}
+                  </p>
+                </a>
+              </div>
+            </div>
+
+            <!-- Status dla widoku desktopowego -->
+            <div class="d-none d-sm-block text-nowrap">
+              {% if t.status == 'FIN' and t.winner %}
+                <span class="fs-5 bg-warning text-dark rounded mb-0 p-2"><i class="fa-solid fa-trophy me-2"></i>{{ t.winner.display_name }}</span>
+              {% else %}
+              <span class="badge
+                {% if t.status == 'DRF' %}
+                  bg-secondary
+                {% elif t.status == 'REG' %}
+                  bg-info
+                {% elif t.status == 'SCH' %}
+                  bg-primary
+                {% elif t.status == 'ACT' %}
+                  bg-success
+                {% else %}
+                  bg-danger {# Fallback for unknown or CAN #}
+                {% endif %}
+              ">{{ t.get_status_display }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          {% if t.start_date %}
+          <p class="card-text small mt-2 mb-0"><small class="text-muted">Data rozpoczęcia: {{ t.start_date|date:"Y-m-d" }}</small></p>
+          {% endif %}
+          {% if t.end_date %}
+            {% if t.status == 'FIN' %}
+              <p class="card-text small mb-0"><small class="text-muted">Data zakończenia: {{ t.end_date|date:"Y-m-d" }}</small></p>
+            {% else %}
+              <p class="card-text small mb-0"><small class="text-muted">Planowana data zakończenia: {{ t.end_date|date:"Y-m-d" }}</small></p>
+            {% endif %}
+          {% endif %}
+
+          {% if t.status == 'FIN' and t.winner %}
+            {# Widok mobilny - mała odznaka na dole karty #}
+            <div class="mt-3 d-block d-sm-none text-center">
+                <span class="badge bg-warning text-dark fs-6"><i class="fa-solid fa-trophy me-1"></i> Zwycięzca: {{ t.winner.display_name }}</span>
+            </div>
+          {% endif %}
+
+          {# Action buttons - stacked on mobile, inline on desktop #}
+          <div class="d-grid d-sm-flex gap-2 justify-content-sm-end mt-3">
+            {% if t.can_request_join %}
+              <a href="{% url 'tournaments:request_join' t.pk %}" class="btn btn-success" title="Poproś o dołączenie do turnieju">
+                <i class="bi bi-person-plus-fill"></i> Dołącz
+              </a>
+            {% endif %}
+
+            {% if t.user_is_organizer and t.status != 'FIN' %}
+            <div class="dropdown">
+              <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dropdownMenuButton_{{ t.pk }}" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-gear-fill"></i>
+                Zarządzaj
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton_{{ t.pk }}">
+                <li><a class="dropdown-item" href="{% url 'tournaments:manage_matches' t.pk %}">Zarządzaj Meczami</a></li>
+                <li><a class="dropdown-item" href="{% url 'tournaments:list_participants' t.pk %}">Zarządzaj Uczestnikami</a></li>
+                {% if t.tournament_type == 'RND' %}
+                  <li><a class="dropdown-item" href="{% url 'tournaments:edit_roundrobin_config' t.pk %}">Ustawienia</a></li>
+                {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}
+                  <li><a class="dropdown-item" href="{% url 'tournaments:edit_elimination_config' t.pk %}">Ustawienia</a></li>
+                {% elif t.tournament_type == 'LDR' %}
+                  <li><a class="dropdown-item" href="{% url 'tournaments:edit_ladder_config' t.pk %}">Ustawienia</a></li>
+                {% elif t.tournament_type == 'AMR' %}
+                  <li><a class="dropdown-item" href="{% url 'tournaments:edit_americano_config' t.pk %}">Ustawienia</a></li>
+                {% elif t.tournament_type == 'SWS' %}
+                  <li><a class="dropdown-item" href="{% url 'tournaments:edit_swiss_config' t.pk %}">Ustawienia</a></li>
+                {% endif %}
+
+                {% if t.is_draft %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <form method="post" action="{% url 'tournaments:open_registration' t.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item text-success"
+                              onclick="return confirm('Czy na pewno chcesz otworzyć rejestrację dla tego turnieju?')">
+                        Otwórz Rejestrację
+                      </button>
+                    </form>
+                  </li>
+                {% endif %}
+
+                {% if t.status == 'REG' %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <form method="post" action="{% url 'tournaments:close_registration' t.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item text-success"
+                              onclick="return confirm('Czy na pewno chcesz zamknąć rejestrację i zaplanować turniej?')">
+                        Zamknij Rejestrację
+                      </button>
+                    </form>
+                  </li>
+                {% elif t.status == 'SCH' %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li> {# Start Tournament #}
+                    <form method="post" action="{% url 'tournaments:start_tournament' t.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item text-success"
+                              onclick="return confirm('Czy na pewno chcesz oficjalnie rozpocząć ten turniej? Po tej akcji nie będzie można już cofnąć statusu do szkicu.')">
+                        Rozpocznij Turniej
+                      </button>
+                    </form>
+                  </li>
+                  <li> {# Revert to Draft #}
+                    <form method="post" action="{% url 'tournaments:revert_to_draft' t.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item text-warning"
+                              onclick="return confirm('Czy na pewno chcesz zmienić status turnieju na Szkic (Draft)?')">
+                        Wróć do Szkicu
+                      </button>
+                    </form>
+                  </li>
+                {% endif %}
+
+                {% if t.status == 'ACT' %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li> {# Finish Tournament #}
+                    <form method="post" action="{% url 'tournaments:finish_tournament' t.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item text-danger"
+                              onclick="return confirm('Czy na pewno chcesz ręcznie zakończyć ten turniej? Tej akcji nie można cofnąć.')">
+                        Zakończ Turniej
+                      </button>
+                    </form>
+                  </li>
+                {% endif %}
+
+                {% if t.is_deletable %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <form method="post" action="{% url 'tournaments:delete_tournament' t.pk %}">
+                      {% csrf_token %}
+                      <button type="submit" class="dropdown-item text-danger"
+                              onclick="return confirm('Ostrzeżenie: Czy na pewno chcesz USUNĄĆ turniej: {{ t.name }}? Ta operacja jest nieodwracalna.')">
+                        Usuń Turniej
+                      </button>
+                    </form>
+                  </li>
+                {% endif %}
+              </ul>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% endfor %}
+
+  {% else %}
+  <p>Brak utworzonych turniejów.</p>
+  {% endif %}

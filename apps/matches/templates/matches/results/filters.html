@@ -1,0 +1,133 @@
+<!-- Formularz filtrów -->
+<form method="get" class="results-filters mb-4">
+  {% if target_user %}
+  <input type="hidden" name="user_id" value="{{ target_user.id }}">
+  {% endif %}
+  <div class="row g-2 align-items-end">
+
+    <!-- Tryb gry i Partner -->
+    <div class="col-12 col-md-4">
+      <label class="form-label mb-1">Tryb gry</label>
+      <select class="form-select" name="match_double" id="match_double_select">
+        <option value="0" {% if request.GET.match_double == "0" or not request.GET.match_double %}selected{% endif %}>Singiel</option>
+        <option value="1" {% if request.GET.match_double == "1" %}selected{% endif %}>Debel</option>
+      </select>
+    </div>
+
+    <!-- Przeciwnik i Partner przeciwnika -->
+    <div class="col-12 col-md-4">
+      <label class="form-label mb-1">Przeciwnik</label>
+      <select class="form-select" name="opponent_id">
+        <option value="" {% if not request.GET.opponent_id %}selected{% endif %}>Wszyscy</option>
+        {% for opponent in all_played_opponents %}
+        <option value="{{ opponent.id }}" {% if request.GET.opponent_id == opponent.id|stringformat:"s" %}selected{% endif %}>{{ opponent.first_name }} {{ opponent.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Zakres -->
+    <div class="col-12 col-md-2">
+      <label class="form-label mb-1">Zakres</label>
+      <select class="form-select" name="date_range">
+        <option value="last_15" {% if request.GET.date_range == "last_15" or not request.GET.date_range %}selected{% endif %}>Ostatnie (15)</option>
+        {% for year in years %}
+        <option value="{{ year }}" {% if request.GET.date_range == year %}selected{% endif %}>Rok: {{ year }}</option>
+        {% endfor %}
+        <option value="all" {% if request.GET.date_range == "all" %}selected{% endif %}>Wszystko</option>
+      </select>
+    </div>
+
+    <!-- Przycisk -->
+    <div class="col-12 col-md-2 d-grid">
+      <button type="submit" class="btn btn-success"><i class="fa-solid fa-filter"></i> Filtruj</button>
+    </div>
+  </div>
+
+  <!-- Dodatkowy wiersz dla filtrów debla -->
+  <div class="row g-2 align-items-end mt-2 d-none" id="doubles_filters_row">
+    <div class="col-12 col-md-4">
+      <label class="form-label mb-1">Partner</label>
+      <select class="form-select" name="partner_id">
+        <option value="" {% if not request.GET.partner_id %}selected{% endif %}>Wszyscy</option>
+        {% for partner in doubles_partners %}
+        <option value="{{ partner.id }}" {% if request.GET.partner_id == partner.id|stringformat:"s" %}selected{% endif %}>{{ partner.first_name }} {{ partner.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-12 col-md-4 d-none" id="opponent_partner_filter_container">
+      <label class="form-label mb-1">Partner przeciwnika</label>
+      <select class="form-select" name="opponent_partner_id">
+        <option value="" {% if not request.GET.opponent_partner_id %}selected{% endif %}>Wszyscy</option>
+        {% for opponent in doubles_opponents %}
+        <option value="{{ opponent.id }}" {% if request.GET.opponent_partner_id == opponent.id|stringformat:"s" %}selected{% endif %}>{{ opponent.first_name }} {{ opponent.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+</form>
+
+{# Dane dla JavaScript, przekazane w bezpieczny sposób #}
+<script id="opponents-data" type="application/json">
+  {
+    "all": [
+      {% for opponent in all_played_opponents %}{"id": "{{ opponent.id }}", "name": "{{ opponent.first_name }} {{ opponent.last_name }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+    ],
+    "doubles": [
+      {% for opponent in doubles_opponents %}{"id": "{{ opponent.id }}", "name": "{{ opponent.first_name }} {{ opponent.last_name }}"}{% if not forloop.last %},{% endif %}{% endfor %}
+    ]
+  }
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const matchDoubleSelect = document.getElementById('match_double_select');
+    const opponentSelect = document.querySelector('select[name="opponent_id"]');
+    const doublesRow = document.getElementById('doubles_filters_row');
+    const opponentPartnerContainer = document.getElementById('opponent_partner_filter_container');
+
+    // Inicjalizacja Select2 dla pola przeciwnika
+    $(opponentSelect).select2({
+      theme: 'bootstrap-5',
+    }).val('{{ request.GET.opponent_id|default:"" }}').trigger('change');
+
+    // Wczytaj dane o przeciwnikach z tagu script
+    const opponentsData = JSON.parse(document.getElementById('opponents-data').textContent);
+
+    // Funkcja do wypełniania listy select opcjami
+    function populateSelect(selectElement, players, selectedValue) {
+      selectElement.innerHTML = '<option value="">Wszyscy</option>'; // Zacznij od opcji "Wszyscy"
+      players.forEach(player => {
+        const option = document.createElement('option');
+        option.value = player.id;
+        option.textContent = player.name;
+        if (player.id === selectedValue) {
+          option.selected = true;
+        }
+        selectElement.appendChild(option);
+      });
+      // Odśwież Select2, aby uwzględnić nowe opcje
+      $(selectElement).trigger('change.select2');
+    }
+
+    function toggleFilters() {
+      const isDouble = matchDoubleSelect.value === '1';
+      const currentOpponent = opponentSelect.value;
+
+      if (isDouble) {
+        populateSelect(opponentSelect, opponentsData.doubles, currentOpponent);
+        doublesRow.classList.remove('d-none');
+      } else {
+        populateSelect(opponentSelect, opponentsData.all, currentOpponent);
+        doublesRow.classList.add('d-none');
+      }
+
+      // Pokaż/ukryj filtr "Partner przeciwnika" w zależności od wyboru przeciwnika w deblu
+      const isOpponentSelected = opponentSelect.value !== '';
+      opponentPartnerContainer.classList.toggle('d-none', !(isDouble && isOpponentSelected));
+    }
+
+    matchDoubleSelect.addEventListener('change', toggleFilters);
+    opponentSelect.addEventListener('change', toggleFilters);
+    toggleFilters(); // Ustaw stan początkowy przy załadowaniu strony
+  });
+</script>

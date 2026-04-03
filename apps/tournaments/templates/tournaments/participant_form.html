@@ -1,0 +1,55 @@
+{% extends 'tennis-club.html' %}
+{% load static %}
+
+{% block content %}
+<!-- Dodaj CSS dla Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+<div class="container py-4">
+  <h2>{% if participant %}Edycja zgłoszenia{% else %}Rejestracja uczestnika{% endif %} — {{ tournament.name }}</h2>
+  <form method="post">
+    {% csrf_token %}
+    {% for field in form.visible_fields %}
+      <div class="mb-3">
+        {{ field.label_tag }}
+        {{ field }}
+        {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        {{ field.errors }}
+      </div>
+    {% endfor %}
+    <button class="btn btn-primary" type="submit">Zapisz</button>
+    <a class="btn btn-secondary ms-2" href="{% url 'tournaments:list_participants' tournament.pk %}">Anuluj</a>
+  </form>
+</div>
+
+<!-- Dodaj jQuery (wymagane przez Select2) i skrypt Select2 -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Inicjalizacja Select2 dla pola użytkownika
+    const userSelect = $('#id_user').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Wyszukaj i wybierz użytkownika',
+    });
+
+    const displayNameInput = document.getElementById('id_display_name');
+
+    // Nasłuchuj na zdarzenie 'select2:select', które jest specyficzne dla biblioteki Select2
+    userSelect.on('select2:select', function (e) {
+        // Pobierz zaznaczony element <option>
+        const selectedOption = e.params.data.element;
+        if (selectedOption && displayNameInput) {
+            // Pobierz pełną nazwę z atrybutu data-full-name
+            const fullName = selectedOption.getAttribute('data-full-name');
+            displayNameInput.value = fullName;
+        }
+    });
+    userSelect.on('select2:unselect', function (e) {
+        displayNameInput.value = '';
+    });
+});
+</script>
+{% endblock %}

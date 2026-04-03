@@ -1,0 +1,213 @@
+{% extends "tennis-club.html" %}
+{% load static %}
+
+{% block styles %}
+<style>
+  .reaction-btn.active {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+  }
+
+  .reaction-btn .reaction-count {
+    font-size: 0.8em;
+    color: var(--bs-secondary-color);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1 fs-4 fs-md-2">
+        <a href="#tournamentRules" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="tournamentRules" class="text-decoration-none text-dark" title="Kliknij, aby zobaczyć zasady">
+          {{ tournament.name }} <i class="bi bi-info-circle-fill small text-muted"></i>
+        </a>
+      </h2>
+      <span class="badge bg-primary">{{ tournament.get_tournament_type_display }}</span>
+      <span class="badge bg-info">{{ tournament.get_status_display }}</span>
+    </div>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary d-none d-md-inline-block">
+      <i class="bi bi-arrow-left"></i>
+      <span class="d-none d-md-inline"> Powrót</span>
+    </a>
+  </div>
+
+
+  {% if tournament.description %}
+  <p class="lead">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% if tournament.round_robin_config %}
+  <div class="collapse" id="tournamentRules">
+    <div class="card bg-light my-4">
+      <div class="card-body">
+        <h5 class="card-title">Zasady i punktacja</h5>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Format meczu:</strong> Do {{ tournament.round_robin_config.sets_to_win }} wygranych setów</p>
+            <p class="mb-1"><strong>Format seta:</strong> Do {{ tournament.round_robin_config.games_per_set }} wygranych gemów <small class="text-muted d-block">(trzeci set może być rozgrywany jako Super Tie-break)</small></p>
+            <p class="mb-1"><strong>Kolejność w tabeli:</strong> {{ tournament.round_robin_config.get_tie_breaker_priority_display }}<small class="text-muted d-block">(w przypadku, gdy gracze mają taką samą ilość punktów)</small></p>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Punkty za wygraną:</strong> {{ tournament.round_robin_config.points_for_win }}</p>
+            <p class="mb-1"><strong>Punkty za przegraną:</strong> {{ tournament.round_robin_config.points_for_loss }}</p>
+            <p class="mb-1"><strong>Bonus za wygrany set:</strong> {{ tournament.round_robin_config.points_for_set_win }}</p>
+            <p class="mb-1"><strong>Kara za przegrany set:</strong> {{ tournament.round_robin_config.points_for_set_loss }}</p>
+            <p class="mb-1"><strong>Bonus za wygrany gem:</strong> {{ tournament.round_robin_config.points_for_gem_win }}</p>
+            <p class="mb-1"><strong>Kara za przegrany gem:</strong> {{ tournament.round_robin_config.points_for_gem_loss }}</p>
+            <p class="mb-1"><strong>Bonus za punkt w Super Tie-breaku:</strong> {{ tournament.round_robin_config.points_for_supertiebreak_win }}</p>
+            <p class="mb-1"><strong>Kara za punkt w Super Tie-breaku:</strong> {{ tournament.round_robin_config.points_for_supertiebreak_loss }}</p>
+          </div>
+        </div>
+        <hr>
+        <div class="row mt-3">
+          <div class="col-md-6">
+            {% if tournament.start_date %}<p class="mb-1"><strong>Data rozpoczęcia:</strong> {{ tournament.start_date|date:"Y-m-d H:i" }}</p>{% endif %}
+          </div>
+          <div class="col-md-6">
+            {% if tournament.end_date %}<p class="mb-1"><strong>Data zakończenia:</strong> {{ tournament.end_date|date:"Y-m-d H:i" }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+
+  <!-- Tabela Wyników -->
+  <h3 class="mt-5">Aktualna Tabela</h3>
+  {% if standings %}
+  <!-- Widok tabeli dla dużych ekranów (od md wzwyż) -->
+  <div class="d-none d-md-block table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th>#</th>
+          <th>Uczestnik</th>
+          <th class="text-center" title="Punkty">Pkt</th>
+          <th class="text-center" title="Mecze rozegrane">M</th>
+          <th class="text-center" title="Wygrane">W</th>
+          <th class="text-center" title="Porażki">P</th>
+          <th class="text-center text-nowrap" title="Bilanse setów (wygrane-przegrane)">Sety</th>
+          <th class="text-center text-nowrap" title="Bilans gemów (wygrane-przegrane)">Gemy</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in standings %}
+        <tr>
+          <td><strong>{{ forloop.counter }}</strong></td>
+          <td>{{ item.participant.display_name }}</td>
+          <td class="text-center"><strong>{{ item.points }}</strong></td>
+          <td class="text-center">{{ item.matches_played }}</td>
+          <td class="text-center text-success">{{ item.wins }}</td>
+          <td class="text-center text-danger">{{ item.losses }}</td>
+          <td class="text-center text-nowrap">{{ item.sets_won }}-{{ item.sets_lost }} ({{ item.sets_diff }})</td>
+          <td class="text-center text-nowrap">{{ item.games_won }}-{{ item.games_lost }} ({{ item.games_diff }})</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Widok kart dla małych ekranów (poniżej md) -->
+  <div class="d-md-none">
+    {% for item in standings %}
+    <div class="card mb-3 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <h5 class="card-title mb-0">
+            <span class="badge bg-dark me-2">#{{ forloop.counter }}</span>
+            {{ item.participant.display_name }}
+          </h5>
+          <span class="fs-4 fw-bold text-primary">{{ item.points }} <small class="fs-6 text-muted">pkt</small></span>
+        </div>
+        <hr>
+        <div class="row text-center g-2">
+          <div class="col-4">
+            <div class="stat-box"><strong>{{ item.matches_played }}</strong><br><small>Mecze</small></div>
+          </div>
+          <div class="col-4">
+            <div class="stat-box text-success"><strong>{{ item.wins }}</strong><br><small>Wygrane</small></div>
+          </div>
+          <div class="col-4">
+            <div class="stat-box text-danger"><strong>{{ item.losses }}</strong><br><small>Porażki</small></div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box"><strong>{{ item.sets_won }}-{{ item.sets_lost }}</strong><br><small>Sety</small></div>
+          </div>
+          <div class="col-6">
+            <div class="stat-box"><strong>{{ item.games_won }}-{{ item.games_lost }}</strong><br><small>Gemy</small></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-info">Brak uczestników do wyświetlenia w tabeli.</div>
+  {% endif %}
+
+  <!-- Lista Meczów -->
+  <h3 class="mt-5">Wyniki Spotkań</h3>
+  {% if standings %}
+  <div class="accordion" id="matchesAccordion">
+    {% for standing_item in standings %}
+    {% if standing_item.participant.user == request.user %}
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading-user">
+        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-user" aria-expanded="true" aria-controls="collapse-user">
+          <i class="bi bi-person-circle me-2"></i> Moje Mecze ({{ standing_item.participant.display_name }})
+        </button>
+      </h2>
+      <div id="collapse-user" class="accordion-collapse collapse show" aria-labelledby="heading-user" data-bs-parent="#matchesAccordion">
+        <div class="accordion-body p-0">
+          <div class="list-group list-group-flush">
+            {% for match in matches %}
+            {% if match.participant1 == standing_item.participant or match.participant2 == standing_item.participant %}
+            {% include "tournaments/partials/round_robin_match_item.html" with match=match current_participant=standing_item.participant %}
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    {% for standing_item in standings %}
+    {% if standing_item.participant.user != request.user %}
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="heading-{{ standing_item.participant.id }}">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ standing_item.participant.id }}" aria-expanded="false" aria-controls="collapse-{{ standing_item.participant.id }}">
+          {{ standing_item.participant.display_name }}
+        </button>
+      </h2>
+      <div id="collapse-{{ standing_item.participant.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ standing_item.participant.id }}" data-bs-parent="#matchesAccordion">
+        <div class="accordion-body p-0">
+          <div class="list-group list-group-flush">
+            {% for match in matches %}
+            {% if match.participant1 == standing_item.participant or match.participant2 == standing_item.participant %}
+            {% include "tournaments/partials/round_robin_match_item.html" with match=match current_participant=standing_item.participant %}
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-warning">Brak zaplanowanych meczów dla tego turnieju.</div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/reactions.js' %}"></script>
+{% endblock %}

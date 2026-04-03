@@ -1,0 +1,26 @@
+{% extends "tennis-club.html" %}
+{% load widget_tweaks %}
+
+{% block title %}
+  {% if is_edit %}
+    Edytuj Obiekt Tenisowy
+  {% else %}
+    Dodaj Obiekt Tenisowy
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <h1>{% if is_edit %}Edytuj obiekt: {{ facility.name }}{% else %}Dodaj nowy obiekt tenisowy{% endif %}</h1>
+  <form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">
+      {% if is_edit %}Zapisz zmiany{% else %}Dodaj obiekt{% endif %}
+    </button>
+    {% if is_edit %}
+      <a href="{% url 'courts:facility-detail' pk=facility.pk %}" class="btn btn-secondary">Anuluj</a>
+    {% else %}
+      <a href="{% url 'courts:facility-list' %}" class="btn btn-secondary">Anuluj</a>
+    {% endif %}
+  </form>
+{% endblock %}

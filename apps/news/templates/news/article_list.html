@@ -1,0 +1,78 @@
+{% extends 'tennis-club.html' %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 text-center position-relative">
+        <h1 class="display-5 text-success font-2" style="letter-spacing: 2px;">Aktualności Tenisowe</h1>
+        {% if user.is_authenticated %}
+        <!-- Desktop Button -->
+        <a href="{% url 'news:article_create' %}" class="btn btn-success position-absolute top-0 end-0 mt-2 me-4 d-none d-lg-inline-block">
+            <i class="bi bi-pencil-square me-2"></i>Napisz artykuł
+        </a>
+        <!-- Mobile Button -->
+        <a href="{% url 'news:article_create' %}" class="btn btn-success d-inline-block d-lg-none mt-3">
+            <i class="bi bi-pencil-square me-2"></i>Napisz artykuł
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if my_drafts %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h3 class="border-bottom pb-2 mb-3 text-secondary">Moje szkice</h3>
+        <div class="list-group">
+            {% for draft in my_drafts %}
+            <a href="{% url 'news:article_edit' draft.slug %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="fw-bold">{{ draft.title }}</span>
+                    <small class="text-muted d-block">Utworzono: {{ draft.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+                <span class="badge bg-secondary rounded-pill">Szkic</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-12 col-md-4 mx-auto">
+        <div class="input-group">
+            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="article-search" class="form-control border-start-0 ps-0" placeholder="Szukaj artykułu..." autocomplete="off">
+        </div>
+    </div>
+</div>
+
+<div id="articles-wrapper">
+    {% include 'news/partials/article_list_content.html' %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let searchTimeout;
+    const searchInput = document.getElementById('article-search');
+    const articlesWrapper = document.getElementById('articles-wrapper');
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value;
+
+        searchTimeout = setTimeout(() => {
+            fetch(`{% url 'news:article_list' %}?q=${encodeURIComponent(query)}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                articlesWrapper.innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+        }, 300); // Debounce 300ms
+    });
+</script>
+{% endblock %}

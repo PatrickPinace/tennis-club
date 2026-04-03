@@ -1,0 +1,126 @@
+{% extends 'tennis-club.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        {# Użyj mniejszego nagłówka na urządzeniach mobilnych #}
+        <h2 class="mb-0 d-none d-sm-block">Zarządzaj aktywnościami dla meczu</h2>
+        <h4 class="mb-0 d-block d-sm-none">Zarządzaj aktywnościami</h4>
+        <a href="{% url 'matches:match_detail' match.id %}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-arrow-left"></i> 
+            <span class="d-none d-sm-inline">Powrót do meczu</span>
+            <span class="d-inline d-sm-none">Powrót</span>
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Szczegóły meczu</h5>
+        </div>
+        <div class="card-body">
+            <p><strong>Data:</strong> {{ match.match_date|date:"d F Y" }}</p>
+            <p><strong>Uczestnicy:</strong>
+                {% if match.match_double %}
+                    {{ match.p1.get_full_name }} & {{ match.p3.get_full_name }} vs {{ match.p2.get_full_name }} & {{ match.p4.get_full_name }}
+                {% else %}
+                    {{ match.p1.get_full_name }} vs {{ match.p2.get_full_name }}
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    {# Sekcja przypisanych aktywności #}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Przypisane aktywności ({{ assigned_activities.count }})</h5>
+        </div>
+        <div class="card-body">
+            {% if assigned_activities %}
+                <ul class="list-group">
+                    {% for activity in assigned_activities %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <a href="{{ activity.get_absolute_url }}">{{ activity.activity_name }}</a>
+                                <small class="text-muted">({{ activity.start_time|date:"H:i" }})</small>
+                                {% if activity.tennis_data.owner_stats_side %}
+                                    <span class="badge bg-secondary ms-1">{{ activity.tennis_data.owner_stats_side }}</span>
+                                {% endif %}
+                            </div>
+                            <form method="post" class="mb-0">
+                                {% csrf_token %}
+                                <input type="hidden" name="unassign" value="{{ activity.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Odepnij aktywność">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-muted">Brak przypisanych aktywności dla tego meczu.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Sekcja przypisywania nowej aktywności #}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Przypisz nową aktywność</h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">
+                Wybierz jedną ze swoich aktywności z dnia <strong>{{ match.match_date|date:"d F Y" }}</strong>, aby połączyć ją z tym meczem.
+            </p>
+            <form method="post" id="assignActivityForm">
+                {% csrf_token %}
+
+                {# Ujednolicony, responsywny layout #}
+                <div class="row g-2 align-items-center">
+                    {# Lista rozwijana z aktywnościami #}
+                    <div class="col-12 col-sm-auto flex-grow-1">
+                        <select name="activity" class="form-select" form="assignActivityForm">
+                            <option value="">--- Wybierz aktywność ---</option>
+                            {% for candidate_activity in candidate_activities %}
+                                <option value="{{ candidate_activity.id }}">
+                                    {{ candidate_activity.activity_name }} ({{ candidate_activity.start_time|date:"H:i" }})
+                                </option>
+                            {% empty %}
+                                <option value="" disabled>Brak dostępnych aktywności do przypisania w tym dniu.</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    {# Przyciski wyboru L/P #}
+                    <div class="col-auto">
+                        <div class="d-flex">
+                            <div class="form-check form-check-inline me-3">
+                                <input class="form-check-input" type="radio" name="stats_owner_side" id="stats_owner_side_l" value="L" checked form="assignActivityForm">
+                                <label class="form-check-label" for="stats_owner_side_l">L</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input class="form-check-input" type="radio" name="stats_owner_side" id="stats_owner_side_p" value="P" form="assignActivityForm">
+                                <label class="form-check-label" for="stats_owner_side_p">P</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Przycisk "Przypisz" #}
+                    <div class="col-12 col-sm-auto">
+                        <button type="submit" class="btn btn-primary w-100 w-sm-auto" {% if not candidate_activities %}disabled{% endif %} form="assignActivityForm">
+                            <i class="fa-solid fa-link"></i>
+                            Przypisz
+                        </button>
+                    </div>
+                </div>
+
+                {% if not candidate_activities %}
+                    <small class="form-text text-muted mt-2">
+                        Nie znaleziono żadnych Twoich aktywności z dnia meczu, które nie byłyby już do czegoś przypisane.
+                    </small>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

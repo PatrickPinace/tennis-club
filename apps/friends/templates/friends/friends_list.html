@@ -1,0 +1,46 @@
+{% extends 'tennis-club.html' %}
+{% load friends %}
+
+{% block styles %}
+<link rel="stylesheet" href="/static/css/friends.css">
+{% endblock %}
+
+{% block content %}
+<div class="input-group mb-3">
+  <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
+  <input type="text" id="global-user-search" class="form-control" placeholder="Szukaj graczy na obu listach...">
+</div>
+
+<div class="friends row row-cols-1 row-cols-lg-2 g-4">
+  <div class="col mb-3">
+    {% include 'friends/friends_sublist.html' %}
+  </div>
+  <div class="col">
+    {% include 'friends/all_users_list.html' %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('global-user-search');
+    // Pobierz wszystkie karty użytkowników z obu list naraz
+    const allUserCards = document.querySelectorAll('.friends .user-card');
+
+    searchInput.addEventListener('keyup', function(e) {
+      const searchTerm = e.target.value.toLowerCase();
+
+      // Iteruj po wszystkich kartach i pokazuj/ukrywaj je w zależności od dopasowania
+      allUserCards.forEach(card => {
+        const userInfo = card.querySelector('.user-info h5').textContent.toLowerCase();
+        if (userInfo.includes(searchTerm)) {
+          card.style.display = ''; // Show the card
+        } else {
+          card.style.display = 'none'; // Hide the card
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

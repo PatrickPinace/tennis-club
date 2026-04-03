@@ -1,0 +1,64 @@
+{% load tournaments %}
+
+<div class="match-content h-100 d-flex flex-column">
+    <div class="participant {% if match.winner == match.participant1 %}winner{% endif %}">
+        <span class="participant-name" title="{{ match.participant1.display_name|default:"BYE" }}">
+            {{ match.participant1.display_name|default:"BYE" }}
+        </span>
+        {% if match.set_scores %}
+            <span class="score">
+                {% for p1_score, p2_score in match.set_scores %}
+                    <span class="set-score {% if p1_score > p2_score %}set-winner{% endif %}">{{ p1_score }}</span>
+                {% endfor %}
+            </span>
+        {% endif %}
+    </div>
+
+    <hr class="my-1">
+
+    <div class="participant {% if match.winner == match.participant2 %}winner{% endif %}">
+        <span class="participant-name" title="{{ match.participant2.display_name|default:"BYE" }}">
+            {{ match.participant2.display_name|default:"BYE" }}
+        </span>
+        {% if match.set_scores %}
+            <span class="score">
+                {% for p1_score, p2_score in match.set_scores %}
+                    <span class="set-score {% if p2_score > p1_score %}set-winner{% endif %}">{{ p2_score }}</span>
+                {% endfor %}
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="match-meta d-flex justify-content-between align-items-center mt-auto pt-2 border-top">
+        <small class="text-muted">
+            {% if match.status == 'CMP' %}
+                Zakończony
+            {% elif match.status == 'INP' %}
+                W trakcie
+            {% elif match.scheduled_time %}
+                {{ match.scheduled_time|date:"d.m H:i" }}
+            {% else %}
+                Runda {{ match.round_number }}
+            {% endif %}
+        </small>
+        
+        <div class="btn-toolbar">
+          <div class="btn-group me-2" role="group">
+            {% if match.can_edit %}
+                <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}" class="btn btn-sm btn-outline-primary" title="Edytuj wynik"><i class="bi bi-pencil-square"></i></a>
+            {% else %}
+                <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}" class="btn btn-sm btn-outline-secondary" title="Zobacz szczegóły"><i class="bi bi-eye"></i></a>
+            {% endif %}
+          </div>
+          {% if match.status == 'CMP' and request.user.is_authenticated %}
+          <div class="btn-group" role="group">
+            {% with reactions=match.reactions.all %}
+            <button class="btn btn-sm btn-outline-secondary reaction-btn {% if match.user_reaction == '👍' %}active{% endif %}" data-match-id="{{ match.pk }}" data-emoji="👍">
+                👍 <span class="reaction-count">{{ reactions|filter_by_emoji:'👍'|length }}</span>
+            </button>
+            {% endwith %}
+          </div>
+          {% endif %}
+        </div>
+    </div>
+</div>

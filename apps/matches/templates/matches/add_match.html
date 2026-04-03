@@ -1,0 +1,144 @@
+{% extends 'tennis-club.html' %}
+{% load matches %}
+{% load widget_tweaks %}
+
+<!-- Dodatkowe CSS -->
+{% block styles %}
+<link rel="stylesheet" href="/static/css/add_match.css">
+{% endblock %}
+
+{% block title %}
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card card-add-match shadow-sm mx-auto">
+    <div class="card-header text-center align-items-center bg-dark text-white">
+            <h2 class="card-title font-2 mb-0 mx-4">Dodaj Spotkanie Towarzyskie</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" id="form_add_match" onsubmit="return validateForm()">
+                {% csrf_token %}
+
+                {% include 'matches/add_match/settings.html' %}
+
+                <!-- Układ wyników -->
+                <div class="text-center mb-4">
+                    <!-- Gracz 1 / 3 -->
+                    {% include 'matches/add_match/players.html' with leader='p1' friend='p3' form=form %}
+
+                    <!-- Siatka wyników -->
+                    <div class="score-grid justify-content-center gap-1 mx-auto">
+                        <!-- Etykiety setów -->
+                        {% for set_num in "123" %}
+                            <div class="fw-bold">Set {{ set_num }}</div>
+                        {% endfor %}
+
+                        <!-- Pola wyników gracza 1 -->
+                        <div class="d-flex justify-content-center">{{ form.p1_set1|attr:"class:form-control-score" }}</div>
+                        <div class="d-flex justify-content-center">{{ form.p1_set2|attr:"class:form-control-score" }}</div>
+                        <div class="d-flex justify-content-center">{{ form.p1_set3|attr:"class:form-control-score" }}</div>
+
+                        <!-- Separatory -->
+                        {% for _ in "123" %}
+                            <div class="vs-label">-</div>
+                        {% endfor %}
+
+                        <!-- Pola wyników gracza 2 -->
+                        <div class="d-flex justify-content-center">{{ form.p2_set1|attr:"class:form-control-score" }}</div>
+                        <div class="d-flex justify-content-center">{{ form.p2_set2|attr:"class:form-control-score" }}</div>
+                        <div class="d-flex justify-content-center">{{ form.p2_set3|attr:"class:form-control-score" }}</div>
+                    </div>
+
+                    <!-- Gracz 2 / 4 -->
+                    {% include 'matches/add_match/players.html' with leader='p2' friend='p4' form=form %}
+                </div>
+
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <button type="submit" class="btn btn-success px-5"><i class="bi bi-save-fill"></i> Zapisz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script> 
+ document.addEventListener('DOMContentLoaded', function() {
+  const matchDouble = document.getElementById("match_double");
+  const p3_col = document.getElementById("player-p3-col");
+  const p4_col = document.getElementById("player-p4-col");
+  const p3_separator = document.getElementById("doubles-separator-p3");
+  const p4_separator = document.getElementById("doubles-separator-p4");
+
+  function togglePlayerVisibility() {
+   const isMatchDouble = matchDouble.checked;
+   p3_col.classList.toggle("d-none", !isMatchDouble);
+   p4_col.classList.toggle("d-none", !isMatchDouble);
+   p3_separator.classList.toggle("d-none", !isMatchDouble);
+   p4_separator.classList.toggle("d-none", !isMatchDouble);
+  }
+
+  matchDouble.addEventListener('click', togglePlayerVisibility);
+
+  // Ustaw stan początkowy przy załadowaniu strony
+  togglePlayerVisibility();
+  })
+
+  function validateForm() {
+    let scores = document.getElementsByClassName('form-select-score');
+    let p1 = document.querySelector('input[name="p1"]'); // Zmieniono z select na input
+    let p2 = document.querySelector('select[name="p2"]');
+    let players = [p1.value, p2.value];
+
+    if (!p1.value || !p2.value) {
+        alert("Proszę wybrać graczy.");
+        return false;
+    }
+
+    if (match_double.checked) {
+        let p3 = document.querySelector('select[name="p3"]');
+        let p4 = document.querySelector('select[name="p4"]');
+        if (!p3.value || !p4.value) {
+            alert("Proszę wybrać graczy dla drużyny podwójnej.");
+            return false;
+        }
+        players.push(p3.value, p4.value);
+    }
+    
+    // Sprawdzenie, czy gracze są unikalni
+    let uniquePlayers = new Set(players);
+    if (uniquePlayers.size !== players.length) {
+        alert("Gracze muszą być unikalni. Proszę wybrać różnych graczy.");
+        return false;
+    }
+
+    // Zliczanie pustych wyników
+    let emptyScoresCount = 0;
+    for (let i = 0; i < scores.length; i++) {
+        if (scores[i].value === "") {
+            scores[i].value = 0; // Ustawienie pustych wyników na 0
+            emptyScoresCount++;
+        }
+    }
+    
+    if (emptyScoresCount > 5) {
+        alert(`Proszę wprowadzić wyniki dla przynajmniej 1 seta.`);
+        return false;
+    }
+
+
+    return true;
+  }
+</script>
+<script>
+  $(document).ready(function() {
+    $('.form-select-player').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Wyszukaj gracza',
+        minimumResultsForSearch: 3 // Ukryj wyszukiwarkę dla mniej niż 3 opcji
+    });
+  });
+</script>
+{% endblock %}

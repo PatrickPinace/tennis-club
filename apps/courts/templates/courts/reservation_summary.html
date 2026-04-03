@@ -1,0 +1,41 @@
+{% extends "tennis-club.html" %}
+
+{% block title %}Podsumowanie rezerwacji{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <h1 class="mb-4">Podsumowanie rezerwacji</h1>
+
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0">Wybrany dzień: <strong>{{ reservation_date|date:"d.m.Y" }}</strong></h5>
+                </div>
+                <div class="card-body">
+                    <p>Proszę sprawdzić poniższy termin przed ostatecznym zatwierdzeniem.<br>Zostaną one wysłane do właściciela obiektu w celu akceptacji.</p>
+
+                    <form action="{% url 'courts:create-reservation' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="reservation_date" value="{{ reservation_date }}">
+                        <input type="hidden" name="facility_id" value="{{ facility_pk }}">
+
+                        <ul class="list-group mb-4">
+                            {% for res in reservations %}
+                                <li class="list-group-item">
+                                    <strong>{{ res.court }}</strong>: od {{ res.start_time|time:"H:i" }} do {{ res.end_time|time:"H:i" }}
+                                    <input type="hidden" name="court_id" value="{{ res.court.pk }}">
+                                    <input type="hidden" name="start_time" value="{{ res.start_time|time:'H:i:s' }}">
+                                    <input type="hidden" name="end_time" value="{{ res.end_time|time:'H:i:s' }}">
+                                </li>
+                            {% endfor %}
+                        </ul>
+
+                        <button type="submit" class="btn btn-primary w-100">Potwierdź i wyślij rezerwacje</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

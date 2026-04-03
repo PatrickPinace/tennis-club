@@ -1,0 +1,80 @@
+{% extends 'tennis-club.html' %}
+{% load static %}
+
+{% block styles %}
+<style>
+    @media (max-width: 575.98px) {
+        .mobile-title-small {
+            font-size: 1rem !important; /* Odpowiednik fs-6 */
+        }
+        .mobile-subtitle-small {
+            font-size: 0.75rem !important; /* 12px */
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
+    <h2>Turnieje</h2>
+    
+    <div class="d-flex gap-2 flex-grow-1 justify-content-end w-100 w-md-auto">
+        <form class="d-flex flex-grow-1 flex-md-grow-0" role="search" method="get">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                <input class="form-control border-start-0 ps-0" type="search" name="q" placeholder="Szukaj turnieju..." aria-label="Search" value="{{ search_query|default:'' }}">
+            </div>
+        </form>
+        <a class="btn btn-success text-nowrap" href="{% url 'tournaments:create_tournament' %}">
+            <i class="bi bi-plus-lg me-1"></i> Utwórz nowy
+        </a>
+    </div>
+  </div>
+
+  {% if search_query %}
+    <div class="mb-3">
+        Wyniki wyszukiwania dla: <strong>{{ search_query }}</strong> 
+        <a href="{% url 'tournaments:manage' %}" class="text-decoration-none ms-2"><i class="bi bi-x-circle"></i> Wyczyść</a>
+    </div>
+  {% endif %}
+
+  <div id="tournaments-list-container">
+    {% include 'tournaments/partials/manage_list.html' %}
+  </div>
+
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.querySelector('input[name="q"]');
+        const listContainer = document.getElementById('tournaments-list-container');
+        let timeout = null;
+
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(timeout);
+            const query = e.target.value;
+
+            timeout = setTimeout(function() {
+                // Zachowaj aktualny URL, ale zmień parametr q
+                const url = new URL(window.location.href);
+                url.searchParams.set('q', query);
+                
+                // Dodajemy nagłówek, aby backend wiedział, że to AJAX
+                fetch(url, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.text())
+                .then(html => {
+                    listContainer.innerHTML = html;
+                    // Aktualizuj URL w pasku przeglądarki bez przeładowania (opcjonalne, ale dobre dla UX)
+                    window.history.pushState({}, '', url);
+                })
+                .catch(error => console.error('Error:', error));
+            }, 300); // Debounce 300ms
+        });
+    });
+</script>
+{% endblock %}

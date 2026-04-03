@@ -1,0 +1,136 @@
+{% extends 'tennis-club.html' %}
+{% load humanize %}
+{% load duration_filters %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-0 d-inline">{{ activity.activity_name }}</h2>
+                <button type="button" class="btn btn-link p-0 ms-2" data-bs-toggle="modal" data-bs-target="#editNameModal" title="Edytuj nazwę">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
+            </div>
+            <a href="{% url 'activities:activity_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Powrót</a>
+        </div>
+        <div class="card-body">
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item"><strong>Data:</strong> {{ activity.start_time|date:"d.m.Y H:i" }}</li>
+                <li class="list-group-item"><strong>Czas trwania:</strong> {{ activity.duration|format_duration }}</li>
+                <li class="list-group-item">
+                    <strong>Dystans:</strong> 
+                    {% if activity.distance > 1000 %}
+                        {{ activity.distance|divide:1000|floatformat:2 }} km
+                    {% else %}
+                        {{ activity.distance|floatformat:0 }} m
+                    {% endif %}
+                </li>
+                <li class="list-group-item"><strong>Średnie tętno:</strong> {{ activity.average_hr|default:"Brak danych" }} uderzeń/min</li>
+                <li class="list-group-item"><strong>Maksymalne tętno:</strong> {{ activity.max_hr|default:"Brak danych" }} uderzeń/min</li>
+                <li class="list-group-item"><strong>Kalorie:</strong> {{ activity.calories|intcomma|default:"Brak danych" }} kcal</li>
+                
+                {% if is_tennis_studio %}
+                    <li class="list-group-item list-group-item-secondary mt-3"><strong>Statystyki z aplikacji Tennis Studio</strong></li>
+                    {% with tennis_data=activity.tennis_data %}
+                        {% if tennis_data.score %}<li class="list-group-item"><strong>Wynik:</strong> {{ tennis_data.score }}</li>{% endif %}
+                        {% if tennis_data.aces is not None %}<li class="list-group-item"><strong>Asy serwisowe:</strong> {{ tennis_data.aces }}</li>{% endif %}
+                        {% if tennis_data.double_faults is not None %}<li class="list-group-item"><strong>Podwójne błędy:</strong> {{ tennis_data.double_faults }}</li>{% endif %}
+                        {% if tennis_data.first_serve_percentage %}<li class="list-group-item"><strong>Pierwszy serwis %:</strong> {{ tennis_data.first_serve_percentage }}</li>{% endif %}
+                        {% if tennis_data.win_percentage_on_first_serve %}<li class="list-group-item"><strong>Wygrane % po 1. serwisie:</strong> {{ tennis_data.win_percentage_on_first_serve }}</li>{% endif %}
+                        {% if tennis_data.win_percentage_on_second_serve %}<li class="list-group-item"><strong>Wygrane % po 2. serwisie:</strong> {{ tennis_data.win_percentage_on_second_serve }}</li>{% endif %}
+                        {% if tennis_data.points %}<li class="list-group-item"><strong>Zdobyte punkty:</strong> {{ tennis_data.points }}</li>{% endif %}
+                        {% if tennis_data.serving_points %}<li class="list-group-item"><strong>Punkty przy serwisie:</strong> {{ tennis_data.serving_points }}</li>{% endif %}
+                        {% if tennis_data.receiving_points %}<li class="list-group-item"><strong>Punkty przy odbiorze:</strong> {{ tennis_data.receiving_points }}</li>{% endif %}
+                        {% if tennis_data.games %}<li class="list-group-item"><strong>Gemy:</strong> {{ tennis_data.games }}</li>{% endif %}
+                        {% if tennis_data.breakpoints %}<li class="list-group-item"><strong>Break pointy:</strong> {{ tennis_data.breakpoints }}</li>{% endif %}
+                        {% if tennis_data.sets_durations %}<li class="list-group-item"><strong>Czasy trwania setów:</strong> {{ tennis_data.sets_durations }}</li>{% endif %}
+                        {% if tennis_data.winners is not None %}<li class="list-group-item"><strong>Uderzenia wygrywające:</strong> {{ tennis_data.winners }}</li>{% endif %}
+                        {% if tennis_data.unforced_errors is not None %}<li class="list-group-item"><strong>Niewymuszone błędy:</strong> {{ tennis_data.unforced_errors }}</li>{% endif %}
+                    {% endwith %}
+                {% endif %}
+                
+                {% if not is_tennis_studio and activity.activity_type_key == 'tennis_v2' %}
+                <div class="alert alert-info mt-3" role="alert">
+                    To jest aktywność tenisowa, ale nie znaleziono dla niej szczegółowych statystyk z aplikacji Tennis Studio. 
+                    {% if has_garmin_credentials %}
+                        Możesz spróbować <a href="#" onclick="event.preventDefault(); document.getElementById('resync-form').submit();">odświeżyć dane</a>.
+                    {% else %}
+                        <a href="{% url 'users_edit' %}">Skonfiguruj dane Garmin</a>, aby spróbować pobrać szczegółowe statystyki.
+                    {% endif %}
+                </div>
+                {% endif %}
+            </ul>
+        </div>
+        <div class="card-footer text-end">
+            <!-- Przycisk ponownej synchronizacji (tylko dla tenisa) -->
+            {% if activity.activity_type_key == 'tennis_v2' %}
+                {% if has_garmin_credentials %}
+                    <form method="post" action="{% url 'activities:activity_resync' activity.activity_id %}" class="d-inline me-2" id="resync-form">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary" title="Pobierz ponownie dane z Garmin">
+                            <i class="fas fa-sync-alt"></i> Odśwież dane
+                        </button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'users_edit' %}" class="btn btn-secondary me-2" title="Skonfiguruj dane Garmin, aby odświeżyć aktywność">
+                        <i class="fas fa-sync-alt"></i> Odśwież dane
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            <!-- Przycisk usuwania -->
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteActivityModal" title="Usuń aktywność">
+                <i class="fas fa-trash"></i> Usuń
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal edycji nazwy -->
+<div class="modal fade" id="editNameModal" tabindex="-1" aria-labelledby="editNameModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'activities:activity_edit_name' activity.activity_id %}">
+          {% csrf_token %}
+          <div class="modal-header">
+            <h5 class="modal-title" id="editNameModalLabel">Edytuj nazwę aktywności</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+                <label for="activityNameInput" class="form-label">Nowa nazwa</label>
+                <input type="text" class="form-control" id="activityNameInput" name="activity_name" value="{{ activity.activity_name }}" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+            <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal potwierdzenia usunięcia -->
+<div class="modal fade" id="deleteActivityModal" tabindex="-1" aria-labelledby="deleteActivityModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="deleteActivityModalLabel">Potwierdź usunięcie</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Czy na pewno chcesz trwale usunąć aktywność "{{ activity.activity_name }}"? Tej operacji nie można cofnąć.
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+        <form method="post" action="{% url 'activities:activity_delete' activity.activity_id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Usuń</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

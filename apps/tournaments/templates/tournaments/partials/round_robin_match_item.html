@@ -1,0 +1,83 @@
+{% load tournaments %}
+<div class="list-group-item" id="match-{{ match.pk }}">
+  <div class="row align-items-center g-2">
+    <div class="col-12 col-md-5">
+      <!-- Ujednolicony widok - zawsze pokazuj tylko przeciwnika -->
+      <div class="text-center text-md-start">
+        {% if match.participant1 == current_participant %}
+          {% with opponent=match.participant2 %}
+            <strong class="{% if match.winner == opponent %}text-danger{% elif match.winner == current_participant %}text-success{% endif %}">{{ opponent.display_name|default:"TBA" }}</strong>
+          {% endwith %}
+        {% else %}
+          {% with opponent=match.participant1 %}
+            <strong class="{% if match.winner == opponent %}text-danger{% elif match.winner == current_participant %}text-success{% endif %}">{{ opponent.display_name|default:"TBA" }}</strong>
+          {% endwith %}
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-12 col-md-4 text-center">
+      {% if match.status == 'CMP' %}
+        <!-- Ujednolicony, tabelaryczny layout wyniku dla wszystkich ekranów -->
+        <div class="d-flex justify-content-center align-items-start gap-3">
+          {% if current_participant == match.participant1 %}
+            <div class="text-center"><strong class="fs-5">{{ match.set1_p1_score }}-{{ match.set1_p2_score }}</strong><br><small class="text-muted">Set 1</small></div>
+            {% if match.set2_p1_score is not None %}<div class="text-center"><strong class="fs-5">{{ match.set2_p1_score }}-{{ match.set2_p2_score }}</strong><br><small class="text-muted">Set 2</small></div>{% endif %}
+            {% if match.set3_p1_score is not None %}<div class="text-center"><strong class="fs-5">{{ match.set3_p1_score }}-{{ match.set3_p2_score }}</strong><br><small class="text-muted">Set 3</small></div>{% endif %}
+          {% else %}
+            <div class="text-center"><strong class="fs-5">{{ match.set1_p2_score }}-{{ match.set1_p1_score }}</strong><br><small class="text-muted">Set 1</small></div>
+            {% if match.set2_p1_score is not None %}<div class="text-center"><strong class="fs-5">{{ match.set2_p2_score }}-{{ match.set2_p1_score }}</strong><br><small class="text-muted">Set 2</small></div>{% endif %}
+            {% if match.set3_p1_score is not None %}<div class="text-center"><strong class="fs-5">{{ match.set3_p2_score }}-{{ match.set3_p1_score }}</strong><br><small class="text-muted">Set 3</small></div>{% endif %}
+          {% endif %}
+        </div>
+      {% elif match.scheduled_time %}
+        <span class="text-muted d-none d-md-inline">Zaplanowano: {{ match.scheduled_time|date:"Y-m-d H:i" }}</span>
+      {% else %}
+        <span class="text-muted d-none d-md-inline">Nie rozegrano</span>
+      {% endif %}
+      <!-- Status dla widoku mobilnego -->
+      <div class="d-md-none">
+        {% if match.status == 'CMP' and match.winner %}
+          {% if match.winner == current_participant %}<span class="badge bg-success">Wygrana</span>
+          {% else %}<span class="badge bg-danger">Przegrana</span>{% endif %}
+        {% else %}
+          <span class="badge bg-{% if match.status == 'SCH' %}info text-dark{% elif match.status == 'INP' %}warning text-dark{% elif match.status == 'WAI' %}secondary{% else %}dark{% endif %}">{{ match.get_status_display }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-12 col-md-3 text-center text-md-end">
+      <!-- Status dla widoku desktop -->
+      {% if match.status == 'CMP' and match.winner %}
+        {% if match.winner == current_participant %}<span class="badge bg-success me-2 d-none d-md-inline-block">Wygrana</span>
+        {% else %}<span class="badge bg-danger me-2 d-none d-md-inline-block">Przegrana</span>{% endif %}
+      {% else %}
+        <span class="badge bg-{% if match.status == 'SCH' %}info text-dark{% elif match.status == 'CMP' %}success{% elif match.status == 'INP' %}warning text-dark{% elif match.status == 'WAI' %}secondary{% else %}danger{% endif %} me-2 d-none d-md-inline-block">{{ match.get_status_display }}</span>
+      {% endif %}
+      <div class="btn-group mt-2 mt-md-0" role="group">
+        {% if request.user.is_authenticated and match.can_start %}
+        <form method="post" action="{% url 'tournaments:start_match' tournament.pk match.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-success" title="Rozpocznij mecz"><i class="bi bi-play-fill"></i></button>
+        </form>
+        {% endif %}
+        {% if match.can_edit %}
+        <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}" class="btn btn-sm btn-outline-primary" title="Edytuj wynik">
+          <i class="bi bi-pencil-square"></i>
+        </a>
+        {% else %}
+        <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}" class="btn btn-sm btn-outline-secondary" title="Zobacz szczegóły">
+          <i class="bi bi-eye"></i>
+        </a>
+        {% endif %}
+
+        <!-- Sekcja Reakcji -->
+        {% if match.status == 'CMP' and request.user.is_authenticated %}
+            {% with reactions=match.reactions.all %}
+            <button class="btn btn-sm btn-outline-secondary reaction-btn {% if match.user_reaction == '👍' %}active{% endif %}" data-match-id="{{ match.pk }}" data-emoji="👍">
+                👍 <span class="reaction-count">{{ reactions|filter_by_emoji:'👍'|length }}</span>
+            </button>
+            {% endwith %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>

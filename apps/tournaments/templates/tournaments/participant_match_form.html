@@ -1,0 +1,129 @@
+{% extends "tennis-club.html" %}
+{% load widget_tweaks %}
+{% load tournaments %}
+
+{% block styles %}
+<style>
+    .form-control-score {
+        font-family: 'Special Elite', 'Lato', sans-serif;
+        font-size: 2rem;
+        text-align: center;
+        border: 1px solid #ced4da;
+        border-radius: .25rem;
+        max-width: 80px;
+        padding: .5rem;
+    }
+    .player-name-display {
+        font-family: 'Lato', sans-serif;
+        font-size: 1.5rem;
+        text-align: center;
+        font-weight: bold;
+        padding: 0 1rem;
+    }
+    .set-card-body label {
+        flex-basis: 50%;
+        text-align: left;
+    }
+    .vs-label {
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #6c757d;
+    }
+    .score-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow-sm">
+        <div class="card-header text-center bg-dark text-white">
+            <h2 class="card-title font-2">Edytuj Wynik</h2>
+        </div>
+        <div class="card-body">
+            <h4 class="text-muted text-center mb-4">{{ tournament.name }}</h4>
+
+            <form method="post" id="form_edit_match">
+                {% csrf_token %}
+
+                {# Data i Status - widoczne tylko dla użytkowników z pełnymi uprawnieniami #}
+                {% if has_full_permissions %}
+                <div class="d-flex justify-content-center mb-3">
+                    <div class="input-group" style="max-width: 400px;">
+                        <span class="input-group-text">Data:</span>
+                        {% if not has_full_permissions %}
+                            {{ form.scheduled_time|attr:"disabled:disabled" }}
+                        {% else %}
+                            {{ form.scheduled_time }}
+                        {% endif %}
+                        {% if form.scheduled_time.errors %}<div class="text-danger small mt-1">{{ form.scheduled_time.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Układ wyników -->
+                <div class="text-center mb-4">
+                    <!-- Gracz 1 -->
+                    <div class="player-name-display mb-3">{{ match.participant1|default:"BYE" }}</div>
+
+                    <div class="score-grid justify-content-center gap-3 mx-auto" style="max-width: 400px;">
+                        <!-- Etykiety setów -->
+                        {% for set_num in "123" %}
+                            <div class="fw-bold">Set {{ set_num }}</div>
+                        {% endfor %}
+
+                        <!-- Pola wyników gracza 1 -->
+                        {% for set_num in "123" %}
+                            {% with p1_field_name="set"|add:set_num|add:"_p1_score" %}
+                                <div class="d-flex justify-content-center">
+                                    {{ form|get_item:p1_field_name|add_class:"form-control-score" }}
+                                </div>
+                            {% endwith %}
+                        {% endfor %}
+
+                        <!-- Separatory -->
+                        {% for _ in "123" %}
+                            <div class="vs-label">-</div>
+                        {% endfor %}
+
+                        <!-- Pola wyników gracza 2 -->
+                        {% for set_num in "123" %}
+                            {% with p2_field_name="set"|add:set_num|add:"_p2_score" %}
+                                <div class="d-flex justify-content-center">
+                                    {{ form|get_item:p2_field_name|add_class:"form-control-score" }}
+                                </div>
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+
+                    <!-- Gracz 2 -->
+                    <div class="player-name-display mt-3">{{ match.participant2|default:"BYE" }}</div>
+                </div>
+
+                {# Status i Zwycięzca - widoczne tylko dla użytkowników z pełnymi uprawnieniami #}
+                {% if has_full_permissions or can_start_match %}
+                <div class="d-flex justify-content-center mb-3">
+                    <div class="input-group" style="max-width: 400px;">
+                        <span class="input-group-text">Status:</span>
+                        {{ form.status|add_class:"form-select" }}
+                        {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
+                    </div>
+                </div>
+                {% else %}
+                    {# Jeśli użytkownik nie ma uprawnień do zmiany statusu, wyślij bieżący status w ukrytym polu #}
+                    <input type="hidden" name="status" value="{{ form.instance.status }}">
+                {% endif %}
+
+                <div class="d-flex justify-content-center gap-2">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-save-fill"></i> Zapisz Zmiany</button>
+                    
+                    {# Poprawiony link "Anuluj" używający `next_url` #}
+                    <a href="{{ next_url }}" class="btn btn-secondary"><i class="bi bi-x-circle-fill"></i> Anuluj</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}

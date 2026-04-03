@@ -1,0 +1,463 @@
+{% extends "tennis-club.html" %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}Szczegóły Turnieju Szwajcarskiego - {{ tournament.name }}{% endblock %}
+
+{% block content %}
+<style>
+    /* --- Style dla Swiss Container (Faza Grupowa) --- */
+    .swiss-container {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 1.5rem;
+        padding-bottom: 1rem;
+    }
+    .swiss-round-column {
+        min-width: 320px;
+        max-width: 350px;
+        flex: 0 0 auto;
+    }
+    .score-group {
+        margin-bottom: 1.5rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
+        border: 1px solid #e9ecef;
+        overflow: hidden;
+    }
+    .score-group-header {
+        background-color: #0d6efd;
+        color: white;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        text-align: center;
+        font-size: 0.9rem;
+    }
+    .score-group-body {
+        padding: 0.75rem;
+    }
+
+    /* --- Style dla drabinki turniejowej (Pojedyncza eliminacja & Playoff) --- */
+    /* Style dla reakcji */
+    .reaction-btn.active {
+        border-color: var(--bs-primary);
+        background-color: var(--bs-primary-bg-subtle);
+    }
+    .reaction-btn .reaction-count {
+        font-size: 0.8em;
+        color: var(--bs-secondary-color);
+    }
+
+    .bracket-container {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        align-items: flex-start;
+        /* Definiujemy zmienne CSS dla spójnego odstępu */
+        --match-box-height: 130px;
+        --match-vertical-gap: 30px;
+        --match-total-slot-height: calc(var(--match-box-height) + var(--match-vertical-gap));
+    }
+
+    .round {
+        display: flex;
+        flex-direction: column;
+        min-width: 250px;
+        padding: 0 1rem;
+        flex-shrink: 0;
+    }
+
+    .round-matches-wrapper {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .match {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: .25rem;
+        position: relative;
+        margin-bottom: var(--match-vertical-gap);
+        height: var(--match-box-height);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    /* Wyjątek dla Fazy Grupowej Swiss - tam match boxy są jeden pod drugim bez linii */
+    .swiss-match {
+        height: auto !important;
+        margin-bottom: 0.75rem !important;
+    }
+    .swiss-match::before, .swiss-match::after {
+        display: none !important;
+    }
+
+    /* Dla rund > 1 w drabince, margines dolny jest zerowany */
+    .bracket-container .round:not(:first-child) .match {
+        margin-bottom: 0;
+    }
+
+    /* --- Logika linii łączących (tylko wewnątrz .bracket-container) --- */
+    /* 1. Linie poziome (::before) */
+    .bracket-container .round:first-child:not(:last-child) .match::before {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 100%;
+        width: 1rem;
+        height: 2px;
+    }
+    .bracket-container .round:not(:first-child):not(:last-child) .match::before {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        transform: translateY(-50%);
+        left: -1rem;
+        width: calc(100% + 2rem);
+        height: 2px;
+    }
+    .bracket-container .round:last-child:not(:first-child) .match::before {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        transform: translateY(-50%);
+        right: 100%;
+        width: 1rem;
+        height: 2px;
+    }
+
+    /* 2. Linie pionowe (::after) */
+    .bracket-container .round:not(:last-child) .match:nth-child(odd)::after {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        top: 50%;
+        right: -1rem;
+        width: 2px;
+        height: calc(var(--connector-height) / 2);
+    }
+    .bracket-container .round:not(:last-child) .match:nth-child(even)::after {
+        content: '';
+        position: absolute;
+        background-color: #c0c0c0;
+        z-index: -1;
+        bottom: 50%;
+        right: -1rem;
+        width: 2px;
+        height: calc(var(--connector-height) / 2);
+    }
+
+    .match-content {
+        padding: 0.75rem;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .participant {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.25rem 0;
+    }
+
+    .participant.winner {
+        font-weight: bold;
+        color: #198754;
+    }
+
+    .participant-name {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .score {
+        font-weight: normal;
+        padding-left: 0.5rem;
+        flex-shrink: 0;
+    }
+
+    .set-score {
+        display: inline-block;
+        width: 1.8em;
+        text-align: center;
+        border-right: 1px solid #dee2e6;
+        padding: 0 0.2em;
+    }
+
+    .set-score:last-child {
+        border-right: none;
+    }
+
+    .set-score.set-winner {
+        font-weight: bold;
+    }
+
+    .bye {
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+
+<div class="container-fluid mt-4 px-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2 class="mb-1 fs-4 fs-md-2">
+        <a href="#tournamentRules" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="tournamentRules" class="text-decoration-none text-dark" title="Kliknij, aby zobaczyć zasady">
+          {{ tournament.name }} <i class="bi bi-info-circle-fill small text-muted"></i>
+        </a>
+      </h2>
+      <span class="badge bg-primary">{{ tournament.get_tournament_type_display }}</span>
+      <span class="badge bg-info">{{ tournament.get_status_display }}</span>
+    </div>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary d-none d-md-inline-block">
+      <i class="bi bi-arrow-left"></i>
+      <span class="d-none d-md-inline"> Powrót</span>
+    </a>
+  </div>
+
+
+  {% if tournament.description %}
+  <p class="lead">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% if config %}
+  <div class="collapse" id="tournamentRules">
+    <div class="card bg-light my-4">
+      <div class="card-body">
+        <h5 class="card-title">Zasady i Ustawienia</h5>
+        <div class="row">
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Parowanie 1. rundy:</strong> {{ config.get_initial_seeding_display }}</p>
+            <p class="mb-1"><strong>Liczba rund szwajcarskich:</strong> {{ config.number_of_rounds }}</p>
+          </div>
+          <div class="col-md-6">
+            <p class="mb-1"><strong>Wygrane do awansu:</strong> {{ config.wins_to_qualify }}</p>
+            <p class="mb-1"><strong>Przegrane do eliminacji:</strong> {{ config.losses_to_eliminate }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+  <!-- Zakładki -->
+  <ul class="nav nav-tabs mb-4" id="swissTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="group-stage-tab" data-bs-toggle="tab" data-bs-target="#group-stage" type="button" role="tab" aria-controls="group-stage" aria-selected="true">
+        <i class="bi bi-grid-3x3"></i> Faza Grupowa (Swiss)
+      </button>
+    </li>
+    {% if has_playoff %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="playoff-stage-tab" data-bs-toggle="tab" data-bs-target="#playoff-stage" type="button" role="tab" aria-controls="playoff-stage" aria-selected="false">
+        <i class="bi bi-trophy"></i> Faza Pucharowa (Playoff)
+      </button>
+    </li>
+    {% endif %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="standings-tab" data-bs-toggle="tab" data-bs-target="#standings" type="button" role="tab" aria-controls="standings" aria-selected="false">
+        <i class="bi bi-list-ol"></i> Tabela Wyników
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="swissTabsContent">
+    
+    <!-- ZAKŁADKA 1: Faza Grupowa (Swiss Stage) -->
+    <div class="tab-pane fade show active" id="group-stage" role="tabpanel" aria-labelledby="group-stage-tab">
+        <div class="swiss-container">
+            {% for round_data in swiss_rounds %}
+            <div class="swiss-round-column">
+                <h5 class="text-center mb-3 fw-bold text-uppercase text-muted">Runda {{ round_data.round_number }}</h5>
+                
+                {% for group in round_data.groups %}
+                <div class="score-group shadow-sm">
+                    <div class="score-group-header">
+                        Bilans {{ group.score_label }}
+                    </div>
+                    <div class="score-group-body">
+                        {% for match in group.matches %}
+                            <!-- Match Card (Swiss Style - reusing .match style without lines) -->
+                            <div class="match swiss-match">
+                                {% include "tournaments/partials/match_content.html" %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% empty %}
+            <div class="col-12">
+                <div class="alert alert-info">Brak meczów fazy grupowej. Rozpocznij turniej.</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- ZAKŁADKA 2: Faza Pucharowa (Playoff) -->
+    {% if has_playoff %}
+    <div class="tab-pane fade" id="playoff-stage" role="tabpanel" aria-labelledby="playoff-stage-tab">
+        <div class="bracket-container">
+             {% for round_number, round_matches in playoff_rounds.items %}
+             <div class="round">
+                <h5 class="round-header text-center mb-4">
+                    {% with match_count=round_matches|length %}
+                        {% if match_count == 1 %}Finał{% elif match_count == 2 %}Półfinał{% elif match_count == 4 %}Ćwierćfinał{% else %}Runda {{ round_number }}{% endif %}
+                    {% endwith %}
+                </h5>
+                <div class="round-matches-wrapper">
+                    {% for match in round_matches %}
+                        {# Logika obliczania marginesów i linii (skopiowana z single elimination i dostosowana) #}
+                        {# Musimy znać numeryczny indeks rundy w playoffach (1, 2, 3...) #}
+                        {# Ale tutaj kluczem jest round_number (np. 5, 6, 7). #}
+                        {# Zakładamy, że Playoff zaczyna się gdy round_number > config.number_of_rounds #}
+                        
+                        {% with playoff_round_index=round_number|subtract:config.number_of_rounds %}
+                            
+                            {% if playoff_round_index > 1 %}
+                                {% with pow_r=2|pow:playoff_round_index %}
+                                {% with pow_r_minus_1=pow_r|divide:2 %}
+                                {% with pow_r_minus_2=pow_r|divide:4 %}
+                                    
+                                    {% if forloop.counter0 == 0 %}
+                                        {# First match in a round > 1 #}
+                                        {% with margin_multiplier=pow_r_minus_2|subtract:0.5 %}
+                                        <div class="match"
+                                            style="margin-top: calc(var(--match-total-slot-height) * {{ margin_multiplier|force_dot }}); --connector-height: calc(var(--match-total-slot-height) * {{ pow_r_minus_1|force_dot }});">
+                                            {% include "tournaments/partials/match_content.html" %}</div>
+                                        {% endwith %}
+                                    {% else %}
+                                        {# Subsequent matches in a round > 1 #}
+                                        {% with margin_multiplier=pow_r_minus_1 %}
+                                        <div class="match"
+                                            style="margin-top: calc(var(--match-total-slot-height) * {{ margin_multiplier|force_dot }} - var(--match-box-height)); --connector-height: calc(var(--match-total-slot-height) * {{ pow_r_minus_1|force_dot }});">
+                                            {% include "tournaments/partials/match_content.html" %}</div>
+                                        {% endwith %}
+                                    {% endif %}
+
+                                {% endwith %}
+                                {% endwith %}
+                                {% endwith %}
+                            {% else %} 
+                                {# Round 1 of Playoffs #}
+                                <div class="match" style="--connector-height: var(--match-total-slot-height);">
+                                    {% include "tournaments/partials/match_content.html" %}
+                                </div>
+                            {% endif %}
+
+                        {% endwith %}
+                    {% endfor %}
+                </div>
+             </div>
+             {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ZAKŁADKA 3: Tabela Wyników -->
+    <div class="tab-pane fade" id="standings" role="tabpanel" aria-labelledby="standings-tab">
+        <div class="row justify-content-center">
+         <div class="col-lg-8">
+          {% if standings %}
+          <!-- Desktop Table View -->
+          <div class="table-responsive bg-white rounded shadow-sm d-none d-md-block">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-dark">
+                <tr>
+                  <th>#</th>
+                  <th>Uczestnik</th>
+                  <th class="text-center">Bilans</th>
+                  <th class="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in standings %}
+                <tr class="{% if item.participant.user == request.user %}table-info{% endif %}">
+                  <td><strong>{{ forloop.counter }}</strong></td>
+                  <td>
+                    {{ item.participant.display_name }}
+                    {% if item.participant.seed_number %}
+                    <span class="text-muted small">({{ item.participant.seed_number }})</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-success">{{ item.wins }}</span> - <span class="badge bg-danger">{{ item.losses }}</span>
+                  </td>
+                  <td class="text-center">
+                    {% if item.wins >= config.wins_to_qualify %}
+                      <span class="badge bg-success">Awans <i class="bi bi-check"></i></span>
+                    {% elif item.losses >= config.losses_to_eliminate %}
+                      <span class="badge bg-dark">Eliminacja <i class="bi bi-x"></i></span>
+                    {% else %}
+                      <span class="badge bg-secondary">Gra dalej</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile Card View -->
+          <div class="d-md-none">
+            {% for item in standings %}
+            <div class="card mb-2 shadow-sm {% if item.participant.user == request.user %}border-primary bg-light{% endif %}">
+              <div class="card-body p-3 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-dark me-3 rounded-2 shadow-sm" style="min-width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; font-size: 1rem;">#{{ forloop.counter }}</span>
+                  <div>
+                     <h6 class="mb-1 text-truncate" style="max-width: 160px;">
+                        {{ item.participant.display_name }}
+                        {% if item.participant.seed_number %}
+                        <small class="text-muted">({{ item.participant.seed_number }})</small>
+                        {% endif %}
+                     </h6>
+                     <div class="small">
+                        Bilans: <span class="fw-bold text-success">{{ item.wins }}</span> - <span class="fw-bold text-danger">{{ item.losses }}</span>
+                     </div>
+                  </div>
+                </div>
+                <div>
+                     {% if item.wins >= config.wins_to_qualify %}
+                       <span class="badge bg-success">Awans</span>
+                     {% elif item.losses >= config.losses_to_eliminate %}
+                       <span class="badge bg-dark">Out</span>
+                     {% else %}
+                       <span class="badge bg-secondary">W grze</span>
+                     {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="alert alert-info">Brak uczestników.</div>
+          {% endif %}
+         </div>
+        </div>
+    </div>
+
+  </div> <!-- End Tab Content -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/reactions.js' %}"></script>
+{% endblock %}

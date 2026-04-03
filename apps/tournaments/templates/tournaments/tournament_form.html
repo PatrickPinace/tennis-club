@@ -1,0 +1,58 @@
+{% extends 'tennis-club.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+  <h2>Utwórz nowy turniej</h2>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {{ form.status }}
+    <div class="mb-3">
+      {{ form.name.label_tag }}
+      {{ form.name }}
+      {{ form.name.errors }}
+    </div>
+    <div class="mb-3">
+      {{ form.description.label_tag }}
+      {{ form.description }}
+      {{ form.description.errors }}
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        {{ form.start_date.label_tag }}
+        {{ form.start_date }}
+        {{ form.start_date.errors }}
+      </div>
+      <div class="col-md-6 mb-3">
+        {{ form.end_date.label_tag }}
+        {{ form.end_date }}
+        {{ form.end_date.errors }}
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        {{ form.tournament_type.label_tag }}
+        {{ form.tournament_type }}
+        {{ form.tournament_type.errors }}
+      </div>
+      <div class="col-md-6 mb-3">
+        {{ form.match_format.label_tag }}
+        {{ form.match_format }}
+        {{ form.match_format.errors }}
+      </div>
+      <div class="col-md-6 mb-3">
+        {{ form.facility.label_tag }}
+        {{ form.facility }}
+        {{ form.facility.errors }}
+      </div>
+      <div class="col-md-6 mb-3">
+        {{ form.rank.label_tag }}
+        {{ form.rank }}
+        {{ form.rank.errors }}
+      </div>
+    </div>
+    <button class="btn btn-primary" type="submit">Zapisz</button>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary ms-2">Anuluj</a>
+  </form>
+</div>
+{% endblock %}

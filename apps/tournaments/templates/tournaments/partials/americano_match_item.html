@@ -1,0 +1,51 @@
+{% load tournaments %}
+<div class="d-grid mb-2">
+    {% if match.status == 'WAI' %}<span class="badge bg-secondary"><i class="bi bi-hourglass-split me-1"></i> {{ match.get_status_display }}</span>
+    {% elif match.status == 'SCH' %}<span class="badge bg-info text-dark"><i class="bi bi-calendar-check me-1"></i> {{ match.get_status_display }}</span>
+    {% elif match.status == 'INP' %}<span class="badge bg-warning text-dark"><i class="bi bi-play-circle me-1"></i> {{ match.get_status_display }}</span>
+    {% elif match.status == 'CMP' %}<span class="badge bg-success"><i class="bi bi-check-circle me-1"></i> {{ match.get_status_display }}</span>
+    {% else %}<span class="badge bg-dark">{{ match.get_status_display }}</span>
+    {% endif %}
+</div>
+
+{% with score1=match.set1_p1_score|default:0 score2=match.set1_p2_score|default:0 %}
+<h5 class="card-title fs-6 fs-md-5 mb-0 text-center text-nowrap overflow-hidden text-overflow-ellipsis 
+    {% if match.status == 'CMP' and score1 > score2 %}fw-bold text-success{% elif match.status == 'CMP' and score1 < score2 %}text-danger{% endif %}">
+    {{ match.participant1.display_name }} / {{ match.participant2.display_name }}
+</h5>
+<p class="text-center text-muted small my-1">vs</p>
+<h5 class="card-title fs-6 fs-md-5 mb-1 text-center text-nowrap overflow-hidden text-overflow-ellipsis 
+    {% if match.status == 'CMP' and score2 > score1 %}fw-bold text-success{% elif match.status == 'CMP' and score2 < score1 %}text-danger{% endif %}">
+    {{ match.participant3.display_name }} / {{ match.participant4.display_name }}
+</h5>
+
+<div class="card-text mt-3 text-center">
+    {% if match.status == 'CMP' %}
+        <p class="h4 fw-bold mb-0"><span class="{% if score1 > score2 %}text-success{% elif score1 < score2 %}text-danger{% endif %}">{{ score1 }}</span> : <span class="{% if score2 > score1 %}text-success{% elif score2 < score1 %}text-danger{% endif %}">{{ score2 }}</span></p>
+    {% elif match.scheduled_time %}
+        <p class="mb-0 text-muted small">Zaplanowano na: {{ match.scheduled_time|date:"Y-m-d H:i" }}</p>
+    {% endif %}
+</div>
+
+<!-- Informacje dodatkowe i przycisk edycji -->
+<div class="d-flex justify-content-end align-items-center mt-3 btn-toolbar">
+    <div class="btn-group me-2" role="group">
+    {% if match.can_edit %}
+        <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}?next={{ request.path }}" class="btn btn-sm btn-outline-primary" title="Wprowadź lub edytuj wynik">
+            <i class="bi bi-pencil-square"></i> Edytuj
+        </a>
+    {% else %}
+        <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}" class="btn btn-sm btn-outline-secondary" title="Zobacz szczegóły"><i class="bi bi-eye"></i></a>
+    {% endif %}
+    </div>
+    {% if match.status == 'CMP' and request.user.is_authenticated %}
+    <div class="btn-group" role="group">
+        {% with reactions=match.reactions.all %}
+        <button class="btn btn-sm btn-outline-secondary reaction-btn {% if match.user_reaction == '👍' %}active{% endif %}" data-match-id="{{ match.pk }}" data-emoji="👍">
+            👍 <span class="reaction-count">{{ reactions|filter_by_emoji:'👍'|length }}</span>
+        </button>
+        {% endwith %}
+    </div>
+    {% endif %}
+</div>
+{% endwith %}

@@ -1,0 +1,13 @@
+<td class="{{ td_class }}">
+    <div class="{% if is_optional and p1_score == '-' and p2_score == '-' %}d-none{% elif is_optional and p1_score == 0 and p2_score == 0 %}d-none{% endif %}">
+        <div class="row">
+            <div class="col p-0"><span class="set-score {% if p1_score > p2_score %} win-set {% endif %}">{{ p1_score }}</span></div>
+        </div>
+        <div class="row">
+            <div class="col p-0"><span>---</span></div>
+        </div>
+        <div class="row">
+            <div class="col p-0"><span class="set-score {% if p2_score > p1_score %} win-set {% endif %}">{{ p2_score }}</span></div>
+        </div>
+    </div>
+</td>

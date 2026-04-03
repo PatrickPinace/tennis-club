@@ -1,0 +1,85 @@
+{% extends "tennis-club.html" %}
+
+{% block title %}Potwierdź rezerwację{% endblock %}
+
+{% block content %}
+<div class="container mt-4 mt-md-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="text-center mb-4">
+                <i class="fa-solid fa-calendar-check fa-2x fa-md-3x text-primary mb-3"></i>
+                <h2 class="mb-1 h1-md">Potwierdź rezerwację</h2>
+                <p class="lead text-muted">Jesteś już prawie na mecie!</p>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="mb-0 d-flex align-items-center">
+                        <i class="fa-solid fa-calendar-day me-2"></i>
+                        Wybrany termin:<strong>{{ reservation_date|date:"d.m.Y" }}</strong>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>Po kliknięciu "Potwierdź i wyślij", rezerwacje zostaną wysłane do właściciela obiektu w celu akceptacji.</p>
+
+                    <form action="{% url 'courts:create-reservation' %}" method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="confirm_reservations" value="true">
+                        <input type="hidden" name="reservation_date" value="{{ reservation_date|date:'Y-m-d' }}">
+                        <input type="hidden" name="facility_id" value="{{ facility.pk }}">
+
+                        <div class="list-group list-group-flush mb-4">
+                            {% for res in reservations_to_create %}
+                                <div class="list-group-item">
+                                    <!-- Widok mobilny -->
+                                    <div class="d-block d-sm-none">
+                                        <i class="fa-solid fa-layer-group me-2 text-muted"></i>
+                                        <strong>Kort nr {{ res.court.court_number }}:</strong>
+                                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill fw-normal ms-1">
+                                            {{ res.start_time|time:"H:i" }} - {{ res.end_time|time:"H:i" }}
+                                        </span>
+                                    </div>
+                                    <!-- Widok desktopowy -->
+                                    <div class="d-none d-sm-block">
+                                        <i class="fa-solid fa-layer-group me-2 text-muted"></i>
+                                        <strong class="fs-5">
+                                            {{ res.court }}: {{ res.start_time|time:"H:i" }} - {{ res.end_time|time:"H:i" }}
+                                        </strong>
+                                    </div>
+                                    <input type="hidden" name="court_id" value="{{ res.court.pk }}">
+                                    <input type="hidden" name="start_time" value="{{ res.start_time|time:'H:i:s' }}">
+                                    <input type="hidden" name="end_time" value="{{ res.end_time|time:'H:i:s' }}">
+                                </div>
+                            {% empty %}
+                                <div class="list-group-item text-muted">Nie wybrano żadnych terminów.</div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                            <a href="{% url 'courts:facility-detail' pk=facility.pk %}?date={{ reservation_date|date:'Y-m-d' }}" class="btn btn-secondary">Anuluj</a>
+                            <button type="submit" class="btn btn-primary" {% if not reservations_to_create %}disabled{% endif %}>
+                                <i class="fa-solid fa-circle-check me-2"></i>
+                                Potwierdź i wyślij
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @media (min-width: 768px) {
+        .btn-md-normal {
+            padding: var(--bs-btn-padding-y) var(--bs-btn-padding-x);
+            font-size: var(--bs-btn-font-size);
+            border-radius: var(--bs-btn-border-radius);
+        }
+        .h1-md {
+            font-size: var(--bs-h1-font-size);
+        }
+    }
+</style>
+
+{% endblock %}

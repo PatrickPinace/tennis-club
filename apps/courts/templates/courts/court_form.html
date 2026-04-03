@@ -1,0 +1,14 @@
+{% extends "tennis-club.html" %}
+{% load widget_tweaks %}
+
+{% block title %}{% if is_edit %}Edytuj Kort{% else %}Dodaj Kort{% endif %}{% endblock %}
+
+{% block content %}
+  <h1>{% if is_edit %}Edytuj kort nr {{ form.instance.court_number }} w obiekcie: {{ facility.name }}{% else %}Dodaj nowy kort do obiektu: {{ facility.name }}{% endif %}</h1>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">{% if is_edit %}Zapisz zmiany{% else %}Dodaj kort{% endif %}</button>
+    <a href="{% url 'courts:facility-detail' pk=facility.pk %}" class="btn btn-secondary">Anuluj</a>
+  </form>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% load friends %}
+
+<div class="card" id="all_users_list">
+  <div class="card-header">
+      <h4 class="card-title"><strong>Wszyscy użytkownicy aplikacji</strong></h4>
+  </div>
+  <div class="card-body">
+    <div class="card-grid">
+      {% for user in users %}
+          <div class="user-card {% if user.id in recent_user_ids %}new-user-highlight{% endif %}">
+              <div class="user-avatar">
+                  <i class="fa-solid fa-user-circle"></i>
+              </div>
+              <div class="user-info">
+                  <h5>{{ user.first_name }} {{ user.last_name }}</h5>
+                  <small class="text-muted">Dołączył: {{ user.date_joined|date:"Y-m-d" }}</small>
+              </div>
+              <div class="user-actions">
+                  <form method="POST">
+                      {% csrf_token %}
+                      <input type="hidden" name="friend_id" value="{{ user.id }}">
+                      <input type="hidden" name="action" value="send_friend_request">
+                      <button type="submit" class="btn btn-success btn-sm" title="Dodaj do znajomych">
+                          <i class="fa-solid fa-user-plus"></i>
+                      </button>
+                  </form>
+              </div>
+          </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>

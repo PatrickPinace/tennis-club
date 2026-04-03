@@ -1,0 +1,102 @@
+{% extends "tennis-club.html" %}
+{% load tournaments %}
+
+{% block title %}Edytuj wynik meczu Americano{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h3>Wprowadź wynik meczu</h3>
+                    <p class="mb-0 text-muted">Turniej: {{ tournament.name }} | Runda: {{ match.round_number }}</p>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="row align-items-center">
+                            <div class="col-12 col-md">
+                                <label for="{{ form.set1_p1_score.id_for_label }}" class="form-label fw-bold fs-5 text-center text-md-start">
+                                    {# Widok desktopowy #}
+                                    <span class="d-none d-md-inline">{{ match.participant1.display_name }} / {{ match.participant2.display_name }}</span>
+                                    {# Widok mobilny #}
+                                    <span class="d-md-none">
+                                        {{ match.participant1.user|short_name }} / {{ match.participant2.user|short_name }}
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="col-12 col-md-auto mt-2 mt-md-0 d-flex justify-content-center">
+                                {{ form.set1_p1_score }}
+                                {% for error in form.set1_p1_score.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <div class="row align-items-center">
+                            <div class="col-12 col-md">
+                                <label for="{{ form.set1_p2_score.id_for_label }}" class="form-label fw-bold fs-5 text-center text-md-start">
+                                    {# Widok desktopowy #}
+                                    <span class="d-none d-md-inline">{{ match.participant3.display_name }} / {{ match.participant4.display_name }}</span>
+                                    {# Widok mobilny #}
+                                    <span class="d-md-none">
+                                        {{ match.participant3.user|short_name }} / {{ match.participant4.user|short_name }}
+                                    </span>
+                                </label>
+                            </div>
+                            <div class="col-12 col-md-auto mt-2 mt-md-0 d-flex justify-content-center">
+                                {{ form.set1_p2_score }}
+                                {% for error in form.set1_p2_score.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-5">
+                            <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+                            <button type="submit" class="btn btn-primary">Zapisz wynik</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const totalPoints = {{ tournament.americano_config.points_per_match|default:0 }};
+    const score1Input = document.getElementById('{{ form.set1_p1_score.id_for_label }}');
+    const score2Input = document.getElementById('{{ form.set1_p2_score.id_for_label }}');
+
+    function calculateRemaining(sourceInput, targetInput) {
+        const sourceValue = parseInt(sourceInput.value, 10);
+
+        if (!isNaN(sourceValue) && sourceValue >= 0 && sourceValue <= totalPoints) {
+            const remaining = totalPoints - sourceValue;
+            targetInput.value = remaining;
+        } else if (sourceInput.value === '') {
+            targetInput.value = '';
+        }
+    }
+
+    score1Input.addEventListener('input', function() {
+        calculateRemaining(score1Input, score2Input);
+    });
+
+    score2Input.addEventListener('input', function() {
+        calculateRemaining(score2Input, score1Input);
+    });
+});
+</script>
+{% endblock %}

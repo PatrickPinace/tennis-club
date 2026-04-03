@@ -1,0 +1,26 @@
+{% extends 'tennis-club.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container py-4">
+  <h2>Konfiguracja turnieju — {{ tournament.name }}</h2>
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for field in form.visible_fields %}
+    {% if field.name == 'third_place_match' and tournament.tournament_type == 'DBE' %}
+    {# Nie wyświetlaj opcji meczu o 3. miejsce dla turniejów Double Elimination #}
+    {% else %}
+    <div class="mb-3">
+      {{ field.label_tag }}
+      {{ field }}
+      {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+      {{ field.errors }}
+    </div>
+    {% endif %}
+    {% endfor %}
+
+    <button class="btn btn-primary" type="submit">Zapisz konfigurację</button>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary ms-2">Anuluj</a>
+  </form>
+</div>
+{% endblock %}

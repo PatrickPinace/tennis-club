@@ -1,0 +1,30 @@
+{% if messages %}
+  <div class="toast-container position-fixed bottom-0 end-0 p-3">
+    {% for message in messages %}
+      <div class="toast-notification toast show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+          <i class="fas {% if 'success' in message.tags %}fa-check-circle text-success{% elif 'error' in message.tags %}fa-times-circle text-danger{% elif 'info' in message.tags %}fa-info-circle text-info{% else %}fa-exclamation-triangle text-warning{% endif %} me-2"></i>
+          <strong class="me-auto">Powiadomienie</strong>
+          <small>Teraz</small>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+          {{ message }}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const toastElList = [].slice.call(document.querySelectorAll('.toast'));
+    const toastList = toastElList.map(function (toastEl) {
+      return new bootstrap.Toast(toastEl, {
+        autohide: true,
+        delay: 5000
+      }).show();
+    });
+  });
+</script>

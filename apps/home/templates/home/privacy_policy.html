@@ -1,0 +1,59 @@
+{% extends 'tennis-club.html' %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-success text-white text-center py-4 rounded-top-3">
+            <h1 class="font-2 mb-0 display-5">Polityka Prywatności</h1>
+        </div>
+        <div class="card-body p-4 p-md-5 text-dark">
+            <div class="mb-4">
+                <h5 class="fw-bold text-success border-bottom pb-2 mb-3"><i class="bi bi-shield-lock me-2"></i>1. Administrator Danych</h5>
+                <p>
+                    Administratorem Twoich danych osobowych jest operator serwisu Tennis Club. 
+                    W sprawach związanych z ochroną danych możesz skontaktować się z nami elektronicznie.
+                </p>
+            </div>
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-success border-bottom pb-2 mb-3"><i class="bi bi-file-earmark-person me-2"></i>2. Przetwarzane Dane</h5>
+                <p>W ramach korzystania z portalu przetwarzamy następujące dane:</p>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item bg-light"><i class="bi bi-check2 text-success me-2"></i>Imię i nazwisko (podawane przy rejestracji)</li>
+                    <li class="list-group-item bg-light"><i class="bi bi-check2 text-success me-2"></i>Adres e-mail</li>
+                    <li class="list-group-item bg-light"><i class="bi bi-check2 text-success me-2"></i>Dane logowania (login, hasło w formie zaszyfrowanej)</li>
+                </ul>
+            </div>
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-success border-bottom pb-2 mb-3"><i class="bi bi-bullseye me-2"></i>3. Cel Przetwarzania</h5>
+                <p>Twoje dane przetwarzane są w celu:</p>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item bg-light"><i class="bi bi-arrow-right-short text-success me-2"></i>Świadczenia usług drogą elektroniczną (prowadzenie konta użytkownika)</li>
+                    <li class="list-group-item bg-light"><i class="bi bi-arrow-right-short text-success me-2"></i>Organizacji turniejów i meczów tenisowych</li>
+                    <li class="list-group-item bg-light"><i class="bi bi-arrow-right-short text-success me-2"></i>Komunikacji systemowej (powiadomienia o meczach, reset hasła)</li>
+                </ul>
+            </div>
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-success border-bottom pb-2 mb-3"><i class="bi bi-cookie me-2"></i>4. Pliki Cookies</h5>
+                <p>
+                    Strona wykorzystuje pliki cookies w celu zapewnienia prawidłowego działania serwisu, utrzymania sesji użytkownika oraz w celach statystycznych.
+                    Możesz zarządzać ustawieniami cookies w swojej przeglądarce internetowej.
+                </p>
+            </div>
+
+            <div>
+                <h5 class="fw-bold text-success border-bottom pb-2 mb-3"><i class="bi bi-person-check me-2"></i>5. Twoje Prawa</h5>
+                <p>
+                    Masz prawo dostępu do swoich danych, ich sprostowania, usunięcia lub ograniczenia przetwarzania.
+                    Możesz również w dowolnym momencie wycofać zgodę na przetwarzanie danych, co może skutkować usunięciem konta.
+                </p>
+            </div>
+        </div>
+        <div class="card-footer bg-light text-center py-3 text-muted border-0 rounded-bottom-3">
+            <small>Ostatnia aktualizacja: Styczeń 2026</small>
+        </div>
+    </div>
+</div>
+{% endblock %}

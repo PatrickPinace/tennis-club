@@ -1,0 +1,20 @@
+<a href="{% url 'chats:conversation' username=other_user.username %}" class="list-group-item list-group-item-action {% if not message.is_read and message.recipient == request.user %}list-group-item-primary fw-bold{% endif %}">
+  <div class="d-flex w-100 justify-content-between">
+    <h5 class="mb-1">
+      {{ other_user.get_full_name|default:other_user.username }}
+    </h5>
+    <div class="d-flex align-items-center">
+      <small class="text-muted me-2">{{ message.timestamp|timesince }} temu</small>
+      {% if unread_count > 0 %}<span class="badge bg-primary rounded-pill">{{ unread_count }}</span>{% endif %}
+    </div>
+  </div>
+  <p class="mb-1 text-muted">
+    {% if message.sender == request.user %}
+      <i class="bi bi-reply-fill"></i>
+    {% endif %}
+    {{ message.content|truncatechars:100 }}
+    {% if message.images.exists %}
+      <i class="bi bi-file-earmark-image"></i>
+    {% endif %}
+  </p>
+</a>
