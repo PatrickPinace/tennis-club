@@ -25,8 +25,7 @@ COPY . .
 # Create necessary directories
 RUN mkdir -p /app/staticfiles /app/media /app/logs
 
-# Collect static files
-RUN python manage.py collectstatic --noinput || true
+# Note: collectstatic is run in deploy.sh after container starts with .env loaded
 
 EXPOSE 8000
 
