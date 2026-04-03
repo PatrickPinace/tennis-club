@@ -44,7 +44,7 @@ if DJANGO_ENV == 'development':
     INTERNAL_IPS = ['127.0.0.1']
 else: # Ustawienia produkcyjne
     DEBUG = False
-    ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", '89.78.213.129']
+    ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", "tennis.mediprima.pl", '89.78.213.129']
     # Zabezpieczenie SSL
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
