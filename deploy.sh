@@ -62,13 +62,13 @@ done
 echo "Health endpoint is responding"
 
 echo "[6/9] Running migrations"
-docker exec "$WEB_CONTAINER" python manage.py migrate --settings=core.settings_v2
+docker exec "$WEB_CONTAINER" python manage.py migrate
 
 echo "[7/9] Collecting static files"
-docker exec "$WEB_CONTAINER" python manage.py collectstatic --noinput --settings=core.settings_v2
+docker exec "$WEB_CONTAINER" python manage.py collectstatic --noinput
 
 echo "[8/9] Running Django deployment checks"
-docker exec "$WEB_CONTAINER" python manage.py check --deploy --settings=core.settings_v2
+docker exec "$WEB_CONTAINER" python manage.py check --deploy
 
 echo "[9/9] Final health verification"
 curl -fsS "$HEALTH_URL" >/dev/null
