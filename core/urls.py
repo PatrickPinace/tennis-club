@@ -18,9 +18,10 @@ from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView, RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.conf import settings 
+from django.conf import settings
 from django.conf.urls.static import static
 from django.conf.urls import handler404, handler500
+from django.http import HttpResponse
 
 handler404 = 'apps.home.views.custom_404'
 handler500 = 'apps.home.views.custom_500'
@@ -33,7 +34,11 @@ sitemaps = {
     'news': NewsSitemap,
 }
 
+def health_check(request):
+    return HttpResponse("OK", content_type="text/plain")
+
 urlpatterns = [
+    path('health/', health_check, name='health_check'),
     path('', include('apps.home.urls')),
     path('friends/', include('apps.friends.urls')),
     path('courts/', include('apps.courts.urls')),
