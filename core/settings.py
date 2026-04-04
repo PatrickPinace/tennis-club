@@ -45,16 +45,15 @@ if DJANGO_ENV == 'development':
 else: # Ustawienia produkcyjne
     DEBUG = False
     ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", "tennis.mediprima.pl", '89.78.213.129']
-    # Zabezpieczenie SSL
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_SSL_REDIRECT = True
+    # Zabezpieczenie SSL - obsługiwane przez reverse proxy (nginx/traefik)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # Reverse proxy handles HTTPS redirect
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_PRELOAD = True
     CSRF_TRUSTED_ORIGINS = [
     "https://tennisclub.ovh",
     "https://www.tennisclub.ovh",
+    "https://tennis.mediprima.pl",
     ]
 
 # Application definition
