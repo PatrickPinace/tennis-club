@@ -46,7 +46,7 @@ urlpatterns = [
     path('accounts/3rdparty/login/cancelled/', RedirectView.as_view(url='/users/login/', permanent=False), name='socialaccount_login_cancelled'),
     path('accounts/', include('allauth.urls')),
     path('matches/', include('apps.matches.urls')),
-    # path('rankings/', include('apps.rankings.urls')),
+    path('rankings/', include('apps.rankings.urls')),
     path('tournaments/', include('apps.tournaments.urls')),
     path('activities/', include(('apps.activities.urls', 'activities'), namespace='activities')),
     path('news/', include('apps.news.urls', namespace='news')),
