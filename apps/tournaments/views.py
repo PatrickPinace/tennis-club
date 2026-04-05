@@ -81,7 +81,7 @@ def delete_tournament(request, pk):
     tournament = get_object_or_404(Tournament, pk=pk)
 
     # 1. Sprawdzenie, czy użytkownik jest organizatorem
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do usunięcia tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -687,7 +687,7 @@ def tournament_details_swiss(request, pk):
 @login_required
 def edit_roundrobin_config(request, pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Tylko organizator może edytować konfigurację tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -721,7 +721,7 @@ def edit_roundrobin_config(request, pk):
 @login_required
 def edit_elimination_config(request, pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Tylko organizator może edytować konfigurację tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -755,7 +755,7 @@ def edit_elimination_config(request, pk):
 @login_required
 def edit_ladder_config(request, pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Tylko organizator może edytować konfigurację tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -784,7 +784,7 @@ def edit_ladder_config(request, pk):
 @login_required
 def edit_americano_config(request, pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Tylko organizator może edytować konfigurację tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -811,7 +811,7 @@ def edit_americano_config(request, pk):
 @login_required
 def edit_swiss_config(request, pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Tylko organizator może edytować konfigurację tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -888,7 +888,7 @@ def request_join(request, pk):
 @login_required
 def approve_participant(request, pk, participant_pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień.')
         return redirect('tournaments:manage')
 
@@ -908,7 +908,7 @@ def approve_participant(request, pk, participant_pk):
 @login_required
 def reject_participant(request, pk, participant_pk):
     tournament = get_object_or_404(Tournament, pk=pk)
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień.')
         return redirect('tournaments:manage')
 
@@ -1046,7 +1046,7 @@ def revert_to_draft(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do zmiany statusu tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -1068,7 +1068,7 @@ def open_registration(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do zmiany statusu tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -1090,7 +1090,7 @@ def close_registration(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do zmiany statusu tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -1137,7 +1137,7 @@ def start_tournament(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do rozpoczęcia tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -1228,7 +1228,7 @@ def finish_tournament(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Tylko organizator może zakończyć ten turniej.')
         return redirect('tournaments:manage')
 
@@ -1742,7 +1742,7 @@ def generate_matches(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do generowania meczów.')
         return redirect('tournaments:manage_matches', pk=tournament.pk)
 
@@ -1808,7 +1808,7 @@ def manage_matches(request, pk):
     """Widok do wyświetlania i zarządzania meczami turnieju."""
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień do zarządzania meczami tego turnieju.')
         return redirect('tournaments:manage')
 
@@ -1993,7 +1993,7 @@ def create_match(request, pk):
     """Widok do ręcznego tworzenia nowego meczu."""
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień.')
         return redirect('tournaments:manage')
 
@@ -2414,7 +2414,7 @@ def delete_match(request, pk, match_pk):
     tournament = get_object_or_404(Tournament, pk=pk)
     match = get_object_or_404(TournamentsMatch, pk=match_pk, tournament=tournament)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, 'Brak uprawnień.')
         return redirect('tournaments:manage_matches', pk=tournament.pk)
 
@@ -2433,7 +2433,7 @@ def reset_leaderboard_locks(request, pk):
     """
     tournament = get_object_or_404(Tournament, pk=pk)
 
-    if request.user != tournament.created_by:
+    if request.user != tournament.created_by and not request.user.is_staff:
         messages.error(request, "Brak uprawnień do wykonania tej akcji.")
         return redirect('tournaments:manage_matches', pk=pk)
 
