@@ -53,7 +53,29 @@
 </div>
 
 <script>
+function initDropdowns() {
+  document.querySelectorAll('.tc-dropdown').forEach(function(wrap) {
+    if (wrap._dropdownInit) return; // nie inicjalizuj dwa razy
+    wrap._dropdownInit = true;
+    const toggle = wrap.querySelector('.tc-dropdown-toggle');
+    const menu   = wrap.querySelector('.tc-dropdown-menu');
+    if (!toggle || !menu) return;
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const isOpen = menu.style.display === 'block';
+      document.querySelectorAll('.tc-dropdown-menu').forEach(m => m.style.display = 'none');
+      menu.style.display = isOpen ? 'none' : 'block';
+    });
+  });
+}
+
+document.addEventListener('click', function() {
+  document.querySelectorAll('.tc-dropdown-menu').forEach(m => m.style.display = 'none');
+});
+
 document.addEventListener('DOMContentLoaded', function() {
+  initDropdowns();
+
   const searchInput = document.querySelector('input[name="q"]');
   const listContainer = document.getElementById('tournaments-list-container');
   let timeout = null;
@@ -67,7 +89,11 @@ document.addEventListener('DOMContentLoaded', function() {
         url.searchParams.set('q', query);
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
           .then(r => r.text())
-          .then(html => { listContainer.innerHTML = html; window.history.pushState({}, '', url); })
+          .then(html => {
+            listContainer.innerHTML = html;
+            window.history.pushState({}, '', url);
+            initDropdowns(); // reinicjalizuj po AJAX
+          })
           .catch(err => console.error(err));
       }, 300);
     });

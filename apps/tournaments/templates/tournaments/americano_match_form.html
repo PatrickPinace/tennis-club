@@ -1,5 +1,6 @@
 {% extends 'layouts/base_app.html' %}
 {% load tournaments %}
+{% load widget_tweaks %}
 
 {% block title %}Edytuj wynik meczu Americano{% endblock %}
 {% block topbar_title %}Turnieje{% endblock %}
@@ -35,7 +36,7 @@
               {{ match.participant1.display_name }} / {{ match.participant2.display_name }}
             </div>
             <div>
-              {{ form.set1_p1_score }}
+              {{ form.set1_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
               {% for error in form.set1_p1_score.errors %}<div style="color:var(--danger); font-size:.75rem;">{{ error }}</div>{% endfor %}
             </div>
           </div>
@@ -47,7 +48,7 @@
               {{ match.participant3.display_name }} / {{ match.participant4.display_name }}
             </div>
             <div>
-              {{ form.set1_p2_score }}
+              {{ form.set1_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
               {% for error in form.set1_p2_score.errors %}<div style="color:var(--danger); font-size:.75rem;">{{ error }}</div>{% endfor %}
             </div>
           </div>

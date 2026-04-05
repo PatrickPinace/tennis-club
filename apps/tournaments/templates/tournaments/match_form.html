@@ -80,30 +80,30 @@
                 <tr>
                   <td>{{ form.participant1.label }}</td>
                   <td style="text-align:center;">
-                    {{ form.set1_p1_score }}
+                    {{ form.set1_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
                     {% if form.set1_p1_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set1_p1_score.errors|join:", " }}</p>{% endif %}
                   </td>
                   <td style="text-align:center;">
-                    {{ form.set2_p1_score }}
+                    {{ form.set2_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
                     {% if form.set2_p1_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set2_p1_score.errors|join:", " }}</p>{% endif %}
                   </td>
                   <td style="text-align:center;">
-                    {{ form.set3_p1_score }}
+                    {{ form.set3_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
                     {% if form.set3_p1_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set3_p1_score.errors|join:", " }}</p>{% endif %}
                   </td>
                 </tr>
                 <tr>
                   <td>{{ form.participant2.label }}</td>
                   <td style="text-align:center;">
-                    {{ form.set1_p2_score }}
+                    {{ form.set1_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
                     {% if form.set1_p2_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set1_p2_score.errors|join:", " }}</p>{% endif %}
                   </td>
                   <td style="text-align:center;">
-                    {{ form.set2_p2_score }}
+                    {{ form.set2_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
                     {% if form.set2_p2_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set2_p2_score.errors|join:", " }}</p>{% endif %}
                   </td>
                   <td style="text-align:center;">
-                    {{ form.set3_p2_score }}
+                    {{ form.set3_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
                     {% if form.set3_p2_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set3_p2_score.errors|join:", " }}</p>{% endif %}
                   </td>
                 </tr>

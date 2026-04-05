@@ -35,22 +35,34 @@ def create_tournament(request):
             tournament.save()
 
             # Utwórz domyślną konfigurację w zależności od typu turnieju, jeśli nie istnieje
+            config_url = None
             if tournament.tournament_type == 'RND':
                 if not hasattr(tournament, 'round_robin_config'):
                     RoundRobinConfig.objects.create(tournament=tournament)
+                config_url = 'tournaments:edit_roundrobin_config'
             elif tournament.tournament_type == 'SGL':
                 if not hasattr(tournament, 'elimination_config'):
                     EliminationConfig.objects.create(tournament=tournament)
+                config_url = 'tournaments:edit_elimination_config'
+            elif tournament.tournament_type == 'DBE':
+                if not hasattr(tournament, 'config'):
+                    EliminationConfig.objects.create(tournament=tournament)
+                config_url = 'tournaments:edit_double_elimination_config'
             elif tournament.tournament_type == 'LDR':
                 if not hasattr(tournament, 'ladder_config'):
                     LadderConfig.objects.create(tournament=tournament)
+                config_url = 'tournaments:edit_ladder_config'
             elif tournament.tournament_type == 'AMR':
                 if not hasattr(tournament, 'americano_config'):
                     AmericanoConfig.objects.create(tournament=tournament)
+                config_url = 'tournaments:edit_americano_config'
             elif tournament.tournament_type == 'SWS':
                 if not hasattr(tournament, 'swiss_system_config'):
                     SwissSystemConfig.objects.create(tournament=tournament)
-            messages.success(request, 'Turniej został utworzony.')
+                config_url = 'tournaments:edit_swiss_config'
+            messages.success(request, 'Turniej został utworzony. Skonfiguruj szczegóły poniżej.')
+            if config_url:
+                return redirect(config_url, pk=tournament.pk)
             return redirect('tournaments:manage')
         else:
             # Nie twórz nowego formularza, przekaż istniejący z błędami do szablonu

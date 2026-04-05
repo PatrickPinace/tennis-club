@@ -47,17 +47,17 @@
           <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
             {% with p1_field_name="set1_p1_score" %}
             <div style="display:flex; justify-content:center;">
-              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
             </div>
             {% endwith %}
             {% with p1_field_name="set2_p1_score" %}
             <div style="display:flex; justify-content:center;">
-              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
             </div>
             {% endwith %}
             {% with p1_field_name="set3_p1_score" %}
             <div style="display:flex; justify-content:center;">
-              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
             </div>
             {% endwith %}
           </div>
@@ -71,17 +71,17 @@
           <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-4);">
             {% with p2_field_name="set1_p2_score" %}
             <div style="display:flex; justify-content:center;">
-              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
             </div>
             {% endwith %}
             {% with p2_field_name="set2_p2_score" %}
             <div style="display:flex; justify-content:center;">
-              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
             </div>
             {% endwith %}
             {% with p2_field_name="set3_p2_score" %}
             <div style="display:flex; justify-content:center;">
-              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
             </div>
             {% endwith %}
           </div>

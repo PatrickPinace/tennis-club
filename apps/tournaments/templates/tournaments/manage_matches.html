@@ -89,18 +89,16 @@
             <td><span class="badge badge-info">{{ match.round_number }}</span></td>
             <td style="color:var(--text-muted); font-size:.875rem;">#{{ match.match_index }}</td>
             <td>
-              <div style="font-size:.875rem;">
+              <div style="font-size:.875rem; display:flex; align-items:center; gap:6px; flex-wrap:nowrap; white-space:nowrap;">
                 {% if match.participant1 %}
                 <a href="{% url 'tournaments:edit_participant' pk=tournament.pk participant_pk=match.participant1.pk %}" style="color:var(--text); text-decoration:none; font-weight:600;">
-                  {{ match.participant1.display_name }}
-                  {% if match.participant1.seed_number %}<span style="color:var(--text-muted); font-size:.75rem;">(S{{ match.participant1.seed_number }})</span>{% endif %}
+                  {{ match.participant1.display_name }}{% if match.participant1.seed_number %}<span style="color:var(--text-muted); font-size:.75rem;"> (S{{ match.participant1.seed_number }})</span>{% endif %}
                 </a>
                 {% else %}<span style="color:var(--text-muted);">BYE</span>{% endif %}
-                <span style="color:var(--text-muted); margin:0 4px;">vs</span>
+                <span style="color:var(--text-muted); flex-shrink:0;">vs</span>
                 {% if match.participant2 %}
                 <a href="{% url 'tournaments:edit_participant' pk=tournament.pk participant_pk=match.participant2.pk %}" style="color:var(--text); text-decoration:none; font-weight:600;">
-                  {{ match.participant2.display_name }}
-                  {% if match.participant2.seed_number %}<span style="color:var(--text-muted); font-size:.75rem;">(S{{ match.participant2.seed_number }})</span>{% endif %}
+                  {{ match.participant2.display_name }}{% if match.participant2.seed_number %}<span style="color:var(--text-muted); font-size:.75rem;"> (S{{ match.participant2.seed_number }})</span>{% endif %}
                 </a>
                 {% else %}<span style="color:var(--text-muted);">BYE</span>{% endif %}
               </div>
@@ -112,8 +110,9 @@
               {% if match.set3_p1_score > 0 or match.set3_p2_score > 0 %}, {{ match.set3_p1_score }}-{{ match.set3_p2_score }}{% endif %}
               {% else %}—{% endif %}
             </td>
-            <td>
-              {% if match.winner %}<span class="badge badge-success">{{ match.winner.display_name }}</span>
+            <td style="text-align:center;">
+              {% if match.winner %}
+              <span class="badge badge-success" style="justify-content:center; text-align:center; white-space:normal; min-width:80px;">{{ match.winner.display_name }}</span>
               {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
             </td>
             <td>

@@ -99,6 +99,54 @@
       }).catch(() => {});
   </script>
 
+  <!-- Score stepper: opakowuje pola liczbowe w komponent z przyciskami ▲/▼ -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var sel = 'input[type="number"].num-stepper-target, input[type="number"].form-control-score';
+    document.querySelectorAll(sel).forEach(function(input) {
+      if (input.closest('.score-stepper')) return; // już opakowane
+
+      var wrapper = document.createElement('div');
+      wrapper.className = 'score-stepper';
+
+      var inc = document.createElement('button');
+      inc.type = 'button';
+      inc.className = 'score-stepper__btn';
+      inc.innerHTML = '&#9650;'; // ▲
+      inc.setAttribute('tabindex', '-1');
+      inc.addEventListener('click', function() {
+        var max  = input.max  !== '' ? parseFloat(input.max)  :  Infinity;
+        var step = parseFloat(input.step) || 1;
+        var val  = parseFloat(input.value) || 0;
+        if (val + step <= max) { input.value = val + step; input.dispatchEvent(new Event('input', {bubbles:true})); }
+      });
+
+      var dec = document.createElement('button');
+      dec.type = 'button';
+      dec.className = 'score-stepper__btn';
+      dec.innerHTML = '&#9660;'; // ▼
+      dec.setAttribute('tabindex', '-1');
+      dec.addEventListener('click', function() {
+        var min  = input.min  !== '' ? parseFloat(input.min)  : 0;
+        var step = parseFloat(input.step) || 1;
+        var val  = parseFloat(input.value) || 0;
+        if (val - step >= min) { input.value = val - step; input.dispatchEvent(new Event('input', {bubbles:true})); }
+      });
+
+      // Blokuj wpisanie ujemnej wartości bezpośrednio z klawiatury
+      input.addEventListener('input', function() {
+        var min = input.min !== '' ? parseFloat(input.min) : 0;
+        if (parseFloat(input.value) < min) input.value = min;
+      });
+
+      input.parentNode.insertBefore(wrapper, input);
+      wrapper.appendChild(inc);
+      wrapper.appendChild(input);
+      wrapper.appendChild(dec);
+    });
+  });
+  </script>
+
   {% block extra_js %}{% endblock %}
 </body>
 </html>

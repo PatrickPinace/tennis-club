@@ -74,7 +74,7 @@
 </div>
 
 <!-- Main content grid: 2 columns -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
+<div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
 
   <!-- Active tournaments -->
   <div class="card">
@@ -171,7 +171,7 @@
 </div>
 
 <!-- Bottom row: matches -->
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
+<div class="dashboard-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
 
   <!-- Recent singles matches of friends -->
   <div class="card">
@@ -229,13 +229,7 @@
           </thead>
           <tbody>
             {% for tm in last_tournament_matches %}
-            <tr style="cursor:pointer;" onclick="location.href='
-              {% if tm.tournament.tournament_type == 'RND' %}{% url 'tournaments:details_round_robin' tm.tournament.pk %}
-              {% elif tm.tournament.tournament_type == 'SGL' or tm.tournament.tournament_type == 'DBE' %}{% url 'tournaments:details_elimination' tm.tournament.pk %}
-              {% elif tm.tournament.tournament_type == 'LDR' %}{% url 'tournaments:details_ladder' tm.tournament.pk %}
-              {% elif tm.tournament.tournament_type == 'SWS' %}{% url 'tournaments:details_swiss' tm.tournament.pk %}
-              {% elif tm.tournament.tournament_type == 'AMR' %}{% url 'tournaments:details_americano' tm.tournament.pk %}
-              {% else %}{% url 'tournaments:manage' %}{% endif %}'">
+            <tr style="cursor:pointer;" onclick="location.href='{% url 'tournaments:live_match' pk=tm.tournament.pk match_pk=tm.pk %}'">
               <td style="font-size:.875rem;">
                 {% if tm.participant1 %}{{ tm.participant1.user.get_full_name|default:tm.participant1.user.username }}{% endif %}
                 <span style="color: var(--text-muted); margin: 0 .25rem;">vs</span>

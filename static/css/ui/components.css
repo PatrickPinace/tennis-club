@@ -58,7 +58,18 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  /* Nie używamy overflow:hidden — pozwalamy dropdownom wystawać poza kartę */
+}
+
+/* Zaokrąglone rogi dla dzieci karty */
+.card > *:first-child {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.card > *:last-child {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.card > *:only-child {
+  border-radius: var(--radius-md);
 }
 
 .card-header {
@@ -321,7 +332,10 @@
 .tc-select-wrap.full { display: block; }
 
 /* ── Form inputs ─────────────────────────────────────────────────────────── */
-.tc-input {
+.tc-input,
+.tc-field input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="file"]),
+.tc-field textarea,
+.tc-field select {
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text);
@@ -331,9 +345,79 @@
   font-family: var(--font-sans);
   transition: border-color 0.15s, box-shadow 0.15s;
   width: 100%;
+  box-sizing: border-box;
 }
-.tc-input:hover { border-color: var(--border-light); }
-.tc-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-subtle); }
+.tc-input:hover,
+.tc-field input:hover,
+.tc-field textarea:hover,
+.tc-field select:hover { border-color: var(--border-light); }
+
+.tc-input:focus,
+.tc-field input:focus,
+.tc-field textarea:focus,
+.tc-field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-subtle); }
+
+/* Ostylowany select — usuwa domyślny wygląd systemu */
+.tc-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+/* ── Score stepper (góra/dół nad liczbą) ─────────────────────────────────── */
+.score-stepper {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.score-stepper__btn {
+  width: 56px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: .75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .1s, color .1s, border-color .1s;
+  user-select: none;
+  line-height: 1;
+}
+.score-stepper__btn:hover  { background: var(--surface-hover); color: var(--text); border-color: var(--primary); }
+.score-stepper__btn:active { background: var(--primary-subtle); }
+
+.score-stepper input[type="number"] {
+  width: 56px;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding: 6px 0;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.score-stepper input[type="number"]::-webkit-inner-spin-button,
+.score-stepper input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+.score-stepper input[type="number"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-subtle); }
+
+/* Kompatybilność — stary num-stepper-target też korzysta ze score-stepper przez JS */
+.num-stepper-target::-webkit-inner-spin-button,
+.num-stepper-target::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.num-stepper-target { -moz-appearance: textfield; appearance: textfield; }
 
 /* ── Form label ──────────────────────────────────────────────────────────── */
 .tc-label {
