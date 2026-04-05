@@ -1,53 +1,221 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 
-<!-- Dodatkowe CSS -->
-{% block styles %}
-<link rel="stylesheet" href="/static/css/results.css" type="text/css">
-{% endblock %}
+{% block title %}Wyniki meczów{% endblock %}
+{% block topbar_title %}Mecze{% endblock %}
 
-{% block content %}
-<div class="main-results">
-  <div class="my-2 p-3 bg-dark text-white rounded">
-    <h2 class="text-center font-2 mb-0 mt-2">Wyniki Spotkań</h2>
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Wyniki meczów</h1>
+    <p class="page-header__subtitle">Historia spotkań — filtruj po graczu, trybie i zakresie dat.</p>
   </div>
-
-  <div class="mb-3">
-    <form method="get">
-      <div class="input-group">
-        <span class="input-group-text bg-dark text-white border-0">Zawodnik</span>
-        <select name="user_id" id="player_select_results" class="form-select" onchange="this.form.submit()">
-          <option value="{{ request.user.id }}" {% if target_user.id == request.user.id %}selected{% endif %}>
-            {{ request.user.first_name }} {{ request.user.last_name }} (Ty)
-          </option>
-          {% for player in all_players %}
-          {% if player.id != request.user.id %}
-          <option value="{{ player.id }}" {% if target_user.id == player.id %}selected{% endif %}>
-            {{ player.first_name }} {{ player.last_name }}
-          </option>
-          {% endif %}
-          {% endfor %}
-        </select>
-      </div>
-    </form>
+  <div class="page-header__actions">
+    <a href="{% url 'matches:matches_add_match' %}" class="btn btn-primary">+ Dodaj mecz</a>
+    <a href="{% url 'matches:matches_summary' %}" class="btn btn-secondary">Podsumowanie</a>
   </div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      $('#player_select_results').select2({
-        theme: 'bootstrap-5',
-        width: $(this).data('width') ? $(this).data('width') : $(this).hasClass('w-100') ? '100%' : 'style',
-      });
-    });
-  </script>
-
-  {% include 'matches/results/filters.html' %}
-
-  {% if matches %}
-  {% include 'matches/results/result_card.html' %}
-  {% else %}
-  <div class="alert alert-info mt-3">Brak meczów do wyświetlenia dla wybranych filtrów.</div>
-  {% endif %}
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+
+<!-- Wybór gracza + filtry -->
+<div class="card" style="margin-bottom: var(--space-6);">
+  <div class="card-body">
+
+    <!-- Wybór gracza -->
+    <form method="get" style="margin-bottom: var(--space-5);">
+      <div class="tc-field">
+        <label class="tc-label">Przeglądasz wyniki gracza</label>
+        <div class="tc-select-wrap">
+          <select name="user_id" onchange="this.form.submit()" class="tc-select">
+            <option value="{{ request.user.id }}" {% if target_user.id == request.user.id %}selected{% endif %}>
+              {{ request.user.get_full_name|default:request.user.username }} (Ty)
+            </option>
+            {% for player in all_players %}
+            {% if player.id != request.user.id %}
+            <option value="{{ player.id }}" {% if target_user.id == player.id %}selected{% endif %}>
+              {{ player.get_full_name|default:player.username }}
+            </option>
+            {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <div style="height:1px; background:var(--border); margin-bottom:var(--space-5);"></div>
+
+    <!-- Filtry -->
+    <form method="get" id="filters-form">
+      {% if target_user %}
+      <input type="hidden" name="user_id" value="{{ target_user.id }}">
+      {% endif %}
+
+      <div style="display:flex; flex-wrap:wrap; gap:var(--space-4); align-items:flex-end;">
+
+        <div class="tc-field">
+          <label class="tc-label">Tryb gry</label>
+          <div class="tc-select-wrap">
+            <select name="match_double" id="match_double_select" class="tc-select">
+              <option value="0" {% if request.GET.match_double == "0" or not request.GET.match_double %}selected{% endif %}>Singiel</option>
+              <option value="1" {% if request.GET.match_double == "1" %}selected{% endif %}>Debel</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="tc-field">
+          <label class="tc-label">Przeciwnik</label>
+          <div class="tc-select-wrap">
+            <select name="opponent_id" id="opponent_select" class="tc-select">
+              <option value="" {% if not request.GET.opponent_id %}selected{% endif %}>Wszyscy</option>
+              {% for opponent in all_played_opponents %}
+              <option value="{{ opponent.id }}" {% if request.GET.opponent_id == opponent.id|stringformat:"s" %}selected{% endif %}>
+                {{ opponent.get_full_name|default:opponent.username }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="tc-field" id="partner-filter" style="display:none;">
+          <label class="tc-label">Partner</label>
+          <div class="tc-select-wrap">
+            <select name="partner_id" class="tc-select">
+              <option value="">Wszyscy</option>
+              {% for partner in doubles_partners %}
+              <option value="{{ partner.id }}" {% if request.GET.partner_id == partner.id|stringformat:"s" %}selected{% endif %}>
+                {{ partner.get_full_name|default:partner.username }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="tc-field">
+          <label class="tc-label">Zakres</label>
+          <div class="tc-select-wrap">
+            <select name="date_range" class="tc-select">
+              <option value="last_15" {% if request.GET.date_range == "last_15" or not request.GET.date_range %}selected{% endif %}>Ostatnie 15</option>
+              {% for year in years %}
+              <option value="{{ year }}" {% if request.GET.date_range == year %}selected{% endif %}>Rok {{ year }}</option>
+              {% endfor %}
+              <option value="all" {% if request.GET.date_range == "all" %}selected{% endif %}>Wszystko</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="padding-bottom:1px;">
+          <button type="submit" class="btn btn-primary">Filtruj</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Lista meczów -->
+{% if matches %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Mecze — {{ target_user.get_full_name|default:target_user.username }}</span>
+    <span style="font-size:.8rem; color:var(--text-muted);">{{ matches|length }} wyników</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Gracze</th>
+          <th style="text-align:center;">Set 1</th>
+          <th style="text-align:center;">Set 2</th>
+          <th style="text-align:center;">Set 3</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for match in matches %}
+        <tr>
+          <td style="white-space:nowrap; color:var(--text-muted); font-size:.8rem;">
+            {% if match.is_tournament %}
+            <span class="badge badge-warning" style="margin-bottom:4px; display:block; width:fit-content;">Turniej</span>
+            {% endif %}
+            {{ match.match_date|date:"d.m.Y" }}
+          </td>
+          <td>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="font-weight:600; {% if match.win == 'p1' %}color:var(--primary);{% endif %}">
+                {% if match.match_double %}{{ match.p1 }} / {{ match.p3 }}{% else %}{{ match.p1 }}{% endif %}
+              </span>
+              <span style="font-size:.75rem; color:var(--text-dim);">vs</span>
+              <span style="{% if match.win == 'p2' %}color:var(--primary); font-weight:600;{% endif %}">
+                {% if match.match_double %}{{ match.p2 }} / {{ match.p4 }}{% else %}{{ match.p2 }}{% endif %}
+              </span>
+            </div>
+          </td>
+          <td style="text-align:center;">
+            <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+              <span style="font-weight:700; {% if match.p1_set1 > match.p2_set1 %}color:var(--primary);{% endif %}">{{ match.p1_set1 }}</span>
+              <span style="font-size:.7rem; color:var(--text-dim);">—</span>
+              <span style="font-weight:700; {% if match.p2_set1 > match.p1_set1 %}color:var(--primary);{% endif %}">{{ match.p2_set1 }}</span>
+            </div>
+          </td>
+          <td style="text-align:center;">
+            {% if match.p1_set2 or match.p2_set2 %}
+            <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+              <span style="font-weight:700; {% if match.p1_set2 > match.p2_set2 %}color:var(--primary);{% endif %}">{{ match.p1_set2 }}</span>
+              <span style="font-size:.7rem; color:var(--text-dim);">—</span>
+              <span style="font-weight:700; {% if match.p2_set2 > match.p1_set2 %}color:var(--primary);{% endif %}">{{ match.p2_set2 }}</span>
+            </div>
+            {% else %}<span style="color:var(--text-dim);">—</span>{% endif %}
+          </td>
+          <td style="text-align:center;">
+            {% if match.p1_set3 or match.p2_set3 %}
+            <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+              <span style="font-weight:700; {% if match.p1_set3 > match.p2_set3 %}color:var(--primary);{% endif %}">{{ match.p1_set3 }}</span>
+              <span style="font-size:.7rem; color:var(--text-dim);">—</span>
+              <span style="font-weight:700; {% if match.p2_set3 > match.p1_set3 %}color:var(--primary);{% endif %}">{{ match.p2_set3 }}</span>
+            </div>
+            {% else %}<span style="color:var(--text-dim);">—</span>{% endif %}
+          </td>
+          <td>
+            <div style="display:flex; gap:var(--space-2);">
+              <a href="{% url 'matches:match_detail' match.id %}" class="btn btn-ghost btn-sm">Szczegóły</a>
+              {% if not match.is_tournament %}
+              {% if request.user.pk == match.p1_id or request.user.pk == match.p2_id or request.user.pk == match.p3_id or request.user.pk == match.p4_id %}
+              <a href="{% url 'matches:matches_edit_match' match.id %}" class="btn btn-ghost btn-sm">Edytuj</a>
+              <a href="{% url 'matches:matches_remove' match.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Usunąć ten mecz?')">Usuń</a>
+              {% endif %}
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state__icon">🎾</div>
+  <p class="empty-state__title">Brak meczów</p>
+  <p class="empty-state__text">Nie znaleziono meczów dla wybranych filtrów.</p>
+  <a href="{% url 'matches:matches_add_match' %}" class="btn btn-primary" style="margin-top:var(--space-4);">+ Dodaj mecz</a>
+</div>
+{% endif %}
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const matchDoubleSelect = document.getElementById('match_double_select');
+    const partnerFilter = document.getElementById('partner-filter');
+
+    function toggleFilters() {
+      partnerFilter.style.display = matchDoubleSelect.value === '1' ? 'block' : 'none';
+    }
+
+    matchDoubleSelect.addEventListener('change', toggleFilters);
+    toggleFilters();
+  });
+</script>
+
+</div>{# /max-width wrapper #}
 {% endblock %}

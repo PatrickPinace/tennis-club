@@ -18,675 +18,305 @@
 {% endblock %}
 
 {% block content %}
-<link rel="stylesheet" href="/static/css/dashboard.css">
-<style>
-    body {
-        background-image: url('https://images.pexels.com/photos/1103831/pexels-photo-1103831.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-    }
-    .clickable-row {
-        cursor: pointer;
-    }
-    .clickable-row:hover {
-        background-color: rgba(0, 0, 0, 0.075); /* Bootstrap's table-hover color */
-    }
-    .content-card {
-        background-color: rgba(255, 255, 255, 0.9);
-        border-radius: 15px;
-        backdrop-filter: blur(5px);
-    }
-</style>
 
-<div class="container-fluid px-0 py-4">
-    <div class="row mb-3">
-        <div class="col-12 text-center text-white">
-            <div class="content-card p-4">
-                <h1 class="display-4 font-2 text-success mb-3">
-                    <i class="fa-solid fa-tennis-ball"></i> Odkryj nowy wymiar rywalizacji
-                </h1>
-                <p class="lead text-muted">
-                    Gotowy, by podnieść poziom swojej gry? Ta strona to Twoje centrum dowodzenia!<br> 
-                    Monitoruj swój ranking, śledź wyniki z każdego zakątka kortu i czerp motywację od innych graczy.<br> 
-                    Niezależnie od wyniku, to pasja i przyjaźń liczą się najbardziej!
-                </p>
-            </div>
-        </div>
+<!-- KPI Row -->
+<div class="stats-grid" style="margin-bottom: var(--space-6);">
+
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background: rgba(34,197,94,.15); color: var(--primary);">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M9 12l-3-3 1.4-1.4L9 9.2l3.6-3.6L14 7l-5 5z"/>
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12z" clip-rule="evenodd"/>
+      </svg>
     </div>
-
-    {% if ongoing_tournaments or last_tournament_matches or in_progress_matches %}
-    <div class="row g-4 mb-4 justify-content-center">
-        {# Użyj `tournament_card_count` z widoku, aby ustawić klasę kolumny #}
-        {% if tournament_card_count == 3 %}
-            {% with col_class="col-lg-4" %}
-                {% if ongoing_tournaments %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-warning text-dark">
-                            <i class="fa-solid fa-trophy me-2"></i>Nadchodzące i Aktywne Turnieje
-                        </div>
-                        <div class="card-body">
-                            <div class="list-group list-group-flush">
-                                {% for t in ongoing_tournaments %}
-                                    {% url 'tournaments:details_round_robin' t.pk as details_url_rr %}
-                                    {% url 'tournaments:details_elimination' t.pk as details_url_sgl %}
-                                    {% url 'tournaments:details_double_elimination' t.pk as details_url_dbe %}
-                                    {% url 'tournaments:details_ladder' t.pk as details_url_ldr %}
-                                    {% url 'tournaments:details_americano' t.pk as details_url_amr %}
-                                    {% url 'tournaments:details_swiss' t.pk as details_url_sws %}
-                                    <a href="{% if t.tournament_type == 'RND' %}{{ details_url_rr }}{% elif t.tournament_type == 'SGL' %}{{ details_url_sgl }}{% elif t.tournament_type == 'DBE' %}{{ details_url_dbe }}{% elif t.tournament_type == 'LDR' %}{{ details_url_ldr }}{% elif t.tournament_type == 'AMR' %}{{ details_url_amr }}{% elif t.tournament_type == 'SWS' %}{{ details_url_sws }}{% else %}#{% endif %}" class="list-group-item list-group-item-action">
-                                        <div class="d-grid d-sm-none mb-2">
-                                            <span class="badge
-                                                {% if t.status == 'REG' %}bg-info text-dark
-                                                {% elif t.status == 'SCH' %}bg-primary
-                                                {% elif t.status == 'ACT' %}bg-success
-                                                {% elif t.status == 'FIN' %}bg-dark
-                                                {% else %}bg-secondary{% endif %}
-                                            ">{{ t.get_status_display }}</span>
-                                        </div>
-                                        <div class="d-flex w-100 align-items-center justify-content-between">
-                                            <div class="me-3 text-center" style="width: 40px;">
-                                                {% if t.tournament_type == 'RND' %}
-                                                    <i class="fa-solid fa-circle-nodes fa-2x text-primary"></i>
-                                                {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}
-                                                    <i class="fa-solid fa-sitemap fa-2x text-danger"></i>
-                                                {% elif t.tournament_type == 'LDR' %}
-                                                    <i class="fa-solid fa-stairs fa-2x text-success"></i>
-                                                {% elif t.tournament_type == 'AMR' %}
-                                                    <i class="fa-solid fa-people-arrows fa-2x text-info"></i>
-                                                {% elif t.tournament_type == 'SWS' %}
-                                                    <i class="fa-solid fa-list-ol fa-2x text-warning"></i>
-                                                {% endif %}
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="mb-1 me-2">{{ t.name }}</h5>
-                                                <small class="text-muted">{{ t.get_tournament_type_display }}</small>
-                                            </div>
-                                            <span class="badge rounded-pill d-none d-sm-inline-block
-                                                {% if t.status == 'REG' %}bg-info text-dark
-                                                {% elif t.status == 'SCH' %}bg-primary
-                                                {% elif t.status == 'ACT' %}bg-success
-                                                {% elif t.status == 'FIN' %}bg-dark
-                                                {% else %}bg-secondary{% endif %}
-                                            ">{{ t.get_status_display }}</span>
-                                        </div>
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if in_progress_matches %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-danger text-white">
-                            <i class="fa-solid fa-fire me-2"></i>Mecze w toku
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr class="align-middle text-center">
-                                        <th></th>
-                                        <th class="results-col-players">Turniej / Gracze</th>
-                                        <th class="results-col-set set-score">SET1</th>
-                                        <th class="results-col-set set-score">SET2</th>
-                                        <th class="results-col-set set-score">SET3</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider" style="border-top: none;">
-                                    {% for match in in_progress_matches %}
-                                        <tr class="align-middle text-center clickable-row" data-href="{% url 'tournaments:live_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}">
-                                            <td class="text-danger py-1"><i class="fa-solid fa-satellite-dish"></i></td>
-                                            <td class="table-col-players p-0 py-1">
-                                                {% include 'home/components/tournament_match_players_cell.html' with match=match %}
-                                            </td>
-                                            {% with p1_score=match.set1_p1_score|default_if_none:"-" p2_score=match.set1_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score td_class="py-1" %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set2_p1_score|default_if_none:"-" p2_score=match.set2_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True td_class="py-1" %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set3_p1_score|default_if_none:"-" p2_score=match.set3_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True td_class="py-1" %}
-                                            {% endwith %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if last_tournament_matches %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-success text-white">
-                            <i class="fa-solid fa-medal me-2"></i>Ostatnie mecze turniejowe
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr class="align-middle text-center">
-                                        <th class="results-col-date"></th>
-                                        <th class="results-col-players">Turniej / Gracze</th>
-                                        <th class="results-col-set set-score">SET1</th>
-                                        <th class="results-col-set set-score">SET2</th>
-                                        <th class="results-col-set set-score">SET3</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider">
-                                    {% for match in last_tournament_matches %}
-                                        <tr class="align-middle text-center clickable-row" data-href="{% url 'tournaments:live_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}">
-                                            <td class="table-col-date px-0 py-4">
-                                                <span class="date-cell">
-                                                    {{ match.scheduled_time|date:'d' }}<br>
-                                                    {{ match.scheduled_time|date:'F' }}<br>
-                                                    {{ match.scheduled_time|date:'Y' }}
-                                                </span>
-                                            </td>
-                                            <td class="table-col-players p-0">
-                                                {% include 'home/components/tournament_match_players_cell.html' with match=match %}
-                                            </td>
-                                            {% with p1_score=match.set1_p1_score|default_if_none:"-" p2_score=match.set1_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set2_p1_score|default_if_none:"-" p2_score=match.set2_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set3_p1_score|default_if_none:"-" p2_score=match.set3_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                            {% endwith %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-            {% endwith %}
-        {% elif tournament_card_count == 2 %}
-            {% with col_class="col-lg-6" %}
-                {% if ongoing_tournaments %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-warning text-dark">
-                            <i class="fa-solid fa-trophy me-2"></i>Nadchodzące i Aktywne Turnieje
-                        </div>
-                        <div class="card-body">
-                            <div class="list-group list-group-flush">
-                                {% for t in ongoing_tournaments %}
-                                    {% url 'tournaments:details_round_robin' t.pk as details_url_rr %}
-                                    {% url 'tournaments:details_elimination' t.pk as details_url_sgl %}
-                                    {% url 'tournaments:details_double_elimination' t.pk as details_url_dbe %}
-                                    {% url 'tournaments:details_ladder' t.pk as details_url_ldr %}
-                                    {% url 'tournaments:details_americano' t.pk as details_url_amr %}
-                                    {% url 'tournaments:details_swiss' t.pk as details_url_sws %}
-                                    <a href="{% if t.tournament_type == 'RND' %}{{ details_url_rr }}{% elif t.tournament_type == 'SGL' %}{{ details_url_sgl }}{% elif t.tournament_type == 'DBE' %}{{ details_url_dbe }}{% elif t.tournament_type == 'LDR' %}{{ details_url_ldr }}{% elif t.tournament_type == 'AMR' %}{{ details_url_amr }}{% elif t.tournament_type == 'SWS' %}{{ details_url_sws }}{% else %}#{% endif %}" class="list-group-item list-group-item-action">
-                                        <div class="d-grid d-sm-none mb-2">
-                                            <span class="badge
-                                                {% if t.status == 'REG' %}bg-info text-dark
-                                                {% elif t.status == 'SCH' %}bg-primary
-                                                {% elif t.status == 'ACT' %}bg-success
-                                                {% elif t.status == 'FIN' %}bg-dark
-                                                {% else %}bg-secondary{% endif %}
-                                            ">{{ t.get_status_display }}</span>
-                                        </div>
-                                        <div class="d-flex w-100 align-items-center justify-content-between">
-                                            <div class="me-3 text-center" style="width: 40px;">
-                                                {% if t.tournament_type == 'RND' %}
-                                                    <i class="fa-solid fa-circle-nodes fa-2x text-primary"></i>
-                                                {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}
-                                                    <i class="fa-solid fa-sitemap fa-2x text-danger"></i>
-                                                {% elif t.tournament_type == 'LDR' %}
-                                                    <i class="fa-solid fa-stairs fa-2x text-success"></i>
-                                                {% elif t.tournament_type == 'AMR' %}
-                                                    <i class="fa-solid fa-people-arrows fa-2x text-info"></i>
-                                                {% elif t.tournament_type == 'SWS' %}
-                                                    <i class="fa-solid fa-list-ol fa-2x text-warning"></i>
-                                                {% endif %}
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="mb-1 me-2">{{ t.name }}</h5>
-                                                <small class="text-muted">{{ t.get_tournament_type_display }}</small>
-                                            </div>
-                                            <span class="badge rounded-pill d-none d-sm-inline-block
-                                                {% if t.status == 'REG' %}bg-info text-dark
-                                                {% elif t.status == 'SCH' %}bg-primary
-                                                {% elif t.status == 'ACT' %}bg-success
-                                                {% elif t.status == 'FIN' %}bg-dark
-                                                {% else %}bg-secondary{% endif %}
-                                            ">{{ t.get_status_display }}</span>
-                                        </div>
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if in_progress_matches %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-danger text-white">
-                            <i class="fa-solid fa-fire me-2"></i>Mecze w toku
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr class="align-middle text-center">
-                                        <th class="results-col-players">Turniej / Gracze</th>
-                                        <th class="results-col-set set-score">SET1</th>
-                                        <th class="results-col-set set-score">SET2</th>
-                                        <th class="results-col-set set-score">SET3</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider" style="border-top: none;">
-                                    {% for match in in_progress_matches %}
-                                        <tr class="align-middle text-center clickable-row" data-href="{% url 'tournaments:live_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}">
-                                            <td class="text-danger py-1"><i class="fa-solid fa-satellite-dish"></i></td>
-                                            <td class="table-col-players p-0 py-1">
-                                                {% include 'home/components/tournament_match_players_cell.html' with match=match %}
-                                            </td>
-                                            {% with p1_score=match.set1_p1_score|default_if_none:"-" p2_score=match.set1_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score td_class="py-1" %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set2_p1_score|default_if_none:"-" p2_score=match.set2_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True td_class="py-1" %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set3_p1_score|default_if_none:"-" p2_score=match.set3_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True td_class="py-1" %}
-                                            {% endwith %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if last_tournament_matches %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-success text-white">
-                            <i class="fa-solid fa-medal me-2"></i>Ostatnie mecze turniejowe
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr class="align-middle text-center">
-                                        <th class="results-col-date"></th>
-                                        <th class="results-col-players">Turniej / Gracze</th>
-                                        <th class="results-col-set set-score">SET1</th>
-                                        <th class="results-col-set set-score">SET2</th>
-                                        <th class="results-col-set set-score">SET3</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider">
-                                    {% for match in last_tournament_matches %}
-                                        <tr class="align-middle text-center clickable-row" data-href="{% url 'tournaments:live_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}">
-                                            <td class="table-col-date px-0 py-4">
-                                                <span class="date-cell">
-                                                    {{ match.scheduled_time|date:'d' }}<br>
-                                                    {{ match.scheduled_time|date:'F' }}<br>
-                                                    {{ match.scheduled_time|date:'Y' }}
-                                                </span>
-                                            </td>
-                                            <td class="table-col-players p-0">
-                                                {% include 'home/components/tournament_match_players_cell.html' with match=match %}
-                                            </td>
-                                            {% with p1_score=match.set1_p1_score|default_if_none:"-" p2_score=match.set1_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set2_p1_score|default_if_none:"-" p2_score=match.set2_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set3_p1_score|default_if_none:"-" p2_score=match.set3_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                            {% endwith %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-            {% endwith %}
-        {% else %}
-            {% with col_class="col-lg-6" %} {# Domyślnie dla 1 karty #}
-                {% if ongoing_tournaments %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-warning text-dark">
-                            <i class="fa-solid fa-trophy me-2"></i>Nadchodzące i Aktywne Turnieje
-                        </div>
-                        <div class="card-body">
-                            <div class="list-group list-group-flush">
-                                {% for t in ongoing_tournaments %}
-                                    {% url 'tournaments:details_round_robin' t.pk as details_url_rr %}
-                                    {% url 'tournaments:details_elimination' t.pk as details_url_sgl %}
-                                    {% url 'tournaments:details_double_elimination' t.pk as details_url_dbe %}
-                                    {% url 'tournaments:details_ladder' t.pk as details_url_ldr %}
-                                    {% url 'tournaments:details_americano' t.pk as details_url_amr %}
-                                    {% url 'tournaments:details_swiss' t.pk as details_url_sws %}
-                                    <a href="{% if t.tournament_type == 'RND' %}{{ details_url_rr }}{% elif t.tournament_type == 'SGL' %}{{ details_url_sgl }}{% elif t.tournament_type == 'DBE' %}{{ details_url_dbe }}{% elif t.tournament_type == 'LDR' %}{{ details_url_ldr }}{% elif t.tournament_type == 'AMR' %}{{ details_url_amr }}{% elif t.tournament_type == 'SWS' %}{{ details_url_sws }}{% else %}#{% endif %}" class="list-group-item list-group-item-action">
-                                        <div class="d-grid d-sm-none mb-2">
-                                            <span class="badge
-                                                {% if t.status == 'REG' %}bg-info text-dark
-                                                {% elif t.status == 'SCH' %}bg-primary
-                                                {% elif t.status == 'ACT' %}bg-success
-                                                {% elif t.status == 'FIN' %}bg-dark
-                                                {% else %}bg-secondary{% endif %}
-                                            ">{{ t.get_status_display }}</span>
-                                        </div>
-                                        <div class="d-flex w-100 align-items-center justify-content-between">
-                                            <div class="me-3 text-center" style="width: 40px;">
-                                                {% if t.tournament_type == 'RND' %}
-                                                    <i class="fa-solid fa-circle-nodes fa-2x text-primary"></i>
-                                                {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}
-                                                    <i class="fa-solid fa-sitemap fa-2x text-danger"></i>
-                                                {% elif t.tournament_type == 'LDR' %}
-                                                    <i class="fa-solid fa-stairs fa-2x text-success"></i>
-                                                {% elif t.tournament_type == 'AMR' %}
-                                                    <i class="fa-solid fa-people-arrows fa-2x text-info"></i>
-                                                {% elif t.tournament_type == 'SWS' %}
-                                                    <i class="fa-solid fa-list-ol fa-2x text-warning"></i>
-                                                {% endif %}
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="mb-1 me-2">{{ t.name }}</h5>
-                                                <small class="text-muted">{{ t.get_tournament_type_display }}</small>
-                                            </div>
-                                            <span class="badge rounded-pill d-none d-sm-inline-block
-                                                {% if t.status == 'REG' %}bg-info text-dark
-                                                {% elif t.status == 'SCH' %}bg-primary
-                                                {% elif t.status == 'ACT' %}bg-success
-                                                {% elif t.status == 'FIN' %}bg-dark
-                                                {% else %}bg-secondary{% endif %}
-                                            ">{{ t.get_status_display }}</span>
-                                        </div>
-                                    </a>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if in_progress_matches %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-danger text-white">
-                            <i class="fa-solid fa-fire me-2"></i>Mecze w toku
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr class="align-middle text-center">
-                                        <th class="results-col-players">Turniej / Gracze</th>
-                                        <th class="results-col-set set-score">SET1</th>
-                                        <th class="results-col-set set-score">SET2</th>
-                                        <th class="results-col-set set-score">SET3</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider" style="border-top: none;">
-                                    {% for match in in_progress_matches %}
-                                        <tr class="align-middle text-center clickable-row" data-href="{% url 'tournaments:live_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}">
-                                            <td class="text-danger py-1"><i class="fa-solid fa-satellite-dish"></i></td>
-                                            <td class="table-col-players p-0 py-1">
-                                                {% include 'home/components/tournament_match_players_cell.html' with match=match %}
-                                            </td>
-                                            {% with p1_score=match.set1_p1_score|default_if_none:"-" p2_score=match.set1_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score td_class="py-1" %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set2_p1_score|default_if_none:"-" p2_score=match.set2_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True td_class="py-1" %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set3_p1_score|default_if_none:"-" p2_score=match.set3_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True td_class="py-1" %}
-                                            {% endwith %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if last_tournament_matches %}
-                <div class="{{ col_class }}">
-                    <div class="card shadow-sm content-card h-100">
-                        <div class="card-header bg-success text-white">
-                            <i class="fa-solid fa-medal me-2"></i>Ostatnie mecze turniejowe
-                        </div>
-                        <div class="card-body">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr class="align-middle text-center">
-                                        <th class="results-col-date"></th>
-                                        <th class="results-col-players">Turniej / Gracze</th>
-                                        <th class="results-col-set set-score">SET1</th>
-                                        <th class="results-col-set set-score">SET2</th>
-                                        <th class="results-col-set set-score">SET3</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="table-group-divider">
-                                    {% for match in last_tournament_matches %}
-                                        <tr class="align-middle text-center clickable-row" data-href="{% url 'tournaments:live_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}">
-                                            <td class="table-col-date px-0 py-4">
-                                                <span class="date-cell">
-                                                    {{ match.scheduled_time|date:'d' }}<br>
-                                                    {{ match.scheduled_time|date:'F' }}<br>
-                                                    {{ match.scheduled_time|date:'Y' }}
-                                                </span>
-                                            </td>
-                                            <td class="table-col-players p-0">
-                                                {% include 'home/components/tournament_match_players_cell.html' with match=match %}
-                                            </td>
-                                            {% with p1_score=match.set1_p1_score|default_if_none:"-" p2_score=match.set1_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set2_p1_score|default_if_none:"-" p2_score=match.set2_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                            {% endwith %}
-                                            {% with p1_score=match.set3_p1_score|default_if_none:"-" p2_score=match.set3_p2_score|default_if_none:"-" %}
-                                                {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                            {% endwith %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-            {% endwith %}
-        {% endif %}
+    <div>
+      <div class="stat-card__value">{{ last_singles|length|add:last_doubles|length }}</div>
+      <div class="stat-card__label">Mecze znajomych</div>
     </div>
-    {% endif %}
+  </div>
 
-    <div class="row g-4 justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow-sm h-100 content-card">
-                <div class="card-header bg-primary text-white">
-                    <i class="fa-solid fa-users me-2"></i>Ostatnie mecze znajomych
-                </div>
-                <div class="card-body px-2">
-                    <h5 class="card-title text-primary">Mecze singlowe</h5>
-                    {% if last_singles %}
-                        <table class="table table-striped">
-                            <thead>
-                                <tr class="align-middle text-center">
-                                    <th class="results-col-date"></th>
-                                    <th class="results-col-players"></th>
-                                    <th class="results-col-set set-score">SET1</th>
-                                    <th class="results-col-set set-score">SET2</th>
-                                    <th class="results-col-set set-score">SET3</th>
-                                </tr>
-                            </thead>
-                            <tbody class="table-group-divider">
-                                {% for match in last_singles %}
-                                    <tr class="align-middle text-center">
-                                        <td class="table-col-date px-0 py-4">
-                                            <span class="date-cell">
-                                                {{ match.match_date|date:'d' }}<br>
-                                                {{ match.match_date|date:'F' }}<br>
-                                                {{ match.match_date|date:'Y' }}
-                                            </span>
-                                        </td>
-                                        <td class="table-col-players p-0">
-                                            <div class="players-cell d-flex flex-column align-items-center">
-                                                <div class="team my-team mb-1">
-                                                    <span class="player">
-                                                        <i class="fa-solid fa-user"></i> {{ match.p1.get_full_name }}
-                                                    </span>
-                                                </div>
-                                                <div class="vs-label text-secondary fw-bold">VS</div>
-                                                <div class="team opponent-team mt-1">
-                                                    <span class="player">
-                                                        <i class="fa-solid fa-user"></i> {{ match.p2.get_full_name }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        {% with p1_score=match.p1_set1|default_if_none:"-" p2_score=match.p2_set1|default_if_none:"-" %}
-                                            {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score %}
-                                        {% endwith %}
-                                        {% with p1_score=match.p1_set2|default_if_none:"-" p2_score=match.p2_set2|default_if_none:"-" %}
-                                            {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                        {% endwith %}
-                                        {% with p1_score=match.p1_set3|default_if_none:"-" p2_score=match.p2_set3|default_if_none:"-" %}
-                                            {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                        {% endwith %}
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <div class="alert alert-info">Brak rozegranych meczów singlowych znajomych.</div>
-                    {% endif %}
-                    <h5 class="card-title text-success">Mecze deblowe</h5>
-                    {% if last_doubles %}
-                        <table class="table table-striped">
-                            <thead>
-                                <tr class="align-middle text-center">
-                                    <th class="results-col-date"></th>
-                                    <th class="results-col-players"></th>
-                                    <th class="results-col-set set-score">SET1</th>
-                                    <th class="results-col-set set-score">SET2</th>
-                                    <th class="results-col-set set-score">SET3</th>
-                                </tr>
-                            </thead>
-                            <tbody class="table-group-divider">
-                                {% for match in last_doubles %}
-                                    <tr class="align-middle text-center">
-                                        <td class="table-col-date px-0 py-4">
-                                            <span class="date-cell">
-                                                {{ match.match_date|date:'d' }}<br>
-                                                {{ match.match_date|date:'F' }}<br>
-                                                {{ match.match_date|date:'Y' }}
-                                            </span>
-                                        </td>
-                                        <td class="table-col-players p-0">
-                                            <div class="players-cell d-flex flex-column align-items-center">
-                                                <div class="team my-team mb-1 double">
-                                                    <span class="player">
-                                                        <i class="fa-solid fa-user"></i> {{ match.p1.get_full_name }} / {{ match.p3.get_full_name }}
-                                                    </span>
-                                                </div>
-                                                <div class="vs-label text-secondary fw-bold">VS</div>
-                                                <div class="team opponent-team mt-1 double">
-                                                    <span class="player">
-                                                        <i class="fa-solid fa-user"></i> {{ match.p2.get_full_name }} / {{ match.p4.get_full_name }}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        {% with p1_score=match.p1_set1|default_if_none:"-" p2_score=match.p2_set1|default_if_none:"-" %}
-                                            {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score %}
-                                        {% endwith %}
-                                        {% with p1_score=match.p1_set2|default_if_none:"-" p2_score=match.p2_set2|default_if_none:"-" %}
-                                            {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                        {% endwith %}
-                                        {% with p1_score=match.p1_set3|default_if_none:"-" p2_score=match.p2_set3|default_if_none:"-" %}
-                                            {% include 'home/components/set_score_cell.html' with p1_score=p1_score p2_score=p2_score is_optional=True %}
-                                        {% endwith %}
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    {% else %}
-                        <div class="alert alert-info">Brak rozegranych meczów deblowych znajomych.</div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            {% if recent_logins or recent_registrations or online_users %}
-                <div class="card shadow-sm h-100 content-card">
-                    <div class="card-header bg-dark text-white">
-                        <i class="fa-solid fa-chart-line me-2"></i>Aktywność klubowa
-                    </div>
-                    <div class="card-body">
-                        {% if online_users %}
-                            <h5 class="card-title text-success">Użytkownicy online</h5>
-                            <ul class="list-group list-group-flush mb-3">
-                                {% for user in online_users %}
-                                    <li class="list-group-item d-flex align-items-center">
-                                        <i class="fa-solid fa-circle text-success me-2" style="font-size: 0.7rem;"></i>
-                                        <span>
-                                            {{ user.get_full_name|default:user.username }}
-                                        </span>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
-                        {% if recent_logins %}
-                            <h5 class="card-title text-warning">Ostatnio zalogowani</h5>
-                            <ul class="list-group list-group-flush mb-3">
-                                {% for user in recent_logins %}
-                                    <li class="list-group-item d-flex align-items-center">
-                                        <i class="fa-solid fa-circle-user fa-lg text-warning me-2"></i>
-                                        <span>
-                                            {{ user.get_full_name|default:user.username }}
-                                            <br>
-                                            <small class="text-muted">{{ user.last_activity|date:"Y-m-d H:i" }}</small>
-                                        </span>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
-                        {% if recent_registrations %}
-                            <h5 class="card-title text-info">Nowi użytkownicy</h5>
-                            <ul class="list-group list-group-flush">
-                                {% for user in recent_registrations %}
-                                    <li class="list-group-item d-flex align-items-center">
-                                        <i class="fa-solid fa-user-plus fa-lg text-info me-2"></i>
-                                        <span>
-                                            {{ user.get_full_name|default:user.username }}
-                                            <br>
-                                            <small class="text-muted">{{ user.date_joined|date:"Y-m-d H:i" }}</small>
-                                        </span>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% endif %}
-                        {% if not recent_logins and not recent_registrations %}
-                            <div class="alert alert-info">Brak aktywności w ostatnim tygodniu.</div>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endif %}
-        </div>
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background: rgba(59,130,246,.15); color: #3b82f6;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-1a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v1h-3zM4.75 12.094A5.973 5.973 0 004 15v1H1v-1a3 3 0 013.75-2.906z"/>
+      </svg>
     </div>
+    <div>
+      <div class="stat-card__value">{{ online_users|length }}</div>
+      <div class="stat-card__label">Znajomi online</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background: rgba(168,85,247,.15); color: #a855f7;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stat-card__value">{{ ongoing_tournaments|length }}</div>
+      <div class="stat-card__label">Aktywne turnieje</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-card__icon" style="background: rgba(245,158,11,.15); color: #f59e0b;">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <div>
+      <div class="stat-card__value">{{ in_progress_matches|length }}</div>
+      <div class="stat-card__label">Mecze w toku</div>
+    </div>
+  </div>
 
 </div>
+
+<!-- Main content grid: 2 columns -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
+
+  <!-- Active tournaments -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Aktywne turnieje</span>
+      <a href="{% url 'tournaments:manage' %}" class="btn btn-ghost" style="font-size: .75rem; padding: .25rem .75rem;">Zobacz wszystkie</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if ongoing_tournaments %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nazwa</th>
+              <th>Status</th>
+              <th>Zawodników</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in ongoing_tournaments %}
+            <tr style="cursor:pointer;" onclick="location.href='
+              {%  if t.tournament_type == 'RND' %}{% url 'tournaments:details_round_robin' t.pk %}
+              {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}{% url 'tournaments:details_elimination' t.pk %}
+              {% elif t.tournament_type == 'LDR' %}{% url 'tournaments:details_ladder' t.pk %}
+              {% elif t.tournament_type == 'SWS' %}{% url 'tournaments:details_swiss' t.pk %}
+              {% elif t.tournament_type == 'AMR' %}{% url 'tournaments:details_americano' t.pk %}
+              {% else %}{% url 'tournaments:manage' %}{% endif %}'">
+              <td style="font-weight:500;">{{ t.name }}</td>
+              <td>
+                {% if t.status == 'ACT' %}
+                  <span class="badge badge-success">Trwa</span>
+                {% elif t.status == 'REG' %}
+                  <span class="badge badge-info">Rejestracja</span>
+                {% elif t.status == 'SCH' %}
+                  <span class="badge badge-warning">Zaplanowany</span>
+                {% else %}
+                  <span class="badge badge-neutral">{{ t.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td>{{ t.participants.count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state" style="padding: var(--space-8);">
+          <div class="empty-state__icon">🏆</div>
+          <p class="empty-state__text">Brak aktywnych turniejów</p>
+          <a href="{% url 'tournaments:manage' %}" class="btn btn-primary" style="margin-top: var(--space-4);">Utwórz turniej</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Friends online + recent registrations -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Gracze online</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if online_users %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Gracz</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in online_users %}
+            <tr>
+              <td>
+                <div style="display:flex; align-items:center; gap: var(--space-3);">
+                  <div class="avatar" style="width:32px; height:32px; font-size:.75rem;">
+                    {{ u.first_name|default:u.username|slice:":1"|upper }}
+                  </div>
+                  <span>{{ u.get_full_name|default:u.username }}</span>
+                </div>
+              </td>
+              <td><span class="badge badge-success">Online</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state" style="padding: var(--space-8);">
+          <div class="empty-state__icon">👥</div>
+          <p class="empty-state__text">Brak znajomych online</p>
+          <a href="{% url 'friends_list' %}" class="btn btn-secondary" style="margin-top: var(--space-4);">Znajdź graczy</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom row: matches -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); margin-bottom: var(--space-6);">
+
+  <!-- Recent singles matches of friends -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Mecze singlowe znajomych</span>
+      <a href="{% url 'matches:matches_results' %}" class="btn btn-ghost" style="font-size: .75rem; padding: .25rem .75rem;">Wszystkie</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if last_singles %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Mecz</th>
+              <th>Wynik</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in last_singles %}
+            <tr style="cursor:pointer;" onclick="location.href='{% url 'matches:match_detail' m.pk %}'">
+              <td style="font-size:.875rem;">
+                {{ m.p1.get_full_name|default:m.p1.username }}
+                <span style="color: var(--text-muted); margin: 0 .25rem;">vs</span>
+                {{ m.p2.get_full_name|default:m.p2.username }}
+              </td>
+              <td style="font-weight:600; color: var(--primary);">{{ m.result|default:"—" }}</td>
+              <td style="color: var(--text-muted); font-size:.8rem;">{{ m.match_date|date:"d.m" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state" style="padding: var(--space-6);">
+          <div class="empty-state__icon">🎾</div>
+          <p class="empty-state__text">Brak ostatnich meczów</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent tournament matches -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Ostatnie mecze turniejowe</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      {% if last_tournament_matches %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Mecz</th>
+              <th>Turniej</th>
+              <th>Zwycięzca</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for tm in last_tournament_matches %}
+            <tr style="cursor:pointer;" onclick="location.href='
+              {% if tm.tournament.tournament_type == 'RND' %}{% url 'tournaments:details_round_robin' tm.tournament.pk %}
+              {% elif tm.tournament.tournament_type == 'SGL' or tm.tournament.tournament_type == 'DBE' %}{% url 'tournaments:details_elimination' tm.tournament.pk %}
+              {% elif tm.tournament.tournament_type == 'LDR' %}{% url 'tournaments:details_ladder' tm.tournament.pk %}
+              {% elif tm.tournament.tournament_type == 'SWS' %}{% url 'tournaments:details_swiss' tm.tournament.pk %}
+              {% elif tm.tournament.tournament_type == 'AMR' %}{% url 'tournaments:details_americano' tm.tournament.pk %}
+              {% else %}{% url 'tournaments:manage' %}{% endif %}'">
+              <td style="font-size:.875rem;">
+                {% if tm.participant1 %}{{ tm.participant1.user.get_full_name|default:tm.participant1.user.username }}{% endif %}
+                <span style="color: var(--text-muted); margin: 0 .25rem;">vs</span>
+                {% if tm.participant2 %}{{ tm.participant2.user.get_full_name|default:tm.participant2.user.username }}{% endif %}
+              </td>
+              <td style="color: var(--text-muted); font-size:.8rem;">{{ tm.tournament.name|truncatechars:20 }}</td>
+              <td>
+                {% if tm.winner %}
+                  <span class="badge badge-success">{{ tm.winner.user.get_full_name|default:tm.winner.user.username }}</span>
+                {% else %}
+                  <span class="badge badge-neutral">—</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="empty-state" style="padding: var(--space-6);">
+          <div class="empty-state__icon">🏅</div>
+          <p class="empty-state__text">Brak rozegranych meczów</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+<!-- Recent logins / new players -->
+<div class="card" style="margin-bottom: var(--space-6);">
+  <div class="card-header">
+    <span class="card-title">Aktywność graczy (ostatnie 7 dni)</span>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if recent_registrations or recent_logins %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Gracz</th>
+            <th>Zdarzenie</th>
+            <th>Kiedy</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in recent_registrations %}
+          <tr>
+            <td>
+              <div style="display:flex; align-items:center; gap: var(--space-3);">
+                <div class="avatar" style="width:32px; height:32px; font-size:.75rem;">
+                  {{ u.first_name|default:u.username|slice:":1"|upper }}
+                </div>
+                <span>{{ u.get_full_name|default:u.username }}</span>
+              </div>
+            </td>
+            <td><span class="badge badge-primary">Nowy gracz</span></td>
+            <td style="color: var(--text-muted); font-size:.8rem;">{{ u.date_joined|timesince }} temu</td>
+          </tr>
+          {% endfor %}
+          {% for u in recent_logins %}
+          <tr>
+            <td>
+              <div style="display:flex; align-items:center; gap: var(--space-3);">
+                <div class="avatar" style="width:32px; height:32px; font-size:.75rem;">
+                  {{ u.first_name|default:u.username|slice:":1"|upper }}
+                </div>
+                <span>{{ u.get_full_name|default:u.username }}</span>
+              </div>
+            </td>
+            <td><span class="badge badge-neutral">Logowanie</span></td>
+            <td style="color: var(--text-muted); font-size:.8rem;">{{ u.last_activity|timesince }} temu</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="empty-state" style="padding: var(--space-8);">
+        <div class="empty-state__icon">📊</div>
+        <p class="empty-state__text">Brak aktywności w ostatnich 7 dniach</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
 {% endblock %}

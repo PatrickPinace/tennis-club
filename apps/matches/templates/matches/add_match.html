@@ -1,144 +1,154 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 {% load matches %}
 {% load widget_tweaks %}
 
-<!-- Dodatkowe CSS -->
-{% block styles %}
-<link rel="stylesheet" href="/static/css/add_match.css">
-{% endblock %}
+{% block title %}{% if is_edit_match %}Edytuj mecz{% else %}Dodaj mecz{% endif %}{% endblock %}
+{% block topbar_title %}Mecze{% endblock %}
 
-{% block title %}
-{% endblock %}
-
-{% block content %}
-<div class="container py-4">
-    <div class="card card-add-match shadow-sm mx-auto">
-    <div class="card-header text-center align-items-center bg-dark text-white">
-            <h2 class="card-title font-2 mb-0 mx-4">Dodaj Spotkanie Towarzyskie</h2>
-        </div>
-        <div class="card-body">
-            <form method="post" id="form_add_match" onsubmit="return validateForm()">
-                {% csrf_token %}
-
-                {% include 'matches/add_match/settings.html' %}
-
-                <!-- Układ wyników -->
-                <div class="text-center mb-4">
-                    <!-- Gracz 1 / 3 -->
-                    {% include 'matches/add_match/players.html' with leader='p1' friend='p3' form=form %}
-
-                    <!-- Siatka wyników -->
-                    <div class="score-grid justify-content-center gap-1 mx-auto">
-                        <!-- Etykiety setów -->
-                        {% for set_num in "123" %}
-                            <div class="fw-bold">Set {{ set_num }}</div>
-                        {% endfor %}
-
-                        <!-- Pola wyników gracza 1 -->
-                        <div class="d-flex justify-content-center">{{ form.p1_set1|attr:"class:form-control-score" }}</div>
-                        <div class="d-flex justify-content-center">{{ form.p1_set2|attr:"class:form-control-score" }}</div>
-                        <div class="d-flex justify-content-center">{{ form.p1_set3|attr:"class:form-control-score" }}</div>
-
-                        <!-- Separatory -->
-                        {% for _ in "123" %}
-                            <div class="vs-label">-</div>
-                        {% endfor %}
-
-                        <!-- Pola wyników gracza 2 -->
-                        <div class="d-flex justify-content-center">{{ form.p2_set1|attr:"class:form-control-score" }}</div>
-                        <div class="d-flex justify-content-center">{{ form.p2_set2|attr:"class:form-control-score" }}</div>
-                        <div class="d-flex justify-content-center">{{ form.p2_set3|attr:"class:form-control-score" }}</div>
-                    </div>
-
-                    <!-- Gracz 2 / 4 -->
-                    {% include 'matches/add_match/players.html' with leader='p2' friend='p4' form=form %}
-                </div>
-
-                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
-                    <button type="submit" class="btn btn-success px-5"><i class="bi bi-save-fill"></i> Zapisz</button>
-                </div>
-            </form>
-        </div>
-    </div>
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{% if is_edit_match %}Edytuj mecz{% else %}Dodaj spotkanie{% endif %}</h1>
+    <p class="page-header__subtitle">{% if is_edit_match %}Zmień wynik lub dane meczu.{% else %}Zapisz wynik spotkania towarzyskiego.{% endif %}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'matches:matches_results' %}" class="btn btn-secondary">← Powrót</a>
+  </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
-<script> 
- document.addEventListener('DOMContentLoaded', function() {
-  const matchDouble = document.getElementById("match_double");
-  const p3_col = document.getElementById("player-p3-col");
-  const p4_col = document.getElementById("player-p4-col");
-  const p3_separator = document.getElementById("doubles-separator-p3");
-  const p4_separator = document.getElementById("doubles-separator-p4");
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" id="form_add_match" onsubmit="return validateForm()">
+        {% csrf_token %}
 
-  function togglePlayerVisibility() {
-   const isMatchDouble = matchDouble.checked;
-   p3_col.classList.toggle("d-none", !isMatchDouble);
-   p4_col.classList.toggle("d-none", !isMatchDouble);
-   p3_separator.classList.toggle("d-none", !isMatchDouble);
-   p4_separator.classList.toggle("d-none", !isMatchDouble);
-  }
+        <!-- Data i tryb gry -->
+        <div style="display:flex; gap:var(--space-4); align-items:center; flex-wrap:wrap; margin-bottom:var(--space-6);">
+          <div>
+            <label style="display:block; font-size:.75rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:.05em;">Data meczu</label>
+            {{ form.match_date|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;" }}
+          </div>
+          <div style="display:flex; align-items:center; gap:var(--space-2); padding-top:20px;">
+            {{ form.match_double|attr:"id:match_double"|attr:"style:width:18px;height:18px;accent-color:var(--primary);cursor:pointer;" }}
+            {% if is_edit_match and match.match_double %}
+              <input type="hidden" name="match_double" value="True">
+            {% endif %}
+            <label for="match_double" style="font-size:.875rem; font-weight:600; cursor:pointer;">Debel</label>
+          </div>
+        </div>
 
-  matchDouble.addEventListener('click', togglePlayerVisibility);
+        <!-- Gracze i wyniki -->
+        <div style="display:flex; flex-direction:column; gap:var(--space-4); align-items:center;">
 
-  // Ustaw stan początkowy przy załadowaniu strony
-  togglePlayerVisibility();
-  })
+          <!-- Drużyna 1 -->
+          <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; justify-content:center;">
+            <div class="player-select">
+              {% with field=form.p1 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+            <span id="doubles-separator-p3" style="font-size:1.2rem; color:var(--text-dim); {% if not is_doubles %}display:none;{% endif %}">/</span>
+            <div id="player-p3-col" class="player-select" style="{% if not is_doubles %}display:none;{% endif %}">
+              {% with field=form.p3 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+          </div>
+
+          <!-- Siatka wyników -->
+          <div style="display:grid; grid-template-columns: repeat(3, 80px); gap:var(--space-3); text-align:center;">
+            <div style="font-size:.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 1</div>
+            <div style="font-size:.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 2</div>
+            <div style="font-size:.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 3</div>
+
+            {{ form.p1_set1|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p1_set2|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p1_set3|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+
+            <div style="color:var(--text-dim); font-weight:700; display:flex; align-items:center; justify-content:center;">—</div>
+            <div style="color:var(--text-dim); font-weight:700; display:flex; align-items:center; justify-content:center;">—</div>
+            <div style="color:var(--text-dim); font-weight:700; display:flex; align-items:center; justify-content:center;">—</div>
+
+            {{ form.p2_set1|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p2_set2|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p2_set3|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+          </div>
+
+          <!-- Drużyna 2 -->
+          <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; justify-content:center;">
+            <div class="player-select">
+              {% with field=form.p2 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+            <span id="doubles-separator-p4" style="font-size:1.2rem; color:var(--text-dim); {% if not is_doubles %}display:none;{% endif %}">/</span>
+            <div id="player-p4-col" class="player-select" style="{% if not is_doubles %}display:none;{% endif %}">
+              {% with field=form.p4 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+          </div>
+
+        </div>
+
+        <div style="margin-top:var(--space-8); text-align:center;">
+          <button type="submit" class="btn btn-primary" style="min-width:160px;">
+            {% if is_edit_match %}Zapisz zmiany{% else %}Zapisz mecz{% endif %}
+          </button>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const matchDouble = document.getElementById("match_double");
+    const p3col = document.getElementById("player-p3-col");
+    const p4col = document.getElementById("player-p4-col");
+    const sep3 = document.getElementById("doubles-separator-p3");
+    const sep4 = document.getElementById("doubles-separator-p4");
+
+    function toggle() {
+      const on = matchDouble.checked;
+      [p3col, p4col, sep3, sep4].forEach(el => el.style.display = on ? '' : 'none');
+    }
+
+    matchDouble.addEventListener('change', toggle);
+    toggle();
+  });
 
   function validateForm() {
-    let scores = document.getElementsByClassName('form-select-score');
-    let p1 = document.querySelector('input[name="p1"]'); // Zmieniono z select na input
-    let p2 = document.querySelector('select[name="p2"]');
+    const p1 = document.querySelector('input[name="p1"]') || document.querySelector('select[name="p1"]');
+    const p2 = document.querySelector('select[name="p2"]');
+    if (!p1?.value || !p2?.value) { alert("Proszę wybrać graczy."); return false; }
+
+    const matchDouble = document.getElementById("match_double");
     let players = [p1.value, p2.value];
-
-    if (!p1.value || !p2.value) {
-        alert("Proszę wybrać graczy.");
-        return false;
+    if (matchDouble?.checked) {
+      const p3 = document.querySelector('select[name="p3"]');
+      const p4 = document.querySelector('select[name="p4"]');
+      if (!p3?.value || !p4?.value) { alert("Proszę wybrać graczy debla."); return false; }
+      players.push(p3.value, p4.value);
     }
 
-    if (match_double.checked) {
-        let p3 = document.querySelector('select[name="p3"]');
-        let p4 = document.querySelector('select[name="p4"]');
-        if (!p3.value || !p4.value) {
-            alert("Proszę wybrać graczy dla drużyny podwójnej.");
-            return false;
-        }
-        players.push(p3.value, p4.value);
-    }
-    
-    // Sprawdzenie, czy gracze są unikalni
-    let uniquePlayers = new Set(players);
-    if (uniquePlayers.size !== players.length) {
-        alert("Gracze muszą być unikalni. Proszę wybrać różnych graczy.");
-        return false;
+    if (new Set(players).size !== players.length) {
+      alert("Gracze muszą być unikalni."); return false;
     }
 
-    // Zliczanie pustych wyników
-    let emptyScoresCount = 0;
-    for (let i = 0; i < scores.length; i++) {
-        if (scores[i].value === "") {
-            scores[i].value = 0; // Ustawienie pustych wyników na 0
-            emptyScoresCount++;
-        }
-    }
-    
-    if (emptyScoresCount > 5) {
-        alert(`Proszę wprowadzić wyniki dla przynajmniej 1 seta.`);
-        return false;
-    }
-
+    const scores = document.getElementsByClassName('form-control-score');
+    let empty = 0;
+    for (let s of scores) { if (s.value === '') { s.value = 0; empty++; } }
+    if (empty > 5) { alert("Wpisz wyniki przynajmniej 1 seta."); return false; }
 
     return true;
   }
-</script>
-<script>
-  $(document).ready(function() {
-    $('.form-select-player').select2({
-        theme: 'bootstrap-5',
-        placeholder: 'Wyszukaj gracza',
-        minimumResultsForSearch: 3 // Ukryj wyszukiwarkę dla mniej niż 3 opcji
-    });
-  });
 </script>
 {% endblock %}

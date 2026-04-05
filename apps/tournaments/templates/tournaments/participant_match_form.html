@@ -1,129 +1,112 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load widget_tweaks %}
 {% load tournaments %}
 
-{% block styles %}
-<style>
-    .form-control-score {
-        font-family: 'Special Elite', 'Lato', sans-serif;
-        font-size: 2rem;
-        text-align: center;
-        border: 1px solid #ced4da;
-        border-radius: .25rem;
-        max-width: 80px;
-        padding: .5rem;
-    }
-    .player-name-display {
-        font-family: 'Lato', sans-serif;
-        font-size: 1.5rem;
-        text-align: center;
-        font-weight: bold;
-        padding: 0 1rem;
-    }
-    .set-card-body label {
-        flex-basis: 50%;
-        text-align: left;
-    }
-    .vs-label {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #6c757d;
-    }
-    .score-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-    }
-</style>
+{% block title %}Edytuj Wynik{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Edytuj Wynik</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="card shadow-sm">
-        <div class="card-header text-center bg-dark text-white">
-            <h2 class="card-title font-2">Edytuj Wynik</h2>
+<div style="max-width: 560px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" id="form_edit_match">
+        {% csrf_token %}
+
+        {% if has_full_permissions %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ form.scheduled_time.label }}</label>
+          {{ form.scheduled_time }}
+          {% if form.scheduled_time.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.scheduled_time.errors|join:", " }}</p>{% endif %}
         </div>
-        <div class="card-body">
-            <h4 class="text-muted text-center mb-4">{{ tournament.name }}</h4>
+        {% endif %}
 
-            <form method="post" id="form_edit_match">
-                {% csrf_token %}
+        <!-- Tablica wyników -->
+        <div style="margin-bottom:var(--space-5);">
+          <div style="font-size:1.1rem; font-weight:700; text-align:center; margin-bottom:var(--space-4);">
+            {{ match.participant1|default:"BYE" }}
+          </div>
 
-                {# Data i Status - widoczne tylko dla użytkowników z pełnymi uprawnieniami #}
-                {% if has_full_permissions %}
-                <div class="d-flex justify-content-center mb-3">
-                    <div class="input-group" style="max-width: 400px;">
-                        <span class="input-group-text">Data:</span>
-                        {% if not has_full_permissions %}
-                            {{ form.scheduled_time|attr:"disabled:disabled" }}
-                        {% else %}
-                            {{ form.scheduled_time }}
-                        {% endif %}
-                        {% if form.scheduled_time.errors %}<div class="text-danger small mt-1">{{ form.scheduled_time.errors }}</div>{% endif %}
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Układ wyników -->
-                <div class="text-center mb-4">
-                    <!-- Gracz 1 -->
-                    <div class="player-name-display mb-3">{{ match.participant1|default:"BYE" }}</div>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
+            <div style="font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 1</div>
+            <div style="font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 2</div>
+            <div style="font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 3</div>
+          </div>
 
-                    <div class="score-grid justify-content-center gap-3 mx-auto" style="max-width: 400px;">
-                        <!-- Etykiety setów -->
-                        {% for set_num in "123" %}
-                            <div class="fw-bold">Set {{ set_num }}</div>
-                        {% endfor %}
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
+            {% with p1_field_name="set1_p1_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+            </div>
+            {% endwith %}
+            {% with p1_field_name="set2_p1_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+            </div>
+            {% endwith %}
+            {% with p1_field_name="set3_p1_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+            </div>
+            {% endwith %}
+          </div>
 
-                        <!-- Pola wyników gracza 1 -->
-                        {% for set_num in "123" %}
-                            {% with p1_field_name="set"|add:set_num|add:"_p1_score" %}
-                                <div class="d-flex justify-content-center">
-                                    {{ form|get_item:p1_field_name|add_class:"form-control-score" }}
-                                </div>
-                            {% endwith %}
-                        {% endfor %}
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
+            <div style="font-size:1.2rem; font-weight:700; color:var(--text-muted); text-align:center;">—</div>
+            <div style="font-size:1.2rem; font-weight:700; color:var(--text-muted); text-align:center;">—</div>
+            <div style="font-size:1.2rem; font-weight:700; color:var(--text-muted); text-align:center;">—</div>
+          </div>
 
-                        <!-- Separatory -->
-                        {% for _ in "123" %}
-                            <div class="vs-label">-</div>
-                        {% endfor %}
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-4);">
+            {% with p2_field_name="set1_p2_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+            </div>
+            {% endwith %}
+            {% with p2_field_name="set2_p2_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+            </div>
+            {% endwith %}
+            {% with p2_field_name="set3_p2_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;" }}
+            </div>
+            {% endwith %}
+          </div>
 
-                        <!-- Pola wyników gracza 2 -->
-                        {% for set_num in "123" %}
-                            {% with p2_field_name="set"|add:set_num|add:"_p2_score" %}
-                                <div class="d-flex justify-content-center">
-                                    {{ form|get_item:p2_field_name|add_class:"form-control-score" }}
-                                </div>
-                            {% endwith %}
-                        {% endfor %}
-                    </div>
-
-                    <!-- Gracz 2 -->
-                    <div class="player-name-display mt-3">{{ match.participant2|default:"BYE" }}</div>
-                </div>
-
-                {# Status i Zwycięzca - widoczne tylko dla użytkowników z pełnymi uprawnieniami #}
-                {% if has_full_permissions or can_start_match %}
-                <div class="d-flex justify-content-center mb-3">
-                    <div class="input-group" style="max-width: 400px;">
-                        <span class="input-group-text">Status:</span>
-                        {{ form.status|add_class:"form-select" }}
-                        {% if form.status.errors %}<div class="text-danger small mt-1">{{ form.status.errors }}</div>{% endif %}
-                    </div>
-                </div>
-                {% else %}
-                    {# Jeśli użytkownik nie ma uprawnień do zmiany statusu, wyślij bieżący status w ukrytym polu #}
-                    <input type="hidden" name="status" value="{{ form.instance.status }}">
-                {% endif %}
-
-                <div class="d-flex justify-content-center gap-2">
-                    <button type="submit" class="btn btn-success"><i class="bi bi-save-fill"></i> Zapisz Zmiany</button>
-                    
-                    {# Poprawiony link "Anuluj" używający `next_url` #}
-                    <a href="{{ next_url }}" class="btn btn-secondary"><i class="bi bi-x-circle-fill"></i> Anuluj</a>
-                </div>
-            </form>
+          <div style="font-size:1.1rem; font-weight:700; text-align:center;">
+            {{ match.participant2|default:"BYE" }}
+          </div>
         </div>
+
+        {% if has_full_permissions or can_start_match %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ form.status.label }}</label>
+          {{ form.status }}
+          {% if form.status.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.status.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% else %}
+          <input type="hidden" name="status" value="{{ form.instance.status }}">
+        {% endif %}
+
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-3);">
+          <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+          <button type="submit" class="btn btn-primary">Zapisz Zmiany</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
-{% endblock content %}
+{% endblock %}

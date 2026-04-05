@@ -1,148 +1,137 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 {% load static %}
 
-{% block content %}
-<div class="container py-4">
-  <h2>Uczestnicy — {{ tournament.name }}</h2>
-  <div class="d-flex gap-2 mb-3">
-    <a class="btn btn-primary" href="{% url 'tournaments:register_participant' tournament.pk %}">
-      <i class="bi bi-person-plus-fill"></i> <span class="d-none d-sm-inline">Zarejestruj uczestnika</span>
-    </a>
-    <a class="btn btn-outline-secondary" href="{% url 'tournaments:manage' %}">
-      <i class="bi bi-arrow-left"></i> <span class="d-none d-sm-inline">Powrót do listy turniejów</span>
-    </a>
-  </div>
+{% block title %}Uczestnicy — {{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
 
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Uczestnicy</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">← Powrót</a>
+    <a href="{% url 'tournaments:register_participant' tournament.pk %}" class="btn btn-primary">+ Zarejestruj uczestnika</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto;">
+
+  <!-- Prośby o dołączenie -->
   {% if pending_requests.exists %}
-    <h4 class="mt-4">Prośby o dołączenie</h4>
-    <div class="list-group mb-4">
-      {% for req in pending_requests %}
-        <div class="list-group-item d-flex flex-column flex-sm-row justify-content-between align-items-sm-center">
-          <div class="mb-2 mb-sm-0">
-            <strong>{{ req.display_name }}</strong>
-            <small class="text-muted d-block">{{ req.user.get_full_name }} ({{ req.user.username }})</small>
-          </div>
-          {% if request.user == tournament.created_by %}
-            <div class="d-grid d-sm-flex gap-2">
-              <a class="btn btn-sm btn-success" href="{% url 'tournaments:approve_participant' tournament.pk req.pk %}">Zatwierdź</a>
-              <a class="btn btn-sm btn-danger" href="{% url 'tournaments:reject_participant' tournament.pk req.pk %}">Odrzuć</a>
-            </div>
-          {% endif %}
-        </div>
-      {% endfor %}
+  <div class="card" style="margin-bottom:var(--space-5); border-color:var(--warning);">
+    <div class="card-header">
+      <span class="card-title">Prośby o dołączenie</span>
+      <span class="badge badge-warning">{{ pending_requests|length }}</span>
     </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Gracz</th>
+            <th>Użytkownik</th>
+            {% if request.user == tournament.created_by %}<th></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for req in pending_requests %}
+          <tr>
+            <td style="font-weight:600;">{{ req.display_name }}</td>
+            <td style="color:var(--text-muted); font-size:.85rem;">{{ req.user.get_full_name }} ({{ req.user.username }})</td>
+            {% if request.user == tournament.created_by %}
+            <td>
+              <div style="display:flex; gap:var(--space-2);">
+                <a href="{% url 'tournaments:approve_participant' tournament.pk req.pk %}" class="btn btn-primary btn-sm">Zatwierdź</a>
+                <a href="{% url 'tournaments:reject_participant' tournament.pk req.pk %}" class="btn btn-danger btn-sm">Odrzuć</a>
+              </div>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
   {% endif %}
 
-  <h4 class="mt-4">Zatwierdzeni uczestnicy</h4>
-
-  <!-- Widok tabeli dla dużych ekranów (od md w górę) -->
-  <div class="d-none d-md-block">
-    <table class="table table-striped table-hover align-middle">
-      <thead class="table-dark">
-        <tr>
-          <th>Seed</th>
-          <th>Nazwa</th>
-          <th>Użytkownik</th>
-          {% if tournament.match_format == 'DBL' %}
-          <th>Partner deblowy</th>
-          {% endif %}
-          <th>Status</th>
-          <th>Akcje</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in participants %}
+  <!-- Zatwierdzeni uczestnicy -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Zatwierdzeni uczestnicy</span>
+      <span style="font-size:.8rem; color:var(--text-muted);">{{ participants|length }} osób</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if participants %}
+      <table class="data-table">
+        <thead>
           <tr>
-            <td>{% if p.seed_number %}<span class="badge bg-secondary">{{ p.seed_number }}</span>{% else %}—{% endif %}</td>
-            <td><strong>{{ p.display_name }}</strong></td>
-            <td>{% if p.user %}{{ p.user.get_full_name }}{% else %}—{% endif %}</td>
-            
+            <th style="width:50px;">Seed</th>
+            <th>Nazwa</th>
+            <th>Użytkownik</th>
+            {% if tournament.match_format == 'DBL' %}<th>Partner</th>{% endif %}
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in participants %}
+          <tr>
+            <td style="text-align:center;">
+              {% if p.seed_number %}<span class="badge badge-neutral">#{{ p.seed_number }}</span>{% else %}<span style="color:var(--text-dim);">—</span>{% endif %}
+            </td>
+            <td style="font-weight:600;">{{ p.display_name }}</td>
+            <td style="color:var(--text-muted); font-size:.85rem;">
+              {% if p.user %}{{ p.user.get_full_name }}{% else %}—{% endif %}
+            </td>
             {% if tournament.match_format == 'DBL' %}
             <td>
               {% with partner=p.members.first %}
                 {% if partner %}
-                  {{ partner.user.get_full_name }}
+                  <span style="font-size:.85rem;">{{ partner.user.get_full_name }}</span>
                 {% else %}
-                  <span class="text-danger">Brak!</span>
+                  <span class="badge badge-danger">Brak!</span>
                 {% endif %}
               {% endwith %}
             </td>
             {% endif %}
-            <td><span class="badge bg-info">{{ p.get_status_display }}</span></td>
             <td>
-              <div class="d-flex gap-1">
-                <a class="btn btn-sm btn-outline-secondary" href="{% url 'tournaments:edit_participant' tournament.pk p.pk %}" title="Edytuj"><i class="bi bi-pencil-fill"></i></a>
+              {% if p.status == 'PEN' %}<span class="badge badge-warning">{{ p.get_status_display }}</span>
+              {% elif p.status == 'REG' %}<span class="badge badge-info">{{ p.get_status_display }}</span>
+              {% elif p.status == 'ACT' %}<span class="badge badge-success">{{ p.get_status_display }}</span>
+              {% elif p.status == 'REJ' %}<span class="badge badge-danger">{{ p.get_status_display }}</span>
+              {% else %}<span class="badge badge-neutral">{{ p.get_status_display }}</span>{% endif %}
+            </td>
+            <td>
+              <div style="display:flex; gap:var(--space-2);">
+                <a href="{% url 'tournaments:edit_participant' tournament.pk p.pk %}" class="btn btn-ghost btn-sm">Edytuj</a>
                 {% if tournament.match_format == 'DBL' %}
-                  <a class="btn btn-sm btn-outline-info" href="{% url 'tournaments:add_team_member' tournament.pk p.pk %}" title="Zarządzaj partnerem"><i class="bi bi-people-fill"></i></a>
+                <a href="{% url 'tournaments:add_team_member' tournament.pk p.pk %}" class="btn btn-ghost btn-sm">Partner</a>
                 {% endif %}
                 {% if request.user == tournament.created_by or request.user.is_staff %}
-                  <form method="post" action="{% url 'tournaments:remove_participant' tournament.pk p.pk %}" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-danger" onclick="return confirm('Na pewno usunąć uczestnika? To nieodwracalne.')" title="Usuń"><i class="bi bi-trash-fill"></i></button>
-                  </form>
+                <form method="post" action="{% url 'tournaments:remove_participant' tournament.pk p.pk %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Usunąć uczestnika? To nieodwracalne.')">Usuń</button>
+                </form>
                 {% endif %}
               </div>
             </td>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Widok kart dla małych ekranów (poniżej md) -->
-  <div class="d-md-none">
-    <div class="row row-cols-1 g-3">
-      {% for p in participants %}
-        <div class="col">
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <div class="d-grid mb-2">
-                <span class="badge
-                  {% if p.status == 'PEN' %}bg-warning text-dark
-                  {% elif p.status == 'REG' %}bg-info
-                  {% elif p.status == 'ACT' %}bg-success
-                  {% elif p.status == 'REJ' %}bg-danger
-                  {% else %}bg-secondary
-                  {% endif %}
-                ">{{ p.get_status_display }}</span>
-              </div>
-              <h5 class="card-title mb-1">{% if p.seed_number %}<span class="text-muted">#{{ p.seed_number }}</span> {% endif %}{{ p.display_name }}</h5>
-              <div class="mt-1">
-                <p class="card-subtitle text-muted small">
-                  {% if p.user %}{{ p.user.get_full_name }}{% else %}—{% endif %}
-                </p>
-              </div>
-
-              {% if tournament.match_format == 'DBL' %}
-                <div class="mt-2">
-                  <small class="text-muted">Partner:</small>
-                  {% with partner=p.members.first %}
-                    {% if partner %}
-                      <strong>{{ partner.user.get_full_name }}</strong>
-                    {% else %}
-                      <strong class="text-danger">Brak!</strong>
-                    {% endif %}
-                  {% endwith %}
-                </div>
-              {% endif %}
-
-              <div class="d-flex gap-2 mt-3">
-                <a class="btn btn-sm btn-secondary flex-grow-1" href="{% url 'tournaments:edit_participant' tournament.pk p.pk %}">Edytuj</a>
-                {% if tournament.match_format == 'DBL' %}
-                  <a class="btn btn-sm btn-info flex-grow-1" href="{% url 'tournaments:add_team_member' tournament.pk p.pk %}">Partner</a>
-                {% endif %}
-                {% if request.user == tournament.created_by or request.user.is_staff %}
-                  <form method="post" action="{% url 'tournaments:remove_participant' tournament.pk p.pk %}" class="d-grid flex-grow-1">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-danger w-100" onclick="return confirm('Na pewno usunąć uczestnika? To nieodwracalne.')">Usuń</button>
-                  </form>
-                {% endif %}
-              </div>
-            </div>
-          </div>
-        </div>
-      {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-state__icon">👤</div>
+        <p class="empty-state__title">Brak uczestników</p>
+        <p class="empty-state__text">Zarejestruj pierwszego uczestnika.</p>
+        <a href="{% url 'tournaments:register_participant' tournament.pk %}" class="btn btn-primary" style="margin-top:var(--space-4);">+ Zarejestruj</a>
+      </div>
+      {% endif %}
     </div>
   </div>
+
 </div>
 {% endblock %}

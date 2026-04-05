@@ -1,22 +1,13 @@
- <!-- templates/500.html -->
- {% extends 'tennis-club.html' %}
- {% load static %}
- 
- {% block styles %}
- <link rel="stylesheet" href="/static/css/errors.css" type="text/css">
- {% endblock %}
+{% extends 'layouts/base_auth.html' %}
+{% load static %}
 
- {% block content %}
- <div class="error-page-main">
-  <div class="error-container">
-   <div class="error-code">500</div>
-   <div class="error-heading">Wewnętrzny błąd serwera</div>
-   <div class="error-details">
-    Przepraszamy, coś poszło nie tak po naszej stronie. Pracujemy nad rozwiązaniem problemu.
-   </div>
-   <div class="error-actions">
-    <a href="{% url 'dashboard' %}" class="btn btn-success btn-lg"><i class="bi bi-house-fill"></i> Wróć do strony głównej</a>
-   </div>
-  </div>
- </div>
- {% endblock %}
+{% block title %}500 — Błąd serwera{% endblock %}
+
+{% block content %}
+<div style="text-align:center; max-width:480px;">
+  <div style="font-size:6rem; font-weight:900; color:var(--danger, #e53e3e); line-height:1; margin-bottom:var(--space-4);">500</div>
+  <h1 style="font-size:1.5rem; font-weight:700; margin-bottom:var(--space-3);">Wewnętrzny błąd serwera</h1>
+  <p style="color:var(--text-muted); margin-bottom:var(--space-6);">Przepraszamy, coś poszło nie tak po naszej stronie. Pracujemy nad rozwiązaniem problemu.</p>
+  <a href="{% url 'dashboard' %}" class="btn btn-primary">Wróć do strony głównej</a>
+</div>
+{% endblock %}

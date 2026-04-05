@@ -1,8 +1,28 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load tournaments %}
 {% load static %}
 
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ tournament.name }}</h1>
+    <div style="display:flex; gap:var(--space-2); align-items:center; margin-top:var(--space-2);">
+      <span class="badge badge-primary">{{ tournament.get_tournament_type_display }}</span>
+      {% if tournament.status == 'ACT' %}<span class="badge badge-success">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'FIN' %}<span class="badge badge-neutral">{{ tournament.get_status_display }}</span>
+      {% else %}<span class="badge badge-warning">{{ tournament.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">← Powrót</a>
+  </div>
+</div>
+{% endblock %}
+
 {% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
 <style>
     /* Style dla reakcji */
     .reaction-btn.active {
@@ -195,24 +215,7 @@
     }
 </style>
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <h2 class="mb-1 fs-4 fs-md-2">
-                <a href="#tournamentRules" data-bs-toggle="collapse" role="button" aria-expanded="false"
-                    aria-controls="tournamentRules" class="text-decoration-none text-dark"
-                    title="Kliknij, aby zobaczyć zasady">
-                    {{ tournament.name }} <i class="bi bi-info-circle-fill small text-muted"></i>
-                </a>
-            </h2>
-            <span class="badge bg-primary">{{ tournament.get_tournament_type_display }}</span>
-            <span class="badge bg-info">{{ tournament.get_status_display }}</span>
-        </div>
-        <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary d-none d-md-inline-block">
-            <i class="bi bi-arrow-left"></i>
-            <span class="d-none d-md-inline"> Powrót</span>
-        </a>
-    </div>
+<div>
 
 
     {% if tournament.description %}
@@ -316,8 +319,9 @@
     </div>
     {% endif %}
 </div>
+</div>{# /max-width wrapper #}
 {% endblock %}
 
-{% block scripts %}
+{% block extra_js %}
 <script src="{% static 'js/reactions.js' %}"></script>
 {% endblock %}

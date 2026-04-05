@@ -1,235 +1,164 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load static %}
 
+{% block title %}Zarządzanie Meczami{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Zarządzanie Meczami</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">Powrót</a>
+    <a href="{% url 'tournaments:create_match' pk=tournament.pk %}" class="btn btn-primary">+ Dodaj Mecz</a>
+  </div>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="container">
-  <h2 class="mb-4">Zarządzanie Meczami: <small class="text-muted">{{ tournament.name }}</small></h2>
+<div style="max-width: 1100px; margin: 0 auto;">
 
-  <p>Typ turnieju: <strong>{{ tournament.get_tournament_type_display }}</strong>. Format meczu: <strong>{{ tournament.get_match_format_display }}</strong>.</p>
-  {% if is_seeded %}
-  <p class="text-info"><i class="bi bi-info-circle-fill me-1"></i> Turniej jest **rozstawiany** (Seeded) - Najsilniejszy z najsłabszym.</p>
-  {% endif %}
-  {% if tournament.tournament_type == 'AMR' and tournament.americano_config %}
-    <p class="text-info"><i class="bi bi-info-circle-fill me-1"></i>
-      Ustawiony tryb: <strong>{{ tournament.americano_config.get_scheduling_type_display }}</strong>.
-    </p>
-  {% endif %}
+  <!-- Info o turnieju -->
+  <div style="display:flex; flex-wrap:wrap; gap:var(--space-3); margin-bottom:var(--space-5); padding:var(--space-4); background:var(--surface-2); border-radius:var(--radius-sm); border:1px solid var(--border); font-size:.875rem;">
+    <span>Typ: <strong>{{ tournament.get_tournament_type_display }}</strong></span>
+    <span style="color:var(--border);">|</span>
+    <span>Format meczu: <strong>{{ tournament.get_match_format_display }}</strong></span>
+    {% if is_seeded %}
+    <span style="color:var(--border);">|</span>
+    <span style="color:var(--primary);">Turniej rozstawiany (Seeded)</span>
+    {% endif %}
+    {% if tournament.tournament_type == 'AMR' and tournament.americano_config %}
+    <span style="color:var(--border);">|</span>
+    <span>Tryb: <strong>{{ tournament.americano_config.get_scheduling_type_display }}</strong></span>
+    {% endif %}
+  </div>
 
-  <div class="mb-4 border-top pt-3">
-    <div class="d-grid d-sm-flex gap-2 justify-content-sm-between">
-      <!-- Przyciski po lewej -->
-      <div class="d-grid d-sm-flex gap-2">
-          <a href="{% url 'tournaments:create_match' pk=tournament.pk %}" class="btn btn-primary">
-            <i class="bi bi-plus-circle-fill"></i> <span class="d-none d-sm-inline">Dodaj Mecz Ręcznie</span><span class="d-sm-none">Dodaj Mecz</span>
-          </a>
-          <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left"></i> Powrót
-          </a>
-      </div>
-      <!-- Przyciski po prawej -->
-      <div class="d-grid d-sm-flex gap-2">
-          {% if tournament.tournament_type != 'LDR' %}
-            {% with config=tournament.americano_config %}
-            <form method="post" action="{% url 'tournaments:generate_matches' pk=tournament.pk %}" class="d-grid">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-success"
-                      {% if tournament.status != 'SCH' %} disabled
-                      title="Generowanie meczów jest możliwe tylko dla turniejów w statusie 'Zaplanowany'." {% endif %}
-                      onclick="return confirm('Czy na pewno chcesz wygenerować mecze? Ta akcja usunie wszystkie istniejące mecze dla tego turnieju.')"
-                      {% if config.scheduling_type == 'DYNAMIC' %}
-                        title="Generuje 1. rundę na podstawie rankingu (seed)."
-                      {% elif config.scheduling_type == 'STATIC' %}
-                        title="Generuje losowo wszystkie rundy."
-                      {% endif %}>
-                <i class="bi bi-gear-fill"></i>
-                {% if tournament.status == 'SCH' %}
-                  {% if tournament.tournament_type == 'AMR' %}
-                    {% if config.scheduling_type == 'DYNAMIC' %}
-                      Generuj 1. Rundę (Mexicano)
-                    {% else %}
-                      Generuj Mecze (Americano)
-                    {% endif %}
-                  {% else %}
-                    Generuj Mecze
-                  {% endif %}
-                {% else %}
-                  Wygeneruj ponownie (istniejące zostaną usunięte)
-                {% endif %}
-                ({{ participants_count }})
-              </button>
-            </form>
-            {% endwith %}
-          {% endif %}
-          {% if tournament.tournament_type == 'LDR' %}
-            <form method="post" action="{% url 'tournaments:reset_leaderboard_locks' pk=tournament.pk %}" class="d-grid">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-warning"
-                      {% if not can_reset_ladder %}disabled title="Przycisk będzie aktywny, gdy w bieżącej rundzie pojawi się pierwszy mecz."{% endif %}
-                      onclick="return confirm('Czy na pewno chcesz zresetować blokady i rozpocząć nową rundę?')">
-                  <i class="bi bi-arrow-counterclockwise"></i> <span class="d-none d-sm-inline">Resetuj Blokady</span><span class="d-sm-none">Resetuj</span>
-              </button>
-            </form>
-          {% endif %}
-      </div>
-    </div>
+  <!-- Akcje generowania -->
+  <div style="display:flex; flex-wrap:wrap; justify-content:flex-end; gap:var(--space-3); margin-bottom:var(--space-5);">
+    {% if tournament.tournament_type != 'LDR' %}
+    {% with config=tournament.americano_config %}
+    <form method="post" action="{% url 'tournaments:generate_matches' pk=tournament.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-success"
+              {% if tournament.status != 'SCH' %}disabled title="Generowanie możliwe tylko dla turniejów w statusie 'Zaplanowany'."{% endif %}
+              onclick="return confirm('Czy na pewno wygenerować mecze? Ta akcja usunie wszystkie istniejące mecze.')">
+        {% if tournament.status == 'SCH' %}
+          {% if tournament.tournament_type == 'AMR' %}
+            {% if config.scheduling_type == 'DYNAMIC' %}Generuj 1. Rundę (Mexicano)
+            {% else %}Generuj Mecze (Americano){% endif %}
+          {% else %}Generuj Mecze{% endif %}
+        {% else %}Wygeneruj ponownie (istniejące zostaną usunięte){% endif %}
+        ({{ participants_count }})
+      </button>
+    </form>
+    {% endwith %}
+    {% endif %}
+    {% if tournament.tournament_type == 'LDR' %}
+    <form method="post" action="{% url 'tournaments:reset_leaderboard_locks' pk=tournament.pk %}">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-warning"
+              {% if not can_reset_ladder %}disabled title="Przycisk będzie aktywny, gdy w bieżącej rundzie pojawi się pierwszy mecz."{% endif %}
+              onclick="return confirm('Czy na pewno zresetować blokady i rozpocząć nową rundę?')">
+        Resetuj Blokady
+      </button>
+    </form>
+    {% endif %}
   </div>
 
   {% if matches %}
-  <!-- Widok tabeli dla dużych ekranów -->
-  <div class="d-none d-md-block">
-    <div class="table-responsive">
-      <table class="table table-striped table-hover align-middle">
-        <thead class="table-dark">
-        <tr>
-          <th>Runda</th>
-          <th>Indeks</th>
-          <th>Uczestnicy (Seeding)</th>
-          <th>Wynik</th>
-          <th>Zwycięzca</th>
-          <th>Status</th>
-          <th>Planowany Czas</th>
-          <th>Akcje</th>
-        </tr>
+  <div class="card">
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Runda</th>
+            <th>Mecz</th>
+            <th>Uczestnicy</th>
+            <th>Wynik</th>
+            <th>Zwycięzca</th>
+            <th>Status</th>
+            <th>Czas</th>
+            <th>Akcje</th>
+          </tr>
         </thead>
         <tbody>
-        {% for match in matches %}
-        <tr>
-          <td><span class="badge bg-secondary">{{ match.round_number }}</span></td>
-          <td>{{ match.match_index }}</td>
-          <td>
-            <strong>
-              {% if match.participant1 %}
-              <a href="{% url 'tournaments:edit_participant' pk=tournament.pk participant_pk=match.participant1.pk %}"
-                 class="text-decoration-none text-dark">
-                {{ match.participant1.display_name }} (S{{ match.participant1.seed_number|default:'' }})
-              </a>
-              {% else %}
-              BYE
-              {% endif %}
-            </strong>
-            <span class="text-muted">vs</span>
-            <strong>
-              {% if match.participant2 %}
-              <a href="{% url 'tournaments:edit_participant' pk=tournament.pk participant_pk=match.participant2.pk %}"
-                 class="text-decoration-none text-dark">
-                {{ match.participant2.display_name }} (S{{ match.participant2.seed_number|default:'' }})
-              </a>
-              {% else %}
-              BYE
-              {% endif %}
-            </strong>
-          </td>
-          <td>
-            {% if match.set1_p1_score > 0 or match.set1_p2_score > 0 %}
-            {{ match.set1_p1_score }}-{{ match.set1_p2_score }}
-            {% if match.set2_p1_score > 0 or match.set2_p2_score > 0 %}
-            , {{ match.set2_p1_score }}-{{ match.set2_p2_score }}
-            {% endif %}
-            {% if match.set3_p1_score > 0 or match.set3_p2_score > 0 %}
-            , {{ match.set3_p1_score }}-{{ match.set3_p2_score }}
-            {% endif %}
-            {% else %}
-            -
-            {% endif %}
-          </td>
-          <td>
-            {% if match.winner %}
-            <span class="badge bg-success">{{ match.winner.display_name }}</span>
-            {% else %}
-            -
-            {% endif %}
-          </td>
-          <td>
-            <span
-              class="badge bg-{% if match.status == 'SCH' %}info{% elif match.status == 'CMP' %}success{% elif match.status == 'INP' %}warning{% elif match.status == 'WAI' %}secondary{% else %}danger{% endif %}">
-              {{ match.get_status_display }}
-            </span>
-          </td>
-          <td>{{ match.scheduled_time|date:"Y-m-d H:i"|default:"Nie ustawiono" }}</td>
-          <td class="d-flex">
-            <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}?from=manage"
-               class="btn btn-sm btn-outline-info" title="Edytuj wyniki">
-              <i class="bi bi-pencil-square"></i>
-            </a>
-            <form method="post" action="{% url 'tournaments:delete_match' pk=tournament.pk match_pk=match.pk %}"
-                  style="display:inline;" class="ms-1">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-sm btn-outline-danger"
-                      onclick="return confirm('Czy na pewno chcesz usunąć ten mecz (R{{ match.round_number }}/M{{ match.match_index }})?')"
-                      title="Usuń mecz">
-                <i class="bi bi-trash-fill"></i>
-              </button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
+          {% for match in matches %}
+          <tr>
+            <td><span class="badge badge-info">{{ match.round_number }}</span></td>
+            <td style="color:var(--text-muted); font-size:.875rem;">#{{ match.match_index }}</td>
+            <td>
+              <div style="font-size:.875rem;">
+                {% if match.participant1 %}
+                <a href="{% url 'tournaments:edit_participant' pk=tournament.pk participant_pk=match.participant1.pk %}" style="color:var(--text); text-decoration:none; font-weight:600;">
+                  {{ match.participant1.display_name }}
+                  {% if match.participant1.seed_number %}<span style="color:var(--text-muted); font-size:.75rem;">(S{{ match.participant1.seed_number }})</span>{% endif %}
+                </a>
+                {% else %}<span style="color:var(--text-muted);">BYE</span>{% endif %}
+                <span style="color:var(--text-muted); margin:0 4px;">vs</span>
+                {% if match.participant2 %}
+                <a href="{% url 'tournaments:edit_participant' pk=tournament.pk participant_pk=match.participant2.pk %}" style="color:var(--text); text-decoration:none; font-weight:600;">
+                  {{ match.participant2.display_name }}
+                  {% if match.participant2.seed_number %}<span style="color:var(--text-muted); font-size:.75rem;">(S{{ match.participant2.seed_number }})</span>{% endif %}
+                </a>
+                {% else %}<span style="color:var(--text-muted);">BYE</span>{% endif %}
+              </div>
+            </td>
+            <td style="font-size:.875rem; font-variant-numeric:tabular-nums;">
+              {% if match.set1_p1_score > 0 or match.set1_p2_score > 0 %}
+              {{ match.set1_p1_score }}-{{ match.set1_p2_score }}
+              {% if match.set2_p1_score > 0 or match.set2_p2_score > 0 %}, {{ match.set2_p1_score }}-{{ match.set2_p2_score }}{% endif %}
+              {% if match.set3_p1_score > 0 or match.set3_p2_score > 0 %}, {{ match.set3_p1_score }}-{{ match.set3_p2_score }}{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if match.winner %}<span class="badge badge-success">{{ match.winner.display_name }}</span>
+              {% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+            </td>
+            <td>
+              <span class="badge {% if match.status == 'SCH' %}badge-info{% elif match.status == 'CMP' %}badge-success{% elif match.status == 'INP' %}badge-warning{% elif match.status == 'WAI' %}badge-secondary{% else %}badge-danger{% endif %}">
+                {{ match.get_status_display }}
+              </span>
+            </td>
+            <td style="font-size:.8rem; color:var(--text-muted);">{{ match.scheduled_time|date:"d.m.Y H:i"|default:"—" }}</td>
+            <td>
+              <div style="display:flex; gap:var(--space-2);">
+                <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}?from=manage" class="btn btn-sm btn-secondary" title="Edytuj">Edytuj</a>
+                <form method="post" action="{% url 'tournaments:delete_match' pk=tournament.pk match_pk=match.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-danger"
+                          onclick="return confirm('Usunąć mecz R{{ match.round_number }}/M{{ match.match_index }}?')"
+                          title="Usuń">Usuń</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- Widok kart dla małych ekranów -->
-  <div class="d-md-none">
-    <div class="row row-cols-1 g-3">
-      {% for match in matches %}
-      <div class="col">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <div class="d-grid mb-2">
-              <span class="badge bg-{% if match.status == 'SCH' %}info{% elif match.status == 'CMP' %}success{% elif match.status == 'INP' %}warning{% elif match.status == 'WAI' %}secondary{% else %}danger{% endif %}">{{ match.get_status_display }}</span>
-            </div>
-            <h5 class="card-title mb-0 text-center text-nowrap overflow-hidden text-overflow-ellipsis">
-                {{ match.participant1.display_name|default:"BYE" }}
-            </h5>
-            <p class="text-center text-muted small my-1">vs</p>
-            <h5 class="card-title mb-1 text-center text-nowrap overflow-hidden text-overflow-ellipsis">
-                {{ match.participant2.display_name|default:"BYE" }}
-            </h5>
-            <p class="card-subtitle text-muted small text-center">Runda {{ match.round_number }} / Mecz #{{ match.match_index }}</p>
-
-            <div class="mt-3">
-              {% if match.status == 'CMP' %}
-                <p class="mb-1"><strong>Wynik:</strong>
-                  {% if match.set1_p1_score > 0 or match.set1_p2_score > 0 %}{{ match.set1_p1_score }}-{{ match.set1_p2_score }}{% endif %}{% if match.set2_p1_score > 0 or match.set2_p2_score > 0 %}, {{ match.set2_p1_score }}-{{ match.set2_p2_score }}{% endif %}{% if match.set3_p1_score > 0 or match.set3_p2_score > 0 %}, {{ match.set3_p1_score }}-{{ match.set3_p2_score }}{% endif %}
-                </p>
-                {% if match.winner %}
-                  <p class="mb-1"><strong>Zwycięzca:</strong> <span class="text-success">{{ match.winner.display_name }}</span></p>
-                {% endif %}
-              {% endif %}
-              <p class="mb-0"><small class="text-muted">Planowany czas: {{ match.scheduled_time|date:"Y-m-d H:i"|default:"Nie ustawiono" }}</small></p>
-            </div>
-
-            <div class="d-flex gap-2 mt-3">
-              <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}?from=manage" class="btn btn-info flex-grow-1">Edytuj</a>
-              <form method="post" action="{% url 'tournaments:delete_match' pk=tournament.pk match_pk=match.pk %}" class="d-grid flex-grow-1">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Czy na pewno chcesz usunąć ten mecz (R{{ match.round_number }}/M{{ match.match_index }})?')">Usuń</button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
   {% else %}
-  <div class="alert alert-warning" role="alert">
-    <i class="bi bi-exclamation-triangle-fill me-2"></i>Brak meczów w tym turnieju.
-    {% if tournament.status == 'REG' %}
-      <p class="mb-0 mt-2"><strong>Uwaga:</strong> Aby wygenerować mecze, musisz najpierw zamknąć rejestrację uczestników.</p>
-    {% endif %}
+  <div class="empty-state">
+    <div class="empty-state__icon">🎾</div>
+    <p class="empty-state__title">Brak meczów</p>
+    <p class="empty-state__text">
+      Nie dodano jeszcze żadnych meczów.
+      {% if tournament.status == 'REG' %}Aby wygenerować mecze, najpierw zamknij rejestrację uczestników.{% endif %}
+    </p>
   </div>
   {% endif %}
 
   {% if is_seeded %}
-  <div class="card mt-4 mb-4 shadow-sm">
-      <div class="card-header bg-light">
-          <i class="bi bi-info-square-fill me-2 text-primary"></i><strong>Jak działa parowanie (Seeding)?</strong>
-      </div>
-      <div class="card-body text-center bg-white">
-          <img src="{% static 'img/seeding_visualization.png' %}" class="img-fluid rounded" alt="Wizualizacja schematu rozstawienia">
-      </div>
+  <div class="card" style="margin-top:var(--space-5);">
+    <div class="card-header"><span class="card-title">Jak działa parowanie (Seeding)?</span></div>
+    <div class="card-body" style="text-align:center;">
+      <img src="{% static 'img/seeding_visualization.png' %}" style="max-width:100%; border-radius:var(--radius-sm);" alt="Wizualizacja schematu rozstawienia">
+    </div>
   </div>
   {% endif %}
+
 </div>
-{% endblock content %}
+{% endblock %}

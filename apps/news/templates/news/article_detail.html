@@ -1,415 +1,244 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 
-{% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-12">
-            <article>
-                <!-- Nagłówek artykułu -->
-                <header class="mb-4">
-                    <h1 class="fw-bolder mb-1 article-title">{{ article.title }}</h1>
-                    <div class="text-muted fst-italic mb-2 d-flex justify-content-between align-items-center flex-wrap article-meta">
-                        <div>
-                            Opublikowano: {{ article.published_at|date:"d.m.Y H:i" }} przez {{ article.author.get_full_name|default:article.author.username }}
-                        </div>
-                        {% if user == article.author %}
-                        <a href="{% url 'news:article_edit' article.slug %}" class="btn btn-sm btn-outline-secondary mt-2 mt-md-0">
-                            <i class="bi bi-pencil me-md-1"></i><span class="d-none d-md-inline">Edytuj</span>
-                        </a>
-                        {% endif %}
-                    </div>
-                    {% for category in article.categories.all %}
-                        <span class="badge bg-secondary text-decoration-none link-light">{{ category.name }}</span>
-                    {% endfor %}
-                </header>
-                
+{% block title %}{{ article.title }}{% endblock %}
+{% block topbar_title %}Aktualności{% endblock %}
 
-
-                <!-- Treść artykułu -->
-                <section class="mb-5 article-content" style="overflow-x: auto;">
-                    <div class="article-text mb-4 text-break">
-                        {{ article.content|safe }}
-                    </div>
-                </section>
-            </article>
-
-            <!-- Pasek akcji -->
-            <div class="d-flex justify-content-between align-items-center border-top border-bottom py-3 mb-5">
-                <!-- Powrót (lewa strona) -->
-                <a href="{% url 'news:article_list' %}" class="btn btn-outline-secondary rounded-pill px-3 px-md-4">
-                     <i class="bi bi-arrow-left me-md-2"></i><span class="d-none d-md-inline">Wróć</span>
-                </a>
-
-                <!-- Akcje (prawa strona) -->
-                <div class="d-flex align-items-center gap-2 gap-md-3">
-                    <!-- Komentarze -->
-                    <a href="#comments-section" class="btn btn-light rounded-pill border d-flex align-items-center gap-2">
-                        <i class="bi bi-chat"></i>
-                        <span class="fw-bold comment-count">{{ comments.count }}</span>
-                    </a>
-
-                    <!-- Polubienia -->
-                    <form action="{% url 'news:like_article' article.slug %}" method="post" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-light rounded-pill border d-flex align-items-center gap-2 {% if is_liked %}text-primary{% endif %}" {% if not user.is_authenticated %}disabled{% endif %}>
-                            {% if is_liked %}
-                                <i class="bi bi-hand-thumbs-up-fill"></i>
-                            {% else %}
-                                <i class="bi bi-hand-thumbs-up"></i>
-                            {% endif %}
-                            <span class="fw-bold d-none d-md-inline">Lubię to</span>
-                            <span class="text-muted border-start ps-2 ms-1 like-count">{{ article.likes.count }}</span>
-                        </button>
-                    </form>
-
-                    <!-- Udostępnij -->
-                    <button onclick="shareArticle()" class="btn btn-light rounded-pill border d-flex align-items-center gap-2">
-                        <i class="bi bi-share-fill"></i>
-                        <span class="d-none d-md-inline fw-bold">Udostępnij</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sekcja komentarzy -->
-    <div class="row justify-content-center mt-4" id="comments-section">
-        <div class="col-12">
-            <h4 class="mb-4 fw-bold">Komentarze ({{ comments.count }})</h4>
-
-            <!-- Formularz dodawania (na górze) -->
-            <div class="mb-5 d-flex gap-3">
-                 <div class="flex-shrink-0">
-                    {% if user.is_authenticated %}
-                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; font-size: 1.2rem;">
-                            {{ user.first_name|first|default:user.username|first|upper }}
-                        </div>
-                    {% else %}
-                         <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                            <i class="bi bi-person"></i>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="flex-grow-1">
-                    {% if user.is_authenticated %}
-                        <form method="post" action="{% url 'news:add_comment' article.slug %}">
-                            {% csrf_token %}
-                            <div class="mb-2">
-                                {{ comment_form.content }}
-                            </div>
-                            <div class="d-flex justify-content-end gap-2">
-                                <button type="reset" class="btn btn-text rounded-pill">Anuluj</button>
-                                <button type="submit" class="btn btn-primary rounded-pill px-3">Skomentuj</button>
-                            </div>
-                        </form>
-                    {% else %}
-                         <input type="text" class="form-control border-bottom border-0 rounded-0 bg-transparent px-0" placeholder="Dodaj komentarz..." disabled>
-                         <div class="mt-2 text-end">
-                            <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-outline-primary btn-sm rounded-pill">Zaloguj się, aby skomentować</a>
-                         </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Lista komentarzy -->
-            <div id="comments-list">
-                {% if comments %}
-                    {% for comment in comments %}
-                        {% if not comment.parent %}
-                            {% include 'news/partials/comment.html' with comment=comment %}
-                        {% endif %}
-                    {% endfor %}
-                {% else %}
-                    <div class="text-center py-5 text-muted" id="no-comments-message">
-                        <i class="bi bi-chat-square-dots display-4 d-block mb-3"></i>
-                        <p>Brak komentarzy. Bądź pierwszą osobą, która podzieli się opinią!</p>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <a href="{% url 'news:article_list' %}" style="font-size:.8rem; color:var(--text-muted); text-decoration:none;">← Aktualności</a>
+    <h1 class="page-header__title" style="margin-top:var(--space-2);">{{ article.title }}</h1>
+    <p class="page-header__subtitle">
+      {{ article.published_at|date:"d.m.Y H:i" }} · {{ article.author.get_full_name|default:article.author.username }}
+    </p>
+  </div>
+  {% if user == article.author %}
+  <div class="page-header__actions">
+    <a href="{% url 'news:article_edit' article.slug %}" class="btn btn-secondary">Edytuj</a>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
-{% block styles %}
+{% block extra_css %}
 <style>
-    .article-content {
-        line-height: normal;
-    }
-    .article-text {
-        font-size: 0.7rem;
-        line-height: 1.6;
-    }
-    .article-text img {
-        max-width: 100% !important;
-        height: auto !important;
-    }
-
-    .article-title {
-        font-size: 1.5rem;
-    }
-    .article-meta {
-        font-size: 0.7rem;
-    }
-    @media (min-width: 992px) {
-        .article-title {
-            font-size: 2.5rem;
-        }
-        .article-text {
-            font-size: 1.25rem; /* Equivalent to fs-5 */
-            line-height: 1.8;
-        }
-
-        .article-meta {
-            font-size: 1rem;
-        }
-    }
+.article-content { font-size: 1rem; line-height: 1.8; color: var(--text); }
+.article-content img { max-width: 100% !important; height: auto !important; border-radius: var(--radius-sm); }
+.article-content h1, .article-content h2, .article-content h3 { color: var(--text); margin-top: 1.5em; }
+.article-content p { margin-bottom: 1em; }
+.article-content a { color: var(--primary); }
 </style>
 {% endblock %}
 
-{% block scripts %}
+{% block content %}
+<div style="max-width: 780px; margin: 0 auto;">
+
+  <!-- Kategorie -->
+  {% if article.categories.all %}
+  <div style="display:flex; flex-wrap:wrap; gap:var(--space-2); margin-bottom:var(--space-5);">
+    {% for category in article.categories.all %}
+    <span class="badge badge-primary">{{ category.name }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Treść -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-body">
+      <div class="article-content">{{ article.content|safe }}</div>
+    </div>
+  </div>
+
+  <!-- Akcje -->
+  <div style="display:flex; align-items:center; justify-content:space-between; padding:var(--space-4) 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin-bottom:var(--space-6);">
+    <a href="{% url 'news:article_list' %}" class="btn btn-secondary btn-sm">← Wróć</a>
+    <div style="display:flex; gap:var(--space-3); align-items:center;">
+      <!-- Komentarze -->
+      <a href="#comments-section" class="btn btn-ghost btn-sm" style="display:flex; align-items:center; gap:var(--space-2);">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/></svg>
+        <span class="comment-count">{{ comments.count }}</span>
+      </a>
+      <!-- Like -->
+      <form action="{% url 'news:like_article' article.slug %}" method="post" id="like-form" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-ghost btn-sm" style="display:flex; align-items:center; gap:var(--space-2); {% if is_liked %}color:var(--primary);{% endif %}" {% if not user.is_authenticated %}disabled{% endif %}>
+          <svg id="like-icon" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+            {% if is_liked %}
+            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z"/>
+            {% else %}
+            <path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333v5.43a2 2 0 001.106 1.79l.05.025A4 4 0 008.943 18h5.416a2 2 0 001.962-1.608l1.2-6A2 2 0 0015.56 8H12V4a2 2 0 00-2-2 1 1 0 00-1 1v.667a4 4 0 01-.8 2.4L6.8 7.933a4 4 0 00-.8 2.4z"/>
+            {% endif %}
+          </svg>
+          Lubię to <span class="like-count">{{ article.likes.count }}</span>
+        </button>
+      </form>
+      <!-- Udostępnij -->
+      <button onclick="shareArticle()" class="btn btn-ghost btn-sm" style="display:flex; align-items:center; gap:var(--space-2);">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z"/></svg>
+        Udostępnij
+      </button>
+    </div>
+  </div>
+
+  <!-- Komentarze -->
+  <div id="comments-section">
+    <h2 style="font-size:1rem; font-weight:700; margin-bottom:var(--space-5);">Komentarze (<span class="comment-count">{{ comments.count }}</span>)</h2>
+
+    <!-- Formularz dodawania -->
+    {% if user.is_authenticated %}
+    <div class="card" style="margin-bottom:var(--space-5);">
+      <div class="card-body">
+        <form method="post" action="{% url 'news:add_comment' article.slug %}" id="comment-form">
+          {% csrf_token %}
+          <div class="tc-field" style="margin-bottom:var(--space-3);">
+            <label class="tc-label">Twój komentarz</label>
+            {{ comment_form.content }}
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:var(--space-2);">
+            <button type="reset" class="btn btn-ghost btn-sm">Anuluj</button>
+            <button type="submit" class="btn btn-primary btn-sm">Skomentuj</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="card" style="margin-bottom:var(--space-5); text-align:center; padding:var(--space-5);">
+      <p style="color:var(--text-muted); margin-bottom:var(--space-3);">Zaloguj się, aby dodać komentarz.</p>
+      <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-primary btn-sm">Zaloguj się</a>
+    </div>
+    {% endif %}
+
+    <!-- Lista komentarzy -->
+    <div id="comments-list">
+      {% if comments %}
+        {% for comment in comments %}
+          {% if not comment.parent %}
+            {% include 'news/partials/comment.html' with comment=comment %}
+          {% endif %}
+        {% endfor %}
+      {% else %}
+      <div class="empty-state" id="no-comments-message" style="padding:var(--space-8);">
+        <div class="empty-state__icon">💬</div>
+        <p class="empty-state__text">Brak komentarzy. Bądź pierwszą osobą!</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
 <script>
-    function shareArticle() {
-        if (!navigator.clipboard) {
-            // Fallback for non-secure contexts (HTTP)
-            fallbackCopyTextToClipboard(window.location.href);
-            return;
-        }
-        navigator.clipboard.writeText(window.location.href).then(function() {
-            alert('Link do artykułu został skopiowany do schowka!');
-        }, function(err) {
-            console.error('Async: Could not copy text: ', err);
-            fallbackCopyTextToClipboard(window.location.href);
-        });
-    }
+function shareArticle() {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(window.location.href).then(() => alert('Link skopiowany!'));
+  } else {
+    prompt('Skopiuj link:', window.location.href);
+  }
+}
 
-    function fallbackCopyTextToClipboard(text) {
-        var textArea = document.createElement("textarea");
-        textArea.value = text;
-        
-        // Avoid scrolling to bottom
-        textArea.style.top = "0";
-        textArea.style.left = "0";
-        textArea.style.position = "fixed";
-
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-
-        try {
-            var successful = document.execCommand('copy');
-            if (successful) {
-                alert('Link do artykułu został skopiowany do schowka!');
-            } else {
-                 prompt("Nie udało się skopiować automatycznie. Skopiuj link ręcznie:", text);
-            }
-        } catch (err) {
-            console.error('Fallback: Oops, unable to copy', err);
-            prompt("Nie udało się skopiować automatycznie. Skopiuj link ręcznie:", text);
-        }
-
-        document.body.removeChild(textArea);
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-        const likeForm = document.querySelector('form[action*="like"]');
-        if (likeForm) {
-            likeForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const url = this.action;
-                const btn = this.querySelector('button');
-                const icon = btn.querySelector('i');
-                const countSpan = btn.querySelector('.like-count');
-                const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
-
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.liked) {
-                        icon.classList.remove('bi-hand-thumbs-up');
-                        icon.classList.add('bi-hand-thumbs-up-fill');
-                        btn.classList.add('text-primary');
-                    } else {
-                        icon.classList.remove('bi-hand-thumbs-up-fill');
-                        icon.classList.add('bi-hand-thumbs-up');
-                        btn.classList.remove('text-primary');
-                    }
-                    countSpan.textContent = data.count;
-                })
-                .catch(error => console.error('Error:', error));
-            });
-        }
-
-        const commentForm = document.querySelector('form[action*="add_comment"]');
-        if (commentForm) {
-            commentForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const url = this.action;
-                const formData = new FormData(this);
-                const csrfToken = this.querySelector('input[name="csrfmiddlewaretoken"]').value;
-                const commentsCountHeaders = document.querySelectorAll('h4, .comment-count');
-
-                fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.html) {
-                        const emptyState = document.getElementById('no-comments-message');
-                        if (emptyState) emptyState.remove();
-                        
-                        const commentsList = document.getElementById('comments-list');
-                        if (commentsList) {
-                            commentsList.insertAdjacentHTML('afterbegin', data.html); // Insert at top
-                        }
-
-                        commentsCountHeaders.forEach(el => {
-                            if (el.tagName === 'H4') el.textContent = `Komentarze (${data.count})`;
-                            else if (el.tagName === 'SPAN') el.textContent = data.count;
-                        });
-
-                        commentForm.reset();
-                    }
-                })
-                .catch(error => console.error('Error:', error));
-            });
-        }
-    
-        // Obsługa delegowanie zdarzeń dla dynamicznie dodawanych elementów (reakcje i odpowiedzi)
-        const commentsSection = document.getElementById('comments-section');
-        if (commentsSection) {
-            commentsSection.addEventListener('click', function(e) {
-                // Reakcje (Like/Dislike)
-                const btnReact = e.target.closest('.btn-react');
-                if (btnReact) {
-                    const url = btnReact.dataset.url;
-                    const action = btnReact.dataset.action;
-                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-                    
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-CSRFToken': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: `action=${action}`
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        // Znajdź oba przyciski w tej samej grupie (używamy div.d-flex żeby pominąć button.d-flex)
-                        const parentDiv = btnReact.closest('div.d-flex');
-                        const likeBtn = parentDiv.querySelector('[data-action="like"]');
-                        const dislikeBtn = parentDiv.querySelector('[data-action="dislike"]');
-                        const likeIcon = likeBtn.querySelector('i');
-                        const dislikeIcon = dislikeBtn.querySelector('i');
-                        
-                        // Aktualizuj UI - Like
-                        if (data.liked) {
-                            likeIcon.classList.remove('bi-hand-thumbs-up');
-                            likeIcon.classList.add('bi-hand-thumbs-up-fill');
-                            likeIcon.classList.add('text-primary');
-                        } else {
-                            likeIcon.classList.remove('bi-hand-thumbs-up-fill');
-                            likeIcon.classList.add('bi-hand-thumbs-up');
-                            likeIcon.classList.remove('text-primary');
-                        }
-                        
-                        // Aktualizuj UI - Dislike
-                        if (data.disliked) {
-                            dislikeIcon.classList.remove('bi-hand-thumbs-down');
-                            dislikeIcon.classList.add('bi-hand-thumbs-down-fill');
-                            dislikeIcon.classList.add('text-danger');
-                        } else {
-                            dislikeIcon.classList.remove('bi-hand-thumbs-down-fill');
-                            dislikeIcon.classList.add('bi-hand-thumbs-down');
-                            dislikeIcon.classList.remove('text-danger');
-                        }
-                        
-                        likeBtn.querySelector('.like-count').textContent = data.likes_count;
-                        dislikeBtn.querySelector('.dislike-count').textContent = data.dislikes_count;
-                    })
-                    .catch(error => console.error('Error:', error));
-                }
-
-                // Pokaż formularz odpowiedzi
-                const btnReply = e.target.closest('.btn-reply');
-                if (btnReply) {
-                    const commentId = btnReply.dataset.commentId;
-                    const formContainer = document.getElementById(`reply-form-${commentId}`);
-                    // Ukryj inne otwarte formularze? Opcjonalnie.
-                    formContainer.classList.toggle('d-none');
-                }
-
-                // Anuluj odpowiedź
-                const btnCancel = e.target.closest('.btn-cancel-reply');
-                if (btnCancel) {
-                    const formContainer = btnCancel.closest('.reply-form-container');
-                    formContainer.classList.add('d-none');
-                }
-            });
-
-            // Obsługa wysyłania odpowiedzi (Delegacja submit)
-            commentsSection.addEventListener('submit', function(e) {
-                if (e.target.matches('.reply-form')) {
-                    e.preventDefault();
-                    const form = e.target;
-                    const url = form.action;
-                    const formData = new FormData(form);
-                    const csrfToken = form.querySelector('input[name="csrfmiddlewaretoken"]').value;
-                    const formContainer = form.closest('.reply-form-container');
-                    const parentCommentDiv = formContainer.closest('.d-flex.mb-4') || formContainer.parentElement.closest('.d-flex.mb-4'); // szukamy głównego kontenera komentarza
-                    // Uwaga: struktura partiala to div.d-flex.mb-4 -> div.ms-3.w-100 -> form-container 
-                    // a odpowiedzi są w div.replies.mt-3 wewnątrz div.ms-3.w-100
-                    
-                    fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': csrfToken,
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.html) {
-                            let repliesDiv = formContainer.nextElementSibling;
-                            // Jeśli div.replies nie istnieje (pierwsza odpowiedź), stwórz go
-                            if (!repliesDiv || !repliesDiv.classList.contains('replies')) {
-                                repliesDiv = document.createElement('div');
-                                repliesDiv.className = 'replies mt-3';
-                                formContainer.parentNode.appendChild(repliesDiv);
-                            }
-                            
-                            repliesDiv.insertAdjacentHTML('beforeend', data.html);
-                            
-                            // Aktualizuj liczniki
-                            const commentsCountHeaders = document.querySelectorAll('h4, .comment-count');
-                            commentsCountHeaders.forEach(el => {
-                                if (el.tagName === 'H4') el.textContent = `Komentarze (${data.count})`;
-                                else if (el.tagName === 'SPAN') el.textContent = data.count;
-                            });
-
-                            form.reset();
-                            formContainer.classList.add('d-none');
-                        }
-                    })
-                    .catch(error => console.error('Error:', error));
-                }
-            });
-        }
+document.addEventListener('DOMContentLoaded', function() {
+  const likeForm = document.getElementById('like-form');
+  if (likeForm) {
+    likeForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      fetch(this.action, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': this.querySelector('[name=csrfmiddlewaretoken]').value, 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(r => r.json())
+      .then(data => {
+        const btn = likeForm.querySelector('button');
+        btn.style.color = data.liked ? 'var(--primary)' : '';
+        likeForm.querySelector('.like-count').textContent = data.count;
+      });
     });
+  }
+
+  const commentForm = document.getElementById('comment-form');
+  if (commentForm) {
+    commentForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      fetch(this.action, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': this.querySelector('[name=csrfmiddlewaretoken]').value, 'X-Requested-With': 'XMLHttpRequest' },
+        body: new FormData(this)
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.html) {
+          const empty = document.getElementById('no-comments-message');
+          if (empty) empty.remove();
+          document.getElementById('comments-list').insertAdjacentHTML('afterbegin', data.html);
+          document.querySelectorAll('.comment-count').forEach(el => el.textContent = data.count);
+          commentForm.reset();
+        }
+      });
+    });
+  }
+
+  const commentsSection = document.getElementById('comments-section');
+  if (commentsSection) {
+    commentsSection.addEventListener('click', function(e) {
+      const btnReact = e.target.closest('.btn-react');
+      if (btnReact) {
+        fetch(btnReact.dataset.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value, 'X-Requested-With': 'XMLHttpRequest' },
+          body: `action=${btnReact.dataset.action}`
+        })
+        .then(r => r.json())
+        .then(data => {
+          const p = btnReact.closest('.reaction-btns');
+          if (p) {
+            const lb = p.querySelector('[data-action="like"]');
+            const db = p.querySelector('[data-action="dislike"]');
+            if (lb) { lb.style.color = data.liked ? 'var(--primary)' : ''; lb.querySelector('.like-count').textContent = data.likes_count; }
+            if (db) { db.style.color = data.disliked ? 'var(--danger)' : ''; db.querySelector('.dislike-count').textContent = data.dislikes_count; }
+          }
+        });
+      }
+      const btnReply = e.target.closest('.btn-reply');
+      if (btnReply) {
+        const fc = document.getElementById(`reply-form-${btnReply.dataset.commentId}`);
+        if (fc) fc.classList.toggle('hidden-reply');
+      }
+      const btnCancel = e.target.closest('.btn-cancel-reply');
+      if (btnCancel) btnCancel.closest('.reply-form-container').classList.add('hidden-reply');
+    });
+
+    commentsSection.addEventListener('submit', function(e) {
+      if (e.target.matches('.reply-form')) {
+        e.preventDefault();
+        const form = e.target;
+        fetch(form.action, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value, 'X-Requested-With': 'XMLHttpRequest' },
+          body: new FormData(form)
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.html) {
+            const fc = form.closest('.reply-form-container');
+            let repliesDiv = fc.nextElementSibling;
+            if (!repliesDiv || !repliesDiv.classList.contains('replies')) {
+              repliesDiv = document.createElement('div');
+              repliesDiv.className = 'replies';
+              fc.parentNode.appendChild(repliesDiv);
+            }
+            repliesDiv.insertAdjacentHTML('beforeend', data.html);
+            document.querySelectorAll('.comment-count').forEach(el => el.textContent = data.count);
+            form.reset();
+            fc.classList.add('hidden-reply');
+          }
+        });
+      }
+    });
+  }
+});
 </script>
+<style>
+.hidden-reply { display: none !important; }
+.reply-form-container { display: none; margin-top: var(--space-3); }
+.reply-form-container:not(.hidden-reply) { display: block; }
+</style>
 {% endblock %}

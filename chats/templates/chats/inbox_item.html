@@ -1,20 +1,23 @@
-<a href="{% url 'chats:conversation' username=other_user.username %}" class="list-group-item list-group-item-action {% if not message.is_read and message.recipient == request.user %}list-group-item-primary fw-bold{% endif %}">
-  <div class="d-flex w-100 justify-content-between">
-    <h5 class="mb-1">
-      {{ other_user.get_full_name|default:other_user.username }}
-    </h5>
-    <div class="d-flex align-items-center">
-      <small class="text-muted me-2">{{ message.timestamp|timesince }} temu</small>
-      {% if unread_count > 0 %}<span class="badge bg-primary rounded-pill">{{ unread_count }}</span>{% endif %}
-    </div>
+<a href="{% url 'chats:conversation' username=other_user.username %}" style="display:flex; align-items:center; gap:var(--space-3); padding:14px 20px; border-bottom:1px solid var(--border); text-decoration:none; transition:background .1s; {% if not message.is_read and message.recipient == request.user %}background:var(--primary-subtle);{% endif %}" onmouseover="this.style.background='var(--surface-hover)'" onmouseout="this.style.background='{% if not message.is_read and message.recipient == request.user %}var(--primary-subtle){% endif %}'">
+  <div style="width:40px; height:40px; border-radius:50%; background:var(--primary-subtle); display:grid; place-items:center; color:var(--primary); font-weight:700; font-size:.9rem; flex-shrink:0;">
+    {{ other_user.get_full_name|default:other_user.username|slice:":1"|upper }}
   </div>
-  <p class="mb-1 text-muted">
-    {% if message.sender == request.user %}
-      <i class="bi bi-reply-fill"></i>
-    {% endif %}
-    {{ message.content|truncatechars:100 }}
-    {% if message.images.exists %}
-      <i class="bi bi-file-earmark-image"></i>
-    {% endif %}
-  </p>
+  <div style="flex:1; min-width:0;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:var(--space-2);">
+      <span style="font-weight:{% if not message.is_read and message.recipient == request.user %}700{% else %}600{% endif %}; font-size:.9rem; color:var(--text);">
+        {{ other_user.get_full_name|default:other_user.username }}
+      </span>
+      <div style="display:flex; align-items:center; gap:var(--space-2); flex-shrink:0;">
+        <span style="font-size:.75rem; color:var(--text-muted);">{{ message.timestamp|timesince }} temu</span>
+        {% if unread_count > 0 %}
+        <span class="badge badge-primary" style="border-radius:999px;">{{ unread_count }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <p style="margin:0; font-size:.8rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+      {% if message.sender == request.user %}↩ {% endif %}
+      {{ message.content|truncatechars:80 }}
+      {% if message.images.exists %}📎{% endif %}
+    </p>
+  </div>
 </a>

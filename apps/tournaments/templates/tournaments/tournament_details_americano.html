@@ -1,8 +1,25 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load tournaments %}
 {% load static %}
 
-{% block title %}Szczegóły Americano - {{ tournament.name }}{% endblock %}
+{% block title %}{{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ tournament.name }}</h1>
+    <div style="display:flex; gap:var(--space-2); align-items:center; margin-top:var(--space-2);">
+      <span class="badge badge-primary">{{ tournament.get_tournament_type_display }}</span>
+      {% if tournament.status == 'ACT' %}<span class="badge badge-success">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'FIN' %}<span class="badge badge-neutral">{{ tournament.get_status_display }}</span>
+      {% else %}<span class="badge badge-warning">{{ tournament.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">← Powrót</a>
+  </div>
+</div>
+{% endblock %}
 
 {% block content %}
 <div class="container mt-4">

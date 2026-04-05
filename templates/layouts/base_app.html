@@ -14,6 +14,14 @@
   <link rel="stylesheet" href="{% static 'css/ui/components.css' %}">
 
   {% block extra_css %}{% endblock %}
+
+  <!-- Prevent flash of wrong theme -->
+  <script>
+    (function() {
+      var t = localStorage.getItem('tc-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body class="app-shell">
 
@@ -32,6 +40,34 @@
   </div>
 
   <script>
+    // Theme switcher
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('tc-theme', next);
+      updateThemeIcon(next);
+    }
+
+    function updateThemeIcon(theme) {
+      var iconDark  = document.getElementById('theme-icon-dark');
+      var iconLight = document.getElementById('theme-icon-light');
+      if (!iconDark || !iconLight) return;
+      if (theme === 'dark') {
+        iconDark.style.display  = 'block'; // moon - kliknij żeby przejść do light
+        iconLight.style.display = 'none';
+      } else {
+        iconDark.style.display  = 'none';
+        iconLight.style.display = 'block'; // sun - kliknij żeby przejść do dark
+      }
+    }
+
+    // Init icon on load
+    (function() {
+      var t = localStorage.getItem('tc-theme') || 'light';
+      updateThemeIcon(t);
+    })();
+
     // Mobile sidebar toggle
     function toggleSidebar() {
       document.getElementById('app-sidebar').classList.toggle('is-open');

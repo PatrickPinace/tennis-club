@@ -1,26 +1,35 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 
-<!-- Dodatkowe CSS -->
-{% block styles %}
+{% block title %}Moje Aktywności{% endblock %}
+{% block topbar_title %}Aktywności{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Moje Aktywności</h1>
+    <p class="page-header__subtitle">Zarejestrowane spotkania i statystyki</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
 <link rel="stylesheet" href="/static/css/results.css">
 <link rel="stylesheet" href="/static/css/activities.css">
 {% endblock %}
 
 {% block content %}
-<div class="row row-cols-1 row-cols-xl-2 g-4">  
-  <div class="col">
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5);">
+  <div>
     {% include 'home/activities_summary.html' with match_type='SINGIEL' %}
   </div>
-  <div class="col">
+  <div>
     {% include 'home/activities_summary.html' with match_type='DEBEL' %}
   </div>
-  <hr class="hr">
-  <hr class="hr d-none d-xl-block">
-  <div class="col">
-    {% include 'matches/results/result_card.html' with matches=online_single card_title='online_single' page='activities'%}
+  <div>
+    {% include 'matches/results/result_card.html' with matches=online_single card_title='online_single' page='activities' %}
   </div>
-  <div class="col">
-    {% include 'matches/results/result_card.html' with matches=online_double card_title='online_double' page='activities'%}
+  <div>
+    {% include 'matches/results/result_card.html' with matches=online_double card_title='online_double' page='activities' %}
   </div>
 </div>
 {% endblock %}

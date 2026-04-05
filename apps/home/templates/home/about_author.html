@@ -1,209 +1,78 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 {% load static %}
 
+{% block title %}O autorze{% endblock %}
+{% block topbar_title %}O autorze{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">O autorze</h1>
+    <p class="page-header__subtitle">Twój partner na korcie statystyk.</p>
+  </div>
+</div>
+{% endblock %}
+
 {% block content %}
-<style>
-    /* Custom styles for About Author page */
-    .about-author-section {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        padding: 3rem 1rem;
-        border-radius: 1rem;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        color: #333;
-        font-family: 'Lato', sans-serif;
-    }
+<div style="max-width: 780px; margin: 0 auto;">
 
-    .author-header {
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .author-title {
-        font-family: 'Courgette', cursive;
-        color: #198754;
-        /* Tennis green */
-        font-size: 2.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .author-subtitle {
-        font-size: 1.1rem;
-        color: #6c757d;
-        font-weight: 300;
-        text-transform: uppercase;
-        letter-spacing: 2px;
-    }
-
-    .profile-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-bottom: 2rem;
-    }
-
-    .profile-image-container {
-        width: 180px;
-        height: 180px;
-        border-radius: 50%;
-        border: 4px solid #198754;
-        padding: 4px;
-        background-color: white;
-        overflow: hidden;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 4px 15px rgba(25, 135, 84, 0.2);
-        transition: transform 0.3s ease;
-    }
-
-    .profile-image-container:hover {
-        transform: scale(1.05);
-    }
-
-    .profile-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        border-radius: 50%;
-    }
-
-    .content-box {
-        background: white;
-        padding: 2rem;
-        border-radius: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-        margin-bottom: 1.5rem;
-        border-left: 4px solid #198754;
-    }
-
-    .section-heading {
-        font-size: 1.5rem;
-        color: #212529;
-        margin-bottom: 1rem;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-    }
-
-    .section-heading i {
-        margin-right: 10px;
-        color: #198754;
-    }
-
-    .tennis-metaphor {
-        font-style: italic;
-        color: #555;
-    }
-
-    .cta-section {
-        text-align: center;
-        margin-top: 3rem;
-        padding: 2rem;
-        background-color: #198754;
-        color: white;
-        border-radius: 0.5rem;
-    }
-
-    .cta-text {
-        font-size: 1.2rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .btn-feedback {
-        background-color: white;
-        color: #198754;
-        font-weight: bold;
-        padding: 0.75rem 2rem;
-        border-radius: 2rem;
-        transition: all 0.3s ease;
-        border: none;
-    }
-
-    .btn-feedback:hover {
-        background-color: #f1f1f1;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    @media (min-width: 768px) {
-        .about-grid {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 2rem;
-            align-items: start;
-        }
-
-        .profile-card {
-            margin-bottom: 0;
-        }
-    }
-</style>
-
-<div class="container py-5">
-    <div class="about-author-section">
-        <div class="author-header">
-            <h1 class="author-title">O Autorze</h1>
-            <p class="author-subtitle">Twój partner na korcie statystyk</p>
+  <!-- Profil -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-body">
+      <div style="display:grid; grid-template-columns:auto 1fr; gap:var(--space-6); align-items:center;">
+        <div style="text-align:center;">
+          <img src="{% static 'img/user.png' %}" alt="Lucjan z Mielca"
+            style="width:100px; height:100px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
+          <div style="font-weight:700; margin-top:var(--space-3);">Lucjan z Mielca</div>
+          <div style="font-size:.78rem; color:var(--text-muted);">Pasjonat Tenisa & Programista</div>
+          <span class="badge badge-success" style="margin-top:var(--space-2);">Amator z Pasją</span>
         </div>
-
-        <div class="about-grid">
-            <!-- Left Column: Profile -->
-            <div class="profile-card">
-                <div class="profile-image-container">
-                    <img src="{% static 'img/user.png' %}" alt="Lucjan z Mielca" class="profile-image">
-                </div>
-                <h3>Lucjan z Mielca</h3>
-                <p class="text-muted">Pasjonat Tenisa & Programista</p>
-                <div class="badge bg-success mt-2">Amator z Pasją</div>
-            </div>
-
-            <!-- Right Column: Content -->
-            <div class="content-area">
-                <div class="content-box">
-                    <h2 class="section-heading"><i class="fas fa-bullseye"></i> Cel</h2>
-                    <p>
-                        Zamień intuicję na twarde dane. Tennis Club to narzędzie stworzone przez tenisistę dla tenisistów. Śledź statystyki, analizuj historię i wyciągaj wnioski jak zawodowiec. Bez opłat, bez reklam – po prostu dla czystej przyjemności z gry.
-                    </p>
-                    <p class="tennis-metaphor">
-                        "Bo w tenisie, tak jak w tworzeniu oprogramowania, liczy się każdy punkt i wyciąganie wniosków z każdego uderzenia."
-                    </p>
-                </div>
-
-                <div class="content-box">
-                    <h2 class="section-heading"><i class="fas fa-heart"></i> Dlaczego to robię?</h2>
-                    <p>
-                        W tenisie i programowaniu liczy się determinacja. Uwielbiam moment, gdy trudne spotkanie kończy się zwycięstwem, a skomplikowany algorytm zaczyna działać. Dzielę się tym narzędziem, bo najlepsze mecze to te, które zostają w pamięci.
-                    </p>
-                </div>
-            </div>
+        <div>
+          <h2 style="font-size:1.05rem; font-weight:700; margin-bottom:var(--space-3);">Cel</h2>
+          <p style="font-size:.875rem; color:var(--text-muted); line-height:1.7; margin-bottom:var(--space-4);">
+            Zamień intuicję na twarde dane. Tennis Club to narzędzie stworzone przez tenisistę dla tenisistów. Śledź statystyki, analizuj historię i wyciągaj wnioski jak zawodowiec. Bez opłat, bez reklam – po prostu dla czystej przyjemności z gry.
+          </p>
+          <p style="font-size:.8rem; color:var(--text-dim); font-style:italic;">
+            "Bo w tenisie, tak jak w tworzeniu oprogramowania, liczy się każdy punkt i wyciąganie wniosków z każdego uderzenia."
+          </p>
         </div>
-
-        <!-- Location Section -->
-        <div class="content-box mt-4">
-            <h2 class="section-heading"><i class="fas fa-map-marker-alt"></i> Lokalizacja</h2>
-            <p>
-                {{ location.description }}
-            </p>
-            <div class="ratio ratio-21x9 mt-3 shadow-sm rounded overflow-hidden" style="max-height: 300px;">
-                <iframe
-                    src="https://maps.google.com/maps?q={{ location.query }}&t=&z=13&ie=UTF8&iwloc=&output=embed"
-                    frameborder="0"
-                    scrolling="no"
-                    marginheight="0"
-                    marginwidth="0"
-                    title="Mapa lokalizacji - {{ location.name }}">
-                </iframe>
-            </div>
-        </div>
-
-        <!-- Call to Action -->
-        <div class="cta-section">
-            <h2 class="mb-3">Wspólnie do Celu!</h2>
-            <p class="cta-text">
-                Ta strona rozwija się dzięki Waszym opiniom i komentarzom. Widzisz miejsce na nową funkcjonalność? A może zauważyłeś jakiś błąd?<br>Daj znać – wspólnie doprowadzimy ten projekt do Wielkiego Szlema!
-            </p>
-            <button class="btn btn-feedback" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasFeedback">
-                <i class="fas fa-comment-dots me-2"></i> Skontaktuj się / Zgłoś uwagę
-            </button>
-        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Dlaczego -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header"><span class="card-title">Dlaczego to robię?</span></div>
+    <div class="card-body">
+      <p style="font-size:.875rem; color:var(--text-muted); line-height:1.7; margin:0;">
+        W tenisie i programowaniu liczy się determinacja. Uwielbiam moment, gdy trudne spotkanie kończy się zwycięstwem, a skomplikowany algorytm zaczyna działać. Dzielę się tym narzędziem, bo najlepsze mecze to te, które zostają w pamięci.
+      </p>
+    </div>
+  </div>
+
+  <!-- Lokalizacja -->
+  {% if location %}
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header"><span class="card-title">Lokalizacja</span></div>
+    <div class="card-body">
+      <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-4);">{{ location.description }}</p>
+      <div style="border-radius:var(--radius-sm); overflow:hidden; height:280px;">
+        <iframe
+          src="https://maps.google.com/maps?q={{ location.query }}&t=&z=13&ie=UTF8&iwloc=&output=embed"
+          width="100%" height="100%" frameborder="0" scrolling="no"
+          title="Mapa — {{ location.name }}"></iframe>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- CTA -->
+  <div style="background:var(--primary-subtle); border:1px solid var(--primary); border-radius:var(--radius-md); padding:var(--space-6); text-align:center;">
+    <h2 style="font-size:1.1rem; font-weight:700; margin-bottom:var(--space-3);">Wspólnie do celu!</h2>
+    <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-4); line-height:1.7;">
+      Ta strona rozwija się dzięki Waszym opiniom. Widzisz miejsce na nową funkcjonalność lub zauważyłeś błąd? Daj znać – wspólnie doprowadzimy ten projekt do Wielkiego Szlema!
+    </p>
+  </div>
+
 </div>
 {% endblock %}

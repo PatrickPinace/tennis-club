@@ -1,67 +1,58 @@
-<div class="d-flex mb-4">
-    <div class="flex-shrink-0">
-        <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 40px; height: 40px; font-size: 1rem;">
-            {{ comment.author.first_name|first|default:comment.author.username|first|upper }}
-        </div>
+<div style="display:flex; gap:var(--space-3); margin-bottom:var(--space-5);">
+  <div class="avatar avatar-sm" style="flex-shrink:0;">
+    {{ comment.author.first_name|first|default:comment.author.username|first|upper }}
+  </div>
+  <div style="flex:1; min-width:0;">
+    <div style="display:flex; align-items:center; gap:var(--space-2); margin-bottom:var(--space-1);">
+      <span style="font-weight:700; font-size:.875rem; color:var(--text);">{{ comment.author.get_full_name|default:comment.author.username }}</span>
+      <span style="font-size:.75rem; color:var(--text-muted);">{{ comment.created_at|timesince }} temu</span>
     </div>
-    <div class="ms-3 w-100">
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ comment.author.get_full_name|default:comment.author.username }}</span>
-            <small class="text-muted" style="font-size: 0.8rem;">{{ comment.created_at|timesince }} temu</small>
-        </div>
-        <div class="text-break mb-2" style="font-size: 0.95rem;">
-            {{ comment.content|linebreaksbr }}
-        </div>
-        
-        <!-- Akcje pod komentarzem (wizualne) -->
-        <div class="d-flex align-items-center gap-3">
-            <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none d-flex align-items-center gap-1 btn-react" data-url="{% url 'news:react_to_comment' comment.pk %}" data-action="like">
-                {% if user in comment.likes.all %}
-                    <i class="bi bi-hand-thumbs-up-fill text-primary"></i>
-                {% else %}
-                    <i class="bi bi-hand-thumbs-up"></i>
-                {% endif %}
-                <span class="like-count" style="font-size: 0.8rem;">{{ comment.likes.count }}</span>
-            </button>
-            <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none d-flex align-items-center gap-1 btn-react" data-url="{% url 'news:react_to_comment' comment.pk %}" data-action="dislike">
-                {% if user in comment.dislikes.all %}
-                     <i class="bi bi-hand-thumbs-down-fill text-danger"></i>
-                {% else %}
-                    <i class="bi bi-hand-thumbs-down"></i>
-                {% endif %}
-                <span class="dislike-count" style="font-size: 0.8rem;">{{ comment.dislikes.count }}</span>
-            </button>
-            <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none fw-bold btn-reply" data-comment-id="{{ comment.pk }}" data-comment-author="{{ comment.author.get_full_name|default:comment.author.username }}" style="font-size: 0.8rem;">Odpowiedz</button>
-        </div>
-
-        <!-- Formularz odpowiedzi (ukryty) -->
-        <div class="reply-form-container mt-2 d-none" id="reply-form-{{ comment.pk }}">
-             {% if user.is_authenticated %}
-                <form method="post" action="{% url 'news:add_comment' comment.article.slug %}" class="reply-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="parent_id" value="{{ comment.pk }}">
-                    <div class="mb-2">
-                        <textarea name="content" class="form-control form-control-sm" rows="2" placeholder="Napisz odpowiedź..."></textarea>
-                    </div>
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-sm btn-text rounded-pill btn-cancel-reply">Anuluj</button>
-                        <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">Odpowiedz</button>
-                    </div>
-                </form>
-            {% else %}
-                <div class="alert alert-light border p-2 mb-0" style="font-size: 0.9rem;">
-                    <a href="{% url 'login' %}?next={{ request.path }}" class="alert-link">Zaloguj się</a>, aby odpowiedzieć.
-                </div>
-            {% endif %}
-        </div>
-
-        <!-- Zagnieżdżone odpowiedzi -->
-        {% if comment.replies.exists %}
-            <div class="replies mt-3">
-                {% for reply in comment.replies.all %}
-                    {% include 'news/partials/comment.html' with comment=reply %}
-                {% endfor %}
-            </div>
-        {% endif %}
+    <div style="font-size:.875rem; color:var(--text); margin-bottom:var(--space-3); line-height:1.6;">
+      {{ comment.content|linebreaksbr }}
     </div>
+
+    <!-- Akcje -->
+    <div class="reaction-btns" style="display:flex; align-items:center; gap:var(--space-4);">
+      <button class="btn-react" data-url="{% url 'news:react_to_comment' comment.pk %}" data-action="like"
+        style="background:none; border:none; cursor:pointer; display:flex; align-items:center; gap:4px; font-size:.78rem; color:{% if user in comment.likes.all %}var(--primary){% else %}var(--text-muted){% endif %}; padding:0;">
+        👍 <span class="like-count">{{ comment.likes.count }}</span>
+      </button>
+      <button class="btn-react" data-url="{% url 'news:react_to_comment' comment.pk %}" data-action="dislike"
+        style="background:none; border:none; cursor:pointer; display:flex; align-items:center; gap:4px; font-size:.78rem; color:{% if user in comment.dislikes.all %}var(--danger){% else %}var(--text-muted){% endif %}; padding:0;">
+        👎 <span class="dislike-count">{{ comment.dislikes.count }}</span>
+      </button>
+      <button class="btn-reply" data-comment-id="{{ comment.pk }}" data-comment-author="{{ comment.author.get_full_name|default:comment.author.username }}"
+        style="background:none; border:none; cursor:pointer; font-size:.78rem; font-weight:600; color:var(--text-muted); padding:0;">
+        Odpowiedz
+      </button>
+    </div>
+
+    <!-- Formularz odpowiedzi -->
+    <div class="reply-form-container hidden-reply" id="reply-form-{{ comment.pk }}" style="margin-top:var(--space-3);">
+      {% if user.is_authenticated %}
+      <form method="post" action="{% url 'news:add_comment' comment.article.slug %}" class="reply-form">
+        {% csrf_token %}
+        <input type="hidden" name="parent_id" value="{{ comment.pk }}">
+        <textarea name="content" class="tc-input" rows="2" placeholder="Napisz odpowiedź..." style="margin-bottom:var(--space-2);"></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-2);">
+          <button type="button" class="btn btn-ghost btn-sm btn-cancel-reply">Anuluj</button>
+          <button type="submit" class="btn btn-primary btn-sm">Odpowiedz</button>
+        </div>
+      </form>
+      {% else %}
+      <p style="font-size:.875rem; color:var(--text-muted);">
+        <a href="{% url 'login' %}?next={{ request.path }}" style="color:var(--primary);">Zaloguj się</a>, aby odpowiedzieć.
+      </p>
+      {% endif %}
+    </div>
+
+    <!-- Zagnieżdżone odpowiedzi -->
+    {% if comment.replies.exists %}
+    <div class="replies" style="margin-top:var(--space-4); padding-left:var(--space-4); border-left:2px solid var(--border);">
+      {% for reply in comment.replies.all %}
+        {% include 'news/partials/comment.html' with comment=reply %}
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
 </div>

@@ -1,173 +1,120 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 
-{% block styles %}
-<style>
-    @media (max-width: 767px) {
-        .sync-info-text {
-            font-size: 0.875rem; /* Mniejsza czcionka na mobile */
-        }
-    }
-</style>
+{% block title %}Aktywności Garmin{% endblock %}
+{% block topbar_title %}Aktywności{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Moje aktywności Garmin</h1>
+    <p class="page-header__subtitle">Historia aktywności zsynchronizowanych z Garmin Connect.</p>
+  </div>
+  <div class="page-header__actions">
+    <form action="{% url 'activities:force_garmin_sync' %}" method="post" style="display:inline;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-secondary btn-sm">Synchronizuj teraz</button>
+    </form>
+  </div>
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Moje aktywności Garmin</h2>
-    </div>
+<div style="max-width: 900px; margin: 0 auto;">
 
-    <!-- Informacja o synchronizacji -->
-    <div class="alert alert-info" role="alert">
-        <div class="d-flex justify-content-between align-items-center flex-wrap">
-            <div class="d-flex align-items-center">
-                <i class="fa-solid fa-circle-info me-2"></i>
-                <p class="mb-0 sync-info-text">
-                    Nowe aktywności z Garmin Connect są synchronizowane automatycznie.
-                </p>
-            </div>
-            <div class="mt-2 mt-md-0">
-                <form action="{% url 'activities:force_garmin_sync' %}" method="post" class="d-inline">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-sm btn-outline-primary me-2">Synchronizuj teraz</button>
-                </form>
-                <a class="btn btn-link text-decoration-none text-dark" data-bs-toggle="collapse" href="#syncDetails" role="button" aria-expanded="false" aria-controls="syncDetails">
-                    Szczegóły <i class="fa-solid fa-chevron-down small"></i>
-                </a>
-            </div>
-        </div>
-        <div class="collapse mt-2" id="syncDetails">
-            <hr>
-            <p class="mb-2 small text-muted">
-                Sprawdzanych jest 30 ostatnich aktywności.
-            </p>
-            {% if last_sync_time %}
-                <small class="text-muted d-block">Ostatnia synchronizacja: <strong>{{ last_sync_time|date:"d.m.Y H:i" }}</strong></small>
-            {% endif %}
-            {% if schedule %}
-                <small class="text-muted d-block">
-                    Następna synchronizacja: 
-                    <strong>{% if schedule.next_run %}{{ schedule.next_run|date:"d.m.Y H:i" }}{% else %}Brak (harmonogram może być nieaktywny){% endif %}</strong>
-                </small>
-                <small class="text-muted d-block">
-                    (Powtórzenia: {% if schedule.repeats == -1 %}Bez limitu{% else %}{{ schedule.repeats }}{% endif %} | {% if schedule.schedule_type == 'I' %}co {{ schedule.minutes }} min.{% else %}Typ: {{ schedule.get_schedule_type_display }}{% endif %})
-                </small>
-            {% else %}
-                <small class="text-muted d-block">Brak aktywnego harmonogramu automatycznej synchronizacji.</small>
-            {% endif %}
-        </div>
+  <!-- Info o synchronizacji -->
+  <div class="card" style="margin-bottom:var(--space-5); border-color:rgba(59,130,246,.3); background:rgba(59,130,246,.05);">
+    <div class="card-body" style="padding:var(--space-4);">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-4); flex-wrap:wrap;">
+        <p style="font-size:.875rem; color:var(--text-muted); margin:0;">
+          Nowe aktywności synchronizowane są automatycznie. Sprawdzanych jest 30 ostatnich aktywności.
+          {% if last_sync_time %}Ostatnia synchronizacja: <strong style="color:var(--text);">{{ last_sync_time|date:"d.m.Y H:i" }}</strong>{% endif %}
+        </p>
+        {% if schedule %}
+        <p style="font-size:.78rem; color:var(--text-muted); margin:0; white-space:nowrap;">
+          Następna: <strong>{% if schedule.next_run %}{{ schedule.next_run|date:"H:i" }}{% else %}—{% endif %}</strong>
+        </p>
+        {% endif %}
+      </div>
     </div>
+  </div>
 
-    <!-- Sekcja filtrów -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3 align-items-end">
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label for="date_from" class="form-label">Data od</label>
-                    <input type="date" class="form-control" id="date_from" name="date_from" value="{{ request.GET.date_from|default:'' }}">
-                </div>
-                <div class="col-12 col-md-6 col-lg-3">
-                    <label for="date_to" class="form-label">Data do</label>
-                    <input type="date" class="form-control" id="date_to" name="date_to" value="{{ request.GET.date_to|default:'' }}">
-                </div>
-                <div class="col-12 col-lg-2">
-                    <button type="submit" class="btn btn-primary w-100">Filtruj</button>
-                </div>
-                <div class="col-12 col-lg-4">
-                    <label for="liveSearch" class="form-label">Wyszukaj w tabeli</label>
-                    <input type="text" class="form-control" id="liveSearch" placeholder="Wpisz nazwę, datę, dystans...">
-                </div>
-            </form>
+  <!-- Filtry -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-body">
+      <form method="get">
+        <div style="display:flex; flex-wrap:wrap; gap:var(--space-4); align-items:flex-end;">
+          <div class="tc-field">
+            <label class="tc-label">Data od</label>
+            <input type="date" name="date_from" class="tc-input" value="{{ request.GET.date_from|default:'' }}" style="min-width:140px;">
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Data do</label>
+            <input type="date" name="date_to" class="tc-input" value="{{ request.GET.date_to|default:'' }}" style="min-width:140px;">
+          </div>
+          <div class="tc-field" style="flex:1; min-width:160px;">
+            <label class="tc-label">Szukaj</label>
+            <input type="text" id="liveSearch" class="tc-input" placeholder="Nazwa, data, dystans...">
+          </div>
+          <button type="submit" class="btn btn-primary">Filtruj</button>
         </div>
+      </form>
     </div>
+  </div>
 
-    <!-- Widok tabeli dla dużych ekranów (LG i większe) -->
-    <div class="card d-none d-lg-block">
-        <div class="card-body p-0">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th style="width: 15%;">Nazwa</th>
-                        <th style="width: 15%;">Data</th>
-                        <th style="width: 10%;">Czas trwania</th>
-                        <th style="width: 10%;">Dystans</th>
-                        <th style="width: 10%;">Średnie tętno</th>
-                    </tr>
-                </thead>
-                <tbody id="activitiesTableBody">
-                    {% for activity in activities %}
-                    <tr>
-                        <td><a href="{{ activity.get_absolute_url }}">{{ activity.activity_name }}</a></td>
-                        <td>{{ activity.start_time|date:"Y-m-d H:i" }}</td>
-                        <td>{{ activity.duration_in_minutes|floatformat:0 }} min</td>
-                        <td>{{ activity.distance_in_km|floatformat:2 }} km</td>
-                        <td>{{ activity.average_hr }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+  <!-- Tabela aktywności -->
+  <div class="card">
+    <div class="card-body" style="padding:0;">
+      {% if activities %}
+      <table class="data-table" id="activitiesTable">
+        <thead>
+          <tr>
+            <th>Nazwa</th>
+            <th>Data</th>
+            <th style="text-align:right;">Czas</th>
+            <th style="text-align:right;">Dystans</th>
+            <th style="text-align:right;">Śr. tętno</th>
+          </tr>
+        </thead>
+        <tbody id="activitiesTableBody">
+          {% for activity in activities %}
+          <tr>
+            <td>
+              <a href="{{ activity.get_absolute_url }}" style="color:var(--primary); font-weight:600; text-decoration:none;">
+                {{ activity.activity_name }}
+              </a>
+            </td>
+            <td style="color:var(--text-muted); font-size:.85rem;">{{ activity.start_time|date:"d.m.Y H:i" }}</td>
+            <td style="text-align:right; font-size:.875rem;">{{ activity.duration_in_minutes|floatformat:0 }} min</td>
+            <td style="text-align:right; font-size:.875rem;">{{ activity.distance_in_km|floatformat:2 }} km</td>
+            <td style="text-align:right; font-size:.875rem; color:var(--text-muted);">{{ activity.average_hr|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-state__icon">🏃</div>
+        <p class="empty-state__title">Brak aktywności</p>
+        <p class="empty-state__text">Nie znaleziono aktywności dla wybranych filtrów.</p>
+      </div>
+      {% endif %}
     </div>
+  </div>
+
 </div>
 
-<!-- Widok kart dla małych i średnich ekranów (do LG) wewnątrz kontenera -->
-<div class="container d-lg-none">
-<div id="activitiesCardList">
-    {% for activity in activities %}
-    <div class="card mb-3 activity-card">
-        <div class="card-body">
-            <h5 class="card-title">
-                <a href="{{ activity.get_absolute_url }}">{{ activity.activity_name }}</a>
-            </h5>
-            <h6 class="card-subtitle mb-3 text-muted">{{ activity.start_time|date:"d.m.Y H:i" }}</h6>
-            
-            <div class="d-flex justify-content-around p-2 rounded bg-light mb-3">
-                <div class="text-center">
-                    <i class="fas fa-clock"></i><br><small>{{ activity.duration_in_minutes|floatformat:0 }} min</small>
-                </div>
-                <div class="text-center">
-                    <i class="fas fa-road"></i><br><small>{{ activity.distance_in_km|floatformat:2 }} km</small>
-                </div>
-                <div class="text-center">
-                    <i class="fas fa-heartbeat"></i><br><small>{{ activity.average_hr|default:"-" }}</small>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-</div>
-
-{% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('liveSearch');
-    const tableBody = document.getElementById('activitiesTableBody');
-    const cardList = document.getElementById('activitiesCardList');
-
+  const searchInput = document.getElementById('liveSearch');
+  const tableBody = document.getElementById('activitiesTableBody');
+  if (searchInput && tableBody) {
     searchInput.addEventListener('keyup', function() {
-        const filter = searchInput.value.toLowerCase();
-
-        // Filtrowanie tabeli (widok desktop)
-        if (tableBody) {
-            const rows = tableBody.getElementsByTagName('tr');
-            for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-                const textContent = row.textContent || row.innerText;
-                row.style.display = textContent.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
-            }
-        }
-
-        // Filtrowanie kart (widok mobilny)
-        if (cardList) {
-            const cards = cardList.getElementsByClassName('activity-card');
-            for (let i = 0; i < cards.length; i++) {
-                const card = cards[i];
-                const textContent = card.textContent || card.innerText;
-                card.style.display = textContent.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
-            }
-        }
+      const filter = this.value.toLowerCase();
+      tableBody.querySelectorAll('tr').forEach(function(row) {
+        row.style.display = row.textContent.toLowerCase().includes(filter) ? '' : 'none';
+      });
     });
+  }
 });
 </script>
-{% endblock %}
 {% endblock %}

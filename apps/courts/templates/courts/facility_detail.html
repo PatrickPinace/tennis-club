@@ -1,15 +1,26 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load tournaments %}
 
 {% block title %}{{ facility.name }}{% endblock %}
+{% block topbar_title %}Korty{% endblock %}
 
-{% block content %}
-  <div class="d-flex justify-content-between align-items-center mb-4">
-    <a href="{% url 'courts:facility-list' %}" class="btn btn-outline-secondary">&laquo; Powrót do listy</a>
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ facility.name }}</h1>
+    <p class="page-header__subtitle">{{ facility.address }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'courts:facility-list' %}" class="btn btn-secondary">← Powrót</a>
     {% if user == facility.owner %}
-      <a href="{% url 'courts:update-facility' pk=facility.pk %}" class="btn btn-secondary">Edytuj obiekt</a>
+    <a href="{% url 'courts:update-facility' pk=facility.pk %}" class="btn btn-ghost">Edytuj obiekt</a>
     {% endif %}
   </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
 
   <div class="row g-5">
     <div class="col-md-6">
@@ -560,4 +571,5 @@
   {% endif %}
 
   <!-- W tym miejscu można zaimplementować dynamiczną siatkę rezerwacji -->
+</div>{# /max-width wrapper #}
 {% endblock %}

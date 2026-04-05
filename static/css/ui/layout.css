@@ -1,8 +1,6 @@
 /* ── App Shell ───────────────────────────────────────────────────────────── */
 body.app-shell {
-  display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
-  grid-template-rows: 1fr;
+  display: block;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────────────────── */
@@ -177,7 +175,7 @@ body.app-shell {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(15,17,23,0.85);
+  background: var(--topbar-bg);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(12px);
   position: sticky;
@@ -195,6 +193,7 @@ body.app-shell {
   font-size: 1rem;
   font-weight: 600;
   color: var(--text);
+  white-space: nowrap;
 }
 
 .app-topbar__right {
@@ -206,9 +205,7 @@ body.app-shell {
 /* ── Content ─────────────────────────────────────────────────────────────── */
 .app-content {
   flex: 1;
-  padding: 28px;
-  max-width: var(--content-max);
-  width: 100%;
+  padding: 28px 32px;
 }
 
 /* ── Page header ─────────────────────────────────────────────────────────── */
@@ -256,7 +253,6 @@ body.app-shell {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
-  margin-bottom: 28px;
 }
 
 .cards-grid {

@@ -1,14 +1,40 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load widget_tweaks %}
 
 {% block title %}{% if is_edit %}Edytuj Kort{% else %}Dodaj Kort{% endif %}{% endblock %}
+{% block topbar_title %}Korty{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{% if is_edit %}Edytuj kort{% else %}Dodaj kort{% endif %}</h1>
+    <p class="page-header__subtitle">{{ facility.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'courts:facility-detail' pk=facility.pk %}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
 
 {% block content %}
-  <h1>{% if is_edit %}Edytuj kort nr {{ form.instance.court_number }} w obiekcie: {{ facility.name }}{% else %}Dodaj nowy kort do obiektu: {{ facility.name }}{% endif %}</h1>
-  <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-success">{% if is_edit %}Zapisz zmiany{% else %}Dodaj kort{% endif %}</button>
-    <a href="{% url 'courts:facility-detail' pk=facility.pk %}" class="btn btn-secondary">Anuluj</a>
-  </form>
+<div style="max-width: 580px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ field.label }}</label>
+          {{ field }}
+          {% if field.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ field.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% endfor %}
+        <div style="display:flex; gap:var(--space-3);">
+          <button type="submit" class="btn btn-primary">{% if is_edit %}Zapisz zmiany{% else %}Dodaj kort{% endif %}</button>
+          <a href="{% url 'courts:facility-detail' pk=facility.pk %}" class="btn btn-secondary">Anuluj</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

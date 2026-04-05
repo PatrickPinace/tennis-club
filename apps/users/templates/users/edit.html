@@ -1,153 +1,162 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 
-{% block styles %}
-<link rel="stylesheet" href="/static/css/users.css">
-{% endblock %}
+{% block title %}Edycja profilu{% endblock %}
+{% block topbar_title %}Profil{% endblock %}
 
-{% block content %}
-<div class="container py-5">
-    <div class="users edit card mx-auto">
-        <div class="card-header">
-            <h2 class="mb-0 text-white text-center font-2">Edycja profilu</h2>
-        </div>
-        <div class="card-body">
-       <form method="post" enctype="multipart/form-data">
-                {% csrf_token %}
-                <div class="text-center mb-4">
-                    {% if request.user.profile.image and request.user.profile.image.url != '/media/default.png' %}
-                        <img id="profile_image_display" src="{{ request.user.profile.image.url }}" class="rounded-circle profile-img-preview" alt="Zdjęcie profilowe">
-                    {% else %}
-                        <img id="profile_image_display" src="/static/img/default.png" class="rounded-circle profile-img-preview" alt="Domyślne zdjęcie profilowe">
-                    {% endif %}
-                    {{ profile_form.image }}
-                    <div class="form-text mt-2">Kliknij w zdjęcie, aby je zmienić.</div>
-                    {{ profile_form.image.errors }}
-                </div>
-
-                <div class="mb-3">
-                    <label for="{{ user_form.first_name.id_for_label }}" class="form-label">Imię</label>
-                    {{ user_form.first_name }}
-                    {{ user_form.first_name.errors }}
-                </div>
-                <div class="mb-3">
-                    <label for="{{ user_form.last_name.id_for_label }}" class="form-label">Nazwisko</label>
-                    {{ user_form.last_name }}
-                    {{ user_form.last_name.errors }}
-                </div>
-                <div class="mb-3">
-                    <label for="{{ user_form.email.id_for_label }}" class="form-label">Email</label>
-                    {{ user_form.email }}
-                    {{ user_form.email.errors }}
-                </div>
-
-                <hr class="my-3">
-
-                <div class="mb-3">
-                    <label for="{{ profile_form.birth_date.id_for_label }}" class="form-label">Data urodzenia</label>
-                    {{ profile_form.birth_date }}
-                    {{ profile_form.birth_date.errors }}
-                </div>
-
-                <div class="mb-3">
-                    <label for="{{ profile_form.city.id_for_label }}" class="form-label">Miasto</label>
-                    {{ profile_form.city }}
-                    {{ profile_form.city.errors }}
-                </div>
-
-                <div class="mb-3">
-                    <label for="{{ profile_form.start_date.id_for_label }}" class="form-label">Rozpoczęcie przygody z tenisem</label>
-                    {{ profile_form.start_date }}
-                    {{ profile_form.start_date.errors }}
-                </div>
-
-                <hr class="my-3">
-
-                <div class="text-center mb-3">
-                    {% include 'users/includes/garmin_icon.html' %}
-                </div>
-                {% if request.user.profile.garmin_login and request.user.profile.garmin_password %}
-                    <!-- Sekcja widoczna po połączeniu konta -->
-                    <!-- Ukryte pola, aby zachować dane logowania podczas zapisu innych zmian -->
-                    <input type="hidden" name="garmin_login" value="{{ profile_form.initial.garmin_login }}">
-
-                    <div class="mb-3">
-                        <label class="form-label">Opcje synchronizacji Garmin</label>
-                        <div class="form-check">
-                            {% for radio in profile_form.garmin_sync_option %}
-                            <div class="form-check">
-                                {{ radio.tag }}
-                                <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                    <div class="row g-2 mt-3">
-                        <div class="col-lg-6 d-grid">
-                            <a href="{% url 'activities:activity_list' %}" class="btn btn-info">Zobacz moje aktywności</a>
-                        </div>
-                        <div class="col-lg-6 d-grid">
-                            <a href="{% url 'activities:garmin_disconnect' %}" id="garmin-disconnect-btn" class="btn btn-outline-danger">Rozłącz konto Garmin</a>
-                        </div>
-                    </div>
-               {% else %}
-                    <!-- Sekcja widoczna przed połączeniem konta -->
-                    <div class="mb-3">
-                        <label for="{{ profile_form.garmin_login.id_for_label }}" class="form-label">Login Garmin</label>
-                        {{ profile_form.garmin_login }}
-                        {{ profile_form.garmin_login.errors }}
-                    </div>
-                    <div class="mb-3">
-                        <label for="{{ profile_form.garmin_password.id_for_label }}" class="form-label">Hasło Garmin</label>
-                        {{ profile_form.garmin_password }}
-                        {{ profile_form.garmin_password.errors }}
-                        <div class="form-text">Twoje hasło jest szyfrowane i bezpieczne.</div>
-                        <!-- Ukryte pole, aby zapewnić domyślną wartość przy pierwszym zapisie -->
-                        <input type="hidden" name="{{ profile_form.garmin_sync_option.name }}" value="{{ profile_form.garmin_sync_option.initial|default:'TENNIS_ONLY' }}">
-                    </div>
-                {% endif %}
-
-                <hr class="my-3">
-                <button type="submit" class="btn btn-success w-100">Zapisz zmiany</button>
-            </form>
-
-            <div class="mt-4 text-center">
-                <a href="{% url 'change_password' %}" class="btn btn-warning">Zmień hasło</a>
-                <a href="{% url 'logout' %}" class="btn btn-outline-danger ms-2">Wyloguj się</a>
-            </div>
-        </div>
-    </div>
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Edycja profilu</h1>
+    <p class="page-header__subtitle">Zaktualizuj swoje dane i ustawienia konta.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'change_password' %}" class="btn btn-secondary">Zmień hasło</a>
+    <a href="{% url 'logout' %}" class="btn btn-ghost">Wyloguj</a>
+  </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extra_css %}
+<style>
+.profile-img-preview {
+  width: 96px; height: 96px; border-radius: 50%;
+  object-fit: cover; cursor: pointer;
+  border: 3px solid var(--primary);
+  transition: opacity .15s;
+}
+.profile-img-preview:hover { opacity: .8; }
+#id_image { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Avatar -->
+        <div style="text-align:center; margin-bottom:var(--space-6);">
+          {% if request.user.profile.image and request.user.profile.image.url != '/media/default.png' %}
+          <img id="profile_image_display" src="{{ request.user.profile.image.url }}" class="profile-img-preview" alt="Zdjęcie profilowe">
+          {% else %}
+          <img id="profile_image_display" src="/static/img/default.png" class="profile-img-preview" alt="Zdjęcie profilowe">
+          {% endif %}
+          {{ profile_form.image }}
+          <p style="font-size:.78rem; color:var(--text-muted); margin-top:var(--space-2);">Kliknij w zdjęcie, aby je zmienić.</p>
+          {% if profile_form.image.errors %}<p style="color:var(--danger); font-size:.8rem;">{{ profile_form.image.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <!-- Dane podstawowe -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="tc-field">
+            <label class="tc-label">Imię</label>
+            {{ user_form.first_name }}
+            {% if user_form.first_name.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ user_form.first_name.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Nazwisko</label>
+            {{ user_form.last_name }}
+            {% if user_form.last_name.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ user_form.last_name.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">Email</label>
+          {{ user_form.email }}
+          {% if user_form.email.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ user_form.email.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <div style="height:1px; background:var(--border); margin:var(--space-5) 0;"></div>
+
+        <!-- Dane profilowe -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="tc-field">
+            <label class="tc-label">Data urodzenia</label>
+            {{ profile_form.birth_date }}
+            {% if profile_form.birth_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.birth_date.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Miasto</label>
+            {{ profile_form.city }}
+            {% if profile_form.city.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.city.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">Rozpoczęcie przygody z tenisem</label>
+          {{ profile_form.start_date }}
+          {% if profile_form.start_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.start_date.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <div style="height:1px; background:var(--border); margin:var(--space-5) 0;"></div>
+
+        <!-- Garmin -->
+        <div style="margin-bottom:var(--space-5);">
+          <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-4);">
+            {% include 'users/includes/garmin_icon.html' %}
+            <span style="font-weight:600; color:var(--text-muted); font-size:.875rem; text-transform:uppercase; letter-spacing:.05em;">Garmin Connect</span>
+          </div>
+
+          {% if request.user.profile.garmin_login and request.user.profile.garmin_password %}
+          <input type="hidden" name="garmin_login" value="{{ profile_form.initial.garmin_login }}">
+          <div class="tc-field" style="margin-bottom:var(--space-4);">
+            <label class="tc-label">Opcje synchronizacji Garmin</label>
+            {% for radio in profile_form.garmin_sync_option %}
+            <label style="display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) 0; font-size:.875rem; cursor:pointer;">
+              {{ radio.tag }} {{ radio.choice_label }}
+            </label>
+            {% endfor %}
+          </div>
+          <div style="display:flex; gap:var(--space-3);">
+            <a href="{% url 'activities:activity_list' %}" class="btn btn-secondary btn-sm">Zobacz aktywności</a>
+            <a href="{% url 'activities:garmin_disconnect' %}" id="garmin-disconnect-btn" class="btn btn-danger btn-sm">Rozłącz Garmin</a>
+          </div>
+          {% else %}
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4);">
+            <div class="tc-field">
+              <label class="tc-label">Login Garmin</label>
+              {{ profile_form.garmin_login }}
+              {% if profile_form.garmin_login.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.garmin_login.errors|join:", " }}</p>{% endif %}
+            </div>
+            <div class="tc-field">
+              <label class="tc-label">Hasło Garmin</label>
+              {{ profile_form.garmin_password }}
+              {% if profile_form.garmin_password.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.garmin_password.errors|join:", " }}</p>{% endif %}
+              <p style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">Twoje hasło jest szyfrowane.</p>
+              <input type="hidden" name="{{ profile_form.garmin_sync_option.name }}" value="{{ profile_form.garmin_sync_option.initial|default:'TENNIS_ONLY' }}">
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div style="height:1px; background:var(--border); margin:var(--space-5) 0;"></div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;">Zapisz zmiany</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
-    document.getElementById('profile_image_display').addEventListener('click', function() {
-        // Upewnij się, że ten ID pasuje do inputa
-        const imageInput = document.getElementById('id_image');
-        if (imageInput) {
-             imageInput.click();
-        }
-    });
-
-    const imageInput = document.getElementById('id_image');
-    if (imageInput) {
-        imageInput.addEventListener('change', function(event) {
-            const [file] = event.target.files;
-            if (file) {
-                document.getElementById('profile_image_display').src = URL.createObjectURL(file);
-            }
-        });
-    }
-
-    // Potwierdzenie przed rozłączeniem konta Garmin
-    const disconnectBtn = document.getElementById('garmin-disconnect-btn');
-    if (disconnectBtn) {
-        disconnectBtn.addEventListener('click', function(event) {
-            event.preventDefault(); // Zatrzymaj domyślną akcję linku
-            if (confirm('Czy na pewno chcesz rozłączyć swoje konto Garmin Connect?')) {
-                window.location.href = this.href; // Jeśli użytkownik potwierdzi, przejdź do URL
-            }
-        });
-    }
+document.getElementById('profile_image_display').addEventListener('click', function() {
+  const inp = document.getElementById('id_image');
+  if (inp) inp.click();
+});
+const imageInput = document.getElementById('id_image');
+if (imageInput) {
+  imageInput.addEventListener('change', function(e) {
+    const [file] = e.target.files;
+    if (file) document.getElementById('profile_image_display').src = URL.createObjectURL(file);
+  });
+}
+const disconnectBtn = document.getElementById('garmin-disconnect-btn');
+if (disconnectBtn) {
+  disconnectBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    if (confirm('Rozłączyć konto Garmin?')) window.location.href = this.href;
+  });
+}
 </script>
 {% endblock %}

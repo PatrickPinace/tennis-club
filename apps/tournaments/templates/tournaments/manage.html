@@ -1,44 +1,51 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 {% load static %}
 
-{% block styles %}
-<style>
-    @media (max-width: 575.98px) {
-        .mobile-title-small {
-            font-size: 1rem !important; /* Odpowiednik fs-6 */
-        }
-        .mobile-subtitle-small {
-            font-size: 0.75rem !important; /* 12px */
-        }
-    }
-</style>
+{% block title %}Turnieje{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Turnieje</h1>
+    <p class="page-header__subtitle">Zarządzaj turniejami — twórz, konfiguruj i śledź wyniki.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:create_tournament' %}" class="btn btn-primary">+ Utwórz nowy</a>
+  </div>
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-  <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4 gap-3">
-    <h2>Turnieje</h2>
-    
-    <div class="d-flex gap-2 flex-grow-1 justify-content-end w-100 w-md-auto">
-        <form class="d-flex flex-grow-1 flex-md-grow-0" role="search" method="get">
-            <div class="input-group">
-                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                <input class="form-control border-start-0 ps-0" type="search" name="q" placeholder="Szukaj turnieju..." aria-label="Search" value="{{ search_query|default:'' }}">
-            </div>
-        </form>
-        <a class="btn btn-success text-nowrap" href="{% url 'tournaments:create_tournament' %}">
-            <i class="bi bi-plus-lg me-1"></i> Utwórz nowy
-        </a>
+<div style="max-width: 900px; margin: 0 auto;">
+
+  <!-- Wyszukiwarka -->
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body">
+      <form method="get">
+        <div style="display:flex; gap:var(--space-3); align-items:center;">
+          <div style="flex:1; position:relative;">
+            <svg style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted);" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+            </svg>
+            <input type="search" name="q" value="{{ search_query|default:'' }}" placeholder="Szukaj turnieju..."
+              class="tc-input" style="padding-left: 36px;">
+          </div>
+          <button type="submit" class="btn btn-secondary">Szukaj</button>
+          {% if search_query %}
+          <a href="{% url 'tournaments:manage' %}" class="btn btn-ghost">Wyczyść</a>
+          {% endif %}
+        </div>
+      </form>
+      {% if search_query %}
+      <p style="margin-top:var(--space-3); font-size:.875rem; color:var(--text-muted);">
+        Wyniki dla: <strong style="color:var(--text);">{{ search_query }}</strong>
+      </p>
+      {% endif %}
     </div>
   </div>
 
-  {% if search_query %}
-    <div class="mb-3">
-        Wyniki wyszukiwania dla: <strong>{{ search_query }}</strong> 
-        <a href="{% url 'tournaments:manage' %}" class="text-decoration-none ms-2"><i class="bi bi-x-circle"></i> Wyczyść</a>
-    </div>
-  {% endif %}
-
+  <!-- Lista turniejów -->
   <div id="tournaments-list-container">
     {% include 'tournaments/partials/manage_list.html' %}
   </div>
@@ -46,35 +53,25 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchInput = document.querySelector('input[name="q"]');
-        const listContainer = document.getElementById('tournaments-list-container');
-        let timeout = null;
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.querySelector('input[name="q"]');
+  const listContainer = document.getElementById('tournaments-list-container');
+  let timeout = null;
 
-        searchInput.addEventListener('input', function(e) {
-            clearTimeout(timeout);
-            const query = e.target.value;
-
-            timeout = setTimeout(function() {
-                // Zachowaj aktualny URL, ale zmień parametr q
-                const url = new URL(window.location.href);
-                url.searchParams.set('q', query);
-                
-                // Dodajemy nagłówek, aby backend wiedział, że to AJAX
-                fetch(url, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                .then(response => response.text())
-                .then(html => {
-                    listContainer.innerHTML = html;
-                    // Aktualizuj URL w pasku przeglądarki bez przeładowania (opcjonalne, ale dobre dla UX)
-                    window.history.pushState({}, '', url);
-                })
-                .catch(error => console.error('Error:', error));
-            }, 300); // Debounce 300ms
-        });
+  if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+      clearTimeout(timeout);
+      const query = e.target.value;
+      timeout = setTimeout(function() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('q', query);
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(r => r.text())
+          .then(html => { listContainer.innerHTML = html; window.history.pushState({}, '', url); })
+          .catch(err => console.error(err));
+      }, 300);
     });
+  }
+});
 </script>
 {% endblock %}

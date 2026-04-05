@@ -1,46 +1,51 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 {% load friends %}
 
-{% block styles %}
-<link rel="stylesheet" href="/static/css/friends.css">
+{% block title %}Znajomi{% endblock %}
+{% block topbar_title %}Znajomi{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Znajomi</h1>
+    <p class="page-header__subtitle">Zarządzaj znajomymi i przeglądaj graczy aplikacji.</p>
+  </div>
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="input-group mb-3">
-  <span class="input-group-text"><i class="fa-solid fa-search"></i></span>
-  <input type="text" id="global-user-search" class="form-control" placeholder="Szukaj graczy na obu listach...">
+<div style="max-width: 1100px; margin: 0 auto;">
+
+  <!-- Wyszukiwarka -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-body">
+      <div style="position:relative;">
+        <svg style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted);" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input type="text" id="global-user-search" class="tc-input" style="padding-left:36px;" placeholder="Szukaj graczy...">
+      </div>
+    </div>
+  </div>
+
+  <!-- Dwukolumnowy layout -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); align-items:start;">
+    <div>{% include 'friends/friends_sublist.html' %}</div>
+    <div>{% include 'friends/all_users_list.html' %}</div>
+  </div>
+
 </div>
 
-<div class="friends row row-cols-1 row-cols-lg-2 g-4">
-  <div class="col mb-3">
-    {% include 'friends/friends_sublist.html' %}
-  </div>
-  <div class="col">
-    {% include 'friends/all_users_list.html' %}
-  </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('global-user-search');
-    // Pobierz wszystkie karty użytkowników z obu list naraz
-    const allUserCards = document.querySelectorAll('.friends .user-card');
-
-    searchInput.addEventListener('keyup', function(e) {
-      const searchTerm = e.target.value.toLowerCase();
-
-      // Iteruj po wszystkich kartach i pokazuj/ukrywaj je w zależności od dopasowania
-      allUserCards.forEach(card => {
-        const userInfo = card.querySelector('.user-info h5').textContent.toLowerCase();
-        if (userInfo.includes(searchTerm)) {
-          card.style.display = ''; // Show the card
-        } else {
-          card.style.display = 'none'; // Hide the card
-        }
-      });
+document.addEventListener('DOMContentLoaded', function() {
+  const searchInput = document.getElementById('global-user-search');
+  const allCards = document.querySelectorAll('.user-card[data-name]');
+  searchInput.addEventListener('keyup', function() {
+    const term = this.value.toLowerCase();
+    allCards.forEach(function(card) {
+      card.style.display = card.dataset.name.includes(term) ? '' : 'none';
     });
   });
+});
 </script>
 {% endblock %}

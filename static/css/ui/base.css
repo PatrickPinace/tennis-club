@@ -18,6 +18,7 @@ body.app-shell {
   color: var(--text);
   min-height: 100vh;
   line-height: 1.5;
+  transition: background 0.2s, color 0.2s;
 }
 
 a {

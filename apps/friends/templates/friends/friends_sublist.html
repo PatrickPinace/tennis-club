@@ -1,114 +1,100 @@
 {% load friends %}
 
-<div class="card" id="friends_sublist">
+<!-- Oczekujące zaproszenia -->
+{% if incoming_requests %}
+<div class="card" style="margin-bottom:var(--space-4);">
   <div class="card-header">
-      <h4 class="card-title"><strong>Lista znajomych</strong></h4>
+    <span class="card-title">Oczekujące zaproszenia</span>
+    <span class="badge badge-warning">{{ incoming_requests|length }}</span>
   </div>
-  <div class="card-body">
-    
-    {% if incoming_requests %}
-        <h5>Oczekujące zaproszenia:</h5>
-        {# Używamy siatki Bootstrapa, aby wyświetlić 2 kolumny na dużych ekranach (lg) i 1 na mniejszych #}
-        <div class="row row-cols-1 row-cols-lg-2 g-3">
-        {% for request in incoming_requests %}
-            <div class="col">
-                <div class="user-card h-100">
-                    <div class="user-avatar">
-                    <i class="fa-solid fa-user-circle"></i>
-                </div>
-                <div class="user-info">
-                    <h5>{{ request.sender.first_name }} {{ request.sender.last_name }}</h5>
-                    <small class="text-muted">Wysłano: {{ request.timestamp|date:"Y-m-d H:i" }}</small>
-                </div>
-                <div class="user-actions d-flex">
-                    <form method="POST" class="me-1">
-                        {% csrf_token %}
-                        <input type="hidden" name="request_id" value="{{ request.id }}">
-                        <input type="hidden" name="action" value="accept_friend_request">
-                        <button type="submit" class="btn btn-success btn-sm" title="Akceptuj">
-                            <i class="fa-solid fa-user-check"></i>
-                        </button>
-                    </form>
-                    <form method="POST">
-                        {% csrf_token %}
-                        <input type="hidden" name="request_id" value="{{ request.id }}">
-                        <input type="hidden" name="action" value="reject_friend_request">
-                        <button type="submit" class="btn btn-danger btn-sm" title="Odrzuć">
-                            <i class="fa-solid fa-user-xmark"></i>
-                        </button>
-                    </form>
-                </div>
-                </div>
-            </div>
-        {% endfor %}
-        </div>
-    {% else %}
-        <p>Brak oczekujących zaproszeń.</p>
-    {% endif %}
-
-    <hr>
-
-    <h5>Twoi znajomi:</h5>
-    {# Używamy siatki Bootstrapa, aby wyświetlić 2 kolumny na dużych ekranach (lg) i 1 na mniejszych #}
-    <div class="row row-cols-1 row-cols-lg-2 g-3">
-      {% for friend in friends %}
-          <div class="col">
-              <div class="user-card h-100">
-                  <div class="user-avatar">
-                  <i class="fa-solid fa-user-circle"></i>
-                  {% if friend.friend.is_online %}
-                      <span class="status-indicator online"></span>
-                  {% else %}
-                      <span class="status-indicator offline"></span>
-                  {% endif %}
-              </div>
-              <div class="user-info">
-                  <h5>{{ friend.friend.first_name }} {{ friend.friend.last_name }}</h5>
-                  <small class="text-muted">Ostatnio online: {{ friend.friend.last_activity|default:"---"|date:"Y-m-d H:i" }}</small>
-              </div>
-              <div class="user-actions">
-                  <form method="POST">
-                      {% csrf_token %}
-                      <input type="hidden" name="friend_id" value="{{ friend.friend.id }}">
-                      <input type="hidden" name="action" value="remove_friend">
-                      <button type="submit" class="btn btn-danger btn-sm" title="Usuń ze znajomych">
-                          <i class="fa-solid fa-user-minus"></i>
-                      </button>
-                  </form>
-              </div>
-              </div>
-          </div>
-      {% endfor %}
+  <div class="card-body" style="padding:0;">
+    {% for req in incoming_requests %}
+    <div class="user-card" data-name="{{ req.sender.get_full_name|lower }}" style="display:flex; align-items:center; gap:var(--space-3); padding:12px 16px; border-bottom:1px solid var(--border);">
+      <div class="avatar avatar-sm">{{ req.sender.first_name|default:req.sender.username|slice:":1"|upper }}</div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600; font-size:.875rem;">{{ req.sender.get_full_name|default:req.sender.username }}</div>
+        <div style="font-size:.75rem; color:var(--text-muted);">{{ req.timestamp|date:"d.m.Y H:i" }}</div>
+      </div>
+      <div style="display:flex; gap:var(--space-2);">
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="request_id" value="{{ req.id }}">
+          <input type="hidden" name="action" value="accept_friend_request">
+          <button type="submit" class="btn btn-primary btn-sm" title="Akceptuj">✓</button>
+        </form>
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="request_id" value="{{ req.id }}">
+          <input type="hidden" name="action" value="reject_friend_request">
+          <button type="submit" class="btn btn-danger btn-sm" title="Odrzuć">✕</button>
+        </form>
+      </div>
     </div>
-
-    {% if outgoing_requests %}
-    <hr>
-    <h5>Wysłane zaproszenia:</h5>
-    <div class="card-grid">
-        {% for request in outgoing_requests %}
-            <div class="user-card">
-                <div class="user-avatar">
-                    <i class="fa-solid fa-user-circle"></i>
-                </div>
-                <div class="user-info">
-                    <h5>{{ request.receiver.first_name }} {{ request.receiver.last_name }}</h5>
-                    <small class="text-muted">Oczekuje na odpowiedź</small>
-                </div>
-                <div class="user-actions">
-                    <form method="POST">
-                        {% csrf_token %}
-                        <input type="hidden" name="request_id" value="{{ request.id }}">
-                        <input type="hidden" name="action" value="cancel_friend_request">
-                        <button type="submit" class="btn btn-warning btn-sm" title="Anuluj zaproszenie">
-                            <i class="fa-solid fa-user-clock"></i>
-                        </button>
-                    </form>
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-
+    {% endfor %}
   </div>
 </div>
+{% endif %}
+
+<!-- Twoi znajomi -->
+<div class="card" style="margin-bottom:var(--space-4);">
+  <div class="card-header">
+    <span class="card-title">Twoi znajomi</span>
+    <span style="font-size:.8rem; color:var(--text-muted);">{{ friends|length }}</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    {% if friends %}
+    {% for friend in friends %}
+    <div class="user-card" data-name="{{ friend.friend.get_full_name|lower }}" style="display:flex; align-items:center; gap:var(--space-3); padding:12px 16px; border-bottom:1px solid var(--border);">
+      <div style="position:relative;">
+        <div class="avatar avatar-sm">{{ friend.friend.first_name|default:friend.friend.username|slice:":1"|upper }}</div>
+        <span style="position:absolute; bottom:-1px; right:-1px; width:10px; height:10px; border-radius:50%; border:2px solid var(--surface); background:{% if friend.friend.is_online %}var(--success){% else %}var(--text-dim){% endif %};"></span>
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600; font-size:.875rem;">{{ friend.friend.get_full_name|default:friend.friend.username }}</div>
+        <div style="font-size:.75rem; color:var(--text-muted);">
+          {% if friend.friend.is_online %}Online{% else %}{{ friend.friend.last_activity|default:"—"|date:"d.m H:i" }}{% endif %}
+        </div>
+      </div>
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="friend_id" value="{{ friend.friend.id }}">
+        <input type="hidden" name="action" value="remove_friend">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Usuń ze znajomych" onclick="return confirm('Usunąć ze znajomych?')">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state" style="padding:var(--space-8);">
+      <div class="empty-state__icon">👥</div>
+      <p class="empty-state__text">Brak znajomych. Dodaj kogoś z listy obok!</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Wysłane zaproszenia -->
+{% if outgoing_requests %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Wysłane zaproszenia</span>
+    <span class="badge badge-neutral">{{ outgoing_requests|length }}</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    {% for req in outgoing_requests %}
+    <div class="user-card" data-name="{{ req.receiver.get_full_name|lower }}" style="display:flex; align-items:center; gap:var(--space-3); padding:12px 16px; border-bottom:1px solid var(--border);">
+      <div class="avatar avatar-sm">{{ req.receiver.first_name|default:req.receiver.username|slice:":1"|upper }}</div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600; font-size:.875rem;">{{ req.receiver.get_full_name|default:req.receiver.username }}</div>
+        <div style="font-size:.75rem; color:var(--text-muted);">Oczekuje na odpowiedź</div>
+      </div>
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="request_id" value="{{ req.id }}">
+        <input type="hidden" name="action" value="cancel_friend_request">
+        <button type="submit" class="btn btn-ghost btn-sm" title="Anuluj zaproszenie">Anuluj</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

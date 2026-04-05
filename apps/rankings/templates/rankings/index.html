@@ -1,180 +1,210 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 {% load static %}
 
-{% block styles %}
-<link rel="stylesheet" href="/static/css/rankings.css">
-<style>
-    /* Style dla responsywnej tabeli rankingu */
-    .rankings-table .table th,
-    .rankings-table .table td {
-        white-space: nowrap; /* Zapobiega zawijaniu tekstu w komórkach */
-    }
-    .rankings-table .table th:nth-child(2), /* Kolumna "Gracz" */
-    .rankings-table .table td:nth-child(2) {
-        min-width: 150px;
-    }
-</style>
+{% block title %}Ranking graczy{% endblock %}
+{% block topbar_title %}Ranking{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Ranking graczy</h1>
+    <p class="page-header__subtitle">
+      Klasyfikacja oparta na wynikach zakończonych turniejów —
+      <strong style="color:var(--primary);">
+        {% if selected_match_type == 'SNG' %}Singiel{% else %}Debel{% endif %}
+        {% if selected_year %}{{ selected_year }}{% else %}wszech czasów{% endif %}
+      </strong>
+    </p>
+  </div>
+  <!-- Filtry -->
+  <form method="get" action="{% url 'rankings:index' %}" style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">
+    <div class="tc-field">
+      <label class="tc-label">Typ</label>
+      <div class="tc-select-wrap">
+        <select name="type" class="tc-select" onchange="this.form.submit()">
+          <option value="SNG" {% if selected_match_type == 'SNG' %}selected{% endif %}>Singiel</option>
+          <option value="DBL" {% if selected_match_type == 'DBL' %}selected{% endif %}>Debel</option>
+        </select>
+      </div>
+    </div>
+    <div class="tc-field">
+      <label class="tc-label">Sezon</label>
+      <div class="tc-select-wrap">
+        <select name="year" class="tc-select" onchange="this.form.submit()">
+          <option value="" {% if not selected_year %}selected{% endif %}>Wszystkie lata</option>
+          {% for year in available_years %}
+          <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </form>
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="text-center mb-4">
-        <h1>
-            Ranking Graczy
-            <br class="d-sm-none">
-            <span class="text-primary fw-bold">
-                {% if selected_match_type == 'SNG' %}Singiel{% elif selected_match_type == 'DBL' %}Debel{% endif %}
-                {% if selected_year %}{{ selected_year }}{% else %}Wszech Czasów{% endif %}
-            </span>
-        </h1>
-        <p class="text-muted">Ranking oparty na wynikach z zakończonych turniejów.</p>
+<div style="max-width: 860px; margin: 0 auto;">
+
+  {% if player_rankings %}
+
+  <!-- Top 3 podium -->
+  {% if player_rankings|length >= 3 %}
+  <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-6); align-items:end;">
+
+    <!-- 2. miejsce -->
+    <div class="card" style="text-align:center; padding:var(--space-6) var(--space-4); border-color:var(--border-light);">
+      <div style="font-size:1.4rem; margin-bottom:var(--space-2);">🥈</div>
+      <div class="avatar" style="width:48px;height:48px;font-size:1rem;margin:0 auto var(--space-3);">
+        {{ player_rankings.1.first_name|default:player_rankings.1.username|slice:":1"|upper }}
+      </div>
+      <div style="font-weight:700; font-size:.95rem;">{{ player_rankings.1.get_full_name|default:player_rankings.1.username }}</div>
+      <div style="font-size:1.5rem; font-weight:800; color:var(--text-muted); margin-top:var(--space-2);">{{ player_rankings.1.total_points|floatformat:1 }}</div>
+      <div style="font-size:.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;">pkt</div>
     </div>
 
-    <div class="row justify-content-center mb-4">
-        <div class="col-lg-10">
-            <form method="get" action="{% url 'rankings:index' %}" class="d-flex flex-wrap justify-content-end gap-3">
-                <div class="d-flex align-items-center">
-                    <label for="type-filter" class="form-label me-2 mb-0 text-muted">Typ:</label>
-                    <select name="type" id="type-filter" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
-                        <option value="SNG" {% if selected_match_type == 'SNG' %}selected{% endif %}>Singiel</option>
-                        <option value="DBL" {% if selected_match_type == 'DBL' %}selected{% endif %}>Debel</option>
-                    </select>
-                </div>
-                <div class="d-flex align-items-center">
-                    <label for="year-filter" class="form-label me-2 mb-0 text-muted">Rok:</label>
-                    <select name="year" id="year-filter" class="form-select form-select-sm" onchange="this.form.submit()" style="width: auto;">
-                        <option value="" {% if not selected_year %}selected{% endif %}>Wszystkie</option>
-                        {% for year in available_years %}
-                            <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>{{ year }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </form>
-        </div>
+    <!-- 1. miejsce -->
+    <div class="card" style="text-align:center; padding:var(--space-8) var(--space-4); border-color:var(--primary); background:var(--primary-subtle);">
+      <div style="font-size:1.8rem; margin-bottom:var(--space-2);">🏆</div>
+      <div class="avatar" style="width:56px;height:56px;font-size:1.2rem;margin:0 auto var(--space-3); border-color:var(--primary);">
+        {{ player_rankings.0.first_name|default:player_rankings.0.username|slice:":1"|upper }}
+      </div>
+      <div style="font-weight:800; font-size:1.05rem; color:var(--primary);">{{ player_rankings.0.get_full_name|default:player_rankings.0.username }}</div>
+      <div style="font-size:1.9rem; font-weight:800; color:var(--primary); margin-top:var(--space-2);">{{ player_rankings.0.total_points|floatformat:1 }}</div>
+      <div style="font-size:.7rem; color:var(--primary); text-transform:uppercase; letter-spacing:.05em; opacity:.7;">pkt</div>
     </div>
 
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
-            {% if player_rankings %}
-                <!-- Widok tabeli dla dużych ekranów (od md wzwyż) -->
-                <div class="d-none d-md-block card rankings-table">
-                    <div class="table-responsive">
-                        <table class="table table-borderless table-hover align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Gracz</th>
-                                    <th>Punkty</th>
-                                    <th class="text-center">Mecze (W/P)</th>
-                                    <th class="text-center">Sety (W/P)</th>
-                                    <th class="text-center">Gemy (W/P)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for player in player_rankings %}
-                                <tr class="{% if forloop.counter <= 3 %}top-player{% endif %}">
-                                    <td>
-                                        <span class="position-badge position-{{ forloop.counter }}">{{ forloop.counter }}</span>
-                                    </td>
-                                    <td class="player-info">
-                                        <div>
-                                            <strong>{{ player.first_name }} {{ player.last_name }}</strong>
-                                        </div>
-                                    </td>
-                                    <td><span class="points-badge">{{ player.total_points|floatformat:1 }}</span></td>
-                                    <td class="text-center">
-                                        <span class="text-success">{{ player.matches_won }}</span> / <span class="text-danger">{{ player.matches_lost }}</span> ({{ player.matches_played }})
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="text-success">{{ player.total_sets_won }}</span> / <span class="text-danger">{{ player.total_sets_lost }}</span> ({{ player.total_sets_played }})
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="text-success">{{ player.total_games_won }}</span> / <span class="text-danger">{{ player.total_games_lost }}</span> ({{ player.total_games_played }})
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Widok kart dla małych ekranów (poniżej md) -->
-                <div class="d-md-none">
-                    {% for player in player_rankings %}
-                    <div class="card mb-3 shadow-sm">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start">
-                                <h5 class="card-title mb-0">
-                                    <span class="badge bg-dark me-2">#{{ forloop.counter }}</span>
-                                    {{ player.first_name }} {{ player.last_name }}
-                                </h5>
-                                <span class="fs-4 fw-bold text-primary">{{ player.total_points|floatformat:1 }} <small class="fs-6 text-muted">pkt</small></span>
-                            </div>
-                            <hr>
-                            <div class="row text-center g-2">
-                                <div class="col-4"><div class="stat-box"><strong>{{ player.matches_played }}</strong><br><small>Mecze</small></div></div>
-                                <div class="col-4"><div class="stat-box text-success"><strong>{{ player.matches_won }}</strong><br><small>Wygrane</small></div></div>
-                                <div class="col-4"><div class="stat-box text-danger"><strong>{{ player.matches_lost }}</strong><br><small>Porażki</small></div></div>
-                                <div class="col-6"><div class="stat-box"><strong>{{ player.total_sets_won }}-{{ player.total_sets_lost }}</strong><br><small>Sety</small></div></div>
-                                <div class="col-6"><div class="stat-box"><strong>{{ player.total_games_won }}-{{ player.total_games_lost }}</strong><br><small>Gemy</small></div></div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <div class="alert alert-info mb-0 text-center">Brak graczy w rankingu. Rozegraj kilka turniejów, aby się tu pojawić!</div>
-            {% endif %}
-        </div>
+    <!-- 3. miejsce -->
+    <div class="card" style="text-align:center; padding:var(--space-6) var(--space-4); border-color:var(--border-light);">
+      <div style="font-size:1.4rem; margin-bottom:var(--space-2);">🥉</div>
+      <div class="avatar" style="width:48px;height:48px;font-size:1rem;margin:0 auto var(--space-3);">
+        {{ player_rankings.2.first_name|default:player_rankings.2.username|slice:":1"|upper }}
+      </div>
+      <div style="font-weight:700; font-size:.95rem;">{{ player_rankings.2.get_full_name|default:player_rankings.2.username }}</div>
+      <div style="font-size:1.5rem; font-weight:800; color:var(--text-muted); margin-top:var(--space-2);">{{ player_rankings.2.total_points|floatformat:1 }}</div>
+      <div style="font-size:.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;">pkt</div>
     </div>
-    
-    <div class="row justify-content-center my-4">
-        <div class="col-lg-10">
-            <div class="accordion" id="scoringRulesAccordion">
-                <div class="accordion-item">
-                    <h2 class="accordion-header" id="scoringRulesHeading">
-                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseScoringRules" aria-expanded="false" aria-controls="collapseScoringRules">
-                            <i class="bi bi-info-circle-fill me-2"></i> Zasady Punktacji
-                        </button>
-                    </h2>
-                    <div id="collapseScoringRules" class="accordion-collapse collapse" aria-labelledby="scoringRulesHeading" data-bs-parent="#scoringRulesAccordion">
-                        <div class="accordion-body">
-                            <p class="text-muted">Punkty są przyznawane na podstawie rangi turnieju, w którym gracz osiągnął najlepszy wynik w danym sezonie.</p>
-                            {% if scoring_rules %}
-                                {% for rule in scoring_rules %}
-                                    <div class="scoring-rule-set {% if not forloop.first %}mt-4{% endif %}">
-                                        <h5>Ranga turnieju: <span class="badge bg-secondary">{{ rule.rank }}</span></h5>
-                                        <ul class="list-unstyled mt-2">
-                                            {% if rule.participation_bonus > 0 %}
-                                                <li><span class="badge bg-warning text-dark me-2">+{{ rule.participation_bonus }} pkt</span> za sam <strong>udział</strong> w turnieju tej rangi.</li>
-                                            {% endif %}
-                                            {% if rule.match_win_multiplier > 0 %}
-                                                <li class="mt-2"><span class="badge bg-success me-2">+{{ rule.match_win_multiplier|floatformat:2 }} pkt</span> za każdy <strong>wygrany mecz</strong>.</li>
-                                            {% endif %}
-                                            {% if rule.set_win_multiplier > 0 %}
-                                                <li class="mt-2"><span class="badge bg-info me-2">+{{ rule.set_win_multiplier|floatformat:2 }} pkt</span> za każdy <strong>wygrany set</strong>.</li>
-                                            {% endif %}
-                                            {% if rule.set_loss_multiplier != 0 %}
-                                                <li class="mt-2"><span class="badge bg-danger me-2">{{ rule.set_loss_multiplier|floatformat:2 }} pkt</span> za każdy <strong>przegrany set</strong>.</li>
-                                            {% endif %}
-                                            {% if rule.game_win_multiplier > 0 %}
-                                                <li class="mt-2"><span class="badge bg-primary me-2">+{{ rule.game_win_multiplier|floatformat:2 }} pkt</span> za każdy <strong>wygrany gem</strong>.</li>
-                                            {% endif %}
-                                            {% if rule.game_loss_multiplier < 0 %}
-                                                <li class="mt-2"><span class="badge bg-danger me-2">{{ rule.game_loss_multiplier|floatformat:2 }} pkt</span> za każdy <strong>przegrany gem</strong>.</li>
-                                            {% endif %}
-                                        </ul>
-                                    </div>
-                                {% endfor %}
-                            {% else %}
-                                <p>Brak zdefiniowanych zasad punktacji.</p>
-                            {% endif %}
-                        </div>
-                    </div>
+
+  </div>
+  {% endif %}
+
+  <!-- Pełna tabela -->
+  <div class="card" style="margin-bottom:var(--space-6);">
+    <div class="card-header">
+      <span class="card-title">Pełna klasyfikacja</span>
+      <span style="font-size:.8rem; color:var(--text-muted);">{{ player_rankings|length }} graczy</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:48px; text-align:center;">#</th>
+            <th>Gracz</th>
+            <th style="text-align:right;">Punkty</th>
+            <th style="text-align:center;">Mecze</th>
+            <th style="text-align:center;">Sety</th>
+            <th style="text-align:center;">Gemy</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for player in player_rankings %}
+          <tr {% if player == request.user %}style="background:var(--primary-subtle);"{% endif %}>
+            <td style="text-align:center;">
+              {% if forloop.counter == 1 %}
+                <span class="rank-pos rank-pos--1">1</span>
+              {% elif forloop.counter == 2 %}
+                <span class="rank-pos rank-pos--2">2</span>
+              {% elif forloop.counter == 3 %}
+                <span class="rank-pos rank-pos--3">3</span>
+              {% else %}
+                <span class="rank-pos">{{ forloop.counter }}</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex; align-items:center; gap:var(--space-3);">
+                <div class="avatar avatar-sm">{{ player.first_name|default:player.username|slice:":1"|upper }}</div>
+                <div>
+                  <div style="font-weight:600;">{{ player.get_full_name|default:player.username }}</div>
+                  {% if player == request.user %}<div style="font-size:.72rem; color:var(--primary);">To Ty</div>{% endif %}
                 </div>
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <span style="font-size:1.1rem; font-weight:800; color:var(--primary);">{{ player.total_points|floatformat:1 }}</span>
+              <span style="font-size:.75rem; color:var(--text-dim);"> pkt</span>
+            </td>
+            <td style="text-align:center;">
+              <span style="color:var(--success); font-weight:600;">{{ player.matches_won }}W</span>
+              <span style="color:var(--text-dim); margin:0 2px;">/</span>
+              <span style="color:var(--danger);">{{ player.matches_lost }}P</span>
+              <div style="font-size:.72rem; color:var(--text-dim);">{{ player.matches_played }} razem</div>
+            </td>
+            <td style="text-align:center; color:var(--text-muted); font-size:.875rem;">
+              {{ player.total_sets_won }}–{{ player.total_sets_lost }}
+            </td>
+            <td style="text-align:center; color:var(--text-muted); font-size:.875rem;">
+              {{ player.total_games_won }}–{{ player.total_games_lost }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state__icon">🏆</div>
+    <p class="empty-state__title">Brak graczy w rankingu</p>
+    <p class="empty-state__text">Ranking pojawi się po zakończeniu turniejów. Zagraj w turniej, aby tu trafić!</p>
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-primary" style="margin-top:var(--space-4);">Turnieje</a>
+  </div>
+  {% endif %}
+
+  <!-- Zasady punktacji -->
+  {% if scoring_rules %}
+  <div class="card">
+    <div class="card-header" style="cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+      <span class="card-title">Zasady punktacji</span>
+      <span style="color:var(--text-muted); font-size:.8rem;">▾ rozwiń</span>
+    </div>
+    <div style="display:none;">
+      <div class="card-body">
+        <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-5);">
+          Punkty przyznawane są na podstawie rangi turnieju, w którym gracz osiągnął najlepszy wynik w danym sezonie.
+        </p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:var(--space-4);">
+          {% for rule in scoring_rules %}
+          <div style="background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-md); padding:var(--space-5);">
+            <div style="font-weight:700; margin-bottom:var(--space-3);">
+              Ranga turnieju: <span class="badge badge-primary">{{ rule.rank }}</span>
             </div>
+            <ul style="list-style:none; display:flex; flex-direction:column; gap:var(--space-2);">
+              {% if rule.participation_bonus > 0 %}
+              <li style="font-size:.82rem;"><span class="badge badge-warning">+{{ rule.participation_bonus }}</span> za udział</li>
+              {% endif %}
+              {% if rule.match_win_multiplier > 0 %}
+              <li style="font-size:.82rem;"><span class="badge badge-success">+{{ rule.match_win_multiplier|floatformat:2 }}</span> za wygrany mecz</li>
+              {% endif %}
+              {% if rule.set_win_multiplier > 0 %}
+              <li style="font-size:.82rem;"><span class="badge badge-info">+{{ rule.set_win_multiplier|floatformat:2 }}</span> za wygrany set</li>
+              {% endif %}
+              {% if rule.set_loss_multiplier != 0 %}
+              <li style="font-size:.82rem;"><span class="badge badge-danger">{{ rule.set_loss_multiplier|floatformat:2 }}</span> za przegrany set</li>
+              {% endif %}
+              {% if rule.game_win_multiplier > 0 %}
+              <li style="font-size:.82rem;"><span class="badge badge-primary">+{{ rule.game_win_multiplier|floatformat:2 }}</span> za wygrany gem</li>
+              {% endif %}
+              {% if rule.game_loss_multiplier < 0 %}
+              <li style="font-size:.82rem;"><span class="badge badge-danger">{{ rule.game_loss_multiplier|floatformat:2 }}</span> za przegrany gem</li>
+              {% endif %}
+            </ul>
+          </div>
+          {% endfor %}
         </div>
+      </div>
     </div>
-</div>
+  </div>
+  {% endif %}
 
+</div>
 {% endblock %}

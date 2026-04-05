@@ -1,0 +1,31 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Tennis Club{% endblock %}</title>
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/png">
+
+  <link rel="stylesheet" href="{% static 'css/ui/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ui/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ui/components.css' %}">
+
+  <script>
+    (function() {
+      var t = localStorage.getItem('tc-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+<body>
+
+  {% include "components/_flash_messages.html" %}
+
+  <main style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:var(--space-6);">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,41 +1,53 @@
-{% extends "tennis-club.html" %}
+{% extends 'layouts/base_app.html' %}
 
 {% block title %}Podsumowanie rezerwacji{% endblock %}
+{% block topbar_title %}Korty{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Podsumowanie rezerwacji</h1>
+    <p class="page-header__subtitle">{{ reservation_date|date:"d.m.Y" }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'courts:facility-list' %}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <h1 class="mb-4">Podsumowanie rezerwacji</h1>
+<div style="max-width: 600px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Wybrane terminy</span></div>
+    <div class="card-body">
+      <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-4);">
+        Sprawdź poniższe terminy przed ostatecznym zatwierdzeniem. Zostaną wysłane do właściciela obiektu w celu akceptacji.
+      </p>
+      <form action="{% url 'courts:create-reservation' %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="reservation_date" value="{{ reservation_date }}">
+        <input type="hidden" name="facility_id" value="{{ facility_pk }}">
 
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="mb-0">Wybrany dzień: <strong>{{ reservation_date|date:"d.m.Y" }}</strong></h5>
-                </div>
-                <div class="card-body">
-                    <p>Proszę sprawdzić poniższy termin przed ostatecznym zatwierdzeniem.<br>Zostaną one wysłane do właściciela obiektu w celu akceptacji.</p>
-
-                    <form action="{% url 'courts:create-reservation' %}" method="post">
-                        {% csrf_token %}
-                        <input type="hidden" name="reservation_date" value="{{ reservation_date }}">
-                        <input type="hidden" name="facility_id" value="{{ facility_pk }}">
-
-                        <ul class="list-group mb-4">
-                            {% for res in reservations %}
-                                <li class="list-group-item">
-                                    <strong>{{ res.court }}</strong>: od {{ res.start_time|time:"H:i" }} do {{ res.end_time|time:"H:i" }}
-                                    <input type="hidden" name="court_id" value="{{ res.court.pk }}">
-                                    <input type="hidden" name="start_time" value="{{ res.start_time|time:'H:i:s' }}">
-                                    <input type="hidden" name="end_time" value="{{ res.end_time|time:'H:i:s' }}">
-                                </li>
-                            {% endfor %}
-                        </ul>
-
-                        <button type="submit" class="btn btn-primary w-100">Potwierdź i wyślij rezerwacje</button>
-                    </form>
-                </div>
-            </div>
+        <div style="display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-5);">
+          {% for res in reservations %}
+          <div style="display:flex; align-items:center; gap:var(--space-3); padding:12px; background:var(--surface-2); border-radius:var(--radius-sm); border:1px solid var(--border);">
+            <span class="badge badge-success">{{ res.court }}</span>
+            <span style="font-weight:600; font-size:.875rem;">{{ res.start_time|time:"H:i" }} – {{ res.end_time|time:"H:i" }}</span>
+            <input type="hidden" name="court_id" value="{{ res.court.pk }}">
+            <input type="hidden" name="start_time" value="{{ res.start_time|time:'H:i:s' }}">
+            <input type="hidden" name="end_time" value="{{ res.end_time|time:'H:i:s' }}">
+          </div>
+          {% empty %}
+          <p style="color:var(--text-muted); font-size:.875rem;">Nie wybrano żadnych terminów.</p>
+          {% endfor %}
         </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-3);">
+          <a href="{% url 'courts:facility-list' %}" class="btn btn-secondary">Anuluj</a>
+          <button type="submit" class="btn btn-primary" {% if not reservations %}disabled{% endif %}>Potwierdź i wyślij</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
 {% endblock %}

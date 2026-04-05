@@ -1,247 +1,125 @@
-{% extends 'tennis-club.html' %}
-
+{% extends 'layouts/base_app.html' %}
 {% load widget_tweaks %}
-{% block styles %}
-<style>
-    .status-badge {
-        font-size: 0.85em;
-        padding: 0.4em 0.7em;
-    }
-    .clickable-row {
-        cursor: pointer;
-    }
-    /* Usunięto podświetlanie wiersza po najechaniu, aby kolory statusu były bardziej widoczne */
-    @media (max-width: 576px) {
-        .feedback-title {
-            font-size: 1.5rem; /* Zmniejszenie czcionki nagłówka na mobile */
-        }
-    }
-</style>
-{% endblock %}
 
-{% block content %}
-<div class="container mt-4">
-    <h2 class="mb-4 feedback-title"><i class="fa-solid fa-clipboard-list me-2"></i>Zarządzanie zgłoszeniami</h2>
+{% block title %}Zgłoszenia{% endblock %}
+{% block topbar_title %}Zgłoszenia{% endblock %}
 
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <!-- Widok tabeli dla urządzeń od md wzwyż -->
-            <div class="d-none d-md-block">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th scope="col" style="width: 30%;">Temat</th>
-                                <th scope="col">Status</th>
-                                <th scope="col">Akcje</th>
-                                <th scope="col">Użytkownik</th>
-                                <th scope="col" style="width: 15%;">Data zgłoszenia</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for feedback in feedback_list %}
-                                <tr class="align-middle
-                                    {% if feedback.status == 'NEW' %}table-primary{% endif %}
-                                    {% if feedback.status == 'IN_PROGRESS' %}table-warning{% endif %}
-                                    {% if feedback.status == 'RESOLVED' %}table-success{% endif %}
-                                    {% if feedback.status == 'CLOSED' %}table-secondary{% endif %}
-                                "
-                                >
-                                    <td>
-                                        {{ feedback.subject }}
-                                    </td>
-                                    <td>
-                                        <select class="form-select form-select-sm status-select" data-feedback-id="{{ feedback.id }}" aria-label="Zmień status zgłoszenia">
-                                            {% for value, name in feedback.Status.choices %}
-                                                <option value="{{ value }}" {% if feedback.status == value %}selected{% endif %}>
-                                                    {{ name }}
-                                                </option>
-                                            {% endfor %}
-                                        </select>
-                                        <div id="status-feedback-{{ feedback.id }}" class="form-text small mt-1"></div>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target=".details-{{ feedback.id }}" aria-expanded="false" aria-controls="details-{{ feedback.id }} details-mobile-{{ feedback.id }}">
-                                            <i class="fa-solid fa-circle-info"></i> Szczegóły
-                                        </button>
-                                        {% if feedback.user %}
-                                        <a href="{% url 'chats:conversation' username=feedback.user.username %}" class="btn btn-sm btn-outline-primary mt-1 mt-xl-0" title="Przejdź do czatu">
-                                            <i class="fa-solid fa-comments"></i> Czat
-                                        </a>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if feedback.user %}
-                                            {{ feedback.user.get_full_name|default:feedback.user.username }}
-                                        {% elif feedback.email %}
-                                            {{ feedback.email }} (Anonim)
-                                        {% else %}
-                                            Anonim
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ feedback.created_at|date:"d.m.Y H:i" }}</td>
-                                </tr>
-                                <tr class="collapse details-{{ feedback.id }}">
-                                    <td colspan="5">
-                                        <div class="p-3 bg-light border rounded">
-                                            <strong>Wiadomość:</strong>
-                                            <p class="mb-2">{{ feedback.message|linebreaksbr }}</p>
-                                            <hr>
-                                            <small class="text-muted d-block"><strong>URL:</strong> {{ feedback.url|default:"Brak" }}</small>
-                                            <small class="text-muted d-block"><strong>IP:</strong> {{ feedback.ip_address|default:"Brak" }}</small>
-                                        </div>
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">Brak zgłoszeń do wyświetlenia.</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Widok kart dla urządzeń mobilnych (poniżej md) -->
-            <div class="d-block d-md-none">
-                {% for feedback in feedback_list %}
-                    <div class="card mb-3
-                        {% if feedback.status == 'NEW' %}border-primary{% endif %}
-                        {% if feedback.status == 'IN_PROGRESS' %}border-warning{% endif %}
-                        {% if feedback.status == 'RESOLVED' %}border-success{% endif %}
-                        {% if feedback.status == 'CLOSED' %}border-secondary{% endif %}
-                    ">
-                        <div class="card-header
-                            {% if feedback.status == 'NEW' %}bg-primary text-white{% endif %}
-                            {% if feedback.status == 'IN_PROGRESS' %}bg-warning text-dark{% endif %}
-                            {% if feedback.status == 'RESOLVED' %}bg-success text-white{% endif %}
-                            {% if feedback.status == 'CLOSED' %}bg-secondary text-white{% endif %}
-                        ">
-                            {{ feedback.subject }}
-                        </div>
-                        <div class="card-body">
-                            <p class="card-text mb-2">
-                                <strong>Użytkownik:</strong>
-                                {% if feedback.user %}
-                                    {{ feedback.user.get_full_name|default:feedback.user.username }}
-                                {% elif feedback.email %}
-                                    {{ feedback.email }} (Anonim)
-                                {% else %}
-                                    Anonim
-                                {% endif %}
-                            </p>
-                            <p class="card-text mb-3">
-                                <strong>Data:</strong> {{ feedback.created_at|date:"d.m.Y H:i" }}
-                            </p>
-                            <div class="status-changer">
-                                <label for="status-select-{{ feedback.id }}" class="form-label small">Zmień status:</label>
-                                <select id="status-select-{{ feedback.id }}" class="form-select form-select-sm status-select" data-feedback-id="{{ feedback.id }}" aria-label="Zmień status zgłoszenia">
-                                    {% for value, name in feedback.Status.choices %}
-                                        <option value="{{ value }}" {% if feedback.status == value %}selected{% endif %}>
-                                            {{ name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                                <div id="status-feedback-mobile-{{ feedback.id }}" class="form-text small mt-1"></div>
-                            </div>
-                            <hr>
-                            <div class="actions">
-                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target=".details-{{ feedback.id }}" aria-expanded="false" aria-controls="details-{{ feedback.id }} details-mobile-{{ feedback.id }}">
-                                    <i class="fa-solid fa-circle-info"></i> Szczegóły
-                                </button>
-                                {% if feedback.user %}
-                                <a href="{% url 'chats:conversation' username=feedback.user.username %}" class="btn btn-sm btn-outline-primary" title="Przejdź do czatu">
-                                    <i class="fa-solid fa-comments"></i> Czat
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="card-footer collapse details-{{ feedback.id }}">
-                            <div class="p-2 bg-light border rounded">
-                                <strong>Wiadomość:</strong>
-                                <p class="mb-2 small">{{ feedback.message|linebreaksbr }}</p>
-                                <hr>
-                                <small class="text-muted d-block"><strong>URL:</strong> {{ feedback.url|default:"Brak" }}</small>
-                                <small class="text-muted d-block"><strong>IP:</strong> {{ feedback.ip_address|default:"Brak" }}</small>
-                            </div>
-                        </div>
-                    </div>
-                {% empty %}
-                    <div class="alert alert-info">Brak zgłoszeń do wyświetlenia.</div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {# TODO: Dodać paginację, jeśli będzie potrzebna #}
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Zarządzanie zgłoszeniami</h1>
+    <p class="page-header__subtitle">Przeglądaj i zarządzaj przesłanymi zgłoszeniami użytkowników.</p>
+  </div>
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body" style="padding:0;">
+      {% if feedback_list %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Temat</th>
+            <th>Użytkownik</th>
+            <th style="width:160px;">Status</th>
+            <th style="width:120px;">Data</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for feedback in feedback_list %}
+          <tr style="{% if feedback.status == 'NEW' %}background:rgba(59,130,246,.04);{% elif feedback.status == 'IN_PROGRESS' %}background:rgba(245,158,11,.04);{% elif feedback.status == 'RESOLVED' %}background:rgba(34,197,94,.04);{% endif %}">
+            <td>
+              <span style="font-weight:600;">{{ feedback.subject }}</span>
+              <button type="button" class="btn btn-ghost btn-sm toggle-details" data-id="{{ feedback.id }}" style="margin-left:var(--space-2); font-size:.75rem;">Szczegóły</button>
+            </td>
+            <td style="font-size:.85rem; color:var(--text-muted);">
+              {% if feedback.user %}
+                {{ feedback.user.get_full_name|default:feedback.user.username }}
+              {% elif feedback.email %}
+                {{ feedback.email }} <span style="color:var(--text-dim);">(Anonim)</span>
+              {% else %}
+                <span style="color:var(--text-dim);">Anonim</span>
+              {% endif %}
+            </td>
+            <td>
+              <div class="tc-select-wrap" style="width:100%;">
+                <select class="tc-select status-select" data-feedback-id="{{ feedback.id }}" style="width:100%; min-width:unset; font-size:.8rem; padding:5px 28px 5px 8px;">
+                  {% for value, name in feedback.Status.choices %}
+                  <option value="{{ value }}" {% if feedback.status == value %}selected{% endif %}>{{ name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div id="status-feedback-{{ feedback.id }}" style="font-size:.72rem; min-height:14px; margin-top:2px;"></div>
+            </td>
+            <td style="font-size:.8rem; color:var(--text-muted); white-space:nowrap;">{{ feedback.created_at|date:"d.m.Y H:i" }}</td>
+            <td>
+              {% if feedback.user %}
+              <a href="{% url 'chats:conversation' username=feedback.user.username %}" class="btn btn-ghost btn-sm" title="Czat">💬</a>
+              {% endif %}
+            </td>
+          </tr>
+          <tr id="details-{{ feedback.id }}" style="display:none; background:var(--surface-2);">
+            <td colspan="5" style="padding:var(--space-4);">
+              <div style="font-size:.875rem; color:var(--text); line-height:1.6;">
+                <p style="margin-bottom:var(--space-3);">{{ feedback.message|linebreaksbr }}</p>
+                <div style="font-size:.78rem; color:var(--text-muted); display:flex; gap:var(--space-5);">
+                  <span><strong>URL:</strong> {{ feedback.url|default:"Brak" }}</span>
+                  <span><strong>IP:</strong> {{ feedback.ip_address|default:"Brak" }}</span>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-state__icon">📋</div>
+        <p class="empty-state__title">Brak zgłoszeń</p>
+        <p class="empty-state__text">Nie ma żadnych zgłoszeń do wyświetlenia.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
- 
-    document.querySelectorAll('.status-select').forEach(selectElement => {
-        let initialStatus = selectElement.value; // Zapisz początkowy status
- 
-        selectElement.addEventListener('change', function(event) {
-            const feedbackId = this.dataset.feedbackId;
-             const newStatus = this.value;
-             // Znajdź odpowiedni kontener na komunikat, niezależnie od widoku (desktop/mobile)
-             let feedbackContainer = document.getElementById(`status-feedback-${feedbackId}`);
-             if (!feedbackContainer) {
-                 feedbackContainer = document.getElementById(`status-feedback-mobile-${feedbackId}`);
-             }
- 
-            // Wykonaj akcję tylko jeśli status faktycznie się zmienił
-            if (newStatus === initialStatus) {
-                return; // Zakończ, jeśli nie ma zmiany
-            }
+  const csrfToken = '{{ csrf_token }}';
 
-             // Zapobiegaj przejściu do czatu po zmianie wartości na liście
-             event.stopPropagation();
-
-            fetch(`/feedback/update-status/${feedbackId}/`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: `status=${newStatus}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    feedbackContainer.textContent = 'Zapisano!';
-                    initialStatus = newStatus; // Zaktualizuj status początkowy na nowy
-                    feedbackContainer.className = 'form-text small mt-1 text-success';
-                } else {
-                    feedbackContainer.textContent = 'Błąd!';
-                    feedbackContainer.className = 'form-text small mt-1 text-danger';
-                }
-                // Ukryj komunikat po 3 sekundach
-                setTimeout(() => {
-                    feedbackContainer.textContent = '';
-                }, 3000);
-            })
-            .catch(error => {
-                console.error('Błąd podczas aktualizacji statusu:', error);
-                feedbackContainer.textContent = 'Błąd sieci!';
-                feedbackContainer.className = 'form-text small mt-1 text-danger';
-            });
-        });
-
-        // Dodaj obsługę zdarzenia 'click', aby zapobiec nawigacji
-        selectElement.addEventListener('click', function(event) {
-            event.stopPropagation();
-        });
+  document.querySelectorAll('.status-select').forEach(function(sel) {
+    let initial = sel.value;
+    sel.addEventListener('change', function() {
+      const id = this.dataset.feedbackId;
+      const newStatus = this.value;
+      if (newStatus === initial) return;
+      const msg = document.getElementById(`status-feedback-${id}`);
+      fetch(`/feedback/update-status/${id}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
+        body: `status=${newStatus}`
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (msg) {
+          if (data.status === 'success') { msg.textContent = 'Zapisano'; msg.style.color = 'var(--success)'; initial = newStatus; }
+          else { msg.textContent = 'Błąd!'; msg.style.color = 'var(--danger)'; }
+          setTimeout(() => { msg.textContent = ''; }, 3000);
+        }
+      })
+      .catch(() => { if (msg) { msg.textContent = 'Błąd sieci'; msg.style.color = 'var(--danger)'; } });
     });
+  });
 
-    // Zapobiegaj nawigacji przy kliknięciu w przyciski wewnątrz karty/wiersza
-    document.querySelectorAll('.status-select, .btn').forEach(el => {
-        el.addEventListener('click', e => e.stopPropagation());
+  document.querySelectorAll('.toggle-details').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const row = document.getElementById(`details-${this.dataset.id}`);
+      if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
     });
+  });
 });
 </script>
 {% endblock %}

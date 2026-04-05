@@ -1,58 +1,82 @@
-{% extends 'tennis-club.html' %}
+{% extends 'layouts/base_app.html' %}
 {% load static %}
 
+{% block title %}{% if form.instance.pk %}Edytuj turniej{% else %}Nowy turniej{% endif %}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{% if form.instance.pk %}Edytuj turniej{% else %}Utwórz nowy turniej{% endif %}</h1>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-  <h2>Utwórz nowy turniej</h2>
-  <form method="post" novalidate>
-    {% csrf_token %}
-    {{ form.status }}
-    <div class="mb-3">
-      {{ form.name.label_tag }}
-      {{ form.name }}
-      {{ form.name.errors }}
+<div style="max-width: 680px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {{ form.status }}
+
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">Nazwa turnieju</label>
+          {{ form.name }}
+          {% if form.name.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.name.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">Opis</label>
+          {{ form.description }}
+          {% if form.description.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.description.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="tc-field">
+            <label class="tc-label">Data rozpoczęcia</label>
+            {{ form.start_date }}
+            {% if form.start_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.start_date.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Data zakończenia</label>
+            {{ form.end_date }}
+            {% if form.end_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.end_date.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="tc-field">
+            <label class="tc-label">Typ turnieju</label>
+            {{ form.tournament_type }}
+            {% if form.tournament_type.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.tournament_type.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Format meczu</label>
+            {{ form.match_format }}
+            {% if form.match_format.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.match_format.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Obiekt</label>
+            {{ form.facility }}
+            {% if form.facility.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.facility.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Ranga</label>
+            {{ form.rank }}
+            {% if form.rank.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.rank.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:flex; gap:var(--space-3);">
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+          <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">Anuluj</a>
+        </div>
+      </form>
     </div>
-    <div class="mb-3">
-      {{ form.description.label_tag }}
-      {{ form.description }}
-      {{ form.description.errors }}
-    </div>
-    <div class="row">
-      <div class="col-md-6 mb-3">
-        {{ form.start_date.label_tag }}
-        {{ form.start_date }}
-        {{ form.start_date.errors }}
-      </div>
-      <div class="col-md-6 mb-3">
-        {{ form.end_date.label_tag }}
-        {{ form.end_date }}
-        {{ form.end_date.errors }}
-      </div>
-    </div>
-    <div class="row">
-      <div class="col-md-6 mb-3">
-        {{ form.tournament_type.label_tag }}
-        {{ form.tournament_type }}
-        {{ form.tournament_type.errors }}
-      </div>
-      <div class="col-md-6 mb-3">
-        {{ form.match_format.label_tag }}
-        {{ form.match_format }}
-        {{ form.match_format.errors }}
-      </div>
-      <div class="col-md-6 mb-3">
-        {{ form.facility.label_tag }}
-        {{ form.facility }}
-        {{ form.facility.errors }}
-      </div>
-      <div class="col-md-6 mb-3">
-        {{ form.rank.label_tag }}
-        {{ form.rank }}
-        {{ form.rank.errors }}
-      </div>
-    </div>
-    <button class="btn btn-primary" type="submit">Zapisz</button>
-    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary ms-2">Anuluj</a>
-  </form>
+  </div>
 </div>
 {% endblock %}
