@@ -1,0 +1,68 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Tennis Club{% endblock %}</title>
+  <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/png">
+
+  <!-- New UI -->
+  <link rel="stylesheet" href="{% static 'css/ui/tokens.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ui/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ui/layout.css' %}">
+  <link rel="stylesheet" href="{% static 'css/ui/components.css' %}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="app-shell">
+
+  <a href="#main-content" class="skip-link">Przejdź do treści</a>
+
+  {% include "components/_sidebar.html" %}
+
+  <div class="app-main">
+    {% include "components/_topbar.html" %}
+    {% include "components/_flash_messages.html" %}
+
+    <main id="main-content" class="app-content">
+      {% block page_header %}{% endblock %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    // Mobile sidebar toggle
+    function toggleSidebar() {
+      document.getElementById('app-sidebar').classList.toggle('is-open');
+      document.getElementById('sidebar-overlay').classList.toggle('is-visible');
+    }
+
+    // Show hamburger on mobile
+    if (window.innerWidth <= 1024) {
+      document.getElementById('sidebar-toggle').style.display = 'flex';
+    }
+
+    // Auto-hide flash messages
+    setTimeout(() => {
+      document.querySelectorAll('.flash').forEach(el => {
+        el.style.transition = 'opacity 0.4s';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 400);
+      });
+    }, 5000);
+
+    // Notifications counter (jeśli istnieje endpoint)
+    fetch('/notifications/api/unread-count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && data.count > 0) {
+          const dot = document.getElementById('notif-count');
+          if (dot) { dot.textContent = data.count; dot.style.display = 'grid'; }
+        }
+      }).catch(() => {});
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
