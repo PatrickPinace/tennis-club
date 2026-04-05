@@ -16,7 +16,6 @@
       </strong>
     </p>
   </div>
-  <!-- Filtry -->
   <form method="get" action="{% url 'rankings:index' %}" style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">
     <div class="tc-field">
       <label class="tc-label">Typ</label>
@@ -55,10 +54,10 @@
     <div class="card" style="text-align:center; padding:var(--space-6) var(--space-4); border-color:var(--border-light);">
       <div style="font-size:1.4rem; margin-bottom:var(--space-2);">🥈</div>
       <div class="avatar" style="width:48px;height:48px;font-size:1rem;margin:0 auto var(--space-3);">
-        {{ player_rankings.1.first_name|default:player_rankings.1.username|slice:":1"|upper }}
+        {{ player_rankings.1.user.first_name|default:player_rankings.1.user.username|slice:":1"|upper }}
       </div>
-      <div style="font-weight:700; font-size:.95rem;">{{ player_rankings.1.get_full_name|default:player_rankings.1.username }}</div>
-      <div style="font-size:1.5rem; font-weight:800; color:var(--text-muted); margin-top:var(--space-2);">{{ player_rankings.1.total_points|floatformat:1 }}</div>
+      <div style="font-weight:700; font-size:.95rem;">{{ player_rankings.1.user.get_full_name|default:player_rankings.1.user.username }}</div>
+      <div style="font-size:1.5rem; font-weight:800; color:var(--text-muted); margin-top:var(--space-2);">{{ player_rankings.1.points|floatformat:1 }}</div>
       <div style="font-size:.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;">pkt</div>
     </div>
 
@@ -66,10 +65,10 @@
     <div class="card" style="text-align:center; padding:var(--space-8) var(--space-4); border-color:var(--primary); background:var(--primary-subtle);">
       <div style="font-size:1.8rem; margin-bottom:var(--space-2);">🏆</div>
       <div class="avatar" style="width:56px;height:56px;font-size:1.2rem;margin:0 auto var(--space-3); border-color:var(--primary);">
-        {{ player_rankings.0.first_name|default:player_rankings.0.username|slice:":1"|upper }}
+        {{ player_rankings.0.user.first_name|default:player_rankings.0.user.username|slice:":1"|upper }}
       </div>
-      <div style="font-weight:800; font-size:1.05rem; color:var(--primary);">{{ player_rankings.0.get_full_name|default:player_rankings.0.username }}</div>
-      <div style="font-size:1.9rem; font-weight:800; color:var(--primary); margin-top:var(--space-2);">{{ player_rankings.0.total_points|floatformat:1 }}</div>
+      <div style="font-weight:800; font-size:1.05rem; color:var(--primary);">{{ player_rankings.0.user.get_full_name|default:player_rankings.0.user.username }}</div>
+      <div style="font-size:1.9rem; font-weight:800; color:var(--primary); margin-top:var(--space-2);">{{ player_rankings.0.points|floatformat:1 }}</div>
       <div style="font-size:.7rem; color:var(--primary); text-transform:uppercase; letter-spacing:.05em; opacity:.7;">pkt</div>
     </div>
 
@@ -77,10 +76,10 @@
     <div class="card" style="text-align:center; padding:var(--space-6) var(--space-4); border-color:var(--border-light);">
       <div style="font-size:1.4rem; margin-bottom:var(--space-2);">🥉</div>
       <div class="avatar" style="width:48px;height:48px;font-size:1rem;margin:0 auto var(--space-3);">
-        {{ player_rankings.2.first_name|default:player_rankings.2.username|slice:":1"|upper }}
+        {{ player_rankings.2.user.first_name|default:player_rankings.2.user.username|slice:":1"|upper }}
       </div>
-      <div style="font-weight:700; font-size:.95rem;">{{ player_rankings.2.get_full_name|default:player_rankings.2.username }}</div>
-      <div style="font-size:1.5rem; font-weight:800; color:var(--text-muted); margin-top:var(--space-2);">{{ player_rankings.2.total_points|floatformat:1 }}</div>
+      <div style="font-weight:700; font-size:.95rem;">{{ player_rankings.2.user.get_full_name|default:player_rankings.2.user.username }}</div>
+      <div style="font-size:1.5rem; font-weight:800; color:var(--text-muted); margin-top:var(--space-2);">{{ player_rankings.2.points|floatformat:1 }}</div>
       <div style="font-size:.7rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.05em;">pkt</div>
     </div>
 
@@ -106,43 +105,43 @@
           </tr>
         </thead>
         <tbody>
-          {% for player in player_rankings %}
-          <tr {% if player == request.user %}style="background:var(--primary-subtle);"{% endif %}>
+          {% for ranking in player_rankings %}
+          <tr {% if ranking.user == request.user %}style="background:var(--primary-subtle);"{% endif %}>
             <td style="text-align:center;">
-              {% if forloop.counter == 1 %}
+              {% if ranking.position == 1 %}
                 <span class="rank-pos rank-pos--1">1</span>
-              {% elif forloop.counter == 2 %}
+              {% elif ranking.position == 2 %}
                 <span class="rank-pos rank-pos--2">2</span>
-              {% elif forloop.counter == 3 %}
+              {% elif ranking.position == 3 %}
                 <span class="rank-pos rank-pos--3">3</span>
               {% else %}
-                <span class="rank-pos">{{ forloop.counter }}</span>
+                <span class="rank-pos">{{ ranking.position }}</span>
               {% endif %}
             </td>
             <td>
               <div style="display:flex; align-items:center; gap:var(--space-3);">
-                <div class="avatar avatar-sm">{{ player.first_name|default:player.username|slice:":1"|upper }}</div>
+                <div class="avatar avatar-sm">{{ ranking.user.first_name|default:ranking.user.username|slice:":1"|upper }}</div>
                 <div>
-                  <div style="font-weight:600;">{{ player.get_full_name|default:player.username }}</div>
-                  {% if player == request.user %}<div style="font-size:.72rem; color:var(--primary);">To Ty</div>{% endif %}
+                  <div style="font-weight:600;">{{ ranking.user.get_full_name|default:ranking.user.username }}</div>
+                  {% if ranking.user == request.user %}<div style="font-size:.72rem; color:var(--primary);">To Ty</div>{% endif %}
                 </div>
               </div>
             </td>
             <td style="text-align:right;">
-              <span style="font-size:1.1rem; font-weight:800; color:var(--primary);">{{ player.total_points|floatformat:1 }}</span>
+              <span style="font-size:1.1rem; font-weight:800; color:var(--primary);">{{ ranking.points|floatformat:1 }}</span>
               <span style="font-size:.75rem; color:var(--text-dim);"> pkt</span>
             </td>
             <td style="text-align:center;">
-              <span style="color:var(--success); font-weight:600;">{{ player.matches_won }}W</span>
+              <span style="color:var(--success); font-weight:600;">{{ ranking.matches_won }}W</span>
               <span style="color:var(--text-dim); margin:0 2px;">/</span>
-              <span style="color:var(--danger);">{{ player.matches_lost }}P</span>
-              <div style="font-size:.72rem; color:var(--text-dim);">{{ player.matches_played }} razem</div>
+              <span style="color:var(--danger);">{{ ranking.matches_lost }}P</span>
+              <div style="font-size:.72rem; color:var(--text-dim);">{{ ranking.matches_played }} razem</div>
             </td>
             <td style="text-align:center; color:var(--text-muted); font-size:.875rem;">
-              {{ player.total_sets_won }}–{{ player.total_sets_lost }}
+              {{ ranking.sets_won }}–{{ ranking.sets_lost }}
             </td>
             <td style="text-align:center; color:var(--text-muted); font-size:.875rem;">
-              {{ player.total_games_won }}–{{ player.total_games_lost }}
+              {{ ranking.games_won }}–{{ ranking.games_lost }}
             </td>
           </tr>
           {% endfor %}

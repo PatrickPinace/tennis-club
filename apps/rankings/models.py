@@ -1,4 +1,30 @@
 from django.db import models
+from django.contrib.auth.models import User
+
+
+class PlayerRanking(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ranking')
+    match_type = models.CharField(max_length=3, default='SNG')  # SNG / DBL
+    season = models.PositiveIntegerField(null=True, blank=True)  # None = all-time
+    points = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    position = models.IntegerField(default=0)
+    matches_won = models.IntegerField(default=0)
+    matches_lost = models.IntegerField(default=0)
+    matches_played = models.IntegerField(default=0)
+    sets_won = models.IntegerField(default=0)
+    sets_lost = models.IntegerField(default=0)
+    games_won = models.IntegerField(default=0)
+    games_lost = models.IntegerField(default=0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'player_rankings'
+        unique_together = ('user', 'match_type', 'season')
+        ordering = ('-points', '-matches_won', '-sets_won')
+
+    def __str__(self):
+        return f"{self.user.username} [{self.match_type}/{self.season or 'all'}] — {self.points} pkt"
+
 
 class TournamentRankPoints(models.Model):
     """
