@@ -63,3 +63,4 @@ dist/
 workdir/
 Uwagi.txt
 tennis_club_projekt_dump.txt
+db.sqlite3
