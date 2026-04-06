@@ -83,4 +83,12 @@ def read_all_notifications(request):
         return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'failed', 'error': 'Invalid request method'}, status=405)
 
-# Usunięto funkcje send_new_user_notification i get_new_registrations
+@login_required
+def get_unread_count(request):
+    """
+    Returns the count of unread notifications for the logged-in user.
+    """
+    count = Notifications.objects.filter(user=request.user, is_read=False).count()
+    return JsonResponse({'count': count})
+
+# Usunięto funkcje send_new_user_notification i get_new_registrations
