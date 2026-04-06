@@ -4,7 +4,6 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from apps.courts.models import TennisFacility
-from django.contrib.contenttypes.fields import GenericRelation
 from django.conf import settings
 
 
@@ -579,9 +578,6 @@ class TournamentsMatch(models.Model):
         help_text='Planowana data i godzina rozpoczęcia meczu.'
     )
 
-    # Odwrotna relacja do modelu Activity
-    activities = GenericRelation('activities.Activity')
-    
     class Meta:
         app_label = 'tournaments'
         db_table = 'tournament_matches' 

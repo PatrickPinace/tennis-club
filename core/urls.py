@@ -48,7 +48,6 @@ urlpatterns = [
     path('matches/', include('apps.matches.urls')),
     path('rankings/', include('apps.rankings.urls')),
     path('tournaments/', include('apps.tournaments.urls')),
-    path('activities/', include(('apps.activities.urls', 'activities'), namespace='activities')),
     path('news/', include('apps.news.urls', namespace='news')),
     path('manage/', admin.site.urls),
     path('feedback/', include('apps.feedback.urls', namespace='feedback')),

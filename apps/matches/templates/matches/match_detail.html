@@ -14,13 +14,9 @@
   </div>
   <div class="page-header__actions">
     <a href="{% url 'matches:matches_results' %}" class="btn btn-secondary">← Powrót</a>
-    {% if not is_tournament_match and request.user in match.get_players %}
-    <a href="{% url 'matches:assign_activity' match.id %}" class="btn btn-ghost">Aktywności</a>
-    {% endif %}
   </div>
 </div>
 {% endblock %}
-
 {% block content %}
 
 <!-- Tablica wyników -->
@@ -94,88 +90,5 @@
   </div>
 </div>
 
-<!-- Aktywności -->
-{% with activities=match.activities.all %}
-{% if activities.exists %}
-<div class="card" style="margin-bottom: var(--space-6); max-width: 640px; margin-left: auto; margin-right: auto;">
-  <div class="card-header">
-    <span class="card-title">Powiązane aktywności</span>
-    {% if request.user in match.get_players %}
-    <a href="{% url 'matches:assign_activity' match.id %}" class="btn btn-ghost btn-sm">Zarządzaj</a>
-    {% endif %}
-  </div>
-  <div class="card-body" style="padding:0;">
-    <table class="data-table">
-      <thead>
-        <tr><th>Gracz</th><th>Czas</th><th>Dystans</th><th>Tętno</th></tr>
-      </thead>
-      <tbody>
-        {% for activity in activities|dictsort:"user.username" %}
-        <tr>
-          <td>
-            {% if request.user == activity.user %}
-            <a href="{{ activity.get_absolute_url }}" style="color:var(--primary);">{{ activity.user.get_full_name }}</a>
-            {% else %}
-            {{ activity.user.get_full_name }}
-            {% endif %}
-            <div style="font-size:.75rem; color:var(--text-muted);">{{ activity.start_time|date:"d M Y H:i" }}</div>
-          </td>
-          <td>{{ activity.duration_in_minutes|floatformat:0 }} min</td>
-          <td>{{ activity.distance_in_km|floatformat:2 }} km</td>
-          <td>{{ activity.average_hr|default:"—" }} bpm</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% elif request.user in match.get_players %}
-<div class="card" style="margin-bottom: var(--space-6); max-width: 640px; margin-left: auto; margin-right: auto;">
-  <div class="card-body" style="text-align:center; padding: var(--space-8);">
-    <p style="color:var(--text-muted); margin-bottom:var(--space-4);">Brak powiązanych aktywności dla tego meczu.</p>
-    <a href="{% url 'matches:assign_activity' match.id %}" class="btn btn-primary">+ Przypisz aktywność</a>
-  </div>
-</div>
-{% endif %}
-{% endwith %}
-
-<!-- Statystyki Tennis Studio -->
-{% if player_stats %}
-<div class="card" style="max-width: 640px; margin: 0 auto;">
-  <div class="card-header">
-    <span class="card-title">Statystyki Tennis Studio</span>
-  </div>
-  <div class="card-body" style="padding:0;">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Statystyka</th>
-          <th style="text-align:center;">
-            {% if match.match_double %}{{ match.p1|short_name }} / {{ match.p3|short_name }}
-            {% else %}{{ match.p1.get_full_name|default:match.p1.username }}{% endif %}
-          </th>
-          <th style="text-align:center;">
-            {% if match.match_double %}{{ match.p2|short_name }} / {{ match.p4|short_name }}
-            {% else %}{{ match.p2.get_full_name|default:match.p2.username }}{% endif %}
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for label, values in player_stats.items %}
-        {% with p1_val=values|get_item:match.p1 p2_val=values|get_item:match.p2 %}
-        {% with winner_class=p1_val|compare_stats:label|add:","|add:p2_val|default_if_none:'' %}
-        <tr>
-          <td>{{ label }}</td>
-          <td style="text-align:center; font-weight:600; {% if winner_class == 'p1' %}color:var(--primary);{% endif %}">{{ p1_val|default:"—" }}</td>
-          <td style="text-align:center; font-weight:600; {% if winner_class == 'p2' %}color:var(--primary);{% endif %}">{{ p2_val|default:"—" }}</td>
-        </tr>
-        {% endwith %}
-        {% endwith %}
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endif %}
 
 {% endblock %}

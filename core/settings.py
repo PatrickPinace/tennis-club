@@ -32,7 +32,7 @@ FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
 # Ustawienia zależne od środowiska
 if DJANGO_ENV == 'development':
     DEBUG = True
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.171']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.129']
     # Ustawienia SSL/Security wyłączone dla developmentu
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
@@ -68,7 +68,6 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django.contrib.sitemaps',
     'django.contrib.humanize',
-    'django_q',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -85,7 +84,6 @@ INSTALLED_APPS = [
     'apps.matches',
     'apps.rankings',
     'apps.tournaments',
-    'apps.activities',
     'apps.feedback',
     'apps.news',
     'rest_framework',
@@ -255,7 +253,7 @@ if not os.path.exists(LOG_DIR):
 
 # List of apps to log separately
 LOGGED_APPS = [
-    'activities', 'api', 'courts', 'feedback', 'friends', 
+    'api', 'courts', 'feedback', 'friends', 
     'home', 'matches', 'news', 'rankings', 'tournaments', 'users'
 ]
 
@@ -349,26 +347,4 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
-# settings.py (na końcu pliku)
-Q_CLUSTER = {
-    # Podstawowe ustawienia
-    'name': 'TennisClubCluster',
-    'label': 'Django Q',
-    'orm': 'default',
 
-    # Ustawienia Workerów (Kluczowe dla wydajności)
-    'workers': 4,  # Utrzymane: Dobra wartość startowa, jeśli masz 4 rdzenie CPU lub więcej.
-    'recycle': 200,  # Zmienione: Mniejsza wartość dla lepszego zarządzania pamięcią.
-    'timeout': 360,  # Zmienione: Zwiększono timeout, aby uniknąć przedwczesnego przerywania dłuższych zadań.
-    'retry': 420,  # Dodane: Czas ponowienia zadania (timeout + 60s) dla zapewnienia stabilności.
-
-    # Ustawienia Kolejkowania i Optymalizacji
-    'compress': True,  # Utrzymane: Dobra praktyka, zmniejsza rozmiar danych w kolejce.
-    'save_limit': 0,   # Zmienione: Zmieniono na 0, aby zapisywać wszystkie wyniki (ważne dla debugowania).
-    'queue_limit': 1000, # Zmienione: Zwiększono limit na wypadek nagłego wzrostu liczby zadań.
-    'cpu_affinity': 1, # Utrzymane: Użycie 1 rdzenia na proces roboczy.
-
-    # Nowe/Zmienione Ustawienia dla Stabilności
-    'catch_up': True, # Dodane: Zapewnia, że workerzy wznowią pracę nad nieukończonymi zadaniami po awarii.
-    'log_level': 'INFO', # Dodane: Ułatwia monitorowanie w logach.
-}

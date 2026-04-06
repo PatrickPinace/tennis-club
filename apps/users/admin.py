@@ -29,15 +29,13 @@ class CustomUserAdmin(UserAdmin):
     inlines = [ProfileInline, FriendInline]
     
     # Możemy rozszerzyć list_display o pola z profilu
-    list_display = UserAdmin.list_display + ('get_city', 'get_garmin_sync')
+    list_display = UserAdmin.list_display + ('get_city',)
     
     def get_city(self, obj):
         return obj.profile.city if hasattr(obj, 'profile') else '-'
     get_city.short_description = 'Miasto'
     
-    def get_garmin_sync(self, obj):
-        return obj.profile.garmin_sync_option if hasattr(obj, 'profile') else '-'
-    get_garmin_sync.short_description = 'Sync Garmin'
+    get_city.short_description = 'Miasto'
 
     list_select_related = ('profile',) # Optymalizacja łączenia z profilem
 

@@ -163,11 +163,6 @@ def get_user_participant(standings, user):
             return standing['participant']
     return None
 
-@register.filter
-def has_tennis_data(activities):
-    """Sprawdza, czy jakakolwiek aktywność w queryset ma powiązane dane tenisowe."""
-    return any(hasattr(activity, 'tennis_data') for activity in activities)
-
 
 @register.filter
 def short_name(user):

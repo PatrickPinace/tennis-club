@@ -226,8 +226,6 @@ def get_single_tournament_match_as_friendly(match_id: int):
         description=f"Turniej: {match.tournament.name}",
         is_tournament=True,
         tournament_id=match.tournament.id,
-        # Dodajemy metody, których może oczekiwać szablon
-        activities=match.activities,
         get_players=lambda: [p for p in [p1, p2, p3, p4] if p is not None]
     )
 

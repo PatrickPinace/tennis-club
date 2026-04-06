@@ -1,12 +1,8 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render, get_object_or_404
-from django.contrib.contenttypes.models import ContentType
-from apps.activities.models import Activity
-from django.db import models # Dodaj ten import
 from django.contrib.auth.models import User
 from django.http import Http404
-from apps.utils.tennis_stats_parser import TennisStatsParser
 from apps.tournaments.models import TournamentsMatch
 
 from . import tools
@@ -138,13 +134,8 @@ def match_detail(request, match_id):
     elif request.user == getattr(match, 'p2', None) or (getattr(match, 'match_double', False) and request.user == getattr(match, 'p4', None)):
         owner_position = 2
 
-    # Używamy nowego, scentralizowanego parsera
-    parsed_player_stats = TennisStatsParser.parse_match_activities(match, owner_position)
-    
     context = {
         'match': match,
-        'player_stats': parsed_player_stats,
-        'owner_position': owner_position,
         'is_tournament_match': is_tournament_match,
     }
     return render(request, 'matches/match_detail.html', context)
@@ -192,104 +183,4 @@ def summary(request):
             context["months"] = summary_obj.get_months(filters.get("friend_id"), filters.get("last_days"))
     return render(request, 'matches/summary.html', context)
 
-@login_required
-def assign_activity(request, match_id):
-    is_tournament_match = str(match_id).startswith('t_')
 
-    if is_tournament_match:
-        try:
-            tournament_match_id = int(str(match_id).split('_')[1])
-            match = get_object_or_404(TournamentsMatch, id=tournament_match_id)
-            # Używamy adaptera, aby obiekt turniejowy wyglądał jak towarzyski dla szablonu
-            match_for_template = get_single_tournament_match_as_friendly(tournament_match_id)
-        except (IndexError, ValueError):
-            raise Http404("Nieprawidłowy format ID meczu turniejowego.")
-    else:
-        match = get_object_or_404(Match, id=match_id)
-        match_for_template = match
-    
-    # Sprawdzenie, czy zalogowany użytkownik jest jednym z graczy
-    players = match_for_template.get_players()
-    if request.user not in players:
-        messages.error(request, "Nie możesz zarządzać aktywnościami dla meczu, w którym nie bierzesz udziału.")
-        return redirect('matches:match_detail', match_id=match_id)
-
-    if request.method == 'POST':
-        activity_id = request.POST.get('activity')
-        stats_owner_side = request.POST.get('stats_owner_side') # 'L' or 'P'
-
-        # Pobierz wybraną aktywność, jeśli istnieje
-        selected_activity = None
-        
-        # Logika odpinania aktywności
-        if 'unassign' in request.POST:
-            activity_to_unassign_id = request.POST.get('unassign')
-            try:
-                activity_to_unassign = Activity.objects.get(id=activity_to_unassign_id, user=request.user)
-                if activity_to_unassign.content_object == match:
-                    activity_to_unassign.content_object = None
-                    activity_to_unassign.save()
-                    messages.success(request, f"Pomyślnie odpięto aktywność '{activity_to_unassign.activity_name}'.")
-            except Activity.DoesNotExist:
-                messages.error(request, "Nie znaleziono aktywności do odpięcia.")
-            return redirect('matches:assign_activity', match_id=match_id)
-
-        # Logika przypinania aktywności
-        if activity_id:
-            try:
-                selected_activity = Activity.objects.get(id=activity_id, user=request.user)
-
-                # Sprawdzenie, czy aktywność jest tenisowa i ma dane deweloperskie
-                is_tennis_activity_with_data = (
-                    selected_activity.activity_type_key == 'tennis_v2' and
-                    selected_activity.tennis_data_fetched
-                )
-
-                if is_tennis_activity_with_data:
-                    if stats_owner_side not in ['L', 'P']:
-                        messages.error(request, "Wybierz, czy Twoje statystyki są po lewej (L) czy prawej (P) stronie danych Garmin.")
-                        return redirect('matches:assign_activity', match_id=match_id)
-
-                selected_activity.content_object = match
-                selected_activity.save()
-                messages.success(request, f"Pomyślnie przypisano aktywność '{selected_activity.activity_name}'.")
-
-                if is_tennis_activity_with_data:
-                    try:
-                        tennis_data = selected_activity.tennis_data
-                        tennis_data.owner_stats_side = stats_owner_side
-                        tennis_data.save()
-                    except Activity.tennis_data.RelatedObjectDoesNotExist:
-                        messages.warning(request, "Aktywność tenisowa, ale brak powiązanych danych Tennis Studio do aktualizacji graczy.")
-                    except Exception as e:
-                        logger.error(f"Błąd podczas aktualizacji TennisData dla aktywności {activity_id}: {e}")
-                        messages.error(request, "Wystąpił błąd podczas aktualizacji danych tenisowych.")
-            except Activity.DoesNotExist:
-                messages.error(request, "Wybrana aktywność nie istnieje lub nie masz do niej uprawnień.")
-        else:
-            messages.warning(request, "Nie wybrano żadnej aktywności do przypisania.")
-        return redirect('matches:assign_activity', match_id=match_id)
-
-    # GET
-    match_date = match.match_date if isinstance(match, Match) else match.scheduled_time.date()
-    
-    # Aktywności zalogowanego użytkownika z dnia meczu, które nie są jeszcze przypisane do ŻADNEGO meczu
-    candidate_activities = Activity.objects.filter(
-        user=request.user,
-        start_time__date=match_date,
-        object_id__isnull=True # Aktywności, które nie są jeszcze przypisane do żadnego obiektu
-    ).annotate(
-        has_tennis_data=models.Exists(
-            Activity.objects.filter(pk=models.OuterRef('pk'), tennis_data__isnull=False)
-        )
-    ).select_related('user')
-
-    # Aktywności już przypisane do tego meczu (przez zalogowanego użytkownika)
-    assigned_activities = match.activities.filter(user=request.user).select_related('tennis_data')
-
-    context = {
-        'match': match_for_template,
-        'candidate_activities': candidate_activities,
-        'assigned_activities': assigned_activities,
-    }
-    return render(request, 'matches/assign_activity.html', context)

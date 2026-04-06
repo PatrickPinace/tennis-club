@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.contrib.contenttypes.fields import GenericRelation
 
 
 class Match(models.Model):
@@ -21,9 +20,6 @@ class Match(models.Model):
     description = models.CharField(max_length=100, default="TOWARZYSKIE")
     match_date = models.DateField()
     last_updated = models.DateTimeField(auto_now=True)
-
-    # Odwrotna relacja do modelu Activity, umożliwiająca `match.activities.all()`
-    activities = GenericRelation('activities.Activity')
 
     class Meta:
         db_table = "matches"

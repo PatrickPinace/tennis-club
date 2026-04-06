@@ -11,20 +11,7 @@ class Profile(models.Model):
     city = models.CharField(max_length=100, null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     image = models.ImageField(default='default.png', upload_to='profile_pics', blank=True)
-    garmin_login = models.CharField(max_length=100, null=True, blank=True)
-    garmin_password = EncryptedCharField(max_length=100, null=True, blank=True)
-
-    GARMIN_SYNC_TENNIS_ONLY = 'TENNIS_ONLY'
-    GARMIN_SYNC_ALL = 'ALL'
-    GARMIN_SYNC_CHOICES = [
-        (GARMIN_SYNC_TENNIS_ONLY, 'Tylko aktywności tenisowe'),
-        (GARMIN_SYNC_ALL, 'Wszystkie aktywności'),
-    ]
-    garmin_sync_option = models.CharField(
-        max_length=20,
-        choices=GARMIN_SYNC_CHOICES,
-        default=GARMIN_SYNC_TENNIS_ONLY,
-        help_text="Wybierz, które aktywności synchronizować z Garmin Connect.")
+    image = models.ImageField(default='default.png', upload_to='profile_pics', blank=True)
 
     def __str__(self):
         return f'{self.user.username} Profile'

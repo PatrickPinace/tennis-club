@@ -8,28 +8,19 @@ from .models import Profile
 class ProfileUpdateForm(forms.ModelForm):
     """Formularz do aktualizacji profilu użytkownika."""
     
-    garmin_password = forms.CharField(
-        required=False,
-        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': ''}, render_value=False)
-    )
-
     class Meta:
         model = Profile
-        fields = ['birth_date', 'city', 'start_date', 'image', 'garmin_login', 'garmin_sync_option']
+        fields = ['birth_date', 'city', 'start_date', 'image']
         widgets = {
             'birth_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d'),
             'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d'),
             'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. Warszawa'}),
             'image': forms.FileInput(attrs={'style': 'display: none;', 'id': 'id_image'}),
-            'garmin_login': forms.TextInput(attrs={'class': 'form-control', 'placeholder': ''}),
-            'garmin_sync_option': forms.RadioSelect(attrs={'class': 'form-check-input'}),
         }
         # Używamy extra_kwargs, aby ustawić pola jako nieobowiązkowe
         extra_kwargs = {
             'birth_date': {'required': False},
             'start_date': {'required': False},
-            'garmin_login': {'required': False},
-            'garmin_sync_option': {'required': False},
         }
         error_messages = {
             'birth_date': {
@@ -43,23 +34,8 @@ class ProfileUpdateForm(forms.ModelForm):
         # więc dodatkowa logika w __init__ nie jest konieczna dla required,
         # ale zachowujemy spójność.
 
-    def save(self, commit=True):
-        # Najpierw stwórz instancję z pól ModelForm (bez garmin_password)
-        instance = super().save(commit=False)
-        
-        # Pobierz hasło z formularza
-        password = self.cleaned_data.get('garmin_password')
-
-        # Logika aktualizacji hasła:
-        # 1. Jeśli użytkownik wpisał hasło, zaktualizuj je.
-        if password:
-            instance.garmin_password = password
-        # 2. Jeśli nie wpisał hasła (puste pole), NIE RÓB NIC z instance.garmin_password.
-        #    Dzięki temu pozostanie stara wartość (jeśli była załadowana z bazy).
-
-        if commit:
-            instance.save()
-        return instance
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class UserUpdateForm(forms.ModelForm):

@@ -37,15 +37,15 @@
         {% csrf_token %}
 
         <!-- Avatar -->
-        <div style="text-align:center; margin-bottom:var(--space-6);">
+        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:var(--space-6);">
           {% if request.user.profile.image and request.user.profile.image.url != '/media/default.png' %}
           <img id="profile_image_display" src="{{ request.user.profile.image.url }}" class="profile-img-preview" alt="Zdjęcie profilowe">
           {% else %}
           <img id="profile_image_display" src="/static/img/default.png" class="profile-img-preview" alt="Zdjęcie profilowe">
           {% endif %}
           {{ profile_form.image }}
-          <p style="font-size:.78rem; color:var(--text-muted); margin-top:var(--space-2);">Kliknij w zdjęcie, aby je zmienić.</p>
-          {% if profile_form.image.errors %}<p style="color:var(--danger); font-size:.8rem;">{{ profile_form.image.errors|join:", " }}</p>{% endif %}
+          <p style="font-size:.78rem; color:var(--text-muted); margin-top:var(--space-2); text-align:center;">Kliknij w zdjęcie, aby je zmienić.</p>
+          {% if profile_form.image.errors %}<p style="color:var(--danger); font-size:.8rem; text-align:center;">{{ profile_form.image.errors|join:", " }}</p>{% endif %}
         </div>
 
         <!-- Dane podstawowe -->
@@ -90,49 +90,6 @@
           {% if profile_form.start_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.start_date.errors|join:", " }}</p>{% endif %}
         </div>
 
-        <div style="height:1px; background:var(--border); margin:var(--space-5) 0;"></div>
-
-        <!-- Garmin -->
-        <div style="margin-bottom:var(--space-5);">
-          <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-4);">
-            {% include 'users/includes/garmin_icon.html' %}
-            <span style="font-weight:600; color:var(--text-muted); font-size:.875rem; text-transform:uppercase; letter-spacing:.05em;">Garmin Connect</span>
-          </div>
-
-          {% if request.user.profile.garmin_login and request.user.profile.garmin_password %}
-          <input type="hidden" name="garmin_login" value="{{ profile_form.initial.garmin_login }}">
-          <div class="tc-field" style="margin-bottom:var(--space-4);">
-            <label class="tc-label">Opcje synchronizacji Garmin</label>
-            {% for radio in profile_form.garmin_sync_option %}
-            <label style="display:flex; align-items:center; gap:var(--space-2); padding:var(--space-2) 0; font-size:.875rem; cursor:pointer;">
-              {{ radio.tag }} {{ radio.choice_label }}
-            </label>
-            {% endfor %}
-          </div>
-          <div style="display:flex; gap:var(--space-3);">
-            <a href="{% url 'activities:activity_list' %}" class="btn btn-secondary btn-sm">Zobacz aktywności</a>
-            <a href="{% url 'activities:garmin_disconnect' %}" id="garmin-disconnect-btn" class="btn btn-danger btn-sm">Rozłącz Garmin</a>
-          </div>
-          {% else %}
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4);">
-            <div class="tc-field">
-              <label class="tc-label">Login Garmin</label>
-              {{ profile_form.garmin_login }}
-              {% if profile_form.garmin_login.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.garmin_login.errors|join:", " }}</p>{% endif %}
-            </div>
-            <div class="tc-field">
-              <label class="tc-label">Hasło Garmin</label>
-              {{ profile_form.garmin_password }}
-              {% if profile_form.garmin_password.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.garmin_password.errors|join:", " }}</p>{% endif %}
-              <p style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">Twoje hasło jest szyfrowane.</p>
-              <input type="hidden" name="{{ profile_form.garmin_sync_option.name }}" value="{{ profile_form.garmin_sync_option.initial|default:'TENNIS_ONLY' }}">
-            </div>
-          </div>
-          {% endif %}
-        </div>
-
-        <div style="height:1px; background:var(--border); margin:var(--space-5) 0;"></div>
-
         <button type="submit" class="btn btn-primary" style="width:100%;">Zapisz zmiany</button>
       </form>
     </div>
@@ -149,13 +106,6 @@ if (imageInput) {
   imageInput.addEventListener('change', function(e) {
     const [file] = e.target.files;
     if (file) document.getElementById('profile_image_display').src = URL.createObjectURL(file);
-  });
-}
-const disconnectBtn = document.getElementById('garmin-disconnect-btn');
-if (disconnectBtn) {
-  disconnectBtn.addEventListener('click', function(e) {
-    e.preventDefault();
-    if (confirm('Rozłączyć konto Garmin?')) window.location.href = this.href;
   });
 }
 </script>
