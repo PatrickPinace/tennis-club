@@ -6,7 +6,7 @@ Rozbudowana aplikacja internetowa do zarządzania klubem tenisowym, rezerwacjami
 
 *   **Rezerwacja Kortów:** System grafików i rezerwacji online.
 *   **Turnieje:** Zarządzanie turniejami, drabinki turniejowe, harmonogramy.
-*   **Rankingi:** Automatyczne obliczanie punktów i rankingów graczy (Elo/ATP-style).
+*   **Rankingi:** Precomputed ranking graczy z automatycznym przeliczaniem po zakończeniu turnieju (snapshot w tabeli `PlayerRanking`, rebuild przez `python manage.py rebuild_rankings`).
 *   **Społeczność:** Profile graczy, wyszukiwanie sparingpartnerów, lista znajomych.
 *   **Czat:** Wbudowany komunikator dla użytkowników.
 *   **Powiadomienia:** Notyfikacje wewnątrz aplikacji oraz powiadomienia Push.
@@ -14,17 +14,15 @@ Rozbudowana aplikacja internetowa do zarządzania klubem tenisowym, rezerwacjami
 ## Technologie
 
 *   **Backend:** Django 5, Python 3.12+
-*   **Baza danych:** MySQL
-*   **Zadania w tle:** Django-Q2, Redis
-*   **Frontend:** Django Templates, HTML5, CSS3, JavaScript
+*   **Baza danych:** PostgreSQL (produkcja na OVH), SQLite (dev)
+*   **Frontend:** Django Templates, HTML5, CSS3 (custom design system), vanilla JavaScript
 
 ## Instalacja i Uruchomienie
 
 ### Wymagania
 
 *   Python 3.12+
-*   MySQL Server
-*   Redis (do obsługi zadań w tle i cache)
+*   PostgreSQL (lub SQLite dla developmentu)
 
 ### Konfiguracja Środowiska
 
@@ -66,18 +64,16 @@ Rozbudowana aplikacja internetowa do zarządzania klubem tenisowym, rezerwacjami
     python manage.py createsuperuser
     ```
 
+6.  **Przelicz ranking** (po imporcie danych lub pierwszym uruchomieniu):
+    ```bash
+    python manage.py rebuild_rankings
+    ```
+
 ### Uruchomienie
 
-1.  **Serwer aplikacji:**
-    ```bash
-    python manage.py runserver
-    ```
-
-2.  **Worker zadań w tle (Django-Q):**
-    Wymagany do przetwarzania powiadomień i zadań asynchronicznych.
-    ```bash
-    python manage.py qcluster
-    ```
+```bash
+python manage.py runserver
+```
 
 ## Powiadomienia Push na Telefonie
 

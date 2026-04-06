@@ -17,6 +17,15 @@ class FacilityListView(ListView):
     context_object_name = 'facilities'
 
 
+class ReservationFacilityListView(LoginRequiredMixin, ListView):
+    model = TennisFacility
+    template_name = 'courts/reservations_list.html'
+    context_object_name = 'facilities'
+
+    def get_queryset(self):
+        return TennisFacility.objects.filter(reservation=True)
+
+
 class FacilityDetailView(DetailView):
     model = TennisFacility
     template_name = 'courts/facility_detail.html'

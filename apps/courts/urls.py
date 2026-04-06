@@ -4,6 +4,7 @@ from . import views
 app_name = 'courts'
 urlpatterns = [
     path('', views.FacilityListView.as_view(), name='facility-list'),
+    path('reservations/', views.ReservationFacilityListView.as_view(), name='reservations'),
     path('<int:pk>/', views.FacilityDetailView.as_view(), name='facility-detail'),
     path('reserve/', views.CreateReservationView.as_view(), name='create-reservation'),
     path('api/timeline-data/<int:pk>/', views.TimelineDataView.as_view(), name='api-timeline-data'),
