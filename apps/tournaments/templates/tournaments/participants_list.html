@@ -11,7 +11,7 @@
     <p class="page-header__subtitle">{{ tournament.name }}</p>
   </div>
   <div class="page-header__actions">
-    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">← Powrót</a>
+    <button onclick="history.back()" class="btn btn-secondary">← Powrót</button>
     <a href="{% url 'tournaments:register_participant' tournament.pk %}" class="btn btn-primary">+ Zarejestruj uczestnika</a>
   </div>
 </div>
@@ -105,17 +105,33 @@
               {% else %}<span class="badge badge-neutral">{{ p.get_status_display }}</span>{% endif %}
             </td>
             <td>
-              <div style="display:flex; gap:var(--space-2);">
-                <a href="{% url 'tournaments:edit_participant' tournament.pk p.pk %}" class="btn btn-ghost btn-sm">Edytuj</a>
-                {% if tournament.match_format == 'DBL' %}
-                <a href="{% url 'tournaments:add_team_member' tournament.pk p.pk %}" class="btn btn-ghost btn-sm">Partner</a>
-                {% endif %}
-                {% if request.user == tournament.created_by or request.user.is_staff %}
-                <form method="post" action="{% url 'tournaments:remove_participant' tournament.pk p.pk %}" style="display:inline;">
-                  {% csrf_token %}
-                  <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Usunąć uczestnika? To nieodwracalne.')">Usuń</button>
-                </form>
-                {% endif %}
+              <div style="position:relative; display:inline-block;">
+                <button onclick="var m=this.nextElementSibling;m.style.display=m.style.display==='none'?'block':'none';event.stopPropagation();"
+                  style="background:none; border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px 10px; cursor:pointer; font-size:1rem; color:var(--text-muted); line-height:1;">⋮</button>
+                <div class="match-actions-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:0 4px 12px rgba(0,0,0,.12); z-index:100; min-width:150px; overflow:hidden;">
+                  <a href="{% url 'tournaments:edit_participant' tournament.pk p.pk %}"
+                     style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border);"
+                     onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                    ✎ Edytuj
+                  </a>
+                  {% if tournament.match_format == 'DBL' %}
+                  <a href="{% url 'tournaments:add_team_member' tournament.pk p.pk %}"
+                     style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border);"
+                     onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                    👥 Partner
+                  </a>
+                  {% endif %}
+                  {% if request.user == tournament.created_by or request.user.is_staff %}
+                  <form method="post" action="{% url 'tournaments:remove_participant' tournament.pk p.pk %}" style="margin:0;">
+                    {% csrf_token %}
+                    <button type="submit" onclick="return confirm('Usunąć uczestnika? To nieodwracalne.')"
+                      style="display:block; width:100%; padding:9px 14px; font-size:.85rem; color:var(--danger); text-align:left; background:none; border:none; cursor:pointer;"
+                      onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                      ✕ Usuń
+                    </button>
+                  </form>
+                  {% endif %}
+                </div>
               </div>
             </td>
           </tr>
@@ -134,4 +150,10 @@
   </div>
 
 </div>
+
+<script>
+document.addEventListener('click', function() {
+  document.querySelectorAll('.match-actions-menu').forEach(function(el) { el.style.display = 'none'; });
+});
+</script>
 {% endblock %}

@@ -11,7 +11,7 @@
     <p class="page-header__subtitle">{{ tournament.name }}{% if is_doubles %} — Debel{% endif %}</p>
   </div>
   <div class="page-header__actions">
-    <a href="{% url 'tournaments:list_participants' tournament.pk %}" class="btn btn-secondary">Anuluj</a>
+    <button type="button" onclick="history.back()" class="btn btn-secondary">Anuluj</button>
   </div>
 </div>
 {% endblock %}
@@ -96,7 +96,7 @@
 
         <div style="display:flex; gap:var(--space-3); margin-top:var(--space-4);">
           <button type="submit" class="btn btn-primary">Zapisz</button>
-          <a href="{% url 'tournaments:list_participants' tournament.pk %}" class="btn btn-secondary">Anuluj</a>
+          <button type="button" onclick="history.back()" class="btn btn-secondary">Anuluj</button>
         </div>
       </form>
     </div>

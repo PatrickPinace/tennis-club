@@ -12,6 +12,7 @@ urlpatterns = [
     path('<int:pk>/details/swiss/', views.tournament_details_swiss, name='details_swiss'),
     path('<int:pk>/details/americano/', views.tournament_details_americano, name='details_americano'),
     path('create/', views.create_tournament, name='create_tournament'),
+    path('<int:pk>/edit/', views.edit_tournament, name='edit_tournament'),
     path('<int:pk>/config/roundrobin/', views.edit_roundrobin_config, name='edit_roundrobin_config'),
     path('<int:pk>/config/elimination/', views.edit_elimination_config, name='edit_elimination_config'),
     path('<int:pk>/config/double-elimination/', views.edit_elimination_config, name='edit_double_elimination_config'),

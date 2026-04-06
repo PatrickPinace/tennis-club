@@ -86,6 +86,25 @@ def create_tournament(request):
 
 
 @login_required
+def edit_tournament(request, pk):
+    tournament = get_object_or_404(Tournament, pk=pk, created_by=request.user)
+    if request.method == 'POST':
+        form = TournamentForm(request.POST, instance=tournament)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Turniej zaktualizowany.')
+            return redirect('tournaments:manage')
+        messages.error(request, 'Popraw błędy w formularzu.')
+    else:
+        form = TournamentForm(instance=tournament)
+    return render(request, 'tournaments/tournament_form.html', {
+        'form': form,
+        'tournament': tournament,
+        'is_editing': True,
+    })
+
+
+@login_required
 @require_POST
 def delete_tournament(request, pk):
     """

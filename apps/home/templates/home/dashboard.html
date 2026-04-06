@@ -94,14 +94,8 @@
           </thead>
           <tbody>
             {% for t in ongoing_tournaments %}
-            <tr style="cursor:pointer;" onclick="location.href='
-              {%  if t.tournament_type == 'RND' %}{% url 'tournaments:details_round_robin' t.pk %}
-              {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}{% url 'tournaments:details_elimination' t.pk %}
-              {% elif t.tournament_type == 'LDR' %}{% url 'tournaments:details_ladder' t.pk %}
-              {% elif t.tournament_type == 'SWS' %}{% url 'tournaments:details_swiss' t.pk %}
-              {% elif t.tournament_type == 'AMR' %}{% url 'tournaments:details_americano' t.pk %}
-              {% else %}{% url 'tournaments:manage' %}{% endif %}'">
-              <td style="font-weight:500;">{{ t.name }}</td>
+            <tr style="cursor:pointer;" onclick="location.href='{{ t.get_absolute_url }}'">
+              <td style="font-weight:500;"><a href="{{ t.get_absolute_url }}" style="color:inherit; text-decoration:none;">{{ t.name }}</a></td>
               <td>
                 {% if t.status == 'ACT' %}
                   <span class="badge badge-success">Trwa</span>

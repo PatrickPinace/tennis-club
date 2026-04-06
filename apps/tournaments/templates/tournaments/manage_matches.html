@@ -11,7 +11,7 @@
     <p class="page-header__subtitle">{{ tournament.name }}</p>
   </div>
   <div class="page-header__actions">
-    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">Powrót</a>
+    <button onclick="history.back()" class="btn btn-secondary">← Powrót</button>
     <a href="{% url 'tournaments:create_match' pk=tournament.pk %}" class="btn btn-primary">+ Dodaj Mecz</a>
   </div>
 </div>

@@ -80,6 +80,8 @@
             </button>
             <div class="tc-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 6px); min-width:210px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:100;">
               <div class="tc-dropdown-menu-inner">
+              <a class="tc-dropdown-item" href="{% url 'tournaments:edit_tournament' t.pk %}">Edytuj turniej</a>
+              <div class="tc-dropdown-divider"></div>
               <a class="tc-dropdown-item" href="{% url 'tournaments:manage_matches' t.pk %}">Zarządzaj meczami</a>
               <a class="tc-dropdown-item" href="{% url 'tournaments:list_participants' t.pk %}">Zarządzaj uczestnikami</a>
               {% if t.tournament_type == 'RND' %}

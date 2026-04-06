@@ -3,6 +3,7 @@ import math
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
+from django.urls import reverse
 from apps.courts.models import TennisFacility
 from django.conf import settings
 
@@ -113,6 +114,20 @@ class Tournament(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        type_to_url = {
+            self.TournamentType.ROUND_ROBIN: 'tournaments:details_round_robin',
+            self.TournamentType.SINGLE_ELIMINATION: 'tournaments:details_elimination',
+            self.TournamentType.DOUBLE_ELIMINATION: 'tournaments:details_double_elimination',
+            self.TournamentType.LADDER: 'tournaments:details_ladder',
+            self.TournamentType.AMERICANO: 'tournaments:details_americano',
+            self.TournamentType.SWISS: 'tournaments:details_swiss',
+        }
+        url_name = type_to_url.get(self.tournament_type, 'tournaments:manage')
+        if url_name == 'tournaments:manage':
+            return reverse(url_name)
+        return reverse(url_name, kwargs={'pk': self.pk})
 
     def clean(self):
         """
