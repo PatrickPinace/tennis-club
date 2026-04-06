@@ -178,14 +178,31 @@
             {% else %}<span style="color:var(--text-dim);">—</span>{% endif %}
           </td>
           <td>
-            <div style="display:flex; gap:var(--space-2);">
-              <a href="{% url 'matches:match_detail' match.id %}" class="btn btn-ghost btn-sm">Szczegóły</a>
-              {% if not match.is_tournament %}
-              {% if request.user.pk == match.p1_id or request.user.pk == match.p2_id or request.user.pk == match.p3_id or request.user.pk == match.p4_id %}
-              <a href="{% url 'matches:matches_edit_match' match.id %}" class="btn btn-ghost btn-sm">Edytuj</a>
-              <a href="{% url 'matches:matches_remove' match.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Usunąć ten mecz?')">Usuń</a>
-              {% endif %}
-              {% endif %}
+            <div style="position:relative; display:inline-block;">
+              <button onclick="var m=this.nextElementSibling;m.style.display=m.style.display==='none'?'block':'none';event.stopPropagation();"
+                style="background:none; border:1px solid var(--border); border-radius:var(--radius-sm); padding:3px 10px; cursor:pointer; font-size:1.1rem; color:var(--text-muted); line-height:1;">⋮</button>
+              <div class="match-actions-menu" style="display:none; position:absolute; right:0; top:100%; margin-top:4px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:0 4px 12px rgba(0,0,0,.12); z-index:100; min-width:140px; overflow:hidden;">
+                <a href="{% url 'matches:match_detail' match.id %}"
+                   style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border);"
+                   onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                  👁 Szczegóły
+                </a>
+                {% if not match.is_tournament %}
+                {% if request.user.pk == match.p1_id or request.user.pk == match.p2_id or request.user.pk == match.p3_id or request.user.pk == match.p4_id %}
+                <a href="{% url 'matches:matches_edit_match' match.id %}"
+                   style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border);"
+                   onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                  ✎ Edytuj
+                </a>
+                <a href="{% url 'matches:matches_remove' match.id %}"
+                   onclick="return confirm('Usunąć ten mecz?')"
+                   style="display:block; padding:9px 14px; font-size:.85rem; color:var(--danger); text-decoration:none;"
+                   onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                  ✕ Usuń
+                </a>
+                {% endif %}
+                {% endif %}
+              </div>
             </div>
           </td>
         </tr>
@@ -204,6 +221,12 @@
 {% endif %}
 
 <script>
+  document.addEventListener('click', function() {
+    document.querySelectorAll('.match-actions-menu').forEach(function(el) {
+      el.style.display = 'none';
+    });
+  });
+
   document.addEventListener('DOMContentLoaded', function() {
     const matchDoubleSelect = document.getElementById('match_double_select');
     const partnerFilter = document.getElementById('partner-filter');

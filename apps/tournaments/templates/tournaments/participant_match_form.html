@@ -34,8 +34,14 @@
 
         <!-- Tablica wyników -->
         <div style="margin-bottom:var(--space-5);">
-          <div style="font-size:1.1rem; font-weight:700; text-align:center; margin-bottom:var(--space-4);">
-            {{ match.participant1|default:"BYE" }}
+          <div style="text-align:center; margin-bottom:var(--space-4);">
+            <div style="font-size:1.1rem; font-weight:700;">{{ match.participant1|default:"BYE" }}</div>
+            {% if is_doubles and p1_partner %}
+            <div style="font-size:.8rem; color:var(--text-muted); margin-top:3px; line-height:1.5;">
+              {{ match.participant1.user.get_full_name|default:match.participant1.user.username }}<br>
+              {{ p1_partner.user.get_full_name|default:p1_partner.user.username }}
+            </div>
+            {% endif %}
           </div>
 
           <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
@@ -86,8 +92,14 @@
             {% endwith %}
           </div>
 
-          <div style="font-size:1.1rem; font-weight:700; text-align:center;">
-            {{ match.participant2|default:"BYE" }}
+          <div style="text-align:center;">
+            <div style="font-size:1.1rem; font-weight:700;">{{ match.participant2|default:"BYE" }}</div>
+            {% if is_doubles and p2_partner %}
+            <div style="font-size:.8rem; color:var(--text-muted); margin-top:3px; line-height:1.5;">
+              {{ match.participant2.user.get_full_name|default:match.participant2.user.username }}<br>
+              {{ p2_partner.user.get_full_name|default:p2_partner.user.username }}
+            </div>
+            {% endif %}
           </div>
         </div>
 

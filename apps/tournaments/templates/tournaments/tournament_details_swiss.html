@@ -243,4 +243,9 @@ document.querySelectorAll('.swiss-tab').forEach(function(tab) {
 
 {% block extra_js %}
 <script src="{% static 'js/reactions.js' %}"></script>
+<script>
+document.addEventListener('click', function() {
+  document.querySelectorAll('.match-actions-menu').forEach(function(el) { el.style.display = 'none'; });
+});
+</script>
 {% endblock %}

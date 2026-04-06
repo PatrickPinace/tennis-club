@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
 from django.contrib import messages
 from typing import Any, cast
 from django.views.decorators.http import require_POST
@@ -951,7 +952,34 @@ def register_participant(request, pk):
             p.tournament = tournament
             if not p.user:
                 p.user = request.user
+
+            # Dla debla: obsłuż partnera i auto-nazwę
+            if tournament.match_format == 'DBL':
+                partner_id = request.POST.get('partner_user_id')
+                if partner_id:
+                    try:
+                        partner_user = User.objects.get(pk=partner_id)
+                        player_name = p.user.get_full_name() or p.user.username
+                        partner_name = partner_user.get_full_name() or partner_user.username
+                        p.display_name = f"{player_name} / {partner_name}"
+                    except User.DoesNotExist:
+                        pass
+
             p.save()
+
+            # Zapisz partnera jako TeamMember
+            if tournament.match_format == 'DBL':
+                partner_id = request.POST.get('partner_user_id')
+                if partner_id:
+                    try:
+                        partner_user = User.objects.get(pk=partner_id)
+                        TeamMember.objects.update_or_create(
+                            participant=p,
+                            defaults={'user': partner_user}
+                        )
+                    except User.DoesNotExist:
+                        pass
+
             messages.success(request, 'Zgłoszenie zapisane.')
             return redirect('tournaments:list_participants', pk=tournament.pk)
         else:
@@ -960,7 +988,11 @@ def register_participant(request, pk):
         initial = {'user': request.user.pk, 'display_name': request.user.get_full_name() or request.user.username}
         form = ParticipantForm(initial=initial, tournament=tournament)
 
-    return render(request, 'tournaments/participant_form.html', {'form': form, 'tournament': tournament})
+    is_doubles = tournament.match_format == 'DBL'
+    all_users = User.objects.filter(is_superuser=False).order_by('first_name', 'last_name')
+    return render(request, 'tournaments/participant_form.html', {
+        'form': form, 'tournament': tournament, 'is_doubles': is_doubles, 'all_users': all_users
+    })
 
 
 @login_required
@@ -974,7 +1006,30 @@ def edit_participant(request, pk, participant_pk):
     if request.method == 'POST':
         form = ParticipantForm(request.POST, instance=participant, tournament=tournament)
         if form.is_valid():
-            form.save()
+            p = form.save(commit=False)
+
+            # Dla debla: obsłuż zmianę partnera i odśwież display_name
+            if tournament.match_format == 'DBL':
+                partner_id = request.POST.get('partner_user_id')
+                if partner_id:
+                    try:
+                        partner_user = User.objects.get(pk=partner_id)
+                        player_name = p.user.get_full_name() or p.user.username if p.user else p.display_name
+                        partner_name = partner_user.get_full_name() or partner_user.username
+                        p.display_name = f"{player_name} / {partner_name}"
+                        TeamMember.objects.update_or_create(
+                            participant=p,
+                            defaults={'user': partner_user}
+                        )
+                    except User.DoesNotExist:
+                        pass
+                else:
+                    # Usunięcie partnera — wyczyść TeamMember i odśwież nazwę
+                    TeamMember.objects.filter(participant=p).delete()
+                    if p.user:
+                        p.display_name = p.user.get_full_name() or p.user.username
+
+            p.save()
             messages.success(request, 'Zgłoszenie zostało zaktualizowane.')
             return redirect('tournaments:list_participants', pk=tournament.pk)
         else:
@@ -982,7 +1037,13 @@ def edit_participant(request, pk, participant_pk):
     else:
         form = ParticipantForm(instance=participant, tournament=tournament)
 
-    return render(request, 'tournaments/participant_form.html', {'form': form, 'tournament': tournament, 'participant': participant})
+    is_doubles = tournament.match_format == 'DBL'
+    all_users = User.objects.filter(is_superuser=False).order_by('first_name', 'last_name')
+    current_partner = participant.members.select_related('user').first() if is_doubles else None
+    return render(request, 'tournaments/participant_form.html', {
+        'form': form, 'tournament': tournament, 'participant': participant,
+        'is_doubles': is_doubles, 'all_users': all_users, 'current_partner': current_partner,
+    })
 
 
 @login_required
@@ -2293,15 +2354,26 @@ def edit_match(request, pk, match_pk):
 
         form = form_class(**form_kwargs)
 
+    is_doubles = tournament.match_format == 'DBL'
+    p1_partner = None
+    p2_partner = None
+    if is_doubles:
+        if match.participant1:
+            p1_partner = match.participant1.members.select_related('user').first()
+        if match.participant2:
+            p2_partner = match.participant2.members.select_related('user').first()
+
     context = {
         'form': form,
         'tournament': tournament,
         'match': match,
         'is_editing': True,
         'has_full_permissions': has_full_permissions,
-        'next_url': next_url,  # Przekaż URL powrotny do szablonu
+        'next_url': next_url,
+        'is_doubles': is_doubles,
+        'p1_partner': p1_partner,
+        'p2_partner': p2_partner,
     }
-    # Przekaż informację o uprawnieniach i URL powrotny do szablonu
     return render(request, template_name, context)
 
 
