@@ -232,12 +232,19 @@ def rebuild_rankings(match_type=None, season=None):
     for mt, yr in combos:
         rows = calculate_rankings(match_type=mt, season=yr)
         for row in rows:
-            PlayerRanking.objects.update_or_create(
-                user_id=row['user_id'],
-                match_type=row['match_type'],
-                season=row['season'],
-                defaults={k: v for k, v in row.items() if k not in ('user_id', 'match_type', 'season')}
-            )
+            lookup = {
+                'user_id': row['user_id'],
+                'match_type': row['match_type'],
+                'season': row['season'],
+            }
+            defaults = {k: v for k, v in row.items() if k not in ('user_id', 'match_type', 'season')}
+            try:
+                obj = PlayerRanking.objects.get(**lookup)
+                for k, v in defaults.items():
+                    setattr(obj, k, v)
+                obj.save()
+            except PlayerRanking.DoesNotExist:
+                PlayerRanking.objects.create(**lookup, **defaults)
         total += len(rows)
 
     return total
