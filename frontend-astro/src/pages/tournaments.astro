@@ -1,99 +1,135 @@
 ---
-// tournaments.astro — lista turniejów z danymi demo
-// Docelowo: GET /api/tournaments/ (istnieje w Django, wymaga odkomentowania path('api/',...))
+// tournaments.astro — lista turniejów połączona z Django API
+// GET /api/tournaments/list/  (IsAuthenticatedOrReadOnly — publiczny)
+// Pola: id, name, status, tournament_type, match_format, rank,
+//       participant_count, start_date, end_date, facility_name
+
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
+import { getTournamentsList, type TournamentListEntry } from '@/lib/api';
 
-// Dane demo — docelowo z /api/tournaments/
-const tournaments = [
-  {
-    id: 1,
-    name: 'Puchar Jesieni 2026',
-    type: 'SGL',
-    typeName: 'Single Elimination',
-    format: 'SNG',
-    formatName: 'Singiel',
-    startDate: '28 Paź 2026',
-    endDate:   '29 Paź 2026',
-    status: 'REG',   // DRAFT | REG | ACT | FIN
-    statusLabel: 'Rejestracja',
-    participants: 16,
-    maxParticipants: 16,
-    registered: true,
-    facility: 'Korty Otwock',
-  },
-  {
-    id: 2,
-    name: 'Liga Zimowa — Runda 3',
-    type: 'RND',
-    typeName: 'Round Robin',
-    format: 'SNG',
-    formatName: 'Singiel',
-    startDate: '15 Lis 2026',
-    endDate:   '15 Lis 2026',
-    status: 'REG',
-    statusLabel: 'Rejestracja',
-    participants: 9,
-    maxParticipants: 12,
-    registered: false,
-    facility: 'Hala Praga',
-  },
-  {
-    id: 3,
-    name: 'Americano Sobotni #8',
-    type: 'AMR',
-    typeName: 'Americano',
-    format: 'DBL',
-    formatName: 'Debel',
-    startDate: '5 Lis 2026',
-    endDate:   '5 Lis 2026',
-    status: 'REG',
-    statusLabel: 'Rejestracja',
-    participants: 6,
-    maxParticipants: 8,
-    registered: false,
-    facility: 'Korty Otwock',
-  },
-  {
-    id: 4,
-    name: 'Turniej Świąteczny 2026',
-    type: 'SWS',
-    typeName: 'System Szwajcarski',
-    format: 'SNG',
-    formatName: 'Singiel',
-    startDate: '20 Gru 2026',
-    endDate:   '21 Gru 2026',
-    status: 'DRAFT',
-    statusLabel: 'Wkrótce',
-    participants: 0,
-    maxParticipants: 24,
-    registered: false,
-    facility: 'Hala Praga',
-  },
-  {
-    id: 5,
-    name: 'Liga Letnia — Finał',
-    type: 'RND',
-    typeName: 'Round Robin',
-    format: 'SNG',
-    formatName: 'Singiel',
-    startDate: '10 Wrz 2026',
-    endDate:   '11 Wrz 2026',
-    status: 'FIN',
-    statusLabel: 'Zakończony',
-    participants: 12,
-    maxParticipants: 12,
-    registered: true,
-    facility: 'Korty Otwock',
-    winner: 'Tomasz Bąk',
-  },
-];
+// ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
+let tournaments: TournamentListEntry[] = [];
+let isLive = false;
+
+try {
+  const data = await getTournamentsList();
+  if (data && data.length > 0) {
+    tournaments = data;
+    isLive = true;
+  }
+} catch (e) {
+  console.warn('[tournaments] API error, using fallback demo data:', e);
+}
+
+// ── Fallback demo — gdy API niedostępne lub baza pusta ─────────────────────────
+if (tournaments.length === 0) {
+  tournaments = [
+    {
+      id: 1,
+      name: 'Puchar Jesieni 2026',
+      description: '',
+      tournament_type: 'SGL',
+      match_format: 'SNG',
+      start_date: '2026-10-28T09:00:00',
+      end_date:   '2026-10-29T18:00:00',
+      status: 'REG',
+      rank: 1,
+      participant_count: 16,
+      created_by_name: 'Admin',
+      facility_name: 'Korty Otwock',
+    },
+    {
+      id: 2,
+      name: 'Liga Zimowa — Runda 3',
+      description: '',
+      tournament_type: 'RND',
+      match_format: 'SNG',
+      start_date: '2026-11-15T10:00:00',
+      end_date:   '2026-11-15T20:00:00',
+      status: 'REG',
+      rank: 2,
+      participant_count: 9,
+      created_by_name: 'Admin',
+      facility_name: 'Hala Praga',
+    },
+    {
+      id: 3,
+      name: 'Americano Sobotni #8',
+      description: '',
+      tournament_type: 'AMR',
+      match_format: 'DBL',
+      start_date: '2026-11-05T10:00:00',
+      end_date:   '2026-11-05T16:00:00',
+      status: 'REG',
+      rank: 3,
+      participant_count: 6,
+      created_by_name: 'Admin',
+      facility_name: 'Korty Otwock',
+    },
+    {
+      id: 4,
+      name: 'Turniej Świąteczny 2026',
+      description: '',
+      tournament_type: 'SWS',
+      match_format: 'SNG',
+      start_date: '2026-12-20T09:00:00',
+      end_date:   '2026-12-21T18:00:00',
+      status: 'DRF',
+      rank: 1,
+      participant_count: 0,
+      created_by_name: 'Admin',
+      facility_name: 'Hala Praga',
+    },
+    {
+      id: 5,
+      name: 'Liga Letnia — Finał',
+      description: '',
+      tournament_type: 'RND',
+      match_format: 'SNG',
+      start_date: '2026-09-10T09:00:00',
+      end_date:   '2026-09-11T18:00:00',
+      status: 'FIN',
+      rank: 1,
+      participant_count: 12,
+      created_by_name: 'Admin',
+      facility_name: 'Korty Otwock',
+    },
+  ] as TournamentListEntry[];
+}
+
+// ── Stałe mapy ────────────────────────────────────────────────────────────────
+
+const STATUS_LABEL: Record<string, string> = {
+  DRF: 'Wkrótce',
+  REG: 'Rejestracja',
+  SCH: 'Zaplanowany',
+  ACT: 'Trwa',
+  FIN: 'Zakończony',
+  CNC: 'Odwołany',
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  SGL: 'Single Elimination',
+  DBE: 'Podwójna Eliminacja',
+  RND: 'Round Robin',
+  LDR: 'Drabinka',
+  AMR: 'Americano',
+  SWS: 'System Szwajcarski',
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  SNG: 'Singiel',
+  DBL: 'Debel',
+};
 
 const statusBadge: Record<string, string> = {
-  DRAFT: 'tc-badge-neutral',
-  REG:   'tc-badge-success',
-  ACT:   'tc-badge-warning',
-  FIN:   'tc-badge-neutral',
+  DRF: 'tc-badge-neutral',
+  REG: 'tc-badge-success',
+  SCH: 'tc-badge-info',
+  ACT: 'tc-badge-warning',
+  FIN: 'tc-badge-neutral',
+  CNC: 'tc-badge-neutral',
 };
 
 const typeBadge: Record<string, string> = {
@@ -114,9 +150,22 @@ const typeColor: Record<string, string> = {
   LDR: '#6b7280',
 };
 
-const active   = tournaments.filter(t => t.status === 'REG' || t.status === 'ACT');
-const finished = tournaments.filter(t => t.status === 'FIN');
-const upcoming = tournaments.filter(t => t.status === 'DRAFT');
+// ── Helper: format daty z ISO string ─────────────────────────────────────────
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('pl-PL', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// ── Segmentacja turniejów ─────────────────────────────────────────────────────
+const active   = tournaments.filter(t => t.status === 'REG' || t.status === 'ACT' || t.status === 'SCH');
+const upcoming = tournaments.filter(t => t.status === 'DRF');
+const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC');
 ---
 
 <AppLayout
@@ -141,8 +190,8 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
       <span class="t-stat__lbl">Otwarta rejestracja</span>
     </div>
     <div class="t-stat">
-      <span class="t-stat__val">{tournaments.filter(t => t.registered).length}</span>
-      <span class="t-stat__lbl">Zapisany</span>
+      <span class="t-stat__val">{tournaments.length}</span>
+      <span class="t-stat__lbl">Wszystkich</span>
     </div>
     <div class="t-stat">
       <span class="t-stat__val">{finished.length}</span>
@@ -162,21 +211,18 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
         {active.map(t => (
           <article class="t-card" aria-label={t.name}>
             <!-- Pasek koloru na górze karty wg typu -->
-            <div class="t-card__stripe" style={`background:${typeColor[t.type]}`} aria-hidden="true"></div>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}`} aria-hidden="true"></div>
 
             <div class="t-card__body">
               <div class="t-card__top">
                 <div class="t-card__badges">
-                  <span class={`tc-badge ${typeBadge[t.type]}`}>{t.typeName}</span>
-                  <span class="tc-badge tc-badge-neutral">{t.formatName}</span>
-                </div>
-                {t.registered && (
-                  <span class="t-card__registered" title="Jesteś zarejestrowany">
-                    <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                    </svg>
-                    Zarejestrowany
+                  <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                    {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
                   </span>
+                  <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </div>
+                {t.rank === 1 && (
+                  <span class="t-card__rank" title="Turniej rangi 1">★ Ranga {t.rank}</span>
                 )}
               </div>
 
@@ -187,14 +233,16 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                   </svg>
-                  {t.startDate}{t.endDate !== t.startDate ? ` – ${t.endDate}` : ''}
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
                 </div>
-                <div class="t-card__meta-item">
-                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
-                  </svg>
-                  {t.facility}
-                </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
               </div>
 
               <!-- Participants bar -->
@@ -202,24 +250,22 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
                 <div class="t-part-bar">
                   <div
                     class="t-part-bar__fill"
-                    style={`width:${Math.round(t.participants/t.maxParticipants*100)}%; background:${typeColor[t.type]}`}
+                    style={`width:${t.participant_count > 0 ? Math.min(Math.round(t.participant_count / 16 * 100), 100) : 0}%; background:${typeColor[t.tournament_type] ?? '#6b7280'}`}
                     aria-hidden="true"
                   ></div>
                 </div>
                 <span class="t-part-bar__label">
-                  {t.participants}/{t.maxParticipants} uczestników
-                  {t.participants >= t.maxParticipants && <strong> · Pełny</strong>}
+                  {t.participant_count} uczestników
                 </span>
               </div>
             </div>
 
             <div class="t-card__footer">
-              <span class={`tc-badge ${statusBadge[t.status]}`}>{t.statusLabel}</span>
+              <span class={`tc-badge ${statusBadge[t.status] ?? 'tc-badge-neutral'}`}>
+                {STATUS_LABEL[t.status] ?? t.status}
+              </span>
               <div style="display:flex; gap:8px;">
-                {!t.registered && t.participants < t.maxParticipants
-                  ? <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-primary tc-btn-sm">Zapisz się</a>
-                  : <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-secondary tc-btn-sm">Szczegóły</a>
-                }
+                <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-secondary tc-btn-sm">Szczegóły</a>
               </div>
             </div>
           </article>
@@ -228,17 +274,19 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
     </section>
   )}
 
-  <!-- Wkrótce -->
+  <!-- Wkrótce (DRAFT) -->
   {upcoming.length > 0 && (
     <section aria-labelledby="upcoming-heading" style="margin-top:28px;">
       <h2 class="section-label" id="upcoming-heading">Wkrótce</h2>
       <div class="t-grid">
         {upcoming.map(t => (
           <article class="t-card t-card--dim" aria-label={t.name}>
-            <div class="t-card__stripe" style={`background:${typeColor[t.type]}; opacity:0.4`} aria-hidden="true"></div>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}; opacity:0.4`} aria-hidden="true"></div>
             <div class="t-card__body">
               <div class="t-card__top">
-                <span class={`tc-badge ${typeBadge[t.type]}`}>{t.typeName}</span>
+                <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                  {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                </span>
               </div>
               <h3 class="t-card__name">{t.name}</h3>
               <div class="t-card__meta">
@@ -246,12 +294,20 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                   </svg>
-                  {t.startDate}
+                  {fmtDate(t.start_date)}
                 </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
               </div>
             </div>
             <div class="t-card__footer">
-              <span class="tc-badge tc-badge-neutral">{t.statusLabel}</span>
+              <span class="tc-badge tc-badge-neutral">{STATUS_LABEL[t.status]}</span>
             </div>
           </article>
         ))}
@@ -269,7 +325,9 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
             <div class="t-card__stripe" style="background:var(--border);" aria-hidden="true"></div>
             <div class="t-card__body">
               <div class="t-card__top">
-                <span class={`tc-badge ${typeBadge[t.type]}`}>{t.typeName}</span>
+                <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                  {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                </span>
               </div>
               <h3 class="t-card__name">{t.name}</h3>
               <div class="t-card__meta">
@@ -277,17 +335,23 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                   </svg>
-                  {t.startDate}
+                  {fmtDate(t.start_date)}
                 </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
               </div>
-              {t.winner && (
-                <div class="t-card__winner">
-                  🏆 Zwycięzca: <strong>{t.winner}</strong>
-                </div>
-              )}
+              <div class="t-card__winner">
+                {t.participant_count} uczestników
+              </div>
             </div>
             <div class="t-card__footer">
-              <span class="tc-badge tc-badge-neutral">{t.statusLabel}</span>
+              <span class="tc-badge tc-badge-neutral">{STATUS_LABEL[t.status]}</span>
               <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-ghost tc-btn-sm">Wyniki →</a>
             </div>
           </article>
@@ -295,6 +359,26 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
       </div>
     </section>
   )}
+
+  <!-- Stan pusty — brak turniejów -->
+  {tournaments.length === 0 && (
+    <div class="t-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4M12 16h.01"/>
+      </svg>
+      <p>Brak turniejów do wyświetlenia.</p>
+      <span>Sprawdź ponownie później lub skontaktuj się z administratorem.</span>
+    </div>
+  )}
+
+  <!-- Footer z informacją o źródle danych -->
+  <div class="t-footer-meta">
+    {isLive
+      ? `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : 'Dane demonstracyjne — brak połączenia z bazą'
+    }
+  </div>
 
 </AppLayout>
 
@@ -369,6 +453,15 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
 
   .t-card__badges { display: flex; gap: 5px; flex-wrap: wrap; }
 
+  .t-card__rank {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.72rem; font-weight: 600;
+    color: #f59e0b;
+    background: rgba(245,158,11,0.1);
+    padding: 2px 8px; border-radius: 99px;
+    white-space: nowrap;
+  }
+
   .t-card__registered {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 0.72rem; font-weight: 600;
@@ -422,6 +515,24 @@ const upcoming = tournaments.filter(t => t.status === 'DRAFT');
     font-size: 0.82rem; color: var(--text-muted);
   }
   .t-card__winner strong { color: var(--text); }
+
+  /* ── Stan pusty ─────────────────────────────────────────────────────────── */
+  .t-empty {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 64px 24px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .t-empty svg { color: var(--text-dim); }
+  .t-empty p { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
+  .t-empty span { font-size: 0.85rem; }
+
+  /* ── Footer meta ────────────────────────────────────────────────────────── */
+  .t-footer-meta {
+    margin-top: 24px;
+    font-size: 0.78rem; color: var(--text-dim);
+    text-align: right;
+  }
 
   /* ── Responsive ────────────────────────────────────────────────────────── */
   @media (max-width: 640px) {

@@ -16,10 +16,26 @@ export interface Tournament {
   description: string;
   start_date: string | null;   // ISO datetime string
   end_date: string | null;
-  status: 'DRF' | 'REG' | 'ACT' | 'FIN' | 'CNC';
+  status: 'DRF' | 'REG' | 'ACT' | 'SCH' | 'FIN' | 'CNC';
   tournament_type: string;
   match_format: string;
   participants: Participant[];
+}
+
+/** Lekka wersja turnieju dla /api/tournaments/list/ — bez pełnej listy uczestników */
+export interface TournamentListEntry {
+  id: number;
+  name: string;
+  description: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: 'DRF' | 'REG' | 'ACT' | 'SCH' | 'FIN' | 'CNC';
+  tournament_type: 'SGL' | 'DBE' | 'RND' | 'LDR' | 'AMR' | 'SWS';
+  match_format: 'SNG' | 'DBL';
+  rank: 1 | 2 | 3;
+  participant_count: number;
+  created_by_name: string;
+  facility_name: string | null;
 }
 
 export interface Participant {
@@ -185,12 +201,23 @@ async function apiFetch<T>(
 // ── Publiczne funkcje API ─────────────────────────────────────────────────────
 
 /**
- * Zwraca listę turniejów.
+ * Zwraca listę turniejów (pełna, z uczestnikami).
  * Endpoint: GET /api/tournaments/
  * Auth: IsAuthenticatedOrReadOnly — działa bez logowania (lista publiczna).
  */
 export async function getTournaments(): Promise<Tournament[]> {
   const data = await apiFetch<Tournament[]>('/api/tournaments/');
+  return data ?? [];
+}
+
+/**
+ * Zwraca lekką listę turniejów dla strony /tournaments.
+ * Endpoint: GET /api/tournaments/list/
+ * Dane: id, name, status, type, format, rank, participant_count, facility_name, dates.
+ * Auth: IsAuthenticatedOrReadOnly — publiczny GET.
+ */
+export async function getTournamentsList(): Promise<TournamentListEntry[]> {
+  const data = await apiFetch<TournamentListEntry[]>('/api/tournaments/list/');
   return data ?? [];
 }
 

@@ -10,6 +10,10 @@ router = DefaultRouter()
 router.register(r'tournaments', views.TournamentViewSet, basename='tournament')
 
 urlpatterns = [
+    # Specyficzne ścieżki PRZED router.urls — router może przechwytywać ścieżki jako pk ViewSetu
+    path('tournaments/list/', views.TournamentListView.as_view(), name='tournaments-list'),
+    path('rankings/list/', views.RankingListView.as_view(), name='rankings-list'),
+    path('dashboard/summary/', views.DashboardSummaryView.as_view(), name='dashboard-summary'),
     path('', include(router.urls)),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -21,6 +25,4 @@ urlpatterns = [
     path('users/', views.UserListView.as_view(), name='user-list'),
     path('matches/history/', views.MatchHistoryView.as_view(), name='api-match-history'),
     path('matches/filters/', views.MatchFiltersView.as_view(), name='api-match-filters'),
-    path('dashboard/summary/', views.DashboardSummaryView.as_view(), name='dashboard-summary'),
-    path('rankings/list/', views.RankingListView.as_view(), name='rankings-list'),
 ]

@@ -47,6 +47,39 @@ class TournamentSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description', 'start_date', 'end_date', 'status', 'tournament_type', 'match_format', 'participants']
 
 
+class TournamentListSerializer(serializers.ModelSerializer):
+    """
+    Lekki serializer dla listy turniejów — używany przez /api/tournaments/list/.
+    Zamiast pełnej listy uczestników zwraca tylko ich liczbę.
+    Dodaje: participant_count, created_by_name, facility_name.
+    """
+    participant_count = serializers.SerializerMethodField()
+    created_by_name = serializers.SerializerMethodField()
+    facility_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Tournament
+        fields = [
+            'id', 'name', 'description',
+            'start_date', 'end_date',
+            'status', 'tournament_type', 'match_format',
+            'rank',
+            'participant_count', 'created_by_name', 'facility_name',
+        ]
+
+    def get_participant_count(self, obj):
+        return obj.participants.count()
+
+    def get_created_by_name(self, obj):
+        full = obj.created_by.get_full_name()
+        return full if full.strip() else obj.created_by.username
+
+    def get_facility_name(self, obj):
+        if obj.facility:
+            return str(obj.facility)
+        return None
+
+
 class UserDetailsSerializer(serializers.ModelSerializer):
     """Serializer for user details."""
     class Meta:

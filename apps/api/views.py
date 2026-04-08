@@ -4,9 +4,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.tournaments.models import Tournament
 from apps.matches import tools as match_tools
-from .serializers import (TournamentSerializer, RegisterSerializer, UserDetailsSerializer,
-                          NotificationSerializer, MatchCreateSerializer, MatchHistorySerializer,
-                          PlayerRankingSerializer)
+from .serializers import (TournamentSerializer, TournamentListSerializer, RegisterSerializer,
+                          UserDetailsSerializer, NotificationSerializer, MatchCreateSerializer,
+                          MatchHistorySerializer, PlayerRankingSerializer)
 from django.contrib.auth.models import User
 from django.utils import timezone
 from chats.models import ChatMessage
@@ -56,6 +56,43 @@ class TournamentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tournament.objects.all().order_by('-created_at')
     serializer_class = TournamentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+
+class TournamentListView(generics.ListAPIView):
+    """
+    Lekka lista turniejów dla frontendu Astro.
+    GET /api/tournaments/list/
+
+    Różnica vs TournamentViewSet:
+      - Brak pełnej listy uczestników — tylko participant_count
+      - Zawiera: rank, created_by_name, facility_name
+      - Sortowanie: aktywne (REG/ACT) na górze, potem DRAFT, potem FIN/CNC
+
+    Auth: IsAuthenticatedOrReadOnly — odczyt publiczny.
+    """
+    serializer_class = TournamentListSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        from django.db.models import Case, When, IntegerField
+        return (
+            Tournament.objects
+            .select_related('created_by', 'facility')
+            .prefetch_related('participants')
+            .annotate(
+                status_order=Case(
+                    When(status='ACT', then=0),
+                    When(status='REG', then=1),
+                    When(status='SCH', then=2),
+                    When(status='DRF', then=3),
+                    When(status='FIN', then=4),
+                    When(status='CNC', then=5),
+                    default=9,
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('status_order', '-created_at')
+        )
 
 
 class NotificationListView(generics.ListAPIView):
