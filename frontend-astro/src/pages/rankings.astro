@@ -1,140 +1,276 @@
 ---
-// rankings.astro — placeholder page
-// Docelowo: pobiera dane z GET /api/rankings/ (endpoint do dodania w Django)
+// rankings.astro — leaderboard z danymi demo
+// Docelowo: GET /api/rankings/ (endpoint do dodania w Django)
 import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+
+// Dane demo — docelowo z /api/rankings/
+const players = [
+  { pos: 1, name: 'Tomasz Bąk',      initials: 'TB', points: 2840, matches: 62, wins: 51, trend: '+2', trendUp: true,  type: 'SNG' },
+  { pos: 2, name: 'Piotr Wiśniewski', initials: 'PW', points: 2710, matches: 58, wins: 46, trend: '—',  trendUp: null,  type: 'SNG' },
+  { pos: 3, name: 'Adam Kowalczyk',   initials: 'AK', points: 2590, matches: 55, wins: 43, trend: '+1', trendUp: true,  type: 'SNG' },
+  { pos: 4, name: 'Marcin Kowalski',  initials: 'MK', points: 2440, matches: 48, wins: 34, trend: '+3', trendUp: true,  type: 'SNG', isMe: true },
+  { pos: 5, name: 'Rafał Nowak',      initials: 'RN', points: 2380, matches: 52, wins: 35, trend: '-1', trendUp: false, type: 'SNG' },
+  { pos: 6, name: 'Paweł Zając',      initials: 'PZ', points: 2250, matches: 44, wins: 28, trend: '—',  trendUp: null,  type: 'SNG' },
+  { pos: 7, name: 'Łukasz Dąbrowski', initials: 'ŁD', points: 2180, matches: 41, wins: 26, trend: '-2', trendUp: false, type: 'SNG' },
+  { pos: 8, name: 'Marek Wróbel',     initials: 'MW', points: 2050, matches: 38, wins: 23, trend: '+1', trendUp: true,  type: 'SNG' },
+];
+
+const myPos = players.find(p => p.isMe);
 ---
 
-<AppLayout title="Ranking" pageTitle="Ranking">
+<AppLayout
+  title="Ranking"
+  greeting="Ranking klubowy"
+  showCta={false}
+  showSearch={false}
+>
 
-  <div class="page-header">
-    <div class="page-header__eyebrow">Statystyki</div>
-    <h1 class="page-header__title">Ranking klubowy</h1>
-    <p class="page-header__subtitle">
-      Tabela rankingowa graczy. Dane z endpointu
-      <code>GET /api/rankings/</code> (do implementacji w Django).
-    </p>
-  </div>
+  <PageHeader
+    eyebrow="Statystyki"
+    title="Ranking klubowy"
+    subtitle="Klasyfikacja singlowa — sezon 2026. Punkty naliczane po zakończeniu turniejów."
+  />
 
-  <!-- Tabela placeholder -->
-  <div class="card">
-    <div class="card-header">
-      <span class="card-title">Top graczy</span>
-      <span class="badge badge-neutral">Placeholder</span>
+  <!-- Moja pozycja — highlight card -->
+  {myPos && (
+    <div class="my-rank-card">
+      <div class="my-rank-card__left">
+        <div class="my-rank-card__pos">
+          <span class="my-rank-card__pos-num">{myPos.pos}</span>
+          <span class="my-rank-card__pos-label">miejsce</span>
+        </div>
+        <div class="my-rank-card__divider" aria-hidden="true"></div>
+        <div>
+          <div class="my-rank-card__name">Twoja pozycja</div>
+          <div class="my-rank-card__sub">Top 10% graczy klubu</div>
+        </div>
+      </div>
+      <div class="my-rank-card__stats">
+        <div class="my-rank-card__stat">
+          <span class="my-rank-card__stat-val">{myPos.points}</span>
+          <span class="my-rank-card__stat-lbl">Punkty</span>
+        </div>
+        <div class="my-rank-card__stat">
+          <span class="my-rank-card__stat-val">{myPos.wins}/{myPos.matches}</span>
+          <span class="my-rank-card__stat-lbl">Wygrane</span>
+        </div>
+        <div class="my-rank-card__stat">
+          <span class="my-rank-card__stat-val">{Math.round(myPos.wins/myPos.matches*100)}%</span>
+          <span class="my-rank-card__stat-lbl">Win Rate</span>
+        </div>
+        <span class="my-rank-card__trend">
+          ↗ {myPos.trend} w tym miesiącu
+        </span>
+      </div>
     </div>
-    <div class="card-body" style="padding: 0;">
-      <table class="data-table">
+  )}
+
+  <!-- Główna tabela rankingowa -->
+  <div class="tc-card">
+    <div class="tc-card-header">
+      <span class="tc-card-title">Top graczy — Singiel 2026</span>
+      <div class="rank-filters">
+        <button class="rank-filter rank-filter--active">Singiel</button>
+        <button class="rank-filter">Debel</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="tc-table rank-table">
         <thead>
           <tr>
-            <th>#</th>
+            <th style="width:52px;">#</th>
             <th>Gracz</th>
-            <th>Punkty</th>
-            <th>Mecze</th>
-            <th>Win %</th>
+            <th class="col-num">Punkty</th>
+            <th class="col-num">Mecze</th>
+            <th class="col-num">Wygrane</th>
+            <th class="col-num">Win %</th>
+            <th class="col-num">Trend</th>
           </tr>
         </thead>
         <tbody>
-          {[1,2,3,4,5].map(i => (
-            <tr>
-              <td><span class={`rank-pos${i <= 3 ? ` rank-pos--${i}` : ''}`}>{i}</span></td>
+          {players.map(p => (
+            <tr class={p.isMe ? 'rank-row--me' : ''}>
               <td>
-                <div style="display:flex; align-items:center; gap:10px;">
-                  <div class="avatar avatar-sm">{String.fromCharCode(64 + i)}</div>
-                  <span>Gracz {i}</span>
+                <span class={`rank-pos${p.pos <= 3 ? ` rank-pos--${p.pos}` : ''}`}>
+                  {p.pos}
+                </span>
+              </td>
+              <td>
+                <div class="rank-player">
+                  <div class={`tc-avatar tc-avatar-sm${p.isMe ? ' tc-avatar--me' : ''}`} aria-hidden="true">
+                    {p.initials}
+                  </div>
+                  <div>
+                    <div class="rank-player__name">
+                      {p.name}
+                      {p.isMe && <span class="rank-me-badge">Ty</span>}
+                    </div>
+                  </div>
                 </div>
               </td>
-              <td style="font-weight:600;">—</td>
-              <td style="color:var(--text-muted);">—</td>
-              <td style="color:var(--text-muted);">—</td>
+              <td class="col-num rank-points">{p.points.toLocaleString('pl-PL')}</td>
+              <td class="col-num col-muted">{p.matches}</td>
+              <td class="col-num col-muted">{p.wins}</td>
+              <td class="col-num">
+                <span class={`win-rate${p.wins/p.matches >= 0.7 ? ' win-rate--high' : p.wins/p.matches >= 0.5 ? ' win-rate--mid' : ' win-rate--low'}`}>
+                  {Math.round(p.wins / p.matches * 100)}%
+                </span>
+              </td>
+              <td class="col-num">
+                {p.trendUp === true  && <span class="trend trend--up">↑ {p.trend}</span>}
+                {p.trendUp === false && <span class="trend trend--down">↓ {p.trend}</span>}
+                {p.trendUp === null  && <span class="trend trend--flat">{p.trend}</span>}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-    <div class="card-footer" style="text-align:center; font-size:0.8rem; color:var(--text-dim);">
-      Dane pojawią się po podłączeniu API Django
+
+    <div class="tc-card-footer" style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:0.78rem; color:var(--text-dim);">
+        Ostatnia aktualizacja: 8 kwi 2026 · Dane demo
+      </span>
+      <a href="#" class="tc-btn tc-btn-ghost tc-btn-sm">Pełna tabela →</a>
     </div>
   </div>
 
 </AppLayout>
 
 <style>
-  .page-header {
-    margin-bottom: 28px;
-  }
-  .page-header__eyebrow {
-    font-size: 0.75rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--primary); margin-bottom: 4px;
-  }
-  .page-header__title {
-    font-size: 1.6rem; font-weight: 800; color: var(--text);
-    line-height: 1.15; letter-spacing: -0.02em;
-  }
-  .page-header__subtitle {
-    margin-top: 4px; font-size: 0.9rem; color: var(--text-muted);
-  }
-  .page-header__subtitle code {
-    font-family: var(--font-mono);
-    font-size: 0.82rem;
-    background: var(--surface-2);
-    padding: 1px 5px;
-    border-radius: 4px;
-  }
-
-  /* Card, Table, Badge, Avatar — tokeny z design systemu */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
+  /* ── My rank highlight ─────────────────────────────────────────────────── */
+  .my-rank-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.04) 100%);
+    border: 1px solid rgba(34,197,94,0.25);
     border-radius: var(--radius-md);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(34,197,94,0.08);
   }
-  .card-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .card-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
-  .card-footer {
-    padding: 12px 20px;
-    border-top: 1px solid var(--border);
-    background: var(--surface-2);
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
-  }
-  .badge-neutral {
-    display: inline-flex; align-items: center;
-    padding: 2px 8px; border-radius: 99px;
-    font-size: 0.72rem; font-weight: 600; line-height: 1.6;
-    background: var(--surface-2); color: var(--text-muted);
-    border: 1px solid var(--border);
-  }
-  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-  .data-table th {
-    padding: 10px 14px; text-align: left;
-    font-size: 0.72rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--text-muted); border-bottom: 1px solid var(--border);
-  }
-  .data-table td {
-    padding: 13px 14px; border-bottom: 1px solid var(--border); color: var(--text);
-  }
-  .data-table tbody tr:last-child td { border-bottom: none; }
-  .data-table tbody tr:hover td { background: var(--surface-hover); }
 
+  .my-rank-card__left {
+    display: flex; align-items: center; gap: 18px;
+  }
+
+  .my-rank-card__pos {
+    text-align: center;
+  }
+  .my-rank-card__pos-num {
+    display: block; font-size: 2.5rem; font-weight: 900; color: #22c55e;
+    line-height: 1; letter-spacing: -0.04em;
+  }
+  .my-rank-card__pos-label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  .my-rank-card__divider {
+    width: 1px; height: 40px; background: rgba(34,197,94,0.2);
+  }
+
+  .my-rank-card__name {
+    font-weight: 700; font-size: 0.95rem; color: var(--text);
+  }
+  .my-rank-card__sub {
+    font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;
+  }
+
+  .my-rank-card__stats {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  }
+
+  .my-rank-card__stat { text-align: center; }
+  .my-rank-card__stat-val {
+    display: block; font-size: 1.35rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .my-rank-card__stat-lbl {
+    font-size: 0.72rem; color: var(--text-muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .my-rank-card__trend {
+    font-size: 0.82rem; font-weight: 600; color: #22c55e;
+    background: rgba(34,197,94,0.12);
+    padding: 4px 10px; border-radius: 99px;
+    white-space: nowrap;
+  }
+
+  /* ── Rank filters ──────────────────────────────────────────────────────── */
+  .rank-filters {
+    display: flex; gap: 4px;
+  }
+
+  .rank-filter {
+    padding: 5px 12px; border-radius: 6px;
+    font-size: 0.8rem; font-weight: 600;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    cursor: pointer; transition: background 0.12s, color 0.12s;
+  }
+  .rank-filter:hover { background: var(--surface-hover); color: var(--text); }
+  .rank-filter--active {
+    background: var(--primary-subtle); color: var(--primary);
+    border-color: rgba(34,197,94,0.3);
+  }
+
+  /* ── Rank table ────────────────────────────────────────────────────────── */
+  .rank-table { min-width: 600px; }
+
+  .rank-row--me td { background: rgba(34,197,94,0.04); }
+  .rank-row--me:hover td { background: rgba(34,197,94,0.08) !important; }
+
+  .rank-player {
+    display: flex; align-items: center; gap: 11px;
+  }
+  .rank-player__name {
+    font-weight: 600; font-size: 0.875rem; color: var(--text);
+    display: flex; align-items: center; gap: 7px;
+  }
+
+  .rank-me-badge {
+    font-size: 0.65rem; font-weight: 700;
+    background: rgba(34,197,94,0.15); color: #22c55e;
+    padding: 1px 6px; border-radius: 99px; vertical-align: middle;
+  }
+
+  .tc-avatar--me {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+  }
+
+  .col-num { text-align: right; }
+  .col-muted { color: var(--text-muted); }
+
+  .rank-points {
+    font-weight: 700; color: var(--text);
+  }
+
+  .win-rate { font-weight: 700; font-size: 0.875rem; }
+  .win-rate--high { color: #22c55e; }
+  .win-rate--mid  { color: var(--warning); }
+  .win-rate--low  { color: var(--danger); }
+
+  .trend {
+    font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+  }
+  .trend--up   { color: #22c55e; }
+  .trend--down { color: var(--danger); }
+  .trend--flat { color: var(--text-dim); }
+
+  /* ── Reuse global rank-pos ─────────────────────────────────────────────── */
   .rank-pos {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: var(--radius-xs);
+    width: 28px; height: 28px; border-radius: 6px;
     font-size: 0.82rem; font-weight: 700;
     background: var(--surface-2); color: var(--text-muted);
   }
   .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
   .rank-pos--2 { background: rgba(148,163,184,0.15); color: #94a3b8; }
   .rank-pos--3 { background: rgba(180,108,64,0.15);  color: #b47a40; }
-
-  .avatar {
-    border-radius: 50%;
-    background: var(--primary-subtle);
-    border: 2px solid var(--primary);
-    color: var(--primary); font-weight: 700;
-    display: grid; place-items: center; flex-shrink: 0;
-  }
-  .avatar-sm { width: 32px; height: 32px; font-size: 0.78rem; }
 </style>

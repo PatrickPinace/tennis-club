@@ -23,9 +23,7 @@ const navItems = [
     href: '/matches',
     label: 'Mecze',
     match: ['/matches'],
-    // Vs icon
     icon: `<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>`,
-    labelPrefix: 'Vs',
   },
   {
     href: '/tournaments',
@@ -88,10 +86,7 @@ function isActive(item: { match: string[] }): boolean {
         <span class="sidebar-nav__icon" aria-hidden="true">
           <svg viewBox="0 0 20 20" fill="currentColor" set:html={item.icon} />
         </span>
-        <span class="sidebar-nav__label">
-          {item.labelPrefix && <span class="sidebar-nav__prefix">{item.labelPrefix}</span>}
-          {item.label}
-        </span>
+        <span class="sidebar-nav__label">{item.label}</span>
       </a>
     ))}
 
@@ -221,14 +216,6 @@ function isActive(item: { match: string[] }): boolean {
 
   .sidebar-nav__label {
     display: flex; align-items: center; gap: 5px;
-  }
-
-  .sidebar-nav__prefix {
-    font-size: 0.7rem;
-    font-weight: 700;
-    opacity: 0.6;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
 
   .sidebar-nav__sep {

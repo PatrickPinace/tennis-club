@@ -1,0 +1,454 @@
+---
+// profile.astro — Profil gracza (placeholder z demo danymi)
+import AppLayout from '../layouts/AppLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+
+const player = {
+  name: 'Marcin Kowalski',
+  initials: 'MK',
+  role: 'Członek VIP',
+  memberSince: 'Marzec 2021',
+  email: 'marcin.kowalski@example.com',
+  phone: '+48 600 123 456',
+  city: 'Warszawa',
+  ranking: 7,
+  rankingChange: +2,
+  points: 1_247,
+  level: 'Zaawansowany',
+  winRate: 68,
+  wins: 34,
+  losses: 16,
+  played: 50,
+  setsWon: 89,
+  setsLost: 52,
+  streak: 4,
+  streakType: 'W' as 'W' | 'L',
+};
+
+const achievements = [
+  { icon: '🏆', label: 'Mistrz Ligi Wiosennej', date: 'Kwiecień 2025', color: '#f59e0b' },
+  { icon: '⚡', label: '10 meczów z rzędu', date: 'Luty 2025', color: '#8b5cf6' },
+  { icon: '🎯', label: '50 meczów rozegranych', date: 'Styczeń 2025', color: '#22c55e' },
+  { icon: '🌟', label: 'Gracz miesiąca', date: 'Grudzień 2024', color: '#3b82f6' },
+  { icon: '🔥', label: 'Seria 5 zwycięstw', date: 'Październik 2024', color: '#ef4444' },
+];
+
+const recentMatches = [
+  { opponent: 'Piotr Nowak',     result: 'W', score: '6:4 6:2', date: '5 kwi', surface: 'Kort 1' },
+  { opponent: 'Tomasz Wiśniewski', result: 'W', score: '7:5 4:6 6:3', date: '2 kwi', surface: 'Kort 3' },
+  { opponent: 'Adam Zieliński',  result: 'L', score: '3:6 5:7', date: '28 mar', surface: 'Kort 2' },
+  { opponent: 'Krzysztof Dąb',   result: 'W', score: '6:1 6:3', date: '24 mar', surface: 'Kort 4' },
+  { opponent: 'Łukasz Kubicki',  result: 'W', score: '6:4 7:6', date: '19 mar', surface: 'Kort 1' },
+];
+
+const upcomingMatch = {
+  opponent: 'Rafał Szymański',
+  date: '12 kwi 2026',
+  time: '18:30',
+  surface: 'Kort 2',
+  tournament: 'Liga Wiosenna 2026',
+};
+---
+
+<AppLayout
+  currentPath="/profile"
+  greeting="Twój profil"
+  showCta={false}
+>
+  <PageHeader
+    title={player.name}
+    subtitle={`Członek od ${player.memberSince} · Ranking #${player.ranking}`}
+  />
+
+  <div class="profile-grid">
+
+    <!-- Karta gracza — lewa kolumna -->
+    <aside class="player-card tc-card">
+      <div class="player-avatar" aria-hidden="true">{player.initials}</div>
+      <h2 class="player-name">{player.name}</h2>
+      <span class="player-role">{player.role}</span>
+
+      <div class="player-level">
+        <span class="level-badge">{player.level}</span>
+      </div>
+
+      <ul class="player-meta" role="list">
+        <li>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+          </svg>
+          {player.city}
+        </li>
+        <li>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+          </svg>
+          {player.email}
+        </li>
+        <li>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+          </svg>
+          {player.phone}
+        </li>
+      </ul>
+
+      <div class="player-actions">
+        <button class="tc-btn tc-btn--primary" style="width:100%">
+          Edytuj profil
+        </button>
+        <button class="tc-btn tc-btn--ghost" style="width:100%">
+          Zmień hasło
+        </button>
+      </div>
+    </aside>
+
+    <!-- Prawa kolumna -->
+    <div class="profile-main">
+
+      <!-- Statystyki -->
+      <section>
+        <h3 class="section-title">Statystyki sezonu</h3>
+        <div class="stats-grid">
+          <div class="stat-tile tc-card">
+            <div class="stat-tile__value">{player.ranking}
+              <span class={`stat-tile__delta ${player.rankingChange > 0 ? 'delta--up' : 'delta--down'}`}>
+                {player.rankingChange > 0 ? '▲' : '▼'}{Math.abs(player.rankingChange)}
+              </span>
+            </div>
+            <div class="stat-tile__label">Pozycja rankingowa</div>
+          </div>
+          <div class="stat-tile tc-card">
+            <div class="stat-tile__value">{player.points.toLocaleString('pl')}</div>
+            <div class="stat-tile__label">Punkty rankingowe</div>
+          </div>
+          <div class="stat-tile tc-card">
+            <div class="stat-tile__value">{player.winRate}<span class="stat-tile__unit">%</span></div>
+            <div class="stat-tile__label">Win rate</div>
+          </div>
+          <div class="stat-tile tc-card">
+            <div class="stat-tile__value">{player.streak}
+              <span class={`stat-tile__streak ${player.streakType === 'W' ? 'streak--win' : 'streak--loss'}`}>
+                {player.streakType}
+              </span>
+            </div>
+            <div class="stat-tile__label">Seria</div>
+          </div>
+        </div>
+
+        <!-- Win/loss bar -->
+        <div class="wl-bar-wrap tc-card">
+          <div class="wl-bar-header">
+            <span class="wl-label wl-wins">{player.wins} zwycięstw</span>
+            <span class="wl-played">{player.played} meczów</span>
+            <span class="wl-label wl-losses">{player.losses} porażek</span>
+          </div>
+          <div class="wl-bar" role="progressbar" aria-valuenow={player.winRate} aria-valuemin={0} aria-valuemax={100}>
+            <div class="wl-bar__fill wl-bar__fill--win" style={`width:${player.winRate}%`}></div>
+            <div class="wl-bar__fill wl-bar__fill--loss" style={`width:${100 - player.winRate}%`}></div>
+          </div>
+          <div class="wl-bar-sub">
+            <span>Sety wygrane: {player.setsWon}</span>
+            <span>Sety przegrane: {player.setsLost}</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Nadchodzący mecz -->
+      <section>
+        <h3 class="section-title">Nadchodzący mecz</h3>
+        <div class="upcoming-match tc-card">
+          <div class="um-vs">
+            <div class="um-player um-player--me">
+              <div class="um-avatar um-avatar--green">{player.initials}</div>
+              <div class="um-name">{player.name}</div>
+            </div>
+            <div class="um-badge">VS</div>
+            <div class="um-player um-player--opp">
+              <div class="um-avatar um-avatar--slate">RS</div>
+              <div class="um-name">{upcomingMatch.opponent}</div>
+            </div>
+          </div>
+          <div class="um-meta">
+            <span>
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+              </svg>
+              {upcomingMatch.date} · {upcomingMatch.time}
+            </span>
+            <span>
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+              </svg>
+              {upcomingMatch.surface}
+            </span>
+            <span>
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+              {upcomingMatch.tournament}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ostatnie mecze -->
+      <section>
+        <h3 class="section-title">Ostatnie mecze</h3>
+        <div class="tc-card" style="padding:0;overflow:hidden">
+          <table class="tc-table">
+            <thead>
+              <tr>
+                <th>Przeciwnik</th>
+                <th>Wynik</th>
+                <th>Data</th>
+                <th>Kort</th>
+                <th>Wynik</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentMatches.map(m => (
+                <tr>
+                  <td class="match-opp">{m.opponent}</td>
+                  <td><span class={`tc-badge ${m.result === 'W' ? 'tc-badge--success' : 'tc-badge--danger'}`}>{m.result === 'W' ? 'Wygrana' : 'Porażka'}</span></td>
+                  <td class="text-muted">{m.score}</td>
+                  <td class="text-muted">{m.date}</td>
+                  <td class="text-muted">{m.surface}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Osiągnięcia -->
+      <section>
+        <h3 class="section-title">Osiągnięcia</h3>
+        <div class="achievements-grid">
+          {achievements.map(a => (
+            <div class="achievement-card tc-card">
+              <div class="achievement-icon" style={`background:${a.color}1a;color:${a.color}`}>{a.icon}</div>
+              <div class="achievement-info">
+                <div class="achievement-label">{a.label}</div>
+                <div class="achievement-date">{a.date}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+    </div><!-- /profile-main -->
+  </div><!-- /profile-grid -->
+</AppLayout>
+
+<style>
+/* ── Layout ──────────────────────────────────────────────────── */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
+
+.profile-main { display: flex; flex-direction: column; gap: 28px; }
+
+/* ── Player card ─────────────────────────────────────────────── */
+.player-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; text-align: center; padding: 28px 20px;
+  position: sticky; top: 24px;
+}
+
+.player-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(34,197,94,0.12);
+  border: 2.5px solid #22c55e;
+  color: #22c55e;
+  font-size: 1.4rem; font-weight: 800;
+  display: grid; place-items: center;
+}
+
+.player-name {
+  font-size: 1.05rem; font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+}
+
+.player-role {
+  font-size: 0.75rem; color: var(--text-muted, #64748b);
+  background: rgba(34,197,94,0.1); color: #16a34a;
+  padding: 2px 10px; border-radius: 999px; font-weight: 600;
+}
+
+.player-level { margin: 4px 0; }
+.level-badge {
+  font-size: 0.72rem; font-weight: 700;
+  background: #f0fdf4; color: #15803d;
+  border: 1px solid #bbf7d0;
+  padding: 2px 10px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.player-meta {
+  list-style: none; margin: 6px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 7px;
+  text-align: left; width: 100%;
+}
+.player-meta li {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.78rem; color: var(--text-muted, #64748b);
+}
+.player-meta svg { flex-shrink: 0; color: #94a3b8; }
+
+.player-actions {
+  display: flex; flex-direction: column; gap: 8px;
+  width: 100%; margin-top: 8px;
+}
+
+/* ── Section title ───────────────────────────────────────────── */
+.section-title {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 0 0 12px;
+}
+
+/* ── Stats grid ──────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stat-tile {
+  text-align: center;
+  padding: 18px 12px;
+}
+.stat-tile__value {
+  font-size: 1.7rem; font-weight: 800;
+  color: var(--text-primary, #0f172a);
+  line-height: 1.1;
+  display: flex; align-items: baseline; justify-content: center; gap: 4px;
+}
+.stat-tile__unit {
+  font-size: 1rem; font-weight: 600; color: var(--text-muted, #64748b);
+}
+.stat-tile__label {
+  font-size: 0.72rem; color: var(--text-muted, #64748b);
+  margin-top: 4px; font-weight: 500;
+}
+.stat-tile__delta {
+  font-size: 0.75rem; font-weight: 700;
+}
+.delta--up   { color: #22c55e; }
+.delta--down { color: #ef4444; }
+
+.stat-tile__streak {
+  font-size: 0.85rem; font-weight: 800;
+  padding: 1px 6px; border-radius: 5px;
+}
+.streak--win  { background: #dcfce7; color: #15803d; }
+.streak--loss { background: #fee2e2; color: #b91c1c; }
+
+/* ── Win/loss bar ────────────────────────────────────────────── */
+.wl-bar-wrap { padding: 18px 20px; }
+
+.wl-bar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.8rem; font-weight: 600; margin-bottom: 10px;
+}
+.wl-wins   { color: #15803d; }
+.wl-losses { color: #b91c1c; }
+.wl-played { color: var(--text-muted, #64748b); font-weight: 500; }
+
+.wl-bar {
+  height: 10px; border-radius: 999px;
+  overflow: hidden; display: flex;
+  background: #f1f5f9;
+}
+.wl-bar__fill { height: 100%; transition: width 0.3s ease; }
+.wl-bar__fill--win  { background: #22c55e; }
+.wl-bar__fill--loss { background: #f87171; }
+
+.wl-bar-sub {
+  display: flex; justify-content: space-between;
+  font-size: 0.72rem; color: var(--text-muted, #64748b);
+  margin-top: 8px;
+}
+
+/* ── Upcoming match ──────────────────────────────────────────── */
+.upcoming-match { padding: 20px 24px; }
+
+.um-vs {
+  display: flex; align-items: center; justify-content: center;
+  gap: 20px; margin-bottom: 16px;
+}
+.um-player { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.um-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary, #0f172a); }
+
+.um-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  font-size: 0.9rem; font-weight: 700;
+  display: grid; place-items: center;
+}
+.um-avatar--green {
+  background: rgba(34,197,94,0.12); border: 2px solid #22c55e; color: #16a34a;
+}
+.um-avatar--slate {
+  background: #f1f5f9; border: 2px solid #cbd5e1; color: #475569;
+}
+
+.um-badge {
+  font-size: 0.85rem; font-weight: 800;
+  background: #f1f5f9; color: #475569;
+  padding: 6px 14px; border-radius: 8px;
+}
+
+.um-meta {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 16px;
+  font-size: 0.78rem; color: var(--text-muted, #64748b);
+  padding-top: 14px; border-top: 1px solid var(--border-color, #e2e8f0);
+}
+.um-meta span {
+  display: flex; align-items: center; gap: 5px;
+}
+
+/* ── Table extras ────────────────────────────────────────────── */
+.match-opp { font-weight: 600; color: var(--text-primary, #0f172a); }
+.text-muted { color: var(--text-muted, #64748b); }
+
+/* ── Achievements ────────────────────────────────────────────── */
+.achievements-grid {
+  display: flex; flex-direction: column; gap: 10px;
+}
+
+.achievement-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px;
+}
+
+.achievement-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  font-size: 1.2rem;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+
+.achievement-label {
+  font-size: 0.87rem; font-weight: 600;
+  color: var(--text-primary, #0f172a);
+}
+.achievement-date {
+  font-size: 0.72rem; color: var(--text-muted, #64748b);
+  margin-top: 2px;
+}
+</style>
