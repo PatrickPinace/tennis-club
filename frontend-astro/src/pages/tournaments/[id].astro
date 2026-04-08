@@ -1,0 +1,547 @@
+---
+// tournaments/[id].astro — szczegół turnieju
+// Obsługuje tylko Round Robin (tournament_type === 'RND').
+// Inne typy → komunikat "nie obsługiwany jeszcze w Astro".
+// Endpoint: GET /api/tournaments/{id}/detail/
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getTournamentsList, getTournamentDetail, type TournamentDetail, type RRStandingRow, type TournamentMatch } from '@/lib/api';
+
+export async function getStaticPaths() {
+  try {
+    const list = await getTournamentsList();
+    return list.map(t => ({ params: { id: String(t.id) } }));
+  } catch {
+    // Baza pusta lub API niedostepne — brak stron do wygenerowania
+    return [];
+  }
+}
+
+const { id } = Astro.params;
+const tournamentId = id ? parseInt(id, 10) : NaN;
+
+// ── Pobierz dane ──────────────────────────────────────────────────────────────
+let tournament: TournamentDetail | null = null;
+let fetchError: string | null = null;
+
+if (!isNaN(tournamentId)) {
+  try {
+    tournament = await getTournamentDetail(tournamentId);
+    if (!tournament) fetchError = 'not_found';
+  } catch (e) {
+    fetchError = 'api_error';
+    console.error('[tournament/[id]] fetch failed:', e);
+  }
+} else {
+  fetchError = 'bad_id';
+}
+
+// ── Stałe ─────────────────────────────────────────────────────────────────────
+const STATUS_LABEL: Record<string, string> = {
+  DRF: 'Szkic', REG: 'Rejestracja', SCH: 'Zaplanowany',
+  ACT: 'Trwa', FIN: 'Zakończony', CNC: 'Odwołany',
+};
+const STATUS_BADGE: Record<string, string> = {
+  DRF: 'tc-badge-neutral', REG: 'tc-badge-success', SCH: 'tc-badge-info',
+  ACT: 'tc-badge-warning',  FIN: 'tc-badge-neutral', CNC: 'tc-badge-neutral',
+};
+const FORMAT_LABEL: Record<string, string> = { SNG: 'Singiel', DBL: 'Debel' };
+const MATCH_STATUS_LABEL: Record<string, string> = {
+  WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
+  CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
+};
+const TIE_LABEL: Record<string, string> = {
+  HEAD: 'Bezpośrednie spotkanie', SETS: 'Bilans setów', GAMES: 'Bilans gemów',
+};
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch { return iso; }
+}
+
+// Grupuj mecze wg rundy
+function groupByRound(matches: TournamentMatch[]): Map<number, TournamentMatch[]> {
+  const map = new Map<number, TournamentMatch[]>();
+  for (const m of matches) {
+    if (!map.has(m.round_number)) map.set(m.round_number, []);
+    map.get(m.round_number)!.push(m);
+  }
+  return map;
+}
+
+const isRoundRobin = tournament?.tournament_type === 'RND';
+const matchesByRound = tournament && isRoundRobin ? groupByRound(tournament.matches) : new Map();
+const rounds = Array.from(matchesByRound.keys()).sort((a, b) => a - b);
+
+const completedMatches = tournament?.matches.filter(m => m.status === 'CMP') ?? [];
+const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m.status !== 'WDR' && m.status !== 'CNC') ?? [];
+---
+
+<AppLayout
+  title={tournament?.name ?? 'Turniej'}
+  greeting="Turnieje"
+  showSearch={false}
+  showCta={false}
+>
+
+  <!-- Breadcrumb -->
+  <nav class="td-breadcrumb" aria-label="Nawigacja">
+    <a href="/tournaments">← Turnieje</a>
+    {tournament && <span aria-hidden="true"> / </span>}
+    {tournament && <span>{tournament.name}</span>}
+  </nav>
+
+  <!-- ── Błędy ─────────────────────────────────────────────────────────────── -->
+  {fetchError === 'not_found' && (
+    <div class="td-error-card">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <p>Turniej o ID <strong>{id}</strong> nie istnieje.</p>
+      <a href="/tournaments" class="tc-btn tc-btn-secondary tc-btn-sm">← Powrót do listy</a>
+    </div>
+  )}
+
+  {fetchError === 'api_error' && (
+    <div class="td-error-card">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+      <p>Błąd połączenia z API.</p>
+      <a href="/tournaments" class="tc-btn tc-btn-secondary tc-btn-sm">← Powrót do listy</a>
+    </div>
+  )}
+
+  <!-- ── Turniej znaleziony ─────────────────────────────────────────────────── -->
+  {tournament && (
+    <>
+      <PageHeader
+        eyebrow="Rozgrywki"
+        title={tournament.name}
+        subtitle={tournament.description || `${FORMAT_LABEL[tournament.match_format] ?? tournament.match_format} · Liga (każdy z każdym)`}
+      />
+
+      <!-- Header info row -->
+      <div class="td-info-row">
+        <div class="td-info-badges">
+          <span class={`tc-badge ${STATUS_BADGE[tournament.status] ?? 'tc-badge-neutral'}`}>
+            {STATUS_LABEL[tournament.status] ?? tournament.status}
+          </span>
+          <span class="tc-badge tc-badge-primary">Liga (Round Robin)</span>
+          <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format}</span>
+          {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
+        </div>
+        <div class="td-info-meta">
+          {(tournament.start_date || tournament.end_date) && (
+            <span class="td-meta-item">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+              {fmtDate(tournament.start_date)}{tournament.end_date ? ` – ${fmtDate(tournament.end_date)}` : ''}
+            </span>
+          )}
+          {tournament.facility_name && (
+            <span class="td-meta-item">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+              {tournament.facility_name}
+            </span>
+          )}
+          <span class="td-meta-item">
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+              {tournament.participant_count} uczestników
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Nie Round Robin → komunikat ──────────────────────────────────── -->
+      {!isRoundRobin && (
+        <div class="td-unsupported">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <p>Ten typ szczegółu nie jest jeszcze obsługiwany w Astro.</p>
+          <span>Obsługiwany typ: <strong>Round Robin</strong>. Ten turniej ma typ: <strong>{tournament.tournament_type}</strong>.</span>
+          <a href={`http://localhost:8000/tournaments/`} class="tc-btn tc-btn-ghost tc-btn-sm" target="_blank" rel="noopener">Otwórz w Django →</a>
+        </div>
+      )}
+
+      <!-- ── Round Robin — właściwy widok ───────────────────────────────── -->
+      {isRoundRobin && (
+        <div class="td-layout">
+
+          <!-- Stat pills -->
+          <div class="td-stats">
+            <div class="td-stat">
+              <span class="td-stat__val">{tournament.participant_count}</span>
+              <span class="td-stat__lbl">Uczestników</span>
+            </div>
+            <div class="td-stat">
+              <span class="td-stat__val">{tournament.matches.length}</span>
+              <span class="td-stat__lbl">Meczów</span>
+            </div>
+            <div class="td-stat">
+              <span class="td-stat__val">{completedMatches.length}</span>
+              <span class="td-stat__lbl">Rozegranych</span>
+            </div>
+            <div class="td-stat">
+              <span class="td-stat__val">{pendingMatches.length}</span>
+              <span class="td-stat__lbl">Pozostałych</span>
+            </div>
+          </div>
+
+          <!-- ── Tabela standings ────────────────────────────────────────── -->
+          {tournament.standings && tournament.standings.length > 0 ? (
+            <div class="tc-card" style="margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Tabela wyników</span>
+                <span style="font-size:0.78rem; color:var(--text-dim);">Sortowanie: punkty → sety → gemy</span>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="tc-table td-standings-table">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;">#</th>
+                      <th>Gracz</th>
+                      <th class="col-num">Pkt</th>
+                      <th class="col-num">M</th>
+                      <th class="col-num">W</th>
+                      <th class="col-num">P</th>
+                      <th class="col-num">Sety +/-</th>
+                      <th class="col-num">Gemy +/-</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(tournament.standings as RRStandingRow[]).map((row, idx) => (
+                      <tr class={idx === 0 && tournament.status === 'FIN' ? 'td-row--winner' : ''}>
+                        <td>
+                          <span class={`rank-pos${idx < 3 ? ` rank-pos--${idx + 1}` : ''}`}>
+                            {idx + 1}
+                          </span>
+                        </td>
+                        <td>
+                          <div class="td-player">
+                            <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+                              {row.display_name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('')}
+                            </div>
+                            <span class="td-player__name">{row.display_name}</span>
+                            {idx === 0 && tournament.status === 'FIN' && (
+                              <span class="td-winner-badge">🏆</span>
+                            )}
+                          </div>
+                        </td>
+                        <td class="col-num td-pts">{row.points.toFixed(1)}</td>
+                        <td class="col-num col-muted">{row.matches_played}</td>
+                        <td class="col-num" style="color:var(--primary);">{row.wins}</td>
+                        <td class="col-num" style="color:var(--danger);">{row.losses}</td>
+                        <td class="col-num col-muted">
+                          {row.sets_won}:{row.sets_lost}
+                          <span class={`td-diff ${row.sets_diff > 0 ? 'td-diff--pos' : row.sets_diff < 0 ? 'td-diff--neg' : ''}`}>
+                            ({row.sets_diff > 0 ? '+' : ''}{row.sets_diff})
+                          </span>
+                        </td>
+                        <td class="col-num col-muted">
+                          {row.games_won}:{row.games_lost}
+                          <span class={`td-diff ${row.games_diff > 0 ? 'td-diff--pos' : row.games_diff < 0 ? 'td-diff--neg' : ''}`}>
+                            ({row.games_diff > 0 ? '+' : ''}{row.games_diff})
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
+              <span>Brak wyników — tabela zostanie wypełniona po rozegraniu pierwszych meczów.</span>
+            </div>
+          )}
+
+          <!-- ── Lista uczestników ──────────────────────────────────────── -->
+          {tournament.participants.length > 0 && (
+            <div class="tc-card" style="margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Uczestnicy ({tournament.participant_count})</span>
+              </div>
+              <div class="td-participants">
+                {tournament.participants.map(p => (
+                  <div class="td-participant">
+                    <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+                      {p.display_name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('')}
+                    </div>
+                    <span class="td-participant__name">{p.display_name}</span>
+                    {p.seed_number && (
+                      <span class="td-seed">#{p.seed_number}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <!-- ── Mecze wg rund ──────────────────────────────────────────── -->
+          {tournament.matches.length > 0 ? (
+            <div class="tc-card" style="margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
+                <span style="font-size:0.78rem; color:var(--text-dim);">
+                  {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
+                </span>
+              </div>
+
+              {rounds.map(roundNum => (
+                <div class="td-round">
+                  <div class="td-round__label">Runda {roundNum}</div>
+                  <div class="td-round__matches">
+                    {(matchesByRound.get(roundNum) ?? []).map(m => (
+                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
+                        <div class="td-match__players">
+                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
+                            {m.participant1_name ?? '—'}
+                          </span>
+                          <span class="td-match__vs">vs</span>
+                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
+                            {m.participant2_name ?? '—'}
+                          </span>
+                        </div>
+                        <div class="td-match__right">
+                          {m.score ? (
+                            <span class="td-match__score">{m.score}</span>
+                          ) : m.status === 'WAI' ? (
+                            <span class="td-match__status-lbl">Oczekuje</span>
+                          ) : m.status === 'INP' ? (
+                            <span class="td-match__status-lbl td-match__status-lbl--live">● Live</span>
+                          ) : (
+                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
+              <span>Brak zaplanowanych meczów. Mecze pojawią się po zamknięciu rejestracji.</span>
+            </div>
+          )}
+
+          <!-- ── Konfiguracja (zwijana) ─────────────────────────────────── -->
+          {tournament.config && (
+            <details class="tc-card td-config-card">
+              <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
+                <span class="tc-card-title">Zasady i punktacja</span>
+                <span style="font-size:0.78rem; color:var(--text-dim);">▾ rozwiń</span>
+              </summary>
+              <div class="td-config-body">
+                <div class="td-config-grid">
+                  <div>
+                    <div class="td-config-row"><span>Format meczu</span><strong>Do {tournament.config.sets_to_win} wygranych setów</strong></div>
+                    <div class="td-config-row"><span>Format seta</span><strong>Do {tournament.config.games_per_set} gemów</strong></div>
+                    <div class="td-config-row"><span>Kryterium remisu</span><strong>{TIE_LABEL[tournament.config.tie_breaker_priority] ?? tournament.config.tie_breaker_priority}</strong></div>
+                    <div class="td-config-row"><span>Maks. uczestników</span><strong>{tournament.config.max_participants}</strong></div>
+                  </div>
+                  <div>
+                    <div class="td-config-row"><span>Wygrana mecz</span><strong>+{tournament.config.points_for_win} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrana mecz</span><strong>+{tournament.config.points_for_loss} pkt</strong></div>
+                    <div class="td-config-row"><span>Bonus wygr. set</span><strong>+{tournament.config.points_for_set_win} pkt</strong></div>
+                    <div class="td-config-row"><span>Kara przegr. set</span><strong>{tournament.config.points_for_set_loss} pkt</strong></div>
+                    <div class="td-config-row"><span>Bonus wygr. gem</span><strong>+{tournament.config.points_for_gem_win} pkt</strong></div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
+
+        </div>
+      )}
+    </>
+  )}
+
+</AppLayout>
+
+<style>
+  /* ── Breadcrumb ─────────────────────────────────────────────────────────── */
+  .td-breadcrumb {
+    font-size: 0.8rem; color: var(--text-dim);
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .td-breadcrumb a { color: var(--primary); text-decoration: none; }
+  .td-breadcrumb a:hover { text-decoration: underline; }
+
+  /* ── Info row ───────────────────────────────────────────────────────────── */
+  .td-info-row {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    margin-bottom: 24px;
+  }
+  .td-info-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .td-info-meta {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .td-meta-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.8rem; color: var(--text-muted);
+  }
+  .td-meta-item svg { color: var(--text-dim); }
+
+  /* ── Stats ──────────────────────────────────────────────────────────────── */
+  .td-stats {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .td-stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 12px 18px;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 100px; box-shadow: var(--shadow-card);
+  }
+  .td-stat__val {
+    font-size: 1.5rem; font-weight: 900; color: var(--text);
+    letter-spacing: -0.04em; line-height: 1;
+  }
+  .td-stat__lbl {
+    font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  .td-layout {}
+
+  /* ── Standings table ────────────────────────────────────────────────────── */
+  .td-standings-table { min-width: 560px; }
+  .col-num { text-align: right; }
+  .col-muted { color: var(--text-muted); }
+  .td-pts { font-weight: 800; color: var(--text); }
+
+  .td-diff { font-size: 0.72rem; margin-left: 4px; }
+  .td-diff--pos { color: #22c55e; }
+  .td-diff--neg { color: var(--danger); }
+
+  .td-row--winner td { background: rgba(34,197,94,0.04); }
+  .td-row--winner:hover td { background: rgba(34,197,94,0.08) !important; }
+
+  .td-player { display: flex; align-items: center; gap: 10px; }
+  .td-player__name { font-weight: 600; font-size: 0.875rem; color: var(--text); }
+  .td-winner-badge { font-size: 0.9rem; }
+
+  /* Reuse rank-pos from global */
+  .rank-pos {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 6px;
+    font-size: 0.78rem; font-weight: 700;
+    background: var(--surface-2); color: var(--text-muted);
+  }
+  .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .rank-pos--2 { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .rank-pos--3 { background: rgba(180,108,64,0.15);  color: #b47a40; }
+
+  /* ── Participants ───────────────────────────────────────────────────────── */
+  .td-participants {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 16px 20px;
+  }
+  .td-participant {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px;
+  }
+  .td-participant__name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+  .td-seed {
+    font-size: 0.7rem; color: var(--text-muted); font-weight: 600;
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 99px;
+  }
+
+  /* ── Rounds & matches ───────────────────────────────────────────────────── */
+  .td-round { padding: 0 20px 16px; }
+  .td-round__label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-muted);
+    padding: 12px 0 8px;
+    border-top: 1px solid var(--border);
+  }
+  .td-round:first-of-type .td-round__label { border-top: none; }
+  .td-round__matches { display: flex; flex-direction: column; gap: 6px; }
+
+  .td-match {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 10px 14px;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .td-match--done { background: var(--surface); }
+  .td-match--live {
+    border-color: rgba(34,197,94,0.3);
+    background: rgba(34,197,94,0.03);
+  }
+
+  .td-match__players {
+    display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  }
+  .td-match__name {
+    font-size: 0.875rem; font-weight: 600; color: var(--text);
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .td-match__name--winner { color: #22c55e; }
+  .td-match__vs {
+    font-size: 0.72rem; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+  }
+
+  .td-match__right { flex-shrink: 0; }
+  .td-match__score {
+    font-size: 0.875rem; font-weight: 700; color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .td-match__status-lbl {
+    font-size: 0.75rem; color: var(--text-muted); font-weight: 600;
+  }
+  .td-match__status-lbl--live { color: #22c55e; }
+
+  /* ── Config ─────────────────────────────────────────────────────────────── */
+  .td-config-card { margin-bottom: 24px; }
+  .td-config-body { padding: 16px 20px; }
+  .td-config-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  @media (max-width: 600px) {
+    .td-config-grid { grid-template-columns: 1fr; }
+  }
+  .td-config-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.82rem; padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .td-config-row:last-child { border-bottom: none; }
+  .td-config-row strong { color: var(--text); font-weight: 600; }
+
+  /* ── Empty section ──────────────────────────────────────────────────────── */
+  .td-empty-section {
+    padding: 28px 20px;
+    font-size: 0.85rem; color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* ── Error / unsupported cards ──────────────────────────────────────────── */
+  .td-error-card, .td-unsupported {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 56px 24px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); text-align: center;
+    color: var(--text-muted); box-shadow: var(--shadow-card);
+    margin-top: 16px;
+  }
+  .td-error-card svg, .td-unsupported svg { color: var(--text-dim); }
+  .td-error-card p, .td-unsupported p {
+    font-size: 1rem; font-weight: 600; color: var(--text); margin: 0;
+  }
+  .td-error-card span, .td-unsupported span { font-size: 0.85rem; }
+
+  /* ── Responsive ─────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .td-stats { gap: 8px; }
+    .td-stat { padding: 10px 14px; min-width: 80px; }
+    .td-info-row { flex-direction: column; }
+    .td-match__name { font-size: 0.8rem; }
+  }
+</style>

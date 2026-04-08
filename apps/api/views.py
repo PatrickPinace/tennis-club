@@ -4,9 +4,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.tournaments.models import Tournament
 from apps.matches import tools as match_tools
-from .serializers import (TournamentSerializer, TournamentListSerializer, RegisterSerializer,
-                          UserDetailsSerializer, NotificationSerializer, MatchCreateSerializer,
-                          MatchHistorySerializer, PlayerRankingSerializer)
+from .serializers import (TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
+                          RegisterSerializer, UserDetailsSerializer, NotificationSerializer,
+                          MatchCreateSerializer, MatchHistorySerializer, PlayerRankingSerializer)
 from django.contrib.auth.models import User
 from django.utils import timezone
 from chats.models import ChatMessage
@@ -56,6 +56,25 @@ class TournamentViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Tournament.objects.all().order_by('-created_at')
     serializer_class = TournamentSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+
+class TournamentDetailView(generics.RetrieveAPIView):
+    """
+    Detal turnieju dla frontendu Astro.
+    GET /api/tournaments/{id}/detail/
+
+    Zwraca: dane podstawowe, uczestnicy, mecze, standings (RR), config (RR).
+    Auth: IsAuthenticatedOrReadOnly — odczyt publiczny.
+    """
+    serializer_class = TournamentDetailSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return (
+            Tournament.objects
+            .select_related('created_by', 'facility', 'round_robin_config')
+            .prefetch_related('participants', 'matches')
+        )
 
 
 class TournamentListView(generics.ListAPIView):

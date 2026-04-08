@@ -12,6 +12,7 @@ router.register(r'tournaments', views.TournamentViewSet, basename='tournament')
 urlpatterns = [
     # Specyficzne ścieżki PRZED router.urls — router może przechwytywać ścieżki jako pk ViewSetu
     path('tournaments/list/', views.TournamentListView.as_view(), name='tournaments-list'),
+    path('tournaments/<int:pk>/detail/', views.TournamentDetailView.as_view(), name='tournament-detail'),
     path('rankings/list/', views.RankingListView.as_view(), name='rankings-list'),
     path('dashboard/summary/', views.DashboardSummaryView.as_view(), name='dashboard-summary'),
     path('', include(router.urls)),

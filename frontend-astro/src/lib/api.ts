@@ -85,6 +85,72 @@ export interface NextReservationData {
   status: string;
 }
 
+// ── Tournament Detail ───────────────────────────────────────────────────────
+
+export interface TournamentMatch {
+  id: number;
+  round_number: number;
+  match_index: number;
+  status: string;
+  participant1_name: string | null;
+  participant2_name: string | null;
+  winner_name: string | null;
+  set1_p1_score: number | null;
+  set1_p2_score: number | null;
+  set2_p1_score: number | null;
+  set2_p2_score: number | null;
+  set3_p1_score: number | null;
+  set3_p2_score: number | null;
+  score: string | null;
+  scheduled_time: string | null;
+}
+
+export interface RRStandingRow {
+  participant_id: number;
+  display_name: string;
+  points: number;
+  matches_played: number;
+  wins: number;
+  losses: number;
+  sets_won: number;
+  sets_lost: number;
+  games_won: number;
+  games_lost: number;
+  sets_diff: number;
+  games_diff: number;
+}
+
+export interface RRConfig {
+  max_participants: number;
+  sets_to_win: number;
+  games_per_set: number;
+  points_for_win: number;
+  points_for_loss: number;
+  points_for_set_win: number;
+  points_for_set_loss: number;
+  points_for_gem_win: number;
+  tie_breaker_priority: string;
+}
+
+export interface TournamentDetail {
+  id: number;
+  name: string;
+  description: string;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  tournament_type: string;
+  match_format: string;
+  rank: number;
+  facility_name: string | null;
+  created_by_name: string;
+  participant_count: number;
+  participants: Participant[];
+  config: RRConfig | null;
+  matches: TournamentMatch[];
+  standings: RRStandingRow[] | null;
+}
+
 // ── Rankingi ─────────────────────────────────────────────────────────────────
 
 export interface PlayerRankingEntry {
@@ -219,6 +285,18 @@ export async function getTournaments(): Promise<Tournament[]> {
 export async function getTournamentsList(): Promise<TournamentListEntry[]> {
   const data = await apiFetch<TournamentListEntry[]>('/api/tournaments/list/');
   return data ?? [];
+}
+
+/**
+ * Zwraca pełny detal turnieju z meczami i standings.
+ * Endpoint: GET /api/tournaments/{id}/detail/
+ * Auth: IsAuthenticatedOrReadOnly — publiczny GET.
+ * Zwraca null gdy turniej nie istnieje (404).
+ */
+export async function getTournamentDetail(
+  id: number
+): Promise<TournamentDetail | null> {
+  return apiFetch<TournamentDetail>(`/api/tournaments/${id}/detail/`);
 }
 
 /**
