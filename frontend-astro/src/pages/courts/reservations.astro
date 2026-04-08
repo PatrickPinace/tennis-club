@@ -1,0 +1,133 @@
+---
+// courts/reservations.astro — placeholder page
+// Docelowo: dane z GET /api/courts/reservations/ (endpoint do dodania)
+import AppLayout from '@/layouts/AppLayout.astro';
+---
+
+<AppLayout title="Rezerwacje kortów" pageTitle="Rezerwacje kortów">
+
+  <div class="page-header">
+    <div class="page-header__eyebrow">Korty</div>
+    <h1 class="page-header__title">Rezerwacje kortów</h1>
+    <p class="page-header__subtitle">
+      Kalendarz rezerwacji i grafik kortów. Dane z <code>GET /api/courts/reservations/</code> (endpoint do implementacji).
+    </p>
+  </div>
+
+  <!-- Sekcja akcji -->
+  <div style="display:flex; justify-content:flex-end; margin-bottom:20px;">
+    <button class="btn-primary" disabled>+ Nowa rezerwacja</button>
+  </div>
+
+  <!-- Lista rezerwacji placeholder -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Moje rezerwacje</span>
+      <span class="badge-neutral">Placeholder</span>
+    </div>
+    <div class="card-body">
+      <div class="empty-state">
+        <div class="empty-state__icon">🎾</div>
+        <div class="empty-state__title">Brak danych</div>
+        <p class="empty-state__text">
+          Ten widok zostanie zasilony po podłączeniu API Django
+          i implementacji endpointu <code>/api/courts/reservations/</code>.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline placeholder -->
+  <div class="card" style="margin-top: 20px;">
+    <div class="card-header">
+      <span class="card-title">Kalendarz kortów</span>
+      <span class="badge-neutral">Placeholder</span>
+    </div>
+    <div class="card-body">
+      <div class="timeline-placeholder">
+        <div class="timeline-placeholder__info">
+          Komponent kalendarza kortów (FullCalendar / custom grid)
+          zostanie zaimplementowany w kolejnym etapie.
+          <br/><br/>
+          Istniejący endpoint Django: <code>GET /courts/api/timeline-data/&lt;pk&gt;/</code>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</AppLayout>
+
+<style>
+  .page-header { margin-bottom: 28px; }
+  .page-header__eyebrow {
+    font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--primary); margin-bottom: 4px;
+  }
+  .page-header__title {
+    font-size: 1.6rem; font-weight: 800; color: var(--text);
+    line-height: 1.15; letter-spacing: -0.02em;
+  }
+  .page-header__subtitle {
+    margin-top: 4px; font-size: 0.9rem; color: var(--text-muted);
+  }
+  .page-header__subtitle code {
+    font-family: var(--font-mono); font-size: 0.82rem;
+    background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .card-header {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .card-body { padding: 20px; }
+
+  .badge-neutral {
+    display: inline-flex; padding: 2px 8px; border-radius: 99px;
+    font-size: 0.72rem; font-weight: 600;
+    background: var(--surface-2); color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    min-height: 38px; padding: 0 16px;
+    border-radius: var(--radius-sm); border: none;
+    font-size: 0.875rem; font-weight: 600; cursor: pointer;
+    background: var(--primary-btn); color: var(--primary-btn-text);
+    transition: background 0.15s;
+  }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px;
+    padding: 60px 20px; text-align: center; color: var(--text-muted);
+  }
+  .empty-state__icon { font-size: 2.5rem; opacity: 0.4; }
+  .empty-state__title { font-size: 1rem; font-weight: 600; color: var(--text); }
+  .empty-state__text { font-size: 0.875rem; max-width: 36ch; }
+  .empty-state__text code {
+    font-family: var(--font-mono); font-size: 0.8rem;
+    background: var(--surface-2); padding: 1px 4px; border-radius: 4px;
+  }
+
+  .timeline-placeholder {
+    min-height: 200px; display: flex; align-items: center; justify-content: center;
+    border: 2px dashed var(--border); border-radius: var(--radius-sm);
+  }
+  .timeline-placeholder__info {
+    text-align: center; color: var(--text-dim);
+    font-size: 0.85rem; line-height: 1.7; max-width: 44ch;
+  }
+  .timeline-placeholder__info code {
+    font-family: var(--font-mono); font-size: 0.8rem;
+    background: var(--surface-2); padding: 1px 4px; border-radius: 4px;
+    color: var(--primary);
+  }
+</style>

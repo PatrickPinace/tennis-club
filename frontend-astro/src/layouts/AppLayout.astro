@@ -1,0 +1,119 @@
+---
+// AppLayout.astro — bazowy app shell: sidebar + topbar + content
+// Odpowiednik templates/layouts/base_app.html
+import Sidebar from '@/components/Sidebar.astro';
+import Topbar from '@/components/Topbar.astro';
+import '@/styles/global.css';
+
+interface Props {
+  title?: string;
+  pageTitle?: string;  // tytuł wyświetlany w topbarze
+}
+
+const {
+  title = 'Tennis Club',
+  pageTitle,
+} = Astro.props;
+
+// Aktywna ścieżka — przekazujemy do Sidebar dla podświetlenia nav linków
+const currentPath = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} — Tennis Club</title>
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+
+  <!-- Zapobiegaj FOIT (flash of incorrect theme) — uruchom PRZED parserem -->
+  <script is:inline>
+    (function () {
+      var t = localStorage.getItem('tc-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+
+<body>
+  <a href="#main-content" class="skip-link">Przejdź do treści</a>
+
+  <Sidebar currentPath={currentPath} />
+
+  <div class="app-main">
+    <Topbar title={pageTitle} />
+
+    <main id="main-content" class="app-content">
+      <slot />
+    </main>
+  </div>
+
+  <!-- Theme switcher + mobile sidebar JS — przepisany z base_app.html -->
+  <script is:inline>
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('tc-theme', next);
+      updateThemeIcon(next);
+    }
+
+    function updateThemeIcon(theme) {
+      var iconDark  = document.getElementById('theme-icon-dark');
+      var iconLight = document.getElementById('theme-icon-light');
+      if (!iconDark || !iconLight) return;
+      if (theme === 'dark') {
+        iconDark.style.display  = 'block';
+        iconLight.style.display = 'none';
+      } else {
+        iconDark.style.display  = 'none';
+        iconLight.style.display = 'block';
+      }
+    }
+
+    // Init ikony motywu
+    (function () {
+      var t = localStorage.getItem('tc-theme') || 'dark';
+      updateThemeIcon(t);
+    })();
+
+    // Mobile sidebar toggle
+    function toggleSidebar() {
+      document.getElementById('app-sidebar').classList.toggle('is-open');
+      document.getElementById('sidebar-overlay').classList.toggle('is-visible');
+    }
+
+    // Pokaż hamburger tylko na mobile
+    if (window.innerWidth <= 1024) {
+      var toggle = document.getElementById('sidebar-toggle');
+      if (toggle) toggle.style.display = 'flex';
+    }
+  </script>
+</body>
+</html>
+
+<style>
+  /* App main — z static/css/ui/layout.css */
+  .app-main {
+    margin-left: var(--sidebar-width);
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  .app-content {
+    flex: 1;
+    padding: 28px 32px;
+    max-width: var(--content-max);
+  }
+
+  @media (max-width: 1024px) {
+    .app-main { margin-left: 0; }
+  }
+
+  @media (max-width: 768px) {
+    .app-content { padding: 16px; }
+  }
+</style>

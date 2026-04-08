@@ -1,0 +1,140 @@
+---
+// rankings.astro — placeholder page
+// Docelowo: pobiera dane z GET /api/rankings/ (endpoint do dodania w Django)
+import AppLayout from '@/layouts/AppLayout.astro';
+---
+
+<AppLayout title="Ranking" pageTitle="Ranking">
+
+  <div class="page-header">
+    <div class="page-header__eyebrow">Statystyki</div>
+    <h1 class="page-header__title">Ranking klubowy</h1>
+    <p class="page-header__subtitle">
+      Tabela rankingowa graczy. Dane z endpointu
+      <code>GET /api/rankings/</code> (do implementacji w Django).
+    </p>
+  </div>
+
+  <!-- Tabela placeholder -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Top graczy</span>
+      <span class="badge badge-neutral">Placeholder</span>
+    </div>
+    <div class="card-body" style="padding: 0;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Gracz</th>
+            <th>Punkty</th>
+            <th>Mecze</th>
+            <th>Win %</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[1,2,3,4,5].map(i => (
+            <tr>
+              <td><span class={`rank-pos${i <= 3 ? ` rank-pos--${i}` : ''}`}>{i}</span></td>
+              <td>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <div class="avatar avatar-sm">{String.fromCharCode(64 + i)}</div>
+                  <span>Gracz {i}</span>
+                </div>
+              </td>
+              <td style="font-weight:600;">—</td>
+              <td style="color:var(--text-muted);">—</td>
+              <td style="color:var(--text-muted);">—</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer" style="text-align:center; font-size:0.8rem; color:var(--text-dim);">
+      Dane pojawią się po podłączeniu API Django
+    </div>
+  </div>
+
+</AppLayout>
+
+<style>
+  .page-header {
+    margin-bottom: 28px;
+  }
+  .page-header__eyebrow {
+    font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--primary); margin-bottom: 4px;
+  }
+  .page-header__title {
+    font-size: 1.6rem; font-weight: 800; color: var(--text);
+    line-height: 1.15; letter-spacing: -0.02em;
+  }
+  .page-header__subtitle {
+    margin-top: 4px; font-size: 0.9rem; color: var(--text-muted);
+  }
+  .page-header__subtitle code {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  /* Card, Table, Badge, Avatar — tokeny z design systemu */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 0.9rem; font-weight: 600; color: var(--text); }
+  .card-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+  .badge-neutral {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 99px;
+    font-size: 0.72rem; font-weight: 600; line-height: 1.6;
+    background: var(--surface-2); color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+  .data-table th {
+    padding: 10px 14px; text-align: left;
+    font-size: 0.72rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-muted); border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 13px 14px; border-bottom: 1px solid var(--border); color: var(--text);
+  }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table tbody tr:hover td { background: var(--surface-hover); }
+
+  .rank-pos {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: var(--radius-xs);
+    font-size: 0.82rem; font-weight: 700;
+    background: var(--surface-2); color: var(--text-muted);
+  }
+  .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .rank-pos--2 { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .rank-pos--3 { background: rgba(180,108,64,0.15);  color: #b47a40; }
+
+  .avatar {
+    border-radius: 50%;
+    background: var(--primary-subtle);
+    border: 2px solid var(--primary);
+    color: var(--primary); font-weight: 700;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .avatar-sm { width: 32px; height: 32px; font-size: 0.78rem; }
+</style>
