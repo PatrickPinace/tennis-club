@@ -1,9 +1,70 @@
 ---
 // dashboard.astro — realistyczny UI dashboardu wg projektu grafika
-// Dane statyczne (placeholder) — API do podpięcia w kolejnym etapie
+// Turnieje i powiadomienia: prawdziwe dane z Django API (server-side fetch)
 import AppLayout from '@/layouts/AppLayout.astro';
+import {
+  getDashboardTournaments,
+  getUnreadCount,
+  TOURNAMENT_STATUS_LABEL,
+  TOURNAMENT_TYPE_LABEL,
+  type Tournament,
+} from '../lib/api';
 
-// Statyczne dane demo — docelowo z GET /api/dashboard/summary/ i /api/me/
+// ── Dane z Django API (server-side) ──────────────────────────────────────────
+
+// Turnieje: publiczne GET /api/tournaments/ — nie wymaga auth
+const apiTournaments = await getDashboardTournaments(5);
+
+// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
+// Liczba powiadomień ładowana jest client-side przez JS (patrz <script> na końcu)
+// Gdy backend niedostępny lub niezalogowany — graceful degradation (brak odznaki)
+const unreadCount = null; // null = nie renderuj odznaki SSR
+
+// Mapuj turnieje z API na format UI dashboardu
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'krótki', year: 'numeric' })
+    .replace(' ', ' ');
+}
+
+const liveTournaments = apiTournaments.map((t: Tournament) => ({
+  name: t.name,
+  type: TOURNAMENT_TYPE_LABEL[t.tournament_type] ?? t.tournament_type,
+  date: t.start_date ? formatDate(t.start_date) : '—',
+  status: t.status === 'REG' ? 'open' : 'active',
+  statusLabel: TOURNAMENT_STATUS_LABEL[t.status] ?? t.status,
+  participants: t.participants.length,
+  maxParticipants: t.participants.length || 8, // max nieznany z API — używamy liczby uczestników lub 8
+}));
+
+// Fallback gdy backend niedostępny lub brak danych
+const fallbackTournaments = [
+  {
+    name: 'Puchar Jesieni',
+    type: 'Single Elimination',
+    date: '28–29 Paź 2026',
+    status: 'registered',
+    statusLabel: 'Zarejestrowany',
+    participants: 16,
+    maxParticipants: 16,
+  },
+  {
+    name: 'Liga Zimowa — Runda 3',
+    type: 'Round Robin',
+    date: '15 Lis 2026',
+    status: 'open',
+    statusLabel: 'Otwarta rejestracja',
+    participants: 9,
+    maxParticipants: 12,
+  },
+];
+
+const tournaments = liveTournaments.length > 0 ? liveTournaments : fallbackTournaments;
+const isLiveData = liveTournaments.length > 0;
+
+// ── Statyczne dane (brak endpointu API) ──────────────────────────────────────
+// Docelowo: GET /api/dashboard/summary/ i /api/me/
 const stats = [
   {
     label: 'Najbliższa Rezerwacja',
@@ -28,41 +89,13 @@ const stats = [
     accent: 'neutral',
   },
   {
-    label: 'Nadchodzący Turniej',
-    value: 'Puchar Jesieni',
-    detail: '28–29 Paź · Zarejestrowany',
+    label: isLiveData ? `${tournaments.length} turniejów` : 'Nadchodzący Turniej',
+    value: isLiveData ? tournaments[0]?.name ?? '—' : 'Puchar Jesieni',
+    detail: isLiveData
+      ? `${tournaments[0]?.date ?? ''} · ${tournaments[0]?.statusLabel ?? ''}`
+      : '28–29 Paź · Zarejestrowany',
     icon: 'trophy',
     accent: 'neutral',
-  },
-];
-
-const tournaments = [
-  {
-    name: 'Puchar Jesieni',
-    type: 'Single Elimination',
-    date: '28–29 Paź 2026',
-    status: 'registered',
-    statusLabel: 'Zarejestrowany',
-    participants: 16,
-    maxParticipants: 16,
-  },
-  {
-    name: 'Liga Zimowa — Runda 3',
-    type: 'Round Robin',
-    date: '15 Lis 2026',
-    status: 'open',
-    statusLabel: 'Otwarta rejestracja',
-    participants: 9,
-    maxParticipants: 12,
-  },
-  {
-    name: 'Americano Sobotni',
-    type: 'Americano',
-    date: '5 Lis 2026',
-    status: 'open',
-    statusLabel: 'Wolne miejsca',
-    participants: 6,
-    maxParticipants: 8,
   },
 ];
 
@@ -118,6 +151,7 @@ const quickActions = [
   greeting="Witaj z powrotem, Marcin!"
   showSearch={true}
   showCta={true}
+  unreadCount={unreadCount}
 >
 
   <!-- ── Stat cards ── -->
@@ -349,6 +383,85 @@ const quickActions = [
   </div>
 
 </AppLayout>
+
+<!--
+  Client-side: odśwież licznik powiadomień z Django API.
+  Wymaga sesji Django w przegladarce (cookies).
+  Graceful degradation: jeśli brak sesji lub backend niedostępny — nic nie robi.
+-->
+<script>
+  (async function initNotifications() {
+    const API_BASE = (window as any).__TC_API_BASE__ ||
+      (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ||
+      'http://localhost:8000';
+
+    // Pobierz liczbę nieprzeczytanych
+    try {
+      const res = await fetch(`${API_BASE}/notifications/api/unread-count/`, {
+        credentials: 'include',   // wyślij cookie sesji Django
+        headers: { 'Accept': 'application/json' },
+        redirect: 'manual',       // nie podążaj za redirect 302 → login
+      });
+
+      if (res.type === 'opaqueredirect' || !res.ok) return; // niezalogowany lub błąd
+
+      const data = await res.json();
+      const count: number = data?.count ?? 0;
+
+      if (count > 0) {
+        const badge = document.getElementById('notif-count');
+        if (badge) {
+          badge.textContent = count > 99 ? '99+' : String(count);
+          badge.style.display = '';
+        }
+      }
+    } catch {
+      // backend niedostępny — brak odznaki, brak błędu UI
+    }
+
+    // Po kliknięciu dzwonka: załaduj listę powiadomień
+    const btn = document.getElementById('notif-btn');
+    if (!btn) return;
+
+    let loaded = false;
+    btn.addEventListener('click', async () => {
+      if (loaded) return;
+      try {
+        const res = await fetch(`${API_BASE}/notifications/api/notifications/`, {
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' },
+          redirect: 'manual',
+        });
+        if (res.type === 'opaqueredirect' || !res.ok) return;
+
+        const data = await res.json();
+        const list = document.getElementById('notif-list');
+        if (!list) return;
+
+        const notifications = data?.notifications ?? [];
+        if (notifications.length === 0) {
+          list.innerHTML = '<div class="topbar__notif-empty">Brak nowych powiadomień</div>';
+        } else {
+          list.innerHTML = notifications
+            .map((n: { message: string; created_at: string }) => `
+              <div class="topbar__notif-item">
+                <div class="topbar__notif-msg">${escHtml(n.message)}</div>
+                <div class="topbar__notif-time">${escHtml(n.created_at)}</div>
+              </div>
+            `)
+            .join('');
+        }
+        loaded = true;
+      } catch {
+        // cicho ignoruj
+      }
+    });
+
+    function escHtml(s: string): string {
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  })();
+</script>
 
 <style>
   /* ── Stat cards grid ─────────────────────────────────────────────────────── */

@@ -12,6 +12,8 @@ interface Props {
   showCta?: boolean;
   ctaLabel?: string;
   ctaHref?: string;
+  /** Liczba nieprzeczytanych powiadomień z Django API (null = niezalogowany) */
+  unreadCount?: number | null;
 }
 
 const {
@@ -21,6 +23,7 @@ const {
   showCta = true,
   ctaLabel,
   ctaHref,
+  unreadCount = null,
 } = Astro.props;
 
 const currentPath = Astro.url.pathname;
@@ -33,6 +36,8 @@ const currentPath = Astro.url.pathname;
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title} — Tennis Club</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <!-- Adres Django API — używany przez client-side JS do fetchów -->
+  <meta name="api-base" content={import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8000'} />
 
   <!-- Zapobiegaj FOIT: ustaw motyw PRZED renderowaniem -->
   <script is:inline>
@@ -55,6 +60,7 @@ const currentPath = Astro.url.pathname;
       showCta={showCta}
       ctaLabel={ctaLabel}
       ctaHref={ctaHref}
+      unreadCount={unreadCount}
     />
 
     <main id="main-content" class="app-content">
