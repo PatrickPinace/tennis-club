@@ -4,8 +4,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.tournaments.models import Tournament
 from apps.matches import tools as match_tools
-from .serializers import (TournamentSerializer, RegisterSerializer, UserDetailsSerializer, 
-                          NotificationSerializer, MatchCreateSerializer, MatchHistorySerializer)
+from .serializers import (TournamentSerializer, RegisterSerializer, UserDetailsSerializer,
+                          NotificationSerializer, MatchCreateSerializer, MatchHistorySerializer,
+                          PlayerRankingSerializer)
 from django.contrib.auth.models import User
 from django.utils import timezone
 from chats.models import ChatMessage
@@ -93,6 +94,56 @@ class MatchFiltersView(APIView):
             'doubles_partners': UserDetailsSerializer(doubles_partners, many=True).data,
             'doubles_opponents': UserDetailsSerializer(doubles_opponents, many=True).data,
         })
+
+
+class RankingListView(generics.ListAPIView):
+    """
+    Lista rankingowa graczy.
+    GET /api/rankings/list/?type=SNG&year=2026
+
+    Query params:
+      type  — SNG (domyślny) lub DBL
+      year  — rok sezonu (liczba) lub "all" dla all-time
+
+    Auth: IsAuthenticatedOrReadOnly — odczyt publiczny, tak jak turnieje.
+    """
+    serializer_class = PlayerRankingSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        from apps.rankings.models import PlayerRanking
+        match_type = self.request.query_params.get('type', 'SNG').upper()
+        year_param = self.request.query_params.get('year', None)
+
+        # Normalizuj typ
+        if match_type not in ('SNG', 'DBL'):
+            match_type = 'SNG'
+
+        # Wyznacz sezon
+        if year_param is None or year_param == '':
+            # Domyślnie: najnowszy dostępny sezon z danych
+            latest = (
+                PlayerRanking.objects
+                .filter(match_type=match_type)
+                .exclude(season=None)
+                .order_by('-season')
+                .values_list('season', flat=True)
+                .first()
+            )
+            season = latest  # może być None = all-time
+        elif year_param.lower() == 'all':
+            season = None
+        elif year_param.isdigit():
+            season = int(year_param)
+        else:
+            season = None
+
+        return (
+            PlayerRanking.objects
+            .filter(match_type=match_type, season=season)
+            .select_related('user')
+            .order_by('position')
+        )
 
 
 class DashboardSummaryView(APIView):

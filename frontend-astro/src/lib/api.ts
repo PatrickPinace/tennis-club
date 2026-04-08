@@ -69,6 +69,22 @@ export interface NextReservationData {
   status: string;
 }
 
+// ── Rankingi ─────────────────────────────────────────────────────────────────
+
+export interface PlayerRankingEntry {
+  position: number;
+  display_name: string;
+  points: number;
+  matches_played: number;
+  matches_won: number;
+  matches_lost: number;
+  sets_won: number;
+  sets_lost: number;
+  win_rate: number;    // 0-100, obliczane przez backend
+  match_type: 'SNG' | 'DBL';
+  season: number | null;
+}
+
 export interface DashboardSummary {
   ranking: RankingData | null;
   last_match: LastMatchData | null;
@@ -229,4 +245,21 @@ export async function getDashboardSummary(
   sessionCookie?: string
 ): Promise<DashboardSummary | null> {
   return apiFetch<DashboardSummary>('/api/dashboard/summary/', { sessionCookie });
+}
+
+/**
+ * Zwraca listę rankingową.
+ * Endpoint: GET /api/rankings/list/?type=SNG&year=2026
+ * Auth: IsAuthenticatedOrReadOnly — publiczny GET, brak auth wymagany.
+ * @param matchType 'SNG' | 'DBL' (domyślnie SNG)
+ * @param year  rok sezonu lub 'all' dla all-time; undefined = najnowszy dostępny
+ */
+export async function getRankings(
+  matchType: 'SNG' | 'DBL' = 'SNG',
+  year?: string | number
+): Promise<PlayerRankingEntry[]> {
+  const params = new URLSearchParams({ type: matchType });
+  if (year !== undefined) params.set('year', String(year));
+  const data = await apiFetch<PlayerRankingEntry[]>(`/api/rankings/list/?${params}`);
+  return data ?? [];
 }

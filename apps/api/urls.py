@@ -22,4 +22,5 @@ urlpatterns = [
     path('matches/history/', views.MatchHistoryView.as_view(), name='api-match-history'),
     path('matches/filters/', views.MatchFiltersView.as_view(), name='api-match-filters'),
     path('dashboard/summary/', views.DashboardSummaryView.as_view(), name='dashboard-summary'),
+    path('rankings/list/', views.RankingListView.as_view(), name='rankings-list'),
 ]

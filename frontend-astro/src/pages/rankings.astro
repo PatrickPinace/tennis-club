@@ -1,22 +1,57 @@
 ---
-// rankings.astro — leaderboard z danymi demo
-// Docelowo: GET /api/rankings/ (endpoint do dodania w Django)
+// rankings.astro — tabela rankingowa połączona z Django API
+// GET /api/rankings/list/?type=SNG  (IsAuthenticatedOrReadOnly — publiczny)
+// Trend nie jest dostępny w API — wyświetlamy '—' dla live danych
+// Karta "Moja pozycja" wypełniana client-side z /api/dashboard/summary/
+
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
+import { getRankings, type PlayerRankingEntry } from '@/lib/api';
 
-// Dane demo — docelowo z /api/rankings/
-const players = [
-  { pos: 1, name: 'Tomasz Bąk',      initials: 'TB', points: 2840, matches: 62, wins: 51, trend: '+2', trendUp: true,  type: 'SNG' },
-  { pos: 2, name: 'Piotr Wiśniewski', initials: 'PW', points: 2710, matches: 58, wins: 46, trend: '—',  trendUp: null,  type: 'SNG' },
-  { pos: 3, name: 'Adam Kowalczyk',   initials: 'AK', points: 2590, matches: 55, wins: 43, trend: '+1', trendUp: true,  type: 'SNG' },
-  { pos: 4, name: 'Marcin Kowalski',  initials: 'MK', points: 2440, matches: 48, wins: 34, trend: '+3', trendUp: true,  type: 'SNG', isMe: true },
-  { pos: 5, name: 'Rafał Nowak',      initials: 'RN', points: 2380, matches: 52, wins: 35, trend: '-1', trendUp: false, type: 'SNG' },
-  { pos: 6, name: 'Paweł Zając',      initials: 'PZ', points: 2250, matches: 44, wins: 28, trend: '—',  trendUp: null,  type: 'SNG' },
-  { pos: 7, name: 'Łukasz Dąbrowski', initials: 'ŁD', points: 2180, matches: 41, wins: 26, trend: '-2', trendUp: false, type: 'SNG' },
-  { pos: 8, name: 'Marek Wróbel',     initials: 'MW', points: 2050, matches: 38, wins: 23, trend: '+1', trendUp: true,  type: 'SNG' },
-];
+// ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
+let players: PlayerRankingEntry[] = [];
+let isLive = false;
 
-const myPos = players.find(p => p.isMe);
+try {
+  const data = await getRankings('SNG');
+  if (data && data.length > 0) {
+    players = data;
+    isLive = true;
+  }
+} catch (e) {
+  console.warn('[rankings] API error, using fallback demo data:', e);
+}
+
+// ── Fallback demo — gdy API niedostępne lub baza pusta ─────────────────────────
+if (players.length === 0) {
+  players = [
+    { position: 1, display_name: 'Tomasz Bąk',      points: 2840, matches_played: 62, matches_won: 51, matches_lost: 11, sets_won: 112, sets_lost: 44, win_rate: 82, match_type: 'SNG', season: 2026 },
+    { position: 2, display_name: 'Piotr Wiśniewski', points: 2710, matches_played: 58, matches_won: 46, matches_lost: 12, sets_won: 100, sets_lost: 40, win_rate: 79, match_type: 'SNG', season: 2026 },
+    { position: 3, display_name: 'Adam Kowalczyk',   points: 2590, matches_played: 55, matches_won: 43, matches_lost: 12, sets_won: 94,  sets_lost: 38, win_rate: 78, match_type: 'SNG', season: 2026 },
+    { position: 4, display_name: 'Marcin Kowalski',  points: 2440, matches_played: 48, matches_won: 34, matches_lost: 14, sets_won: 80,  sets_lost: 42, win_rate: 71, match_type: 'SNG', season: 2026 },
+    { position: 5, display_name: 'Rafał Nowak',      points: 2380, matches_played: 52, matches_won: 35, matches_lost: 17, sets_won: 78,  sets_lost: 48, win_rate: 67, match_type: 'SNG', season: 2026 },
+    { position: 6, display_name: 'Paweł Zając',      points: 2250, matches_played: 44, matches_won: 28, matches_lost: 16, sets_won: 64,  sets_lost: 44, win_rate: 64, match_type: 'SNG', season: 2026 },
+    { position: 7, display_name: 'Łukasz Dąbrowski', points: 2180, matches_played: 41, matches_won: 26, matches_lost: 15, sets_won: 60,  sets_lost: 40, win_rate: 63, match_type: 'SNG', season: 2026 },
+    { position: 8, display_name: 'Marek Wróbel',     points: 2050, matches_played: 38, matches_won: 23, matches_lost: 15, sets_won: 54,  sets_lost: 42, win_rate: 61, match_type: 'SNG', season: 2026 },
+  ];
+}
+
+// ── Helper: inicjały z display_name ───────────────────────────────────────────
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('');
+}
+
+// ── Helper: klasa win-rate ─────────────────────────────────────────────────────
+function winRateClass(wr: number): string {
+  if (wr >= 70) return 'win-rate win-rate--high';
+  if (wr >= 50) return 'win-rate win-rate--mid';
+  return 'win-rate win-rate--low';
+}
 ---
 
 <AppLayout
@@ -32,52 +67,47 @@ const myPos = players.find(p => p.isMe);
     subtitle="Klasyfikacja singlowa — sezon 2026. Punkty naliczane po zakończeniu turniejów."
   />
 
-  <!-- Moja pozycja — highlight card -->
-  {myPos && (
-    <div class="my-rank-card">
-      <div class="my-rank-card__left">
-        <div class="my-rank-card__pos">
-          <span class="my-rank-card__pos-num">{myPos.pos}</span>
-          <span class="my-rank-card__pos-label">miejsce</span>
-        </div>
-        <div class="my-rank-card__divider" aria-hidden="true"></div>
-        <div>
-          <div class="my-rank-card__name">Twoja pozycja</div>
-          <div class="my-rank-card__sub">Top 10% graczy klubu</div>
-        </div>
+  <!-- Moja pozycja — wypełniana client-side; ukryta domyślnie -->
+  <div class="my-rank-card" id="my-rank-card" style="display:none;" aria-live="polite">
+    <div class="my-rank-card__left">
+      <div class="my-rank-card__pos">
+        <span class="my-rank-card__pos-num" id="my-rank-pos">—</span>
+        <span class="my-rank-card__pos-label">miejsce</span>
       </div>
-      <div class="my-rank-card__stats">
-        <div class="my-rank-card__stat">
-          <span class="my-rank-card__stat-val">{myPos.points}</span>
-          <span class="my-rank-card__stat-lbl">Punkty</span>
-        </div>
-        <div class="my-rank-card__stat">
-          <span class="my-rank-card__stat-val">{myPos.wins}/{myPos.matches}</span>
-          <span class="my-rank-card__stat-lbl">Wygrane</span>
-        </div>
-        <div class="my-rank-card__stat">
-          <span class="my-rank-card__stat-val">{Math.round(myPos.wins/myPos.matches*100)}%</span>
-          <span class="my-rank-card__stat-lbl">Win Rate</span>
-        </div>
-        <span class="my-rank-card__trend">
-          ↗ {myPos.trend} w tym miesiącu
-        </span>
+      <div class="my-rank-card__divider" aria-hidden="true"></div>
+      <div>
+        <div class="my-rank-card__name">Twoja pozycja</div>
+        <div class="my-rank-card__sub" id="my-rank-sub">Ranking singlowy 2026</div>
       </div>
     </div>
-  )}
+    <div class="my-rank-card__stats">
+      <div class="my-rank-card__stat">
+        <span class="my-rank-card__stat-val" id="my-rank-pts">—</span>
+        <span class="my-rank-card__stat-lbl">Punkty</span>
+      </div>
+      <div class="my-rank-card__stat">
+        <span class="my-rank-card__stat-val" id="my-rank-record">—</span>
+        <span class="my-rank-card__stat-lbl">Wygrane</span>
+      </div>
+      <div class="my-rank-card__stat">
+        <span class="my-rank-card__stat-val" id="my-rank-wr">—</span>
+        <span class="my-rank-card__stat-lbl">Win Rate</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Główna tabela rankingowa -->
   <div class="tc-card">
     <div class="tc-card-header">
       <span class="tc-card-title">Top graczy — Singiel 2026</span>
       <div class="rank-filters">
-        <button class="rank-filter rank-filter--active">Singiel</button>
-        <button class="rank-filter">Debel</button>
+        <button class="rank-filter rank-filter--active" data-type="SNG">Singiel</button>
+        <button class="rank-filter" data-type="DBL">Debel</button>
       </div>
     </div>
 
     <div style="overflow-x:auto;">
-      <table class="tc-table rank-table">
+      <table class="tc-table rank-table" id="rank-table">
         <thead>
           <tr>
             <th style="width:52px;">#</th>
@@ -89,39 +119,36 @@ const myPos = players.find(p => p.isMe);
             <th class="col-num">Trend</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="rank-tbody">
           {players.map(p => (
-            <tr class={p.isMe ? 'rank-row--me' : ''}>
+            <tr data-pos={p.position}>
               <td>
-                <span class={`rank-pos${p.pos <= 3 ? ` rank-pos--${p.pos}` : ''}`}>
-                  {p.pos}
+                <span class={`rank-pos${p.position <= 3 ? ` rank-pos--${p.position}` : ''}`}>
+                  {p.position}
                 </span>
               </td>
               <td>
                 <div class="rank-player">
-                  <div class={`tc-avatar tc-avatar-sm${p.isMe ? ' tc-avatar--me' : ''}`} aria-hidden="true">
-                    {p.initials}
+                  <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+                    {getInitials(p.display_name)}
                   </div>
                   <div>
                     <div class="rank-player__name">
-                      {p.name}
-                      {p.isMe && <span class="rank-me-badge">Ty</span>}
+                      {p.display_name}
                     </div>
                   </div>
                 </div>
               </td>
               <td class="col-num rank-points">{p.points.toLocaleString('pl-PL')}</td>
-              <td class="col-num col-muted">{p.matches}</td>
-              <td class="col-num col-muted">{p.wins}</td>
+              <td class="col-num col-muted">{p.matches_played}</td>
+              <td class="col-num col-muted">{p.matches_won}</td>
               <td class="col-num">
-                <span class={`win-rate${p.wins/p.matches >= 0.7 ? ' win-rate--high' : p.wins/p.matches >= 0.5 ? ' win-rate--mid' : ' win-rate--low'}`}>
-                  {Math.round(p.wins / p.matches * 100)}%
+                <span class={winRateClass(p.win_rate)}>
+                  {Math.round(p.win_rate)}%
                 </span>
               </td>
               <td class="col-num">
-                {p.trendUp === true  && <span class="trend trend--up">↑ {p.trend}</span>}
-                {p.trendUp === false && <span class="trend trend--down">↓ {p.trend}</span>}
-                {p.trendUp === null  && <span class="trend trend--flat">{p.trend}</span>}
+                <span class="trend trend--flat">—</span>
               </td>
             </tr>
           ))}
@@ -130,14 +157,134 @@ const myPos = players.find(p => p.isMe);
     </div>
 
     <div class="tc-card-footer" style="display:flex; justify-content:space-between; align-items:center;">
-      <span style="font-size:0.78rem; color:var(--text-dim);">
-        Ostatnia aktualizacja: 8 kwi 2026 · Dane demo
+      <span style="font-size:0.78rem; color:var(--text-dim);" id="rank-footer-info">
+        {isLive
+          ? `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
+          : 'Ostatnia aktualizacja: 8 kwi 2026 · Dane demonstracyjne'
+        }
       </span>
       <a href="#" class="tc-btn tc-btn-ghost tc-btn-sm">Pełna tabela →</a>
     </div>
   </div>
 
 </AppLayout>
+
+<!-- ── Client-side: karta "Moja pozycja" + podświetlenie wiersza ─────────────── -->
+<script>
+  (async () => {
+    const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
+      ?? 'http://localhost:8000';
+
+    try {
+      const res = await fetch(`${apiBase}/api/dashboard/summary/`, {
+        credentials: 'include',
+        redirect: 'manual',
+      });
+      if (!res.ok || res.type === 'opaqueredirect') return;
+
+      const data = await res.json();
+      const ranking = data?.ranking;
+      if (!ranking || ranking.position == null) return;
+
+      const pos     = ranking.position;
+      const pts     = ranking.points ?? '—';
+      const won     = ranking.matches_won ?? '—';
+      const played  = ranking.matches_played ?? '—';
+      const wr      = ranking.win_rate != null ? `${Math.round(ranking.win_rate)}%` : '—';
+
+      // Wypełnij kartę
+      const card = document.getElementById('my-rank-card');
+      if (card) {
+        (document.getElementById('my-rank-pos') as HTMLElement).textContent = String(pos);
+        (document.getElementById('my-rank-pts') as HTMLElement).textContent = String(pts);
+        (document.getElementById('my-rank-record') as HTMLElement).textContent = `${won}/${played}`;
+        (document.getElementById('my-rank-wr') as HTMLElement).textContent = wr;
+        card.style.display = '';
+      }
+
+      // Podświetl wiersz w tabeli + dodaj badge "Ty"
+      const row = document.querySelector<HTMLTableRowElement>(`#rank-tbody tr[data-pos="${pos}"]`);
+      if (row) {
+        row.classList.add('rank-row--me');
+        const avatarEl = row.querySelector<HTMLElement>('.tc-avatar');
+        if (avatarEl) avatarEl.classList.add('tc-avatar--me');
+        const nameEl = row.querySelector<HTMLElement>('.rank-player__name');
+        if (nameEl && !nameEl.querySelector('.rank-me-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'rank-me-badge';
+          badge.textContent = 'Ty';
+          nameEl.appendChild(badge);
+        }
+      }
+    } catch {
+      // Cicha degradacja — użytkownik niezalogowany
+    }
+  })();
+
+  // ── Przełącznik Singiel / Debel ─────────────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.rank-filter').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.rank-filter').forEach(b => b.classList.remove('rank-filter--active'));
+      btn.classList.add('rank-filter--active');
+
+      const type = btn.dataset.type as 'SNG' | 'DBL';
+      const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
+        ?? 'http://localhost:8000';
+
+      const tbody = document.getElementById('rank-tbody');
+      const footer = document.getElementById('rank-footer-info');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch(`${apiBase}/api/rankings/list/?type=${type}`, {
+          credentials: 'include',
+          redirect: 'manual',
+        });
+        if (!res.ok || res.type === 'opaqueredirect') return;
+        const rows: Array<{
+          position: number; display_name: string; points: number;
+          matches_played: number; matches_won: number; win_rate: number;
+        }> = await res.json();
+
+        if (!rows || rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Brak danych dla wybranej kategorii.</td></tr>`;
+          return;
+        }
+
+        function initials(name: string) {
+          return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('');
+        }
+        function wrClass(wr: number) {
+          return wr >= 70 ? 'win-rate win-rate--high' : wr >= 50 ? 'win-rate win-rate--mid' : 'win-rate win-rate--low';
+        }
+
+        tbody.innerHTML = rows.map(p => `
+          <tr data-pos="${p.position}">
+            <td><span class="rank-pos${p.position <= 3 ? ` rank-pos--${p.position}` : ''}">${p.position}</span></td>
+            <td>
+              <div class="rank-player">
+                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">${initials(p.display_name)}</div>
+                <div><div class="rank-player__name">${p.display_name}</div></div>
+              </div>
+            </td>
+            <td class="col-num rank-points">${p.points.toLocaleString('pl-PL')}</td>
+            <td class="col-num col-muted">${p.matches_played}</td>
+            <td class="col-num col-muted">${p.matches_won}</td>
+            <td class="col-num"><span class="${wrClass(p.win_rate)}">${Math.round(p.win_rate)}%</span></td>
+            <td class="col-num"><span class="trend trend--flat">—</span></td>
+          </tr>
+        `).join('');
+
+        if (footer) {
+          const label = type === 'SNG' ? 'Singiel' : 'Debel';
+          footer.textContent = `Dane live · ${label} · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        }
+      } catch {
+        // Cicha degradacja
+      }
+    });
+  });
+</script>
 
 <style>
   /* ── My rank highlight ─────────────────────────────────────────────────── */
