@@ -1,6 +1,6 @@
 ---
-// Sidebar.astro — przepisany z templates/components/_sidebar.html
-// Parametry: currentPath — aktywna ścieżka routingu
+// Sidebar.astro — przepisany wg projektu grafika
+// Zawsze ciemny sidebar niezależnie od motywu strony
 interface Props {
   currentPath?: string;
 }
@@ -9,15 +9,23 @@ const { currentPath = '/' } = Astro.props;
 const navItems = [
   {
     href: '/dashboard',
-    label: 'Dashboard',
+    label: 'Start',
     match: ['/dashboard'],
     icon: `<path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>`,
   },
   {
-    href: '/rankings',
-    label: 'Ranking',
-    match: ['/rankings'],
-    icon: `<path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>`,
+    href: '/courts/reservations',
+    label: 'Rezerwacje',
+    match: ['/courts/reservations', '/courts'],
+    icon: `<path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>`,
+  },
+  {
+    href: '/matches',
+    label: 'Mecze',
+    match: ['/matches'],
+    // Vs icon
+    icon: `<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>`,
+    labelPrefix: 'Vs',
   },
   {
     href: '/tournaments',
@@ -26,56 +34,95 @@ const navItems = [
     icon: `<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>`,
   },
   {
-    href: '/courts/reservations',
-    label: 'Rezerwacje',
-    match: ['/courts/reservations', '/courts'],
-    icon: `<path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>`,
+    href: '/rankings',
+    label: 'Ranking',
+    match: ['/rankings'],
+    icon: `<path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>`,
+  },
+  {
+    href: '/profile',
+    label: 'Profil',
+    match: ['/profile'],
+    icon: `<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>`,
   },
 ];
 
-function isActive(item: typeof navItems[0]): boolean {
+const adminItems = [
+  {
+    href: '/manage/',
+    label: 'Zarządzanie',
+    match: ['/manage'],
+    icon: `<path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>`,
+  },
+];
+
+function isActive(item: { match: string[] }): boolean {
   return item.match.some(m => currentPath.startsWith(m));
 }
 ---
 
-<aside class="app-sidebar" id="app-sidebar">
+<aside class="sidebar" id="app-sidebar">
 
-  <!-- Brand -->
-  <div class="app-sidebar__brand">
-    <a href="/dashboard" class="brand-link">
-      <div class="brand-mark">TC</div>
-      <div>
-        <div class="brand-name">Tennis Club</div>
-        <div class="brand-sub">panel klubu</div>
+  <!-- Brand — logo z ikoną tenisową jak na makiecie -->
+  <div class="sidebar-brand">
+    <a href="/dashboard" class="sidebar-brand__link">
+      <!-- Zielona kula tenisowa -->
+      <div class="sidebar-brand__icon" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M6.3 6.3c2.4 2.4 2.4 9 0 11.4M17.7 6.3c-2.4 2.4-2.4 9 0 11.4" stroke-linecap="round"/>
+        </svg>
       </div>
+      <span class="sidebar-brand__name">Ace Club</span>
     </a>
   </div>
 
-  <!-- Navigation -->
-  <nav class="app-nav" aria-label="Główna nawigacja">
+  <!-- Main navigation -->
+  <nav class="sidebar-nav" aria-label="Główna nawigacja">
     {navItems.map(item => (
       <a
         href={item.href}
-        class={`app-nav__link${isActive(item) ? ' is-active' : ''}`}
+        class={`sidebar-nav__link${isActive(item) ? ' sidebar-nav__link--active' : ''}`}
+        aria-current={isActive(item) ? 'page' : undefined}
       >
-        <svg class="app-nav__icon" viewBox="0 0 20 20" fill="currentColor" set:html={item.icon} />
-        {item.label}
+        <span class="sidebar-nav__icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="currentColor" set:html={item.icon} />
+        </span>
+        <span class="sidebar-nav__label">
+          {item.labelPrefix && <span class="sidebar-nav__prefix">{item.labelPrefix}</span>}
+          {item.label}
+        </span>
+      </a>
+    ))}
+
+    <!-- Separator + admin section -->
+    <div class="sidebar-nav__sep" aria-hidden="true"></div>
+
+    {adminItems.map(item => (
+      <a
+        href={item.href}
+        class={`sidebar-nav__link${isActive(item) ? ' sidebar-nav__link--active' : ''}`}
+      >
+        <span class="sidebar-nav__icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" fill="currentColor" set:html={item.icon} />
+        </span>
+        <span class="sidebar-nav__label">{item.label}</span>
       </a>
     ))}
   </nav>
 
-  <!-- User placeholder (docelowo z API /api/me/) -->
-  <div class="app-sidebar__user">
-    <div class="sidebar-avatar">U</div>
-    <div>
-      <div class="sidebar-user__name">Użytkownik</div>
-      <div class="sidebar-user__role">Gracz</div>
+  <!-- User footer — Marcin Kowalski, Członek VIP -->
+  <div class="sidebar-user">
+    <div class="sidebar-user__avatar" aria-hidden="true">MK</div>
+    <div class="sidebar-user__info">
+      <div class="sidebar-user__name">Marcin Kowalski</div>
+      <div class="sidebar-user__role">Członek VIP</div>
     </div>
-    <a href="/accounts/logout/" class="sidebar-logout" title="Wyloguj się">
-      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-        <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
+    <button class="sidebar-user__settings" title="Ustawienia" aria-label="Ustawienia konta">
+      <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
       </svg>
-    </a>
+    </button>
   </div>
 
 </aside>
@@ -84,110 +131,167 @@ function isActive(item: typeof navItems[0]): boolean {
 <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <style>
-  /* App Sidebar — z static/css/ui/layout.css */
-  .app-sidebar {
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
+  /* ── Sidebar shell ──────────────────────────────────────────────────────── */
+  .sidebar {
+    /* Zawsze ciemny — jak na makiecie grafika */
+    background: #161b27;
+    border-right: 1px solid #1f2a3d;
     width: var(--sidebar-width);
     min-height: 100vh;
     position: fixed;
     top: 0; left: 0; bottom: 0;
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
     z-index: 100;
     overflow-y: auto;
+    overflow-x: hidden;
   }
 
-  .app-sidebar__brand {
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .brand-link { display: flex; align-items: center; gap: 12px; }
-
-  .brand-mark {
-    width: 38px; height: 38px;
-    border-radius: var(--radius-sm);
-    background: var(--primary);
-    color: #000;
-    font-weight: 800; font-size: 0.85rem;
-    display: grid; place-items: center;
+  /* ── Brand ──────────────────────────────────────────────────────────────── */
+  .sidebar-brand {
+    padding: 18px 20px 16px;
+    border-bottom: 1px solid #1f2a3d;
     flex-shrink: 0;
   }
 
-  .brand-name { font-weight: 700; font-size: 1rem; color: var(--text); line-height: 1.2; }
-  .brand-sub  { font-size: 0.72rem; color: var(--text-muted); font-weight: 400; }
+  .sidebar-brand__link {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+  }
 
-  .app-nav {
+  .sidebar-brand__icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #000;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.35);
+  }
+
+  .sidebar-brand__name {
+    font-weight: 800;
+    font-size: 1.05rem;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+
+  /* ── Navigation ─────────────────────────────────────────────────────────── */
+  .sidebar-nav {
     flex: 1;
-    padding: 16px 12px;
+    padding: 12px 12px 8px;
     display: flex; flex-direction: column; gap: 2px;
   }
 
-  .app-nav__link {
-    display: flex; align-items: center; gap: 10px;
+  .sidebar-nav__link {
+    display: flex; align-items: center; gap: 11px;
     padding: 9px 12px;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
+    border-radius: 8px;
+    color: #94a3b8;
     font-size: 0.875rem; font-weight: 500;
-    transition: background 0.15s, color 0.15s;
+    text-decoration: none;
+    transition: background 0.12s, color 0.12s;
+    position: relative;
   }
-  .app-nav__link:hover { background: var(--surface-hover); color: var(--text); }
-  .app-nav__link.is-active { background: var(--primary-subtle); color: var(--primary); }
 
-  .app-nav__icon {
+  .sidebar-nav__link:hover {
+    background: rgba(255,255,255,0.06);
+    color: #e2e8f0;
+  }
+
+  /* Aktywny link — pełne zielone tło jak na makiecie */
+  .sidebar-nav__link--active {
+    background: #22c55e !important;
+    color: #000000 !important;
+    font-weight: 600;
+  }
+
+  .sidebar-nav__link--active .sidebar-nav__icon svg {
+    color: #000000;
+  }
+
+  .sidebar-nav__icon {
     width: 18px; height: 18px;
-    flex-shrink: 0; opacity: 0.7;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
   }
-  .app-nav__link.is-active .app-nav__icon { opacity: 1; }
 
-  .app-sidebar__user {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border);
+  .sidebar-nav__icon svg {
+    width: 18px; height: 18px;
+  }
+
+  .sidebar-nav__label {
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .sidebar-nav__prefix {
+    font-size: 0.7rem;
+    font-weight: 700;
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .sidebar-nav__sep {
+    height: 1px;
+    background: #1f2a3d;
+    margin: 8px 4px;
+  }
+
+  /* ── User footer ─────────────────────────────────────────────────────────── */
+  .sidebar-user {
+    padding: 14px 16px;
+    border-top: 1px solid #1f2a3d;
     display: flex; align-items: center; gap: 10px;
+    flex-shrink: 0;
   }
 
-  .sidebar-avatar {
+  .sidebar-user__avatar {
     width: 34px; height: 34px;
     border-radius: 50%;
-    background: var(--primary-subtle);
-    border: 1.5px solid var(--primary);
-    color: var(--primary);
-    font-weight: 700; font-size: 0.8rem;
+    background: rgba(34,197,94,0.15);
+    border: 1.5px solid #22c55e;
+    color: #22c55e;
+    font-weight: 700; font-size: 0.72rem;
     display: grid; place-items: center;
     flex-shrink: 0;
+    /* docelowo img z API /api/me/ */
   }
+
+  .sidebar-user__info { flex: 1; min-width: 0; }
 
   .sidebar-user__name {
-    font-size: 0.82rem; font-weight: 600; color: var(--text);
+    font-size: 0.82rem; font-weight: 600; color: #f1f5f9;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .sidebar-user__role { font-size: 0.72rem; color: var(--text-muted); }
 
-  .sidebar-logout {
-    margin-left: auto; padding: 6px;
-    border-radius: var(--radius-xs);
-    color: var(--text-dim);
-    transition: color 0.15s, background 0.15s;
-    flex-shrink: 0;
+  .sidebar-user__role {
+    font-size: 0.7rem; color: #64748b; margin-top: 1px;
   }
-  .sidebar-logout:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
 
-  /* Mobile overlay */
+  .sidebar-user__settings {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    color: #64748b;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+    cursor: pointer;
+  }
+  .sidebar-user__settings:hover { background: rgba(255,255,255,0.08); color: #94a3b8; }
+
+  /* ── Mobile overlay ─────────────────────────────────────────────────────── */
   .sidebar-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.6);
-    z-index: 99;
-    backdrop-filter: blur(2px);
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65); z-index: 99;
+    backdrop-filter: blur(3px);
   }
   .sidebar-overlay.is-visible { display: block; }
 
   @media (max-width: 1024px) {
-    .app-sidebar {
+    .sidebar {
       transform: translateX(-100%);
-      transition: transform 0.25s ease;
+      transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .app-sidebar.is-open { transform: translateX(0); }
+    .sidebar.is-open { transform: translateX(0); }
   }
 </style>

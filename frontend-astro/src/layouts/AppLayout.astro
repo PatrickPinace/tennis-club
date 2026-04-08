@@ -1,21 +1,28 @@
 ---
-// AppLayout.astro — bazowy app shell: sidebar + topbar + content
-// Odpowiednik templates/layouts/base_app.html
+// AppLayout.astro — bazowy app shell
+// Sidebar (zawsze ciemny) + Topbar + content area
 import Sidebar from '@/components/Sidebar.astro';
 import Topbar from '@/components/Topbar.astro';
 import '@/styles/global.css';
 
 interface Props {
   title?: string;
-  pageTitle?: string;  // tytuł wyświetlany w topbarze
+  greeting?: string;
+  showSearch?: boolean;
+  showCta?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
 }
 
 const {
   title = 'Tennis Club',
-  pageTitle,
+  greeting,
+  showSearch = true,
+  showCta = true,
+  ctaLabel,
+  ctaHref,
 } = Astro.props;
 
-// Aktywna ścieżka — przekazujemy do Sidebar dla podświetlenia nav linków
 const currentPath = Astro.url.pathname;
 ---
 
@@ -27,10 +34,10 @@ const currentPath = Astro.url.pathname;
   <title>{title} — Tennis Club</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
 
-  <!-- Zapobiegaj FOIT (flash of incorrect theme) — uruchom PRZED parserem -->
+  <!-- Zapobiegaj FOIT: ustaw motyw PRZED renderowaniem -->
   <script is:inline>
     (function () {
-      var t = localStorage.getItem('tc-theme') || 'dark';
+      var t = localStorage.getItem('tc-theme') || 'light';
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
@@ -42,71 +49,135 @@ const currentPath = Astro.url.pathname;
   <Sidebar currentPath={currentPath} />
 
   <div class="app-main">
-    <Topbar title={pageTitle} />
+    <Topbar
+      greeting={greeting}
+      showSearch={showSearch}
+      showCta={showCta}
+      ctaLabel={ctaLabel}
+      ctaHref={ctaHref}
+    />
 
     <main id="main-content" class="app-content">
       <slot />
     </main>
   </div>
 
-  <!-- Theme switcher + mobile sidebar JS — przepisany z base_app.html -->
+  <!-- Global JS: theme toggle, sidebar toggle, notifications -->
   <script is:inline>
+    /* ── Theme ── */
     function toggleTheme() {
-      var current = document.documentElement.getAttribute('data-theme') || 'dark';
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
       var next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('tc-theme', next);
-      updateThemeIcon(next);
+      _updateThemeIcon(next);
     }
 
-    function updateThemeIcon(theme) {
-      var iconDark  = document.getElementById('theme-icon-dark');
-      var iconLight = document.getElementById('theme-icon-light');
-      if (!iconDark || !iconLight) return;
-      if (theme === 'dark') {
-        iconDark.style.display  = 'block';
-        iconLight.style.display = 'none';
-      } else {
-        iconDark.style.display  = 'none';
-        iconLight.style.display = 'block';
-      }
+    function _updateThemeIcon(theme) {
+      var d = document.getElementById('theme-icon-dark');
+      var l = document.getElementById('theme-icon-light');
+      if (!d || !l) return;
+      d.style.display = theme === 'dark'  ? 'block' : 'none';
+      l.style.display = theme === 'light' ? 'block' : 'none';
     }
 
-    // Init ikony motywu
-    (function () {
-      var t = localStorage.getItem('tc-theme') || 'dark';
-      updateThemeIcon(t);
-    })();
+    (function () { _updateThemeIcon(localStorage.getItem('tc-theme') || 'light'); })();
 
-    // Mobile sidebar toggle
+    /* ── Mobile sidebar ── */
     function toggleSidebar() {
-      document.getElementById('app-sidebar').classList.toggle('is-open');
-      document.getElementById('sidebar-overlay').classList.toggle('is-visible');
+      var s = document.getElementById('app-sidebar');
+      var o = document.getElementById('sidebar-overlay');
+      if (s) s.classList.toggle('is-open');
+      if (o) o.classList.toggle('is-visible');
     }
 
-    // Pokaż hamburger tylko na mobile
     if (window.innerWidth <= 1024) {
-      var toggle = document.getElementById('sidebar-toggle');
-      if (toggle) toggle.style.display = 'flex';
+      var tog = document.getElementById('sidebar-toggle');
+      if (tog) tog.style.display = 'flex';
     }
+
+    /* ── Notifications ── */
+    function toggleNotifPanel() {
+      var panel = document.getElementById('notif-panel');
+      if (!panel) return;
+      var isOpen = panel.style.display !== 'none';
+      panel.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) _loadNotif();
+    }
+
+    function _loadNotif() {
+      var list = document.getElementById('notif-list');
+      if (!list) return;
+      fetch('/notifications/api/notifications/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          if (!data || !data.notifications || !data.notifications.length) {
+            list.innerHTML = '<div class="topbar__notif-empty">Brak nowych powiadomień</div>';
+            return;
+          }
+          list.innerHTML = data.notifications.map(function(n) {
+            return '<div style="padding:12px 16px;border-bottom:1px solid var(--border);font-size:.85rem;' + (n.is_read ? 'opacity:.55;' : '') + '">'
+              + '<div style="color:var(--text);">' + n.message + '</div>'
+              + '<div style="font-size:.72rem;color:var(--text-muted);margin-top:3px;">' + n.created_at + '</div>'
+              + '</div>';
+          }).join('');
+        })
+        .catch(function() {
+          list.innerHTML = '<div class="topbar__notif-empty" style="color:var(--danger);">Błąd ładowania</div>';
+        });
+    }
+
+    function readAllNotif() {
+      var csrf = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+      fetch('/notifications/api/notifications/read_all/', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf }
+      }).then(function() {
+        var dot = document.getElementById('notif-count');
+        if (dot) dot.style.display = 'none';
+        _loadNotif();
+      });
+    }
+
+    /* Zamknij panel po kliknięciu poza nim */
+    document.addEventListener('click', function(e) {
+      var panel = document.getElementById('notif-panel');
+      var btn   = document.getElementById('notif-btn');
+      if (panel && btn && !panel.contains(e.target) && !btn.contains(e.target)) {
+        panel.style.display = 'none';
+      }
+    });
+
+    /* Refresh licznika powiadomień */
+    (function refreshNotifCount() {
+      fetch('/notifications/api/unread-count/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          var dot = document.getElementById('notif-count');
+          if (!dot) return;
+          if (data && data.count > 0) { dot.textContent = data.count; dot.style.display = 'grid'; }
+          else { dot.style.display = 'none'; }
+        }).catch(function() {});
+    })();
   </script>
 </body>
 </html>
 
 <style>
-  /* App main — z static/css/ui/layout.css */
+  /* ── App main area ─────────────────────────────────────────────────────── */
   .app-main {
     margin-left: var(--sidebar-width);
     min-width: 0;
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
     min-height: 100vh;
+    background: var(--content-bg);
   }
 
   .app-content {
     flex: 1;
     padding: 28px 32px;
     max-width: var(--content-max);
+    width: 100%;
   }
 
   @media (max-width: 1024px) {
@@ -114,6 +185,6 @@ const currentPath = Astro.url.pathname;
   }
 
   @media (max-width: 768px) {
-    .app-content { padding: 16px; }
+    .app-content { padding: 20px 16px; }
   }
 </style>

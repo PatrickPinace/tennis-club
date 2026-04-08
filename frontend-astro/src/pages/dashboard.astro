@@ -1,120 +1,630 @@
 ---
-// dashboard.astro — placeholder page
-// Docelowo: pobiera dane z GET /api/dashboard/summary/ + /api/me/
+// dashboard.astro — realistyczny UI dashboardu wg projektu grafika
+// Dane statyczne (placeholder) — API do podpięcia w kolejnym etapie
 import AppLayout from '@/layouts/AppLayout.astro';
+
+// Statyczne dane demo — docelowo z GET /api/dashboard/summary/ i /api/me/
+const stats = [
+  {
+    label: 'Najbliższa Rezerwacja',
+    value: '24 Paź | 16:00–17:30',
+    detail: 'Kort 3 (Trawa), z Marek W.',
+    action: { label: 'Szczegóły', href: '/courts/reservations' },
+    accent: 'primary',
+  },
+  {
+    label: 'Ostatni Mecz',
+    value: 'Wygrana! 6:3',
+    detail: '7:5 vs Tomasz B. · 21 Paź, Korty Otwock',
+    icon: 'trophy',
+    accent: 'success',
+  },
+  {
+    label: 'Ranking Klubowy',
+    value: '12. miejsce',
+    detail: 'Top 10% Klubu',
+    trend: '+3 awans',
+    trendUp: true,
+    accent: 'neutral',
+  },
+  {
+    label: 'Nadchodzący Turniej',
+    value: 'Puchar Jesieni',
+    detail: '28–29 Paź · Zarejestrowany',
+    icon: 'trophy',
+    accent: 'neutral',
+  },
+];
+
+const tournaments = [
+  {
+    name: 'Puchar Jesieni',
+    type: 'Single Elimination',
+    date: '28–29 Paź 2026',
+    status: 'registered',
+    statusLabel: 'Zarejestrowany',
+    participants: 16,
+    maxParticipants: 16,
+  },
+  {
+    name: 'Liga Zimowa — Runda 3',
+    type: 'Round Robin',
+    date: '15 Lis 2026',
+    status: 'open',
+    statusLabel: 'Otwarta rejestracja',
+    participants: 9,
+    maxParticipants: 12,
+  },
+  {
+    name: 'Americano Sobotni',
+    type: 'Americano',
+    date: '5 Lis 2026',
+    status: 'open',
+    statusLabel: 'Wolne miejsca',
+    participants: 6,
+    maxParticipants: 8,
+  },
+];
+
+const recentActivity = [
+  {
+    type: 'match',
+    title: 'Mecz singlowy',
+    desc: 'Wygrana 6:3, 7:5 z Tomasz B.',
+    time: '2 dni temu',
+    result: 'win',
+  },
+  {
+    type: 'reservation',
+    title: 'Rezerwacja kortu',
+    desc: 'Kort 3 (Trawa) · 16:00–17:30',
+    time: '3 dni temu',
+    result: 'neutral',
+  },
+  {
+    type: 'tournament',
+    title: 'Rejestracja do turnieju',
+    desc: 'Puchar Jesieni · Single Elimination',
+    time: '5 dni temu',
+    result: 'neutral',
+  },
+  {
+    type: 'match',
+    title: 'Mecz singlowy',
+    desc: 'Porażka 4:6, 5:7 z Adam K.',
+    time: '1 tyg. temu',
+    result: 'loss',
+  },
+];
+
+const myStats = {
+  matches: 48,
+  wins: 34,
+  winRate: 71,
+  sets: 112,
+  setsWon: 82,
+};
+
+const quickActions = [
+  { label: 'Nowa Rezerwacja', href: '/courts/reservations', icon: 'calendar', primary: true },
+  { label: 'Dodaj Mecz',      href: '/matches',             icon: 'vs',       primary: false },
+  { label: 'Turnieje',         href: '/tournaments',         icon: 'trophy',   primary: false },
+  { label: 'Ranking',          href: '/rankings',            icon: 'chart',    primary: false },
+];
 ---
 
-<AppLayout title="Dashboard" pageTitle="Dashboard">
+<AppLayout
+  title="Dashboard"
+  greeting="Witaj z powrotem, Marcin!"
+  showSearch={true}
+  showCta={true}
+>
 
-  <!-- Page header -->
-  <div class="page-header" style="align-items:flex-start; text-align:left;">
-    <div class="page-header__eyebrow">Panel główny</div>
-    <h1 class="page-header__title">Witaj z powrotem 👋</h1>
-    <p class="page-header__subtitle">Przegląd aktywności klubu i Twoich statystyk.</p>
-  </div>
+  <!-- ── Stat cards ── -->
+  <section class="stat-grid" aria-label="Statystyki">
+    {stats.map(stat => (
+      <div class={`stat-card stat-card--${stat.accent}`}>
+        <div class="stat-card__header">
+          <span class="stat-card__label">{stat.label}</span>
+          {stat.icon === 'trophy' && (
+            <svg class="stat-card__icon-trophy" width="22" height="22" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+          )}
+        </div>
 
-  <!-- Stats grid — placeholder karty -->
-  <div class="stats-grid" style="margin-bottom: 24px;">
-    <div class="stat-placeholder">
-      <div class="stat-label">Najbliższa rezerwacja</div>
-      <div class="stat-value">—</div>
-      <div class="stat-detail">Połącz Astro z API Django</div>
-    </div>
-    <div class="stat-placeholder">
-      <div class="stat-label">Ostatni mecz</div>
-      <div class="stat-value">—</div>
-      <div class="stat-detail">GET /api/matches/history/</div>
-    </div>
-    <div class="stat-placeholder">
-      <div class="stat-label">Ranking klubowy</div>
-      <div class="stat-value">—</div>
-      <div class="stat-detail">GET /api/rankings/ (do dodania)</div>
-    </div>
-    <div class="stat-placeholder">
-      <div class="stat-label">Nadchodzący turniej</div>
-      <div class="stat-value">—</div>
-      <div class="stat-detail">GET /api/tournaments/</div>
-    </div>
-  </div>
+        <div class={`stat-card__value${stat.accent === 'success' ? ' stat-card__value--success' : ''}`}>
+          {stat.value}
+        </div>
 
-  <!-- MVP notice -->
-  <div class="mvp-notice">
-    <div class="mvp-notice__icon">🚧</div>
-    <div>
-      <strong>MVP Scaffold — Astro + Tailwind</strong>
-      <p>To jest szkielet frontendu. Design system, layout i routing działają.
-        Widoki biznesowe będą implementowane w kolejnych etapach.</p>
+        <div class="stat-card__footer">
+          <span class="stat-card__detail">{stat.detail}</span>
+          {stat.trend && (
+            <span class={`stat-card__trend${stat.trendUp ? ' stat-card__trend--up' : ' stat-card__trend--down'}`}>
+              {stat.trendUp ? '↗' : '↘'} {stat.trend}
+            </span>
+          )}
+        </div>
+
+        {stat.action && (
+          <div class="stat-card__action">
+            <a href={stat.action.href} class="stat-card__btn">{stat.action.label}</a>
+          </div>
+        )}
+      </div>
+    ))}
+  </section>
+
+  <!-- ── Main grid: turnieje + aktywność + statystyki ── -->
+  <div class="dashboard-grid">
+
+    <!-- LEFT: turnieje + quick actions -->
+    <div class="dashboard-col-main">
+
+      <!-- Quick actions -->
+      <section class="quick-actions" aria-label="Szybkie akcje">
+        {quickActions.map(a => (
+          <a href={a.href} class={`qa-btn${a.primary ? ' qa-btn--primary' : ''}`}>
+            <span class="qa-btn__icon" aria-hidden="true">
+              {a.icon === 'calendar' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                </svg>
+              )}
+              {a.icon === 'vs' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                </svg>
+              )}
+              {a.icon === 'trophy' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              )}
+              {a.icon === 'chart' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                </svg>
+              )}
+            </span>
+            {a.label}
+          </a>
+        ))}
+      </section>
+
+      <!-- Nadchodzące turnieje -->
+      <section class="tc-card" aria-labelledby="tournaments-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="tournaments-heading">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--primary);">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+            Nadchodzące turnieje
+          </h2>
+          <a href="/tournaments" class="tc-btn tc-btn-ghost tc-btn-sm">Wszystkie →</a>
+        </div>
+
+        <div class="tournament-list">
+          {tournaments.map(t => (
+            <div class="tournament-item">
+              <div class="tournament-item__left">
+                <div class="tournament-item__name">{t.name}</div>
+                <div class="tournament-item__meta">
+                  <span class="tournament-item__type">{t.type}</span>
+                  <span class="tournament-item__sep">·</span>
+                  <span>{t.date}</span>
+                </div>
+              </div>
+              <div class="tournament-item__right">
+                <div class="tournament-item__participants">
+                  <div class="participants-bar">
+                    <div
+                      class="participants-bar__fill"
+                      style={`width: ${Math.round(t.participants / t.maxParticipants * 100)}%`}
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <span class="participants-bar__label">{t.participants}/{t.maxParticipants}</span>
+                </div>
+                <span class={`tc-badge ${t.status === 'registered' ? 'tc-badge-primary' : 'tc-badge-success'}`}>
+                  {t.statusLabel}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div class="tc-card-footer">
+          <a href="/tournaments" class="tc-btn tc-btn-primary tc-btn-sm">
+            Zapisz się do turnieju
+          </a>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- RIGHT: statystyki + aktywność -->
+    <div class="dashboard-col-side">
+
+      <!-- Moje statystyki -->
+      <section class="tc-card" aria-labelledby="my-stats-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="my-stats-heading">Moje Statystyki</h2>
+        </div>
+        <div class="tc-card-body">
+          <div class="my-stats-grid">
+            <div class="my-stat">
+              <div class="my-stat__value">{myStats.matches}</div>
+              <div class="my-stat__label">Mecze</div>
+            </div>
+            <div class="my-stat">
+              <div class="my-stat__value">{myStats.wins}</div>
+              <div class="my-stat__label">Wygrane</div>
+            </div>
+            <div class="my-stat">
+              <div class="my-stat__value my-stat__value--highlight">{myStats.winRate}%</div>
+              <div class="my-stat__label">Win Rate</div>
+            </div>
+          </div>
+
+          <!-- Mini sparkline — SVG statyczny -->
+          <div class="sparkline-wrap" aria-hidden="true">
+            <svg viewBox="0 0 200 60" class="sparkline">
+              <!-- Obszar wypełniony -->
+              <defs>
+                <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path
+                d="M0,45 L25,38 L50,42 L75,30 L100,34 L125,22 L150,18 L175,10 L200,8 L200,60 L0,60 Z"
+                fill="url(#sparkGrad)"
+              />
+              <polyline
+                points="0,45 25,38 50,42 75,30 100,34 125,22 150,18 175,10 200,8"
+                fill="none"
+                stroke="#22c55e"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <!-- Punkt końcowy -->
+              <circle cx="200" cy="8" r="4" fill="#22c55e"/>
+            </svg>
+          </div>
+
+          <div class="my-stats-sub">
+            <span class="my-stats-sub__item">
+              <span class="my-stats-sub__dot" style="background:#22c55e"></span>
+              Sety wygrane: {myStats.setsWon}/{myStats.sets}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ostatnia aktywność -->
+      <section class="tc-card" aria-labelledby="activity-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="activity-heading">Ostatnia Aktywność</h2>
+        </div>
+
+        <ul class="activity-list" role="list">
+          {recentActivity.map(item => (
+            <li class="activity-item">
+              <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
+                {item.type === 'match' && (
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                  </svg>
+                )}
+                {item.type === 'reservation' && (
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                  </svg>
+                )}
+                {item.type === 'tournament' && (
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                  </svg>
+                )}
+              </div>
+              <div class="activity-item__body">
+                <div class="activity-item__title">{item.title}</div>
+                <div class="activity-item__desc">{item.desc}</div>
+              </div>
+              <div class="activity-item__time">{item.time}</div>
+            </li>
+          ))}
+        </ul>
+
+        <div class="tc-card-footer">
+          <a href="/matches" class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+            Pełna historia →
+          </a>
+        </div>
+      </section>
+
     </div>
   </div>
 
 </AppLayout>
 
 <style>
-  .page-header {
-    margin-bottom: 28px;
-  }
-  .page-header__eyebrow {
-    font-size: 0.75rem; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--primary); margin-bottom: 4px;
-  }
-  .page-header__title {
-    font-size: 1.6rem; font-weight: 800; color: var(--text);
-    line-height: 1.15; letter-spacing: -0.02em;
-  }
-  .page-header__subtitle {
-    margin-top: 4px; font-size: 0.9rem; color: var(--text-muted);
-  }
-
-  .stats-grid {
+  /* ── Stat cards grid ─────────────────────────────────────────────────────── */
+  .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
+    margin-bottom: 24px;
   }
 
-  .stat-placeholder {
+  .stat-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 20px;
-    display: flex; flex-direction: column; gap: 6px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .stat-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
   }
 
-  .stat-label {
-    font-size: 0.72rem; font-weight: 600;
+  .stat-card__header {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  }
+
+  .stat-card__label {
+    font-size: 0.78rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.06em;
     color: var(--text-muted);
+    line-height: 1.3;
   }
 
-  .stat-value {
-    font-size: 1.6rem; font-weight: 800; color: var(--text-dim);
-    letter-spacing: -0.03em;
+  .stat-card__icon-trophy {
+    color: var(--text-dim);
+    flex-shrink: 0;
+    opacity: 0.5;
   }
 
-  .stat-detail {
-    font-size: 0.75rem; color: var(--text-dim);
-    font-family: var(--font-mono);
+  .stat-card__value {
+    font-size: 1.25rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.025em; line-height: 1.2;
+  }
+  .stat-card__value--success { color: #22c55e; }
+
+  .stat-card__footer {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 2px;
   }
 
-  .mvp-notice {
-    display: flex; gap: 16px; align-items: flex-start;
-    background: var(--surface);
+  .stat-card__detail {
+    font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; flex: 1;
+  }
+
+  .stat-card__trend {
+    font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+  }
+  .stat-card__trend--up   { color: #22c55e; }
+  .stat-card__trend--down { color: #ef4444; }
+
+  .stat-card__action { margin-top: 4px; }
+
+  .stat-card__btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 7px 16px; border-radius: 8px;
+    background: #22c55e; color: #000;
+    font-size: 0.82rem; font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s;
+    box-shadow: 0 1px 6px rgba(34,197,94,0.25);
+  }
+  .stat-card__btn:hover { background: #16a34a; }
+
+  /* ── Dashboard grid ──────────────────────────────────────────────────────── */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .dashboard-col-main,
+  .dashboard-col-side {
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* ── Quick actions ───────────────────────────────────────────────────────── */
+  .quick-actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+
+  .qa-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 16px; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 600;
+    text-decoration: none;
+    background: var(--surface); color: var(--text-muted);
     border: 1px solid var(--border);
-    border-left: 3px solid var(--primary);
-    border-radius: var(--radius-md);
-    padding: 20px 24px;
-    font-size: 0.875rem;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .qa-btn:hover {
+    background: var(--surface-hover); color: var(--text);
+    border-color: var(--border-light);
+  }
+  .qa-btn--primary {
+    background: #22c55e; color: #000; border-color: #22c55e;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.25);
+  }
+  .qa-btn--primary:hover { background: #16a34a; border-color: #16a34a; color: #000; }
+
+  .qa-btn__icon {
+    display: flex; align-items: center;
+    opacity: 0.7;
+  }
+  .qa-btn--primary .qa-btn__icon { opacity: 1; }
+
+  /* ── Tournament list ─────────────────────────────────────────────────────── */
+  .tournament-list {
+    display: flex; flex-direction: column;
   }
 
-  .mvp-notice__icon { font-size: 1.4rem; flex-shrink: 0; }
+  .tournament-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .tournament-item:last-child { border-bottom: none; }
+  .tournament-item:hover { background: var(--surface-hover); }
 
-  .mvp-notice strong { display: block; color: var(--text); margin-bottom: 4px; }
-  .mvp-notice p { color: var(--text-muted); line-height: 1.6; }
+  .tournament-item__name {
+    font-weight: 600; font-size: 0.9rem; color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .tournament-item__meta {
+    font-size: 0.78rem; color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .tournament-item__type {
+    display: inline-block;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 6px;
+    font-size: 0.7rem; font-weight: 600; color: var(--text-dim);
+  }
+
+  .tournament-item__sep { color: var(--text-dim); }
+
+  .tournament-item__right {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .tournament-item__participants {
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .participants-bar {
+    width: 64px; height: 4px; border-radius: 99px;
+    background: var(--surface-2); overflow: hidden;
+  }
+  .participants-bar__fill {
+    height: 100%; background: #22c55e; border-radius: 99px;
+  }
+  .participants-bar__label {
+    font-size: 0.72rem; color: var(--text-dim); font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* ── My stats ────────────────────────────────────────────────────────────── */
+  .my-stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 4px; margin-bottom: 16px;
+  }
+
+  .my-stat {
+    text-align: center; padding: 8px 4px;
+  }
+
+  .my-stat__value {
+    font-size: 1.75rem; font-weight: 900; color: var(--text);
+    letter-spacing: -0.04em; line-height: 1;
+    margin-bottom: 4px;
+  }
+  .my-stat__value--highlight { color: #22c55e; }
+
+  .my-stat__label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* Sparkline */
+  .sparkline-wrap {
+    border-radius: 8px; overflow: hidden;
+    background: var(--surface-2);
+    margin-bottom: 12px;
+  }
+  .sparkline { width: 100%; height: 60px; display: block; }
+
+  .my-stats-sub {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+
+  .my-stats-sub__item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+
+  .my-stats-sub__dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* ── Activity list ───────────────────────────────────────────────────────── */
+  .activity-list {
+    list-style: none; padding: 0; margin: 0;
+  }
+
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item:hover { background: var(--surface-hover); }
+
+  .activity-item__icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .activity-item__icon--win     { background: rgba(34,197,94,0.12);  color: #22c55e; }
+  .activity-item__icon--loss    { background: rgba(239,68,68,0.12);  color: #ef4444; }
+  .activity-item__icon--neutral { background: var(--surface-2); color: var(--text-muted); }
+
+  .activity-item__body { flex: 1; min-width: 0; }
+
+  .activity-item__title {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .activity-item__desc {
+    font-size: 0.78rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .activity-item__time {
+    font-size: 0.72rem; color: var(--text-dim);
+    white-space: nowrap; flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── Responsive ──────────────────────────────────────────────────────────── */
+  @media (max-width: 1280px) {
+    .dashboard-grid { grid-template-columns: 1fr 300px; }
+  }
 
   @media (max-width: 1024px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .dashboard-col-side { order: -1; }
+    .my-stats-grid { grid-template-columns: repeat(3, 1fr); }
   }
+
+  @media (max-width: 640px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    .stat-card__value { font-size: 1.05rem; }
+    .quick-actions { gap: 8px; }
+    .qa-btn { padding: 8px 12px; font-size: 0.8rem; }
+  }
+
   @media (max-width: 480px) {
-    .stats-grid { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: 1fr; }
   }
 </style>
