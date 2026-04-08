@@ -45,6 +45,37 @@ export interface UnreadCountResponse {
   count: number;
 }
 
+export interface RankingData {
+  position: number | null;
+  points: number | null;
+  matches_played: number | null;
+  matches_won: number | null;
+  matches_lost: number | null;
+  win_rate: number | null;
+}
+
+export interface LastMatchData {
+  date: string;        // ISO date
+  opponent: string;
+  score: string;       // np. "6:3 7:5"
+  won: boolean;
+  double: boolean;
+}
+
+export interface NextReservationData {
+  date: string;        // np. "08 kwi, 16:00"
+  end_time: string;    // np. "17:30"
+  court: string | null;
+  status: string;
+}
+
+export interface DashboardSummary {
+  ranking: RankingData | null;
+  last_match: LastMatchData | null;
+  next_reservation: NextReservationData | null;
+  upcoming_tournaments_count: number | null;
+}
+
 // ── Mapowanie statusów na etykiety PL ────────────────────────────────────────
 
 export const TOURNAMENT_STATUS_LABEL: Record<string, string> = {
@@ -186,4 +217,16 @@ export async function getNotifications(
     { sessionCookie }
   );
   return data?.notifications ?? [];
+}
+
+/**
+ * Zwraca podsumowanie dla dashboardu: ranking, ostatni mecz, rezerwacja, turnieje.
+ * Endpoint: GET /api/dashboard/summary/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django lub JWT.
+ * Zwraca null gdy użytkownik niezalogowany (graceful degradation).
+ */
+export async function getDashboardSummary(
+  sessionCookie?: string
+): Promise<DashboardSummary | null> {
+  return apiFetch<DashboardSummary>('/api/dashboard/summary/', { sessionCookie });
 }

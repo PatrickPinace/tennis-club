@@ -24,8 +24,7 @@ const unreadCount = null; // null = nie renderuj odznaki SSR
 function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
-  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'krótki', year: 'numeric' })
-    .replace(' ', ' ');
+  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 const liveTournaments = apiTournaments.map((t: Tournament) => ({
@@ -63,37 +62,41 @@ const fallbackTournaments = [
 const tournaments = liveTournaments.length > 0 ? liveTournaments : fallbackTournaments;
 const isLiveData = liveTournaments.length > 0;
 
-// ── Statyczne dane (brak endpointu API) ──────────────────────────────────────
-// Docelowo: GET /api/dashboard/summary/ i /api/me/
+// ── Statyczne dane (fallback) ─────────────────────────────────────────────
+// Stat-cards renderowane SSR z fallbackiem; prawdziwe dane ładowane
+// client-side przez JS po załadowaniu strony (patrz <script> niżej).
+// Domyślne wartości zostaną zastąpione przez JS gdy użytkownik jest zalogowany.
 const stats = [
   {
+    id: 'reservation',
     label: 'Najbliższa Rezerwacja',
-    value: '24 Paź | 16:00–17:30',
-    detail: 'Kort 3 (Trawa), z Marek W.',
-    action: { label: 'Szczegóły', href: '/courts/reservations' },
+    value: '—',
+    detail: 'Brak nadchodzących rezerwacji',
+    action: { label: 'Rezerwuj', href: '/courts/reservations' },
     accent: 'primary',
   },
   {
+    id: 'last-match',
     label: 'Ostatni Mecz',
-    value: 'Wygrana! 6:3',
-    detail: '7:5 vs Tomasz B. · 21 Paź, Korty Otwock',
+    value: '—',
+    detail: 'Brak rozegranych meczów',
     icon: 'trophy',
     accent: 'success',
   },
   {
+    id: 'ranking',
     label: 'Ranking Klubowy',
-    value: '12. miejsce',
-    detail: 'Top 10% Klubu',
-    trend: '+3 awans',
-    trendUp: true,
+    value: '—',
+    detail: 'Brak danych rankingowych',
     accent: 'neutral',
   },
   {
+    id: 'tournaments',
     label: isLiveData ? `${tournaments.length} turniejów` : 'Nadchodzący Turniej',
-    value: isLiveData ? tournaments[0]?.name ?? '—' : 'Puchar Jesieni',
+    value: isLiveData ? tournaments[0]?.name ?? '—' : '—',
     detail: isLiveData
       ? `${tournaments[0]?.date ?? ''} · ${tournaments[0]?.statusLabel ?? ''}`
-      : '28–29 Paź · Zarejestrowany',
+      : 'Brak nadchodzących turniejów',
     icon: 'trophy',
     accent: 'neutral',
   },
@@ -157,7 +160,7 @@ const quickActions = [
   <!-- ── Stat cards ── -->
   <section class="stat-grid" aria-label="Statystyki">
     {stats.map(stat => (
-      <div class={`stat-card stat-card--${stat.accent}`}>
+      <div class={`stat-card stat-card--${stat.accent}`} data-card-id={(stat as any).id}>
         <div class="stat-card__header">
           <span class="stat-card__label">{stat.label}</span>
           {stat.icon === 'trophy' && (
@@ -459,6 +462,103 @@ const quickActions = [
 
     function escHtml(s: string): string {
       return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+  })();
+</script>
+
+<!--
+  Client-side: ładuje dane dashboard summary z /api/dashboard/summary/.
+  Wymaga sesji Django (cookies). Graceful degradation — fallback z HTML.
+-->
+<script>
+  (async function initDashboardSummary() {
+    const API_BASE =
+      (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ??
+      'http://localhost:8000';
+
+    function setCard(id: string, value: string, detail: string) {
+      const card = document.querySelector(`[data-card-id="${id}"]`);
+      if (!card) return;
+      const valEl = card.querySelector('.stat-card__value');
+      const detEl = card.querySelector('.stat-card__detail');
+      if (valEl) valEl.textContent = value;
+      if (detEl) detEl.textContent = detail;
+    }
+
+    function setTrend(id: string, trend: string, up: boolean) {
+      const card = document.querySelector(`[data-card-id="${id}"]`);
+      if (!card) return;
+      const footer = card.querySelector('.stat-card__footer');
+      if (!footer) return;
+      let trendEl = footer.querySelector('.stat-card__trend') as HTMLElement | null;
+      if (!trendEl) {
+        trendEl = document.createElement('span');
+        footer.appendChild(trendEl);
+      }
+      trendEl.className = `stat-card__trend stat-card__trend--${up ? 'up' : 'down'}`;
+      trendEl.textContent = `${up ? '\u2197' : '\u2198'} ${trend}`;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/dashboard/summary/`, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+        redirect: 'manual',
+      });
+
+      if (res.type === 'opaqueredirect' || !res.ok) return; // niezalogowany
+
+      const d = await res.json();
+
+      // ── Rezerwacja ─────────────────────────────────────────────
+      if (d.next_reservation) {
+        const r = d.next_reservation;
+        setCard('reservation',
+          `${r.date}–${r.end_time}`,
+          r.court ?? 'Kort nieokreślony'
+        );
+      } else {
+        setCard('reservation', 'Brak', 'Brak nadchodzących rezerwacji');
+      }
+
+      // ── Ostatni mecz ──────────────────────────────────────────
+      if (d.last_match) {
+        const m = d.last_match;
+        const result = m.won ? 'Wygrana!' : 'Porażka';
+        setCard('last-match',
+          `${result} ${m.score}`,
+          `vs ${m.opponent} · ${m.date}`
+        );
+        // Kolor wartości: zielony=wygrana, czerwony=porażka
+        const valEl = document.querySelector('[data-card-id="last-match"] .stat-card__value') as HTMLElement | null;
+        if (valEl) {
+          valEl.style.color = m.won ? '#22c55e' : '#ef4444';
+        }
+      }
+
+      // ── Ranking ───────────────────────────────────────────────
+      if (d.ranking && d.ranking.position !== null) {
+        const rk = d.ranking;
+        setCard('ranking',
+          `${rk.position}. miejsce`,
+          `${rk.points !== null ? rk.points + ' pkt' : ''} · Win rate: ${rk.win_rate ?? '?'}%`
+        );
+      }
+
+      // ── Turnieje (jeśli nie mamy z build-time) ───────────────────
+      if (d.upcoming_tournaments_count !== null) {
+        const card = document.querySelector('[data-card-id="tournaments"]');
+        const valEl = card?.querySelector('.stat-card__value');
+        // aktualizuj tylko jeśli karta ma nadal wartość — (tzn. nie nadpisała jej inna sekcja)
+        if (valEl && (valEl.textContent?.trim() === '—' || valEl.textContent?.trim() === '')) {
+          valEl.textContent = `${d.upcoming_tournaments_count} aktywnych`;
+          const detEl = card?.querySelector('.stat-card__detail');
+          if (detEl) detEl.textContent = 'turniejów w toku lub rekrutacji';
+        }
+      }
+
+    } catch {
+      // backend niedostępny — pozostają fallbacki z HTML
     }
   })();
 </script>
