@@ -1,15 +1,16 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
+import node from '@astrojs/node';
 
 // https://astro.build/config
 export default defineConfig({
   integrations: [tailwind()],
-  // W trybie dev proxy do Django API (uruchomionego na :8000)
-  // Odkomentuj gdy Django API jest dostępne:
-  // server: {
-  //   proxy: {
-  //     '/api': 'http://localhost:8000',
-  //   }
-  // },
-  output: 'static',
+
+  // Tryb hybrid: większość stron renderowana statycznie przy buildzie,
+  // ale strony oznaczone export const prerender = false są SSR (mają dostęp do cookies).
+  // Wymagany do działania Astro.request.headers (np. cookie sesji Django) w produkcji.
+  output: 'hybrid',
+  adapter: node({
+    mode: 'standalone',
+  }),
 });

@@ -61,6 +61,38 @@ export interface UnreadCountResponse {
   count: number;
 }
 
+// ── Historia meczów ───────────────────────────────────────────────────────────
+
+export interface MatchUser {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+}
+
+export interface MatchHistoryEntry {
+  id: number;
+  p1: MatchUser | null;
+  p2: MatchUser | null;
+  p3: MatchUser | null;
+  p4: MatchUser | null;
+  p1_set1: number | null;
+  p1_set2: number | null;
+  p1_set3: number | null;
+  p2_set1: number | null;
+  p2_set2: number | null;
+  p2_set3: number | null;
+  match_double: boolean;
+  description: string | null;
+  match_date: string;          // "YYYY-MM-DD"
+  win: 'p1' | 'p2' | 'draw';
+  user: 'user-win' | 'user-loss' | 'user-draw';
+  p1_win_set: number;
+  p2_win_set: number;
+  p1_win_gem: number;
+  p2_win_gem: number;
+}
+
 export interface RankingData {
   position: number | null;
   points: number | null;
@@ -366,5 +398,18 @@ export async function getRankings(
   const params = new URLSearchParams({ type: matchType });
   if (year !== undefined) params.set('year', String(year));
   const data = await apiFetch<PlayerRankingEntry[]>(`/api/rankings/list/?${params}`);
+  return data ?? [];
+}
+
+/**
+ * Zwraca historię meczów zalogowanego użytkownika.
+ * Endpoint: GET /api/matches/history/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django.
+ * Zwraca [] gdy niezalogowany lub backend niedostępny (graceful degradation).
+ */
+export async function getMatchHistory(
+  sessionCookie?: string
+): Promise<MatchHistoryEntry[]> {
+  const data = await apiFetch<MatchHistoryEntry[]>('/api/matches/history/', { sessionCookie });
   return data ?? [];
 }

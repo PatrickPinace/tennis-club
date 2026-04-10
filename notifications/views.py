@@ -43,13 +43,15 @@ def get_vapid_public_key(request):
         return JsonResponse({'public_key': public_key})
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+@login_required
 @csrf_exempt
 def save_subscription(request):
-    """API endpoint to save a push subscription."""
+    """API endpoint to save a push subscription for the logged-in user."""
     if request.method == 'POST':
         data = json.loads(request.body)
         subscription = data.get('subscription', {})
-        user_id = data.get('user_id')
+        # user_id pochodzi z sesji, nie z ciała requesta — uniemożliwia podmianę
+        user_id = request.user.id
         cache_key = f'push_subscription_{user_id}'
         cache.set(cache_key, subscription, 86400 * 30)
         logger.info(f"Push subscription saved for user {user_id}.")

@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import logging
 
-from v2_core.models import Profile
+from apps.users.models import Profile
 from .authentication import CsrfExemptSessionAuthentication
 
 logger = logging.getLogger(__name__)
