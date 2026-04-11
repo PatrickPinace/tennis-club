@@ -13,4 +13,17 @@ export default defineConfig({
   adapter: node({
     mode: 'standalone',
   }),
+
+  // Dev proxy: przekazuje /api/* do Django :8000 — dzięki temu cookie sessionid
+  // jest ustawiane na tym samym origin co Astro (:4321) i middleware widzi sesję.
+  vite: {
+    server: {
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
+      },
+    },
+  },
 });

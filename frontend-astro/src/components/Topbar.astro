@@ -99,16 +99,30 @@ const {
       </a>
     )}
 
-    <!-- User chip -->
-    <div class="topbar__user" role="button" tabindex="0" aria-label="Menu użytkownika">
-      <div class="topbar__user-avatar" aria-hidden="true">MK</div>
-      <div class="topbar__user-info">
-        <span class="topbar__user-name">Marcin</span>
-        <span class="topbar__user-surname">Kowalski</span>
+    <!-- User chip — wypełniany przez JS po sprawdzeniu /api/auth/me/ -->
+    <div class="topbar__user-wrap">
+      <!-- Stan zalogowany (domyślnie ukryty, JS go pokazuje) -->
+      <div class="topbar__user" id="user-chip" style="display:none;" role="button" tabindex="0" aria-label="Menu użytkownika">
+        <div class="topbar__user-avatar" aria-hidden="true" id="user-avatar">??</div>
+        <div class="topbar__user-info">
+          <span class="topbar__user-name" id="user-name">—</span>
+          <span class="topbar__user-surname" id="user-surname"></span>
+        </div>
+        <svg class="topbar__user-caret" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+        <!-- Dropdown logout -->
+        <div class="topbar__user-menu" id="user-menu" style="display:none;">
+          <button class="topbar__user-menu-item" id="logout-btn">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8z" clip-rule="evenodd"/>
+            </svg>
+            Wyloguj
+          </button>
+        </div>
       </div>
-      <svg class="topbar__user-caret" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-      </svg>
+      <!-- Stan niezalogowany -->
+      <a href="/login" class="topbar__login-link" id="login-link">Zaloguj się</a>
     </div>
 
     <!-- Theme toggle — dyskretny -->
@@ -305,6 +319,47 @@ const {
 
   .topbar__theme-btn { margin-left: 2px; }
 
+  /* ── User wrap (auth state) ────────────────────────────────────────── */
+  .topbar__user-wrap { position: relative; }
+
+  .topbar__login-link {
+    display: inline-flex; align-items: center;
+    padding: 0 14px; height: 36px;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .topbar__login-link:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+    border-color: var(--border-light);
+  }
+
+  .topbar__user-menu {
+    position: absolute; right: 0; top: calc(100% + 6px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    z-index: 200;
+    min-width: 140px;
+    overflow: hidden;
+  }
+
+  .topbar__user-menu-item {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    font-size: 0.875rem; font-weight: 500; color: var(--text);
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-sans);
+    transition: background 0.1s;
+    text-align: left;
+  }
+  .topbar__user-menu-item:hover { background: var(--surface-hover); }
+
   /* ── Responsive ───────────────────────────────────────────────────────── */
   @media (max-width: 1024px) {
     .topbar__hamburger { display: flex !important; }
@@ -336,3 +391,73 @@ const {
     font-size: 0.7rem; color: var(--text-muted);
   }
 </style>
+
+<script>
+  // ── Auth state w topbarze ──────────────────────────────────────────────────
+  // Sprawdza /api/auth/me/ i wypełnia user chip lub pokazuje link "Zaloguj się"
+  (async function initUserChip() {
+    const API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
+                ?? 'http://localhost:8000';
+    const chip      = document.getElementById('user-chip') as HTMLElement | null;
+    const loginLink = document.getElementById('login-link') as HTMLElement | null;
+    const avatar    = document.getElementById('user-avatar') as HTMLElement | null;
+    const nameEl    = document.getElementById('user-name') as HTMLElement | null;
+    const surnameEl = document.getElementById('user-surname') as HTMLElement | null;
+    const userMenu  = document.getElementById('user-menu') as HTMLElement | null;
+    const logoutBtn = document.getElementById('logout-btn') as HTMLElement | null;
+
+    try {
+      const res = await fetch(`${API}/api/auth/me/`, {
+        credentials: 'include',
+        redirect: 'manual',
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.authenticated && data.user) {
+          const u = data.user;
+          const initials = ((u.first_name?.[0] ?? '') + (u.last_name?.[0] ?? '')).toUpperCase()
+                          || u.username.slice(0, 2).toUpperCase();
+
+          if (avatar) avatar.textContent = initials;
+          if (nameEl) nameEl.textContent = u.first_name || u.username;
+          if (surnameEl) surnameEl.textContent = u.last_name || '';
+
+          if (chip) chip.style.display = 'flex';
+          if (loginLink) loginLink.style.display = 'none';
+
+          // Dropdown user menu
+          if (chip && userMenu) {
+            chip.addEventListener('click', (e) => {
+              e.stopPropagation();
+              userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', () => {
+              userMenu.style.display = 'none';
+            });
+          }
+
+          // Logout
+          if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+              await fetch(`${API}/api/auth/logout/`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}',
+              });
+              window.location.href = '/login';
+            });
+          }
+          return;
+        }
+      }
+    } catch {
+      // brak połączenia — pokazuj link logowania
+    }
+
+    // Niezalogowany
+    if (chip) chip.style.display = 'none';
+    if (loginLink) loginLink.style.display = 'flex';
+  })();
+</script>

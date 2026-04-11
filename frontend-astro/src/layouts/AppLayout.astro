@@ -37,7 +37,9 @@ const currentPath = Astro.url.pathname;
   <title>{title} — Tennis Club</title>
   <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   <!-- Adres Django API — używany przez client-side JS do fetchów -->
-  <meta name="api-base" content={import.meta.env.PUBLIC_API_BASE_URL ?? 'http://localhost:8000'} />
+  <!-- W dev bez PUBLIC_API_BASE_URL: pusty string = relative URL → Vite proxy /api/* → :8000 -->
+  <!-- W produkcji: ustaw PUBLIC_API_BASE_URL na adres Django, np. https://api.example.com -->
+  <meta name="api-base" content={import.meta.env.PUBLIC_API_BASE_URL ?? ''} />
 
   <!-- Zapobiegaj FOIT: ustaw motyw PRZED renderowaniem -->
   <script is:inline>

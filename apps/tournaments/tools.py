@@ -275,6 +275,15 @@ def calculate_americano_standings(tournament):
 def calculate_round_robin_standings(tournament, participants, config):
     """
     Oblicza tabelę wyników dla turnieju Round Robin.
+
+    Kolejność sortowania:
+    1. points (zawsze pierwsze)
+    2. kryterium z config.tie_breaker_priority:
+       - 'SETS'  → sets_diff, potem games_diff
+       - 'GAMES' → games_diff, potem sets_diff
+       - 'HEAD'  → bezpośredni mecz (tylko dla remisu 2 zawodników);
+                   przy ≥3 zawodnikach z tą samą liczbą punktów
+                   fallback do sets_diff → games_diff
     """
     standings = {
         p.id: {
@@ -290,12 +299,18 @@ def calculate_round_robin_standings(tournament, participants, config):
         } for p in participants
     }
 
-    matches = tournament.matches.filter(status=TournamentsMatch.Status.COMPLETED.value)
+    # head_wins[a][b] = True jeśli uczestnik a wygrał bezpośredni mecz z b
+    head_wins: dict[int, dict[int, bool]] = {}
+
+    CMP = TournamentsMatch.Status.COMPLETED.value
+    WDR = TournamentsMatch.Status.WITHDRAWN.value
+    matches = tournament.matches.filter(status__in=[CMP, WDR])
 
     for match in matches:
         p1_id = match.participant1_id
         p2_id = match.participant2_id
         winner_id = match.winner_id
+        is_wdr = match.status == WDR
 
         if p1_id not in standings or p2_id not in standings:
             continue
@@ -308,11 +323,19 @@ def calculate_round_robin_standings(tournament, participants, config):
             standings[p2_id]['losses'] += 1
             standings[p1_id]['points'] += Decimal(config.points_for_win)
             standings[p2_id]['points'] += Decimal(config.points_for_loss)
+            head_wins.setdefault(p1_id, {})[p2_id] = True
+            head_wins.setdefault(p2_id, {})[p1_id] = False
         elif winner_id == p2_id:
             standings[p2_id]['wins'] += 1
             standings[p1_id]['losses'] += 1
             standings[p2_id]['points'] += config.points_for_win
             standings[p1_id]['points'] += config.points_for_loss
+            head_wins.setdefault(p2_id, {})[p1_id] = True
+            head_wins.setdefault(p1_id, {})[p2_id] = False
+
+        # WDR: brak statystyk setów i gemów — liczy się tylko wynik meczu
+        if is_wdr:
+            continue
 
         sets_played = 0
         for i in range(1, 4):
@@ -354,8 +377,70 @@ def calculate_round_robin_standings(tournament, participants, config):
         data['games_diff'] = data['games_won'] - data['games_lost']
         standings_list.append(data)
 
-    standings_list.sort(key=lambda x: (x['points'], x['sets_diff'], x['games_diff']), reverse=True)
+    standings_list = _sort_standings(standings_list, config.tie_breaker_priority, head_wins)
     return standings_list
+
+
+def _sort_standings(standings_list, tie_breaker_priority, head_wins):
+    """
+    Sortuje standings_list według:
+      1. points (malejąco)
+      2. kryterium tie_breaker_priority
+      3. fallback
+
+    SETS  → sets_diff → games_diff
+    GAMES → games_diff → sets_diff
+    HEAD  → bezpośredni mecz (tylko dla remisu 2 zawodników); fallback: sets_diff → games_diff
+    """
+    if tie_breaker_priority == 'SETS':
+        standings_list.sort(
+            key=lambda x: (x['points'], x['sets_diff'], x['games_diff']),
+            reverse=True,
+        )
+        return standings_list
+
+    if tie_breaker_priority == 'GAMES':
+        standings_list.sort(
+            key=lambda x: (x['points'], x['games_diff'], x['sets_diff']),
+            reverse=True,
+        )
+        return standings_list
+
+    # HEAD (lub nieznana wartość — traktuj jak HEAD)
+    # Krok 1: sort wstępny po points, sets_diff, games_diff
+    standings_list.sort(
+        key=lambda x: (x['points'], x['sets_diff'], x['games_diff']),
+        reverse=True,
+    )
+
+    # Krok 2: przetwarzaj grupy z identyczną liczbą points
+    result = []
+    i = 0
+    while i < len(standings_list):
+        j = i + 1
+        while j < len(standings_list) and standings_list[j]['points'] == standings_list[i]['points']:
+            j += 1
+        group = standings_list[i:j]
+
+        if len(group) == 2:
+            # Sprawdź bezpośredni mecz
+            id_a = group[0]['participant'].id
+            id_b = group[1]['participant'].id
+            a_beat_b = head_wins.get(id_a, {}).get(id_b)
+            if a_beat_b is True:
+                result.extend([group[0], group[1]])
+            elif a_beat_b is False:
+                result.extend([group[1], group[0]])
+            else:
+                # Brak bezpośredniego meczu między nimi — fallback (wstępny sort już jest)
+                result.extend(group)
+        else:
+            # ≥3 z tymi samymi punktami — HEAD niejednoznaczny, zostaje sort wstępny
+            result.extend(group)
+
+        i = j
+
+    return result
 
 
 def annotate_match_permissions(matches, user, tournament):

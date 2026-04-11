@@ -13,7 +13,11 @@ from apps.rankings.models import TournamentRankPoints, PlayerRanking
 
 
 def _build_filters(match_type, season):
-    """Return (finished_tournament_filter, completed_match_filter) Q objects."""
+    """Return (finished_tournament_filter, completed_match_filter, completed_or_withdrawn_filter) Q objects.
+
+    cm       — tylko mecze zakończone (CMP); używany dla statystyk setów i gemów
+    cm_or_wdr — mecze CMP lub walkower (WDR); używany dla liczenia meczów rozegranych
+    """
     ft = (
         Q(tournament__status=Tournament.Status.FINISHED.value) &
         Q(tournament__end_date__isnull=False) &
@@ -22,7 +26,11 @@ def _build_filters(match_type, season):
     if season:
         ft &= Q(tournament__end_date__year=season)
     cm = Q(status=TournamentsMatch.Status.COMPLETED.value)
-    return ft, cm
+    cm_or_wdr = Q(status__in=[
+        TournamentsMatch.Status.COMPLETED.value,
+        TournamentsMatch.Status.WITHDRAWN.value,
+    ])
+    return ft, cm, cm_or_wdr
 
 
 def calculate_rankings(match_type='SNG', season=None):
@@ -30,12 +38,14 @@ def calculate_rankings(match_type='SNG', season=None):
     Calculate ranking for all players for a given match_type + season.
     Returns a list of dicts ready to upsert into PlayerRanking.
     """
-    ft, cm = _build_filters(match_type, season)
+    ft, cm, cm_or_wdr = _build_filters(match_type, season)
 
     # --- Stats subqueries (same logic as original views.py) ---
 
     def _sum_scores(role, p1_fields, p2_fields, extra_filter=Q()):
-        """Sum score fields for a player in a given role (participant1 or participant2)."""
+        """Sum score fields for a player in a given role (participant1 or participant2).
+        Uses cm (CMP only) — WDR mecze nie mają statystyk gemów.
+        """
         user_filter = Q(**{f'{role}__user': OuterRef('pk')})
         fields = p1_fields if role == 'participant1' else p2_fields
         return Subquery(
@@ -47,7 +57,9 @@ def calculate_rankings(match_type='SNG', season=None):
         )
 
     def _count_sets(role, win, extra_filter=Q()):
-        """Count sets won or lost for a player in a given role."""
+        """Count sets won or lost for a player in a given role.
+        Uses cm (CMP only) — WDR mecze nie mają statystyk setów.
+        """
         user_filter = Q(**{f'{role}__user': OuterRef('pk')})
         if role == 'participant1':
             conds = [
@@ -74,9 +86,10 @@ def calculate_rankings(match_type='SNG', season=None):
         )
 
     def _count_matches(role):
+        """Count matches played (CMP + WDR) for a player in a given role."""
         user_filter = Q(**{f'{role}__user': OuterRef('pk')})
         return Subquery(
-            TournamentsMatch.objects.filter(ft & cm & user_filter)
+            TournamentsMatch.objects.filter(ft & cm_or_wdr & user_filter)
             .order_by().values(f'{role}__user')
             .annotate(count=Count('id')).values('count')[:1],
             output_field=IntegerField()

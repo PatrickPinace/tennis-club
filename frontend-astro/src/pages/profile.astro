@@ -1,240 +1,342 @@
 ---
-// profile.astro — Profil gracza (placeholder z demo danymi)
+// profile.astro — Profil gracza — prawdziwe dane z /api/auth/profile/ + /api/matches/history/
+// SSR wymagane — middleware chroni tę stronę przed niezalogowanymi
+export const prerender = false;
+
 import AppLayout from '../layouts/AppLayout.astro';
 import PageHeader from '../components/PageHeader.astro';
+import { getUserProfile, getMatchHistory, type MatchHistoryEntry } from '../lib/api';
 
-const player = {
-  name: 'Marcin Kowalski',
-  initials: 'MK',
-  role: 'Członek VIP',
-  memberSince: 'Marzec 2021',
-  email: 'marcin.kowalski@example.com',
-  phone: '+48 600 123 456',
-  city: 'Warszawa',
-  ranking: 7,
-  rankingChange: +2,
-  points: 1_247,
-  level: 'Zaawansowany',
-  winRate: 68,
-  wins: 34,
-  losses: 16,
-  played: 50,
-  setsWon: 89,
-  setsLost: 52,
-  streak: 4,
-  streakType: 'W' as 'W' | 'L',
-};
+// ── Dane z Django API (server-side, z cookie sesji) ──────────────────────────
 
-const achievements = [
-  { icon: '🏆', label: 'Mistrz Ligi Wiosennej', date: 'Kwiecień 2025', color: '#f59e0b' },
-  { icon: '⚡', label: '10 meczów z rzędu', date: 'Luty 2025', color: '#8b5cf6' },
-  { icon: '🎯', label: '50 meczów rozegranych', date: 'Styczeń 2025', color: '#22c55e' },
-  { icon: '🌟', label: 'Gracz miesiąca', date: 'Grudzień 2024', color: '#3b82f6' },
-  { icon: '🔥', label: 'Seria 5 zwycięstw', date: 'Październik 2024', color: '#ef4444' },
-];
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const [profileData, matchHistory] = await Promise.all([
+  getUserProfile(sessionCookie),
+  getMatchHistory(sessionCookie),
+]);
 
-const recentMatches = [
-  { opponent: 'Piotr Nowak',     result: 'W', score: '6:4 6:2', date: '5 kwi', surface: 'Kort 1' },
-  { opponent: 'Tomasz Wiśniewski', result: 'W', score: '7:5 4:6 6:3', date: '2 kwi', surface: 'Kort 3' },
-  { opponent: 'Adam Zieliński',  result: 'L', score: '3:6 5:7', date: '28 mar', surface: 'Kort 2' },
-  { opponent: 'Krzysztof Dąb',   result: 'W', score: '6:1 6:3', date: '24 mar', surface: 'Kort 4' },
-  { opponent: 'Łukasz Kubicki',  result: 'W', score: '6:4 7:6', date: '19 mar', surface: 'Kort 1' },
-];
+// ── Dane użytkownika ──────────────────────────────────────────────────────────
 
-const upcomingMatch = {
-  opponent: 'Rafał Szymański',
-  date: '12 kwi 2026',
-  time: '18:30',
-  surface: 'Kort 2',
-  tournament: 'Liga Wiosenna 2026',
-};
+const user = profileData?.user ?? null;
+const rSng = profileData?.ranking_sng ?? null;
+const rDbl = profileData?.ranking_dbl ?? null;
+
+// Dane wyświetlane
+const displayName = user
+  ? [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username
+  : '—';
+
+const initials = user
+  ? ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase() || user.username.slice(0, 2).toUpperCase()
+  : '?';
+
+const roleLabel = user?.is_staff ? 'Personel' : 'Członek';
+
+// Member since — sformatuj datę PL
+function formatDatePL(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
+const memberSince = formatDatePL(user?.member_since);
+
+// ── Statystyki z rankingu SNG ─────────────────────────────────────────────────
+
+const ranking     = rSng?.position   ?? null;
+const points      = rSng?.points     ?? null;
+const winRate     = rSng?.win_rate   ?? null;
+const matchesPlayed = rSng?.matches_played ?? null;
+const matchesWon  = rSng?.matches_won  ?? null;
+const matchesLost = rSng?.matches_lost ?? null;
+const setsWon     = rSng?.sets_won   ?? null;
+const setsLost    = rSng?.sets_lost  ?? null;
+
+// ── Ostatnie mecze (max 5) ────────────────────────────────────────────────────
+
+function formatMatchDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  } catch {
+    return iso;
+  }
+}
+
+function getOpponentName(m: MatchHistoryEntry): string {
+  // user: 'user-win' | 'user-loss' | 'user-draw' — player jest po stronie p1
+  // win: 'p1' | 'p2' — kto wygrał
+  // jeśli user jest p1 → przeciwnik to p2 (singiel) lub p3/p4 (debel)
+  const isP1Side = m.user === 'user-win' ? m.win === 'p1' : m.win !== 'p1';
+  // Najprostsza heurystyka: jeśli user jest p1, przeciwnik to p2
+  const opp = m.p2;
+  if (!opp) return 'Nieznany';
+  const name = [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
+  return name;
+}
+
+const recentMatches = matchHistory.slice(0, 5).map(m => ({
+  opponent: getOpponentName(m),
+  result: m.user === 'user-win' ? 'W' : m.user === 'user-loss' ? 'L' : 'R',
+  score: (() => {
+    const parts: string[] = [];
+    if (m.p1_set1 !== null && m.p2_set1 !== null) parts.push(`${m.p1_set1}:${m.p2_set1}`);
+    if (m.p1_set2 !== null && m.p2_set2 !== null) parts.push(`${m.p1_set2}:${m.p2_set2}`);
+    if (m.p1_set3 !== null && m.p2_set3 !== null) parts.push(`${m.p1_set3}:${m.p2_set3}`);
+    return parts.join(' ') || '—';
+  })(),
+  date: formatMatchDate(m.match_date),
+  type: m.match_double ? 'Debel' : 'Singiel',
+}));
+
+// ── Pomocnik n/d ──────────────────────────────────────────────────────────────
+
+function nd(val: number | string | null | undefined, suffix = ''): string {
+  if (val === null || val === undefined) return '—';
+  return `${val}${suffix}`;
+}
 ---
 
 <AppLayout
-  currentPath="/profile"
-  greeting="Twój profil"
+  title="Profil"
+  greeting={user ? `Twój profil` : 'Profil'}
   showCta={false}
 >
   <PageHeader
-    title={player.name}
-    subtitle={`Członek od ${player.memberSince} · Ranking #${player.ranking}`}
+    title={displayName}
+    subtitle={user
+      ? `Członek od ${memberSince} · ${ranking !== null ? `Ranking SNG #${ranking}` : 'Brak danych rankingowych'}`
+      : 'Ładowanie danych…'}
   />
 
   <div class="profile-grid">
 
-    <!-- Karta gracza — lewa kolumna -->
+    <!-- ── Lewa kolumna: karta gracza ── -->
     <aside class="player-card tc-card">
-      <div class="player-avatar" aria-hidden="true">{player.initials}</div>
-      <h2 class="player-name">{player.name}</h2>
-      <span class="player-role">{player.role}</span>
+      <div class="player-avatar" aria-hidden="true">{initials}</div>
+      <h2 class="player-name">{displayName}</h2>
+      <span class="player-role">{roleLabel}</span>
 
-      <div class="player-level">
-        <span class="level-badge">{player.level}</span>
-      </div>
+      {points !== null && (
+        <div class="player-level">
+          <span class="level-badge">{points.toLocaleString('pl')} pkt SNG</span>
+        </div>
+      )}
 
       <ul class="player-meta" role="list">
+        {user?.city && (
+          <li>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+            </svg>
+            {user.city}
+          </li>
+        )}
+        {user?.email && (
+          <li>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+            </svg>
+            {user.email}
+          </li>
+        )}
         <li>
           <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
           </svg>
-          {player.city}
+          Członek od {memberSince}
         </li>
-        <li>
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
-          </svg>
-          {player.email}
-        </li>
-        <li>
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
-          </svg>
-          {player.phone}
-        </li>
+        {user?.username && (
+          <li>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+            @{user.username}
+          </li>
+        )}
       </ul>
 
-      <div class="player-actions">
-        <button class="tc-btn tc-btn--primary" style="width:100%">
-          Edytuj profil
-        </button>
-        <button class="tc-btn tc-btn--ghost" style="width:100%">
-          Zmień hasło
-        </button>
-      </div>
+      <!-- Read-only: brak edycji na tym etapie -->
+      <p class="player-readonly-note">Strona tylko do odczytu</p>
     </aside>
 
-    <!-- Prawa kolumna -->
+    <!-- ── Prawa kolumna ── -->
     <div class="profile-main">
 
-      <!-- Statystyki -->
+      <!-- Statystyki SNG -->
       <section>
-        <h3 class="section-title">Statystyki sezonu</h3>
-        <div class="stats-grid">
-          <div class="stat-tile tc-card">
-            <div class="stat-tile__value">{player.ranking}
-              <span class={`stat-tile__delta ${player.rankingChange > 0 ? 'delta--up' : 'delta--down'}`}>
-                {player.rankingChange > 0 ? '▲' : '▼'}{Math.abs(player.rankingChange)}
-              </span>
-            </div>
-            <div class="stat-tile__label">Pozycja rankingowa</div>
-          </div>
-          <div class="stat-tile tc-card">
-            <div class="stat-tile__value">{player.points.toLocaleString('pl')}</div>
-            <div class="stat-tile__label">Punkty rankingowe</div>
-          </div>
-          <div class="stat-tile tc-card">
-            <div class="stat-tile__value">{player.winRate}<span class="stat-tile__unit">%</span></div>
-            <div class="stat-tile__label">Win rate</div>
-          </div>
-          <div class="stat-tile tc-card">
-            <div class="stat-tile__value">{player.streak}
-              <span class={`stat-tile__streak ${player.streakType === 'W' ? 'streak--win' : 'streak--loss'}`}>
-                {player.streakType}
-              </span>
-            </div>
-            <div class="stat-tile__label">Seria</div>
-          </div>
-        </div>
+        <h3 class="section-title">Statystyki singiel (SNG)</h3>
 
-        <!-- Win/loss bar -->
-        <div class="wl-bar-wrap tc-card">
-          <div class="wl-bar-header">
-            <span class="wl-label wl-wins">{player.wins} zwycięstw</span>
-            <span class="wl-played">{player.played} meczów</span>
-            <span class="wl-label wl-losses">{player.losses} porażek</span>
+        {rSng === null ? (
+          <div class="no-data-box tc-card">
+            Brak danych rankingowych — rozegraj swój pierwszy mecz singlowy.
           </div>
-          <div class="wl-bar" role="progressbar" aria-valuenow={player.winRate} aria-valuemin={0} aria-valuemax={100}>
-            <div class="wl-bar__fill wl-bar__fill--win" style={`width:${player.winRate}%`}></div>
-            <div class="wl-bar__fill wl-bar__fill--loss" style={`width:${100 - player.winRate}%`}></div>
-          </div>
-          <div class="wl-bar-sub">
-            <span>Sety wygrane: {player.setsWon}</span>
-            <span>Sety przegrane: {player.setsLost}</span>
-          </div>
-        </div>
+        ) : (
+          <>
+            <div class="stats-grid">
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {ranking !== null ? ranking : '—'}
+                </div>
+                <div class="stat-tile__label">Pozycja rankingowa</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {points !== null ? points.toLocaleString('pl') : '—'}
+                </div>
+                <div class="stat-tile__label">Punkty rankingowe</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {winRate !== null ? winRate : '—'}
+                  {winRate !== null && <span class="stat-tile__unit">%</span>}
+                </div>
+                <div class="stat-tile__label">Win rate</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{nd(matchesPlayed)}</div>
+                <div class="stat-tile__label">Mecze</div>
+              </div>
+            </div>
+
+            <!-- Win/loss bar -->
+            {matchesPlayed !== null && matchesPlayed > 0 && (
+              <div class="wl-bar-wrap tc-card">
+                <div class="wl-bar-header">
+                  <span class="wl-wins">{nd(matchesWon)} zwycięstw</span>
+                  <span class="wl-played">{nd(matchesPlayed)} meczów</span>
+                  <span class="wl-losses">{nd(matchesLost)} porażek</span>
+                </div>
+                <div class="wl-bar"
+                  role="progressbar"
+                  aria-valuenow={winRate ?? 0}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div class="wl-bar__fill wl-bar__fill--win"  style={`width:${winRate ?? 0}%`}></div>
+                  <div class="wl-bar__fill wl-bar__fill--loss" style={`width:${100 - (winRate ?? 0)}%`}></div>
+                </div>
+                {(setsWon !== null || setsLost !== null) && (
+                  <div class="wl-bar-sub">
+                    <span>Sety wygrane: {nd(setsWon)}</span>
+                    <span>Sety przegrane: {nd(setsLost)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </section>
 
-      <!-- Nadchodzący mecz -->
-      <section>
-        <h3 class="section-title">Nadchodzący mecz</h3>
-        <div class="upcoming-match tc-card">
-          <div class="um-vs">
-            <div class="um-player um-player--me">
-              <div class="um-avatar um-avatar--green">{player.initials}</div>
-              <div class="um-name">{player.name}</div>
+      <!-- Statystyki DBL (jeśli są) -->
+      {rDbl !== null && (
+        <section>
+          <h3 class="section-title">Statystyki debel (DBL)</h3>
+          <div class="stats-grid stats-grid--3">
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">{nd(rDbl.position)}</div>
+              <div class="stat-tile__label">Pozycja rankingowa</div>
             </div>
-            <div class="um-badge">VS</div>
-            <div class="um-player um-player--opp">
-              <div class="um-avatar um-avatar--slate">RS</div>
-              <div class="um-name">{upcomingMatch.opponent}</div>
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">{rDbl.points !== null ? rDbl.points.toLocaleString('pl') : '—'}</div>
+              <div class="stat-tile__label">Punkty</div>
+            </div>
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">
+                {nd(rDbl.win_rate)}{rDbl.win_rate !== null && <span class="stat-tile__unit">%</span>}
+              </div>
+              <div class="stat-tile__label">Win rate</div>
             </div>
           </div>
-          <div class="um-meta">
-            <span>
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
-              </svg>
-              {upcomingMatch.date} · {upcomingMatch.time}
-            </span>
-            <span>
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
-              </svg>
-              {upcomingMatch.surface}
-            </span>
-            <span>
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-              </svg>
-              {upcomingMatch.tournament}
-            </span>
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <!-- Ostatnie mecze -->
       <section>
         <h3 class="section-title">Ostatnie mecze</h3>
-        <div class="tc-card" style="padding:0;overflow:hidden">
-          <table class="tc-table">
-            <thead>
-              <tr>
-                <th>Przeciwnik</th>
-                <th>Wynik</th>
-                <th>Data</th>
-                <th>Kort</th>
-                <th>Wynik</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recentMatches.map(m => (
+
+        {recentMatches.length === 0 ? (
+          <div class="no-data-box tc-card">
+            Brak rozegranych meczów.
+            <a href="/matches" class="no-data-link">Dodaj swój pierwszy mecz →</a>
+          </div>
+        ) : (
+          <div class="tc-card" style="padding:0;overflow:hidden">
+            <table class="tc-table">
+              <thead>
                 <tr>
-                  <td class="match-opp">{m.opponent}</td>
-                  <td><span class={`tc-badge ${m.result === 'W' ? 'tc-badge--success' : 'tc-badge--danger'}`}>{m.result === 'W' ? 'Wygrana' : 'Porażka'}</span></td>
-                  <td class="text-muted">{m.score}</td>
-                  <td class="text-muted">{m.date}</td>
-                  <td class="text-muted">{m.surface}</td>
+                  <th>Przeciwnik</th>
+                  <th>Wynik</th>
+                  <th>Zapis</th>
+                  <th>Data</th>
+                  <th>Typ</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {recentMatches.map(m => (
+                  <tr>
+                    <td class="match-opp">{m.opponent}</td>
+                    <td>
+                      <span class={`tc-badge ${m.result === 'W' ? 'tc-badge-success' : m.result === 'L' ? 'tc-badge-danger' : 'tc-badge-neutral'}`}>
+                        {m.result === 'W' ? 'Wygrana' : m.result === 'L' ? 'Porażka' : 'Remis'}
+                      </span>
+                    </td>
+                    <td class="text-muted">{m.score}</td>
+                    <td class="text-muted">{m.date}</td>
+                    <td class="text-muted">{m.type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {recentMatches.length > 0 && (
+          <div style="margin-top:10px;">
+            <a href="/matches" class="tc-btn tc-btn-ghost tc-btn-sm">
+              Pełna historia meczów →
+            </a>
+          </div>
+        )}
       </section>
 
-      <!-- Osiągnięcia -->
+      <!-- Informacje o koncie -->
       <section>
-        <h3 class="section-title">Osiągnięcia</h3>
-        <div class="achievements-grid">
-          {achievements.map(a => (
-            <div class="achievement-card tc-card">
-              <div class="achievement-icon" style={`background:${a.color}1a;color:${a.color}`}>{a.icon}</div>
-              <div class="achievement-info">
-                <div class="achievement-label">{a.label}</div>
-                <div class="achievement-date">{a.date}</div>
-              </div>
-            </div>
-          ))}
+        <h3 class="section-title">Informacje o koncie</h3>
+        <div class="tc-card account-info">
+          <div class="account-row">
+            <span class="account-label">Login</span>
+            <span class="account-value">{user?.username ?? '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">E-mail</span>
+            <span class="account-value">{user?.email || '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Imię i nazwisko</span>
+            <span class="account-value">{displayName}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Miasto</span>
+            <span class="account-value">{user?.city || '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Data urodzenia</span>
+            <span class="account-value">{user?.birth_date ? formatDatePL(user.birth_date) : '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Członek od</span>
+            <span class="account-value">{memberSince}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Rola</span>
+            <span class="account-value">{roleLabel}</span>
+          </div>
         </div>
       </section>
 
@@ -274,12 +376,12 @@ const upcomingMatch = {
 
 .player-name {
   font-size: 1.05rem; font-weight: 700;
-  color: var(--text-primary, #0f172a);
+  color: var(--text);
   margin: 0;
 }
 
 .player-role {
-  font-size: 0.75rem; color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
   background: rgba(34,197,94,0.1); color: #16a34a;
   padding: 2px 10px; border-radius: 999px; font-weight: 600;
 }
@@ -300,19 +402,20 @@ const upcomingMatch = {
 }
 .player-meta li {
   display: flex; align-items: center; gap: 7px;
-  font-size: 0.78rem; color: var(--text-muted, #64748b);
+  font-size: 0.78rem; color: var(--text-muted);
 }
 .player-meta svg { flex-shrink: 0; color: #94a3b8; }
 
-.player-actions {
-  display: flex; flex-direction: column; gap: 8px;
-  width: 100%; margin-top: 8px;
+.player-readonly-note {
+  font-size: 0.7rem; color: var(--text-dim);
+  margin: 4px 0 0;
+  font-style: italic;
 }
 
 /* ── Section title ───────────────────────────────────────────── */
 .section-title {
   font-size: 0.85rem; font-weight: 700;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   text-transform: uppercase; letter-spacing: 0.06em;
   margin: 0 0 12px;
 }
@@ -324,8 +427,12 @@ const upcomingMatch = {
   gap: 14px;
   margin-bottom: 14px;
 }
+.stats-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
 @media (max-width: 700px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid--3 { grid-template-columns: repeat(2, 1fr); }
 }
 
 .stat-tile {
@@ -334,29 +441,17 @@ const upcomingMatch = {
 }
 .stat-tile__value {
   font-size: 1.7rem; font-weight: 800;
-  color: var(--text-primary, #0f172a);
+  color: var(--text);
   line-height: 1.1;
   display: flex; align-items: baseline; justify-content: center; gap: 4px;
 }
 .stat-tile__unit {
-  font-size: 1rem; font-weight: 600; color: var(--text-muted, #64748b);
+  font-size: 1rem; font-weight: 600; color: var(--text-muted);
 }
 .stat-tile__label {
-  font-size: 0.72rem; color: var(--text-muted, #64748b);
+  font-size: 0.72rem; color: var(--text-muted);
   margin-top: 4px; font-weight: 500;
 }
-.stat-tile__delta {
-  font-size: 0.75rem; font-weight: 700;
-}
-.delta--up   { color: #22c55e; }
-.delta--down { color: #ef4444; }
-
-.stat-tile__streak {
-  font-size: 0.85rem; font-weight: 800;
-  padding: 1px 6px; border-radius: 5px;
-}
-.streak--win  { background: #dcfce7; color: #15803d; }
-.streak--loss { background: #fee2e2; color: #b91c1c; }
 
 /* ── Win/loss bar ────────────────────────────────────────────── */
 .wl-bar-wrap { padding: 18px 20px; }
@@ -367,7 +462,7 @@ const upcomingMatch = {
 }
 .wl-wins   { color: #15803d; }
 .wl-losses { color: #b91c1c; }
-.wl-played { color: var(--text-muted, #64748b); font-weight: 500; }
+.wl-played { color: var(--text-muted); font-weight: 500; }
 
 .wl-bar {
   height: 10px; border-radius: 999px;
@@ -380,75 +475,46 @@ const upcomingMatch = {
 
 .wl-bar-sub {
   display: flex; justify-content: space-between;
-  font-size: 0.72rem; color: var(--text-muted, #64748b);
+  font-size: 0.72rem; color: var(--text-muted);
   margin-top: 8px;
 }
 
-/* ── Upcoming match ──────────────────────────────────────────── */
-.upcoming-match { padding: 20px 24px; }
-
-.um-vs {
-  display: flex; align-items: center; justify-content: center;
-  gap: 20px; margin-bottom: 16px;
+/* ── No data ─────────────────────────────────────────────────── */
+.no-data-box {
+  padding: 20px 24px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  display: flex; flex-direction: column; gap: 8px;
 }
-.um-player { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.um-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary, #0f172a); }
-
-.um-avatar {
-  width: 48px; height: 48px; border-radius: 50%;
-  font-size: 0.9rem; font-weight: 700;
-  display: grid; place-items: center;
-}
-.um-avatar--green {
-  background: rgba(34,197,94,0.12); border: 2px solid #22c55e; color: #16a34a;
-}
-.um-avatar--slate {
-  background: #f1f5f9; border: 2px solid #cbd5e1; color: #475569;
-}
-
-.um-badge {
-  font-size: 0.85rem; font-weight: 800;
-  background: #f1f5f9; color: #475569;
-  padding: 6px 14px; border-radius: 8px;
-}
-
-.um-meta {
-  display: flex; flex-wrap: wrap; justify-content: center;
-  gap: 16px;
-  font-size: 0.78rem; color: var(--text-muted, #64748b);
-  padding-top: 14px; border-top: 1px solid var(--border-color, #e2e8f0);
-}
-.um-meta span {
-  display: flex; align-items: center; gap: 5px;
+.no-data-link {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ── Table extras ────────────────────────────────────────────── */
-.match-opp { font-weight: 600; color: var(--text-primary, #0f172a); }
-.text-muted { color: var(--text-muted, #64748b); }
+.match-opp { font-weight: 600; color: var(--text); }
+.text-muted { color: var(--text-muted); }
 
-/* ── Achievements ────────────────────────────────────────────── */
-.achievements-grid {
-  display: flex; flex-direction: column; gap: 10px;
-}
+/* ── Account info ────────────────────────────────────────────── */
+.account-info { padding: 0; }
 
-.achievement-card {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px 18px;
+.account-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
 }
+.account-row:last-child { border-bottom: none; }
 
-.achievement-icon {
-  width: 40px; height: 40px; border-radius: 10px;
-  font-size: 1.2rem;
-  display: grid; place-items: center;
-  flex-shrink: 0;
+.account-label {
+  width: 160px; flex-shrink: 0;
+  color: var(--text-muted);
+  font-weight: 500;
 }
-
-.achievement-label {
-  font-size: 0.87rem; font-weight: 600;
-  color: var(--text-primary, #0f172a);
-}
-.achievement-date {
-  font-size: 0.72rem; color: var(--text-muted, #64748b);
-  margin-top: 2px;
+.account-value {
+  color: var(--text);
+  font-weight: 500;
 }
 </style>

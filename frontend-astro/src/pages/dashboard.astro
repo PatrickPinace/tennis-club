@@ -8,12 +8,17 @@ import AppLayout from '@/layouts/AppLayout.astro';
 import {
   getDashboardTournaments,
   getUnreadCount,
+  getCurrentUser,
   TOURNAMENT_STATUS_LABEL,
   TOURNAMENT_TYPE_LABEL,
   type Tournament,
 } from '../lib/api';
 
 // ── Dane z Django API (server-side) ──────────────────────────────────────────
+
+// Bieżący użytkownik — SSR z cookie sesji
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const currentUser = await getCurrentUser(sessionCookie);
 
 // Turnieje: publiczne GET /api/tournaments/ — nie wymaga auth
 const apiTournaments = await getDashboardTournaments(5);
@@ -22,6 +27,10 @@ const apiTournaments = await getDashboardTournaments(5);
 // Liczba powiadomień ładowana jest client-side przez JS (patrz <script> na końcu)
 // Gdy backend niedostępny lub niezalogowany — graceful degradation (brak odznaki)
 const unreadCount = null; // null = nie renderuj odznaki SSR
+
+// Greeting: imię z profilu lub fallback
+const firstName = currentUser?.first_name?.trim() || currentUser?.username || null;
+const greeting = firstName ? `Witaj z powrotem, ${firstName}!` : undefined;
 
 // Mapuj turnieje z API na format UI dashboardu
 function formatDate(iso: string | null): string {
@@ -105,43 +114,18 @@ const stats = [
   },
 ];
 
-const recentActivity = [
-  {
-    type: 'match',
-    title: 'Mecz singlowy',
-    desc: 'Wygrana 6:3, 7:5 z Tomasz B.',
-    time: '2 dni temu',
-    result: 'win',
-  },
-  {
-    type: 'reservation',
-    title: 'Rezerwacja kortu',
-    desc: 'Kort 3 (Trawa) · 16:00–17:30',
-    time: '3 dni temu',
-    result: 'neutral',
-  },
-  {
-    type: 'tournament',
-    title: 'Rejestracja do turnieju',
-    desc: 'Puchar Jesieni · Single Elimination',
-    time: '5 dni temu',
-    result: 'neutral',
-  },
-  {
-    type: 'match',
-    title: 'Mecz singlowy',
-    desc: 'Porażka 4:6, 5:7 z Adam K.',
-    time: '1 tyg. temu',
-    result: 'loss',
-  },
-];
+// TODO: recentActivity — podłączyć do /api/matches/history/ i /api/reservations/
+// Na razie pusta tablica; sekcja "Ostatnia aktywność" jest ukryta gdy brak danych
+const recentActivity: { type: string; title: string; desc: string; time: string; result: string }[] = [];
 
+// TODO: myStats — podłączyć do /api/dashboard/summary/ (client-side JS poniżej)
+// Wartości inicjalne '—' zastępowane przez JS po załadowaniu
 const myStats = {
-  matches: 48,
-  wins: 34,
-  winRate: 71,
-  sets: 112,
-  setsWon: 82,
+  matches: null as number | null,
+  wins: null as number | null,
+  winRate: null as number | null,
+  sets: null as number | null,
+  setsWon: null as number | null,
 };
 
 const quickActions = [
@@ -154,7 +138,7 @@ const quickActions = [
 
 <AppLayout
   title="Dashboard"
-  greeting="Witaj z powrotem, Marcin!"
+  greeting={greeting}
   showSearch={true}
   showCta={true}
   unreadCount={unreadCount}
@@ -292,17 +276,17 @@ const quickActions = [
           <h2 class="tc-card-title" id="my-stats-heading">Moje Statystyki</h2>
         </div>
         <div class="tc-card-body">
-          <div class="my-stats-grid">
+          <div class="my-stats-grid" id="my-stats-grid">
             <div class="my-stat">
-              <div class="my-stat__value">{myStats.matches}</div>
+              <div class="my-stat__value" id="stat-matches">{myStats.matches ?? '—'}</div>
               <div class="my-stat__label">Mecze</div>
             </div>
             <div class="my-stat">
-              <div class="my-stat__value">{myStats.wins}</div>
+              <div class="my-stat__value" id="stat-wins">{myStats.wins ?? '—'}</div>
               <div class="my-stat__label">Wygrane</div>
             </div>
             <div class="my-stat">
-              <div class="my-stat__value my-stat__value--highlight">{myStats.winRate}%</div>
+              <div class="my-stat__value my-stat__value--highlight" id="stat-winrate">{myStats.winRate !== null ? `${myStats.winRate}%` : '—'}</div>
               <div class="my-stat__label">Win Rate</div>
             </div>
           </div>
@@ -335,9 +319,9 @@ const quickActions = [
           </div>
 
           <div class="my-stats-sub">
-            <span class="my-stats-sub__item">
+            <span class="my-stats-sub__item" id="stat-sets-label">
               <span class="my-stats-sub__dot" style="background:#22c55e"></span>
-              Sety wygrane: {myStats.setsWon}/{myStats.sets}
+              Sety wygrane: {myStats.setsWon !== null ? `${myStats.setsWon}/${myStats.sets}` : '—'}
             </span>
           </div>
         </div>
@@ -349,34 +333,38 @@ const quickActions = [
           <h2 class="tc-card-title" id="activity-heading">Ostatnia Aktywność</h2>
         </div>
 
-        <ul class="activity-list" role="list">
-          {recentActivity.map(item => (
-            <li class="activity-item">
-              <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
-                {item.type === 'match' && (
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
-                  </svg>
-                )}
-                {item.type === 'reservation' && (
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
-                  </svg>
-                )}
-                {item.type === 'tournament' && (
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                  </svg>
-                )}
-              </div>
-              <div class="activity-item__body">
-                <div class="activity-item__title">{item.title}</div>
-                <div class="activity-item__desc">{item.desc}</div>
-              </div>
-              <div class="activity-item__time">{item.time}</div>
-            </li>
-          ))}
-        </ul>
+        {recentActivity.length === 0 ? (
+          <p class="activity-empty">Brak aktywności do wyświetlenia.</p>
+        ) : (
+          <ul class="activity-list" role="list">
+            {recentActivity.map(item => (
+              <li class="activity-item">
+                <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
+                  {item.type === 'match' && (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                    </svg>
+                  )}
+                  {item.type === 'reservation' && (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                    </svg>
+                  )}
+                  {item.type === 'tournament' && (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                  )}
+                </div>
+                <div class="activity-item__body">
+                  <div class="activity-item__title">{item.title}</div>
+                  <div class="activity-item__desc">{item.desc}</div>
+                </div>
+                <div class="activity-item__time">{item.time}</div>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div class="tc-card-footer">
           <a href="/matches" class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
@@ -781,6 +769,14 @@ const quickActions = [
   }
 
   /* ── Activity list ───────────────────────────────────────────────────────── */
+  .activity-empty {
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-align: center;
+    margin: 0;
+  }
+
   .activity-list {
     list-style: none; padding: 0; margin: 0;
   }

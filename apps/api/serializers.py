@@ -266,15 +266,108 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
 
 
 class RoundRobinConfigSerializer(serializers.ModelSerializer):
-    """Konfiguracja punktacji dla Round Robin."""
+    """Konfiguracja punktacji dla Round Robin — odczyt (GET detail)."""
     class Meta:
         model = RoundRobinConfig
         fields = [
             'max_participants', 'sets_to_win', 'games_per_set',
             'points_for_win', 'points_for_loss',
             'points_for_set_win', 'points_for_set_loss',
-            'points_for_gem_win', 'tie_breaker_priority',
+            'points_for_gem_win', 'points_for_gem_loss',
+            'points_for_supertiebreak_win', 'points_for_supertiebreak_loss',
+            'tie_breaker_priority',
         ]
+
+
+class RoundRobinConfigUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer do PATCH /api/tournaments/{id}/config/
+
+    Wszystkie pola opcjonalne (partial update).
+    Walidacja:
+    - sets_to_win i games_per_set zablokowane gdy turniej ACT/FIN/CNC/SCH
+    - points_for_win >= points_for_loss (logika: winner powinien dostawać ≥ przegrany)
+    - min_participants >= 2, sets_to_win >= 1, games_per_set >= 1
+    - punkty z zakresu [-100, 100]
+    """
+    class Meta:
+        model = RoundRobinConfig
+        fields = [
+            'max_participants', 'sets_to_win', 'games_per_set',
+            'points_for_win', 'points_for_loss',
+            'points_for_set_win', 'points_for_set_loss',
+            'points_for_gem_win', 'points_for_gem_loss',
+            'points_for_supertiebreak_win', 'points_for_supertiebreak_loss',
+            'tie_breaker_priority',
+        ]
+
+    def validate(self, attrs):
+        tournament = self.instance.tournament
+        locked_statuses = {'ACT', 'FIN', 'CNC', 'SCH'}
+
+        # Pola strukturalne zablokowane po starcie turnieju
+        if tournament.status in locked_statuses:
+            for field in ('sets_to_win', 'games_per_set'):
+                if field in attrs:
+                    raise serializers.ValidationError({
+                        field: f'Nie można zmieniać „{field}" po rozpoczęciu turnieju (status: {tournament.status}).'
+                    })
+
+        # points_for_win >= points_for_loss
+        win = attrs.get('points_for_win', self.instance.points_for_win)
+        loss = attrs.get('points_for_loss', self.instance.points_for_loss)
+        if win < loss:
+            raise serializers.ValidationError({
+                'points_for_win': 'points_for_win musi być >= points_for_loss.'
+            })
+
+        # Limity dla pól liczbowych
+        if 'max_participants' in attrs and attrs['max_participants'] < 2:
+            raise serializers.ValidationError({'max_participants': 'Minimalna liczba uczestników to 2.'})
+        if 'sets_to_win' in attrs and attrs['sets_to_win'] < 1:
+            raise serializers.ValidationError({'sets_to_win': 'sets_to_win musi wynosić co najmniej 1.'})
+        if 'games_per_set' in attrs and attrs['games_per_set'] < 1:
+            raise serializers.ValidationError({'games_per_set': 'games_per_set musi wynosić co najmniej 1.'})
+
+        # Zakres punktów [-100, 100]
+        point_fields = [
+            'points_for_win', 'points_for_loss',
+            'points_for_set_win', 'points_for_set_loss',
+            'points_for_gem_win', 'points_for_gem_loss',
+            'points_for_supertiebreak_win', 'points_for_supertiebreak_loss',
+        ]
+        for f in point_fields:
+            if f in attrs and not (-100 <= float(attrs[f]) <= 100):
+                raise serializers.ValidationError({f: f'Wartość musi być z zakresu [-100, 100].'})
+
+        return attrs
+
+
+class RoundRobinStandingSerializer(serializers.Serializer):
+    """
+    Serializer dla jednego wiersza tabeli Round Robin.
+    Używany przez GET /api/tournaments/{id}/standings/
+
+    Dane obliczane przez calculate_round_robin_standings() w tools.py,
+    wzbogacone o draws, win_rate i position w widoku RoundRobinStandingsView.
+    """
+    position        = serializers.IntegerField()
+    participant_id  = serializers.IntegerField()
+    display_name    = serializers.CharField()
+    matches_played  = serializers.IntegerField()
+    wins            = serializers.IntegerField()
+    losses          = serializers.IntegerField()
+    draws           = serializers.IntegerField()
+    sets_won        = serializers.IntegerField()
+    sets_lost       = serializers.IntegerField()
+    sets_diff       = serializers.IntegerField()
+    games_won       = serializers.IntegerField()
+    games_lost      = serializers.IntegerField()
+    games_diff      = serializers.IntegerField()
+    points          = serializers.DecimalField(max_digits=10, decimal_places=2)
+    win_rate        = serializers.FloatField(
+        help_text='Procent wygranych meczów (0–100). null gdy brak rozegranych meczów.'
+    )
 
 
 class TournamentDetailSerializer(serializers.ModelSerializer):
@@ -290,6 +383,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
     config = serializers.SerializerMethodField()
     facility_name = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
+    created_by_username = serializers.SerializerMethodField()
     participant_count = serializers.SerializerMethodField()
 
     class Meta:
@@ -298,7 +392,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             'id', 'name', 'description',
             'start_date', 'end_date',
             'status', 'tournament_type', 'match_format', 'rank',
-            'facility_name', 'created_by_name',
+            'facility_name', 'created_by_name', 'created_by_username',
             'participant_count', 'participants',
             'config', 'matches', 'standings',
         ]
@@ -309,6 +403,9 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
     def get_created_by_name(self, obj):
         full = obj.created_by.get_full_name()
         return full if full.strip() else obj.created_by.username
+
+    def get_created_by_username(self, obj):
+        return obj.created_by.username
 
     def get_participant_count(self, obj):
         return obj.participants.count()

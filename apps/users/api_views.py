@@ -142,6 +142,94 @@ def api_current_user(request):
 
 
 @api_view(['GET'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def api_user_profile(request):
+    """
+    Profil aktualnie zalogowanego użytkownika — dane dla Astro /profile.
+    GET /api/auth/profile/
+
+    Zwraca:
+      - dane User (username, email, first_name, last_name, is_staff, date_joined)
+      - dane Profile (city, birth_date, start_date / member since)
+      - ranking SNG (pozycja, punkty, mecze, win_rate)
+      - DBL ranking (pozycja, punkty)
+
+    Auth: sesja Django. Gdy niezalogowany → 401.
+    """
+    if not request.user.is_authenticated:
+        return Response({'authenticated': False}, status=status.HTTP_401_UNAUTHORIZED)
+
+    user = request.user
+
+    # ── Profil ────────────────────────────────────────────────────────────────
+    try:
+        profile = user.profile
+        city = profile.city
+        birth_date = profile.birth_date.isoformat() if profile.birth_date else None
+        member_since = profile.start_date.isoformat() if profile.start_date else None
+    except Profile.DoesNotExist:
+        city = None
+        birth_date = None
+        member_since = None
+
+    # Fallback member_since → data rejestracji konta Django
+    if not member_since:
+        member_since = user.date_joined.date().isoformat()
+
+    # ── Ranking SNG ───────────────────────────────────────────────────────────
+    try:
+        from apps.rankings.models import PlayerRanking
+        sng = PlayerRanking.objects.filter(user=user, match_type='SNG').first()
+        ranking_sng = {
+            'position': sng.position if sng else None,
+            'points': float(sng.points) if sng else None,
+            'matches_played': sng.matches_played if sng else None,
+            'matches_won': sng.matches_won if sng else None,
+            'matches_lost': sng.matches_lost if sng else None,
+            'sets_won': sng.sets_won if sng else None,
+            'sets_lost': sng.sets_lost if sng else None,
+            'win_rate': round(sng.matches_won / sng.matches_played * 100)
+                        if sng and sng.matches_played else None,
+        } if sng else None
+    except Exception:
+        ranking_sng = None
+
+    # ── Ranking DBL ───────────────────────────────────────────────────────────
+    try:
+        dbl = PlayerRanking.objects.filter(user=user, match_type='DBL').first()
+        ranking_dbl = {
+            'position': dbl.position if dbl else None,
+            'points': float(dbl.points) if dbl else None,
+            'matches_played': dbl.matches_played if dbl else None,
+            'matches_won': dbl.matches_won if dbl else None,
+            'matches_lost': dbl.matches_lost if dbl else None,
+            'win_rate': round(dbl.matches_won / dbl.matches_played * 100)
+                        if dbl and dbl.matches_played else None,
+        } if dbl else None
+    except Exception:
+        ranking_dbl = None
+
+    return Response({
+        'authenticated': True,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_staff': user.is_staff,
+            'date_joined': user.date_joined.date().isoformat(),
+            'city': city,
+            'birth_date': birth_date,
+            'member_since': member_since,
+        },
+        'ranking_sng': ranking_sng,
+        'ranking_dbl': ranking_dbl,
+    })
+
+
+@api_view(['GET'])
 @ensure_csrf_cookie
 @authentication_classes([CsrfExemptSessionAuthentication])
 @permission_classes([AllowAny])

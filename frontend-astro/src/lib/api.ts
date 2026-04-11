@@ -99,7 +99,31 @@ export interface RankingData {
   matches_played: number | null;
   matches_won: number | null;
   matches_lost: number | null;
+  sets_won?: number | null;
+  sets_lost?: number | null;
   win_rate: number | null;
+}
+
+// ── Profil użytkownika (/api/auth/profile/) ───────────────────────────────────
+
+export interface UserProfileData {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_staff: boolean;
+  date_joined: string;   // ISO date
+  city: string | null;
+  birth_date: string | null;  // ISO date
+  member_since: string | null; // ISO date (start_date lub date_joined)
+}
+
+export interface UserProfileResponse {
+  authenticated: boolean;
+  user: UserProfileData;
+  ranking_sng: RankingData | null;
+  ranking_dbl: RankingData | null;
 }
 
 export interface LastMatchData {
@@ -176,6 +200,7 @@ export interface TournamentDetail {
   rank: number;
   facility_name: string | null;
   created_by_name: string;
+  created_by_username: string;
   participant_count: number;
   participants: Participant[];
   config: RRConfig | null;
@@ -399,6 +424,48 @@ export async function getRankings(
   if (year !== undefined) params.set('year', String(year));
   const data = await apiFetch<PlayerRankingEntry[]>(`/api/rankings/list/?${params}`);
   return data ?? [];
+}
+
+// ── Bieżący użytkownik ───────────────────────────────────────────────────────
+
+export interface CurrentUser {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_staff: boolean;
+}
+
+/**
+ * Zwraca dane zalogowanego użytkownika lub null gdy niezalogowany.
+ * Endpoint: GET /api/auth/me/
+ * Auth: sessionid cookie.
+ */
+export async function getCurrentUser(
+  sessionCookie?: string
+): Promise<CurrentUser | null> {
+  const data = await apiFetch<{ authenticated: boolean; user?: CurrentUser }>(
+    '/api/auth/me/',
+    { sessionCookie }
+  );
+  return data?.authenticated ? (data.user ?? null) : null;
+}
+
+/**
+ * Zwraca pełne dane profilu zalogowanego użytkownika (user + profile + rankingi).
+ * Endpoint: GET /api/auth/profile/
+ * Auth: sessionid cookie.
+ * Zwraca null gdy niezalogowany lub backend niedostępny.
+ */
+export async function getUserProfile(
+  sessionCookie?: string
+): Promise<UserProfileResponse | null> {
+  const data = await apiFetch<UserProfileResponse>(
+    '/api/auth/profile/',
+    { sessionCookie }
+  );
+  return data?.authenticated ? data : null;
 }
 
 /**

@@ -323,6 +323,73 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
             </div>
           )}
 
+          <!-- ── Zarządzanie (organizer) ───────────────────────────────── -->
+          <!-- Sekcja widoczna tylko dla is_staff i organizatora turnieju.
+               Sprawdzamy uprawnienia client-side przez /api/auth/me/.
+               Turniej nie może być Zakończony (FIN) ani Odwołany (CNC). -->
+          <div
+            id="org-panel"
+            style="display:none;"
+            data-tournament-id={tournament.id}
+            data-created-by={tournament.created_by_username}
+            data-tournament-status={tournament.status}
+            data-sets-to-win={tournament.config?.sets_to_win ?? 2}
+          >
+            <div class="tc-card org-card">
+              <div class="tc-card-header">
+                <span class="tc-card-title">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--primary);">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                  </svg>
+                  Zarządzanie turniejem
+                </span>
+                <span class="tc-badge tc-badge-warning" style="font-size:0.72rem;">Organizator</span>
+              </div>
+
+              <!-- Komunikat gdy turniej FIN/CNC -->
+              <div id="org-locked-msg" style="display:none;" class="org-locked-notice">
+                Turniej jest zakończony lub odwołany — edycja wyników jest zablokowana.
+              </div>
+
+              <!-- Tabela standings (odświeżana) -->
+              <div style="padding:0 20px 4px;">
+                <div class="org-section-label">Tabela ligowa</div>
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="tc-table td-standings-table" id="org-standings-table">
+                  <thead>
+                    <tr>
+                      <th style="width:36px;">#</th>
+                      <th>Gracz</th>
+                      <th class="col-num">Pkt</th>
+                      <th class="col-num">M</th>
+                      <th class="col-num">W</th>
+                      <th class="col-num">P</th>
+                      <th class="col-num">Wr%</th>
+                      <th class="col-num">Sety</th>
+                    </tr>
+                  </thead>
+                  <tbody id="org-standings-body">
+                    <tr><td colspan="8" class="org-loading">Ładowanie tabeli…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Lista meczów do wpisania wyników -->
+              <div style="padding:16px 20px 4px;">
+                <div class="org-section-label">Wpisz wyniki meczów</div>
+              </div>
+              <div id="org-matches-list" style="padding:0 20px 16px;">
+                <div class="org-loading">Ładowanie meczów…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dane meczów dla org-panel JS (SSR JSON) -->
+          {tournament && (
+            <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
+          )}
+
           <!-- ── Konfiguracja (zwijana) ─────────────────────────────────── -->
           {tournament.config && (
             <details class="tc-card td-config-card">
@@ -544,4 +611,392 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
     .td-info-row { flex-direction: column; }
     .td-match__name { font-size: 0.8rem; }
   }
+
+  /* ── Organizer panel ─────────────────────────────────────────────────────── */
+  .org-card { margin-bottom: 24px; }
+
+  .org-section-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-muted);
+    padding: 6px 0 8px;
+    border-top: 1px solid var(--border);
+    margin-top: 4px;
+  }
+
+  .org-loading {
+    font-size: 0.82rem; color: var(--text-dim);
+    padding: 12px 0;
+    text-align: center;
+  }
+
+  .org-locked-notice {
+    margin: 0 20px 12px;
+    padding: 10px 14px;
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem; color: var(--danger);
+  }
+
+  /* Mecz w panelu organizatora */
+  .org-match {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .org-match--done { opacity: 0.65; }
+
+  .org-match__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    gap: 12px;
+  }
+  .org-match__players {
+    display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
+  }
+  .org-match__name {
+    font-size: 0.875rem; font-weight: 600; color: var(--text);
+    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .org-match__vs {
+    font-size: 0.7rem; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; flex-shrink: 0;
+  }
+  .org-match__score-badge {
+    font-size: 0.82rem; font-weight: 700; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 2px 10px; border-radius: 6px; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .org-match__score-badge--done {
+    background: rgba(34,197,94,0.08);
+    border-color: rgba(34,197,94,0.25);
+    color: #15803d;
+  }
+
+  .org-match__edit-btn {
+    font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 10px; background: var(--surface);
+    color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
+    transition: background 0.12s;
+  }
+  .org-match__edit-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .org-match__edit-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* Formularz wpisywania wyników */
+  .org-score-form {
+    display: none;
+    padding: 12px 14px 14px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .org-score-form.is-open { display: block; }
+
+  .org-sets-row {
+    display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .org-set-group { display: flex; flex-direction: column; gap: 4px; }
+  .org-set-label {
+    font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .org-set-inputs {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .org-set-input {
+    width: 44px; height: 34px;
+    text-align: center; font-size: 0.95rem; font-weight: 700;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text);
+    font-family: var(--font-sans);
+    transition: border-color 0.12s;
+  }
+  .org-set-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
+  }
+  .org-set-sep {
+    font-size: 0.85rem; font-weight: 700; color: var(--text-muted);
+  }
+
+  .org-form-actions {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .org-save-btn {
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 6px;
+    padding: 6px 16px; background: var(--primary);
+    color: #fff; transition: background 0.12s;
+  }
+  .org-save-btn:hover:not(:disabled) { background: var(--primary-btn-hover, #16a34a); }
+  .org-save-btn:disabled { opacity: 0.5; cursor: default; }
+
+  .org-cancel-btn {
+    font-size: 0.82rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 12px; background: transparent;
+    color: var(--text-muted); transition: background 0.12s;
+  }
+  .org-cancel-btn:hover { background: var(--surface-2); }
+
+  .org-form-msg {
+    font-size: 0.78rem; font-weight: 600;
+  }
+  .org-form-msg--ok  { color: var(--primary); }
+  .org-form-msg--err { color: var(--danger); }
 </style>
+
+<script>
+// ── Organizer panel ───────────────────────────────────────────────────────────
+(async () => {
+  const panel = document.getElementById('org-panel');
+  if (!panel) return;
+
+  const tournamentId   = panel.dataset.tournamentId;
+  const createdBy      = panel.dataset.createdBy;
+  const tStatus        = panel.dataset.tournamentStatus;
+  const setsToWin      = parseInt(panel.dataset.setsToWin ?? '2', 10);
+  const apiBase        = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+
+  // ── 1. Sprawdź uprawnienia ────────────────────────────────────────────────
+  let meData: { authenticated?: boolean; user?: { username?: string; is_staff?: boolean } } = {};
+  try {
+    const res = await fetch(`${apiBase}/api/auth/me/`, { credentials: 'include' });
+    if (res.ok) meData = await res.json();
+  } catch { /* backend niedostępny */ }
+
+  const me = meData?.user;
+  const isOrganizer = meData?.authenticated && me &&
+    (me.is_staff || me.username === createdBy);
+
+  if (!isOrganizer) return;
+
+  // Pokaż panel
+  panel.style.display = '';
+
+  // Turniej FIN/CNC → pokaż komunikat, nie renderuj formularzy
+  const locked = tStatus === 'FIN' || tStatus === 'CNC';
+  if (locked) {
+    const lockedMsg = document.getElementById('org-locked-msg');
+    if (lockedMsg) lockedMsg.style.display = '';
+  }
+
+  // ── 2. Załaduj i wyrenderuj standings ────────────────────────────────────
+  async function loadStandings() {
+    const tbody = document.getElementById('org-standings-body');
+    if (!tbody) return;
+    try {
+      const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/standings/`, { credentials: 'include' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const rows: Array<{
+        position: number; display_name: string; points: number;
+        matches_played: number; wins: number; losses: number;
+        win_rate: number; sets_won: number; sets_lost: number;
+      }> = await res.json();
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="org-loading">Brak danych standings.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td style="text-align:center;font-weight:700;">${r.position}</td>
+          <td>${escHtml(r.display_name)}</td>
+          <td class="col-num" style="font-weight:700;">${Number(r.points).toFixed(1).replace('.0','')}</td>
+          <td class="col-num">${r.matches_played}</td>
+          <td class="col-num">${r.wins}</td>
+          <td class="col-num">${r.losses}</td>
+          <td class="col-num">${r.win_rate != null ? r.win_rate + '%' : '—'}</td>
+          <td class="col-num">${r.sets_won}:${r.sets_lost}</td>
+        </tr>`).join('');
+    } catch {
+      const tbody2 = document.getElementById('org-standings-body');
+      if (tbody2) tbody2.innerHTML = '<tr><td colspan="8" class="org-loading">Błąd ładowania tabeli.</td></tr>';
+    }
+  }
+
+  // ── 3. Wyrenderuj listę meczów ────────────────────────────────────────────
+  function renderMatches() {
+    const container = document.getElementById('org-matches-list');
+    if (!container) return;
+
+    // Pobierz dane meczów z SSR (wbudowane w stronę jako JSON)
+    const matchesEl = document.getElementById('ssr-matches-data');
+    if (!matchesEl) { container.innerHTML = '<div class="org-loading">Brak danych meczów.</div>'; return; }
+
+    let matches: Array<{
+      id: number; round_number: number; match_index: number; status: string;
+      participant1_name: string | null; participant2_name: string | null;
+      winner_name: string | null; score: string | null; scheduled_time: string | null;
+      set1_p1_score: number|null; set1_p2_score: number|null;
+      set2_p1_score: number|null; set2_p2_score: number|null;
+      set3_p1_score: number|null; set3_p2_score: number|null;
+    }> = [];
+    try { matches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { return; }
+
+    if (!matches.length) {
+      container.innerHTML = '<div class="org-loading">Brak zaplanowanych meczów.</div>';
+      return;
+    }
+
+    const SKIP = ['CMP', 'WDR', 'CNC'];
+    container.innerHTML = matches.map(m => {
+      const p1 = escHtml(m.participant1_name ?? 'BYE');
+      const p2 = escHtml(m.participant2_name ?? 'BYE');
+      const roundLabel = `R${m.round_number} M${m.match_index}`;
+      const statusBadge = m.status === 'CMP'
+        ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.7rem;">Zakończony</span>`
+        : m.status === 'WDR' || m.status === 'CNC'
+          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.7rem;">Nieaktywny</span>`
+          : m.status === 'INP'
+            ? `<span class="tc-badge tc-badge-warning" style="font-size:0.7rem;">W trakcie</span>`
+            : `<span class="tc-badge tc-badge-info" style="font-size:0.7rem;">Oczekuje</span>`;
+
+      const scoreDisplay = m.score
+        ? `<span style="font-weight:700;font-size:0.92rem;">${escHtml(m.score)}</span>`
+        : '—';
+
+      if (SKIP.includes(m.status) || locked) {
+        // Mecz zakończony lub panel zablokowany — tylko podgląd
+        return `
+          <div class="org-match org-match--done" data-match-id="${m.id}">
+            <div class="org-match-header">
+              <span class="org-match-label">${roundLabel}</span>
+              ${statusBadge}
+            </div>
+            <div class="org-match-players">${p1} <span style="color:var(--text-muted);font-size:0.85rem;">vs</span> ${p2}</div>
+            <div style="margin-top:4px;font-size:0.85rem;color:var(--text-muted);">Wynik: ${scoreDisplay}${m.winner_name ? ` — zwycięzca: <strong>${escHtml(m.winner_name)}</strong>` : ''}</div>
+          </div>`;
+      }
+
+      // Formularz do wpisania/edycji wyniku
+      const v = (n: number | null) => n != null ? String(n) : '';
+      return `
+        <div class="org-match" data-match-id="${m.id}">
+          <div class="org-match-header">
+            <span class="org-match-label">${roundLabel}</span>
+            ${statusBadge}
+          </div>
+          <div class="org-match-players">${p1} <span style="color:var(--text-muted);font-size:0.85rem;">vs</span> ${p2}</div>
+          <form class="org-score-form" data-match-id="${m.id}">
+            <div class="org-sets-row">
+              ${[1,2,3].map(s => `
+                <div class="org-set-group">
+                  <div class="org-set-label">Set ${s}</div>
+                  <div class="org-set-inputs">
+                    <input class="org-set-input" type="number" min="0" max="99"
+                      name="set${s}_p1" placeholder="—" value="${v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score)}">
+                    <span class="org-set-sep">:</span>
+                    <input class="org-set-input" type="number" min="0" max="99"
+                      name="set${s}_p2" placeholder="—" value="${v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score)}">
+                  </div>
+                </div>`).join('')}
+            </div>
+            <div class="org-form-actions">
+              <button type="submit" class="org-save-btn">Zapisz wynik</button>
+              <span class="org-form-msg" data-match-id="${m.id}"></span>
+            </div>
+          </form>
+        </div>`;
+    }).join('');
+
+    // Podepnij handlery formularzy
+    container.querySelectorAll<HTMLFormElement>('.org-score-form').forEach(form => {
+      form.addEventListener('submit', handleScoreSubmit);
+    });
+  }
+
+  // ── 4. Zapisz wynik ────────────────────────────────────────────────────────
+  async function handleScoreSubmit(e: Event) {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const matchId = form.dataset.matchId;
+    const msgEl = document.querySelector<HTMLElement>(`.org-form-msg[data-match-id="${matchId}"]`);
+    const btn = form.querySelector<HTMLButtonElement>('.org-save-btn');
+
+    const getVal = (name: string): number | null => {
+      const v = (form.elements.namedItem(name) as HTMLInputElement)?.value;
+      return v !== '' && v != null ? parseInt(v, 10) : null;
+    };
+
+    const body = {
+      set1_p1: getVal('set1_p1'), set1_p2: getVal('set1_p2'),
+      set2_p1: getVal('set2_p1'), set2_p2: getVal('set2_p2'),
+      set3_p1: getVal('set3_p1'), set3_p2: getVal('set3_p2'),
+    };
+
+    if (btn) btn.disabled = true;
+    if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
+
+    // Pobierz CSRF token z cookie
+    const csrf = getCsrfToken();
+
+    try {
+      const res = await fetch(
+        `${apiBase}/api/tournaments/${tournamentId}/matches/${matchId}/score/`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRFToken': csrf } : {}),
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+        if (msgEl) {
+          msgEl.textContent = data.winner_name
+            ? `Zapisano! Zwycięzca: ${data.winner_name}`
+            : 'Zapisano wynik.';
+          msgEl.className = 'org-form-msg org-form-msg--ok';
+        }
+        // Odśwież standings i listę meczów
+        await loadStandings();
+        await refreshMatchesData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.detail || err?.error || `Błąd ${res.status}`;
+        if (msgEl) { msgEl.textContent = msg; msgEl.className = 'org-form-msg org-form-msg--err'; }
+      }
+    } catch {
+      if (msgEl) { msgEl.textContent = 'Błąd sieci.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // ── 5. Odśwież dane meczów po zapisie ─────────────────────────────────────
+  async function refreshMatchesData() {
+    try {
+      const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/detail/`, { credentials: 'include' });
+      if (!res.ok) return;
+      const detail = await res.json();
+      const el = document.getElementById('ssr-matches-data');
+      if (el) el.textContent = JSON.stringify(detail.matches ?? []);
+      renderMatches();
+    } catch { /* cicha degradacja */ }
+  }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  function escHtml(s: string) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function getCsrfToken(): string {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  // ── Inicjalizacja ─────────────────────────────────────────────────────────
+  await loadStandings();
+  renderMatches();
+})();
+</script>
