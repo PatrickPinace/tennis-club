@@ -10,7 +10,7 @@ import { url } from '@/lib/url';
 //   (Caddy routuje /tournaments → Django, bo nie pasuje do /astro/*).
 // Aby to działało w obu środowiskach, używamy PUBLIC_DJANGO_URL jeśli ustawiony,
 // albo DJANGO_API_URL tylko gdy zawiera localhost (dev), w prod fallback to '/tournaments'.
-const _djangoApiUrl = import.meta.env.DJANGO_API_URL ?? '';
+const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
 const classicUrl = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
   ? _djangoApiUrl.replace(/\/$/, '') + '/tournaments'
   : '/tournaments';

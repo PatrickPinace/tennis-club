@@ -261,8 +261,9 @@ export const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
  * Nie używaj w client-side code (brak dostępu do zmiennych bez prefixu PUBLIC_).
  */
 function getApiBase(): string {
-  // import.meta.env działa w Astro — DJANGO_API_URL to zmienna server-only
-  return import.meta.env.DJANGO_API_URL ?? 'http://localhost:8000';
+  // process.env jest dostępne w runtime (Node adapter) — nie jest inlineowane przy buildzie.
+  // import.meta.env.DJANGO_API_URL byłoby wkompilowane build-time → nie widzi Docker env.
+  return process.env.DJANGO_API_URL ?? 'http://localhost:8000';
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
