@@ -8,6 +8,12 @@ interface Props {
 }
 const { currentPath = '/' } = Astro.props;
 
+// Link do wersji klasycznej Django — ta sama logika co w Topbar.astro
+const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
+const classicUrl = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
+  ? _djangoApiUrl.replace(/\/$/, '') + '/tournaments'
+  : '/tournaments';
+
 const navItems = [
   {
     href: url('/dashboard'),
@@ -109,6 +115,17 @@ function isActive(item: { match: string[] }): boolean {
         <span class="sidebar-nav__label">{item.label}</span>
       </a>
     ))}
+
+    <!-- Link do wersji klasycznej Django — analogicznie jak "Nowa wersja (beta)" w Django sidebar -->
+    <div class="sidebar-nav__sep" aria-hidden="true"></div>
+    <a href={classicUrl} class="sidebar-nav__link sidebar-nav__link--classic">
+      <span class="sidebar-nav__icon" aria-hidden="true">
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
+        </svg>
+      </span>
+      <span class="sidebar-nav__label">Wersja klasyczna</span>
+    </a>
   </nav>
 
   <!-- User footer — Marcin Kowalski, Członek VIP -->
@@ -227,6 +244,14 @@ function isActive(item: { match: string[] }): boolean {
     height: 1px;
     background: #1f2a3d;
     margin: 8px 4px;
+  }
+
+  .sidebar-nav__link--classic {
+    opacity: 0.55;
+    font-size: 0.8rem;
+  }
+  .sidebar-nav__link--classic:hover {
+    opacity: 0.85;
   }
 
   /* ── User footer ─────────────────────────────────────────────────────────── */

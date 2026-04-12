@@ -439,6 +439,9 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
   savingEl.style.display = '';
 
   try {
+    // 0. Odśwież CSRF token — gwarantuje aktualny csrftoken cookie przed POST
+    await fetch(`${API}/api/auth/csrf/`, { credentials: 'include' });
+
     // 1. POST /api/tournaments/create/
     const body: Record<string, string | number> = {
       name:            nameEl.value.trim(),
