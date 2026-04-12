@@ -1,0 +1,378 @@
+---
+// courts/reservations.astro — grid godziny × korty w stylu kalendarza
+// Docelowo: GET /courts/api/timeline-data/<pk>/ (istnieje w Django)
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { url } from '@/lib/url';
+
+// Dane demo — docelowo z /courts/api/timeline-data/<pk>/
+const courts = ['Kort 1', 'Kort 2', 'Kort 3 (Trawa)', 'Kort 4'];
+const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 08:00 – 20:00
+
+// Demo rezerwacje: { court: 0-based index, start: godzina, end: godzina, user, type }
+const reservations = [
+  { court: 0, start: 9,  end: 10, user: 'Marek W.',   type: 'own',     label: 'Marek W.' },
+  { court: 1, start: 10, end: 12, user: 'Adam K.',    type: 'other',   label: 'Adam K.' },
+  { court: 2, start: 11, end: 12.5, user: 'Marcin K.', type: 'own',   label: 'Marcin K.' },
+  { court: 2, start: 14, end: 15.5, user: 'Piotr W.', type: 'other',  label: 'Piotr W.' },
+  { court: 3, start: 13, end: 14, user: 'Rafał N.',   type: 'other',   label: 'Rafał N.' },
+  { court: 0, start: 15, end: 16.5, user: 'Marcin K.', type: 'own',   label: 'Marcin K.' },
+  { court: 1, start: 16, end: 17, user: 'Łukasz D.',  type: 'other',   label: 'Łukasz D.' },
+  { court: 3, start: 16, end: 18, user: 'Tomasz B.',  type: 'other',   label: 'Tomasz B.' },
+  { court: 2, start: 18, end: 19, user: 'Paweł Z.',   type: 'other',   label: 'Paweł Z.' },
+];
+
+// Moje nadchodzące rezerwacje
+const myReservations = [
+  { court: 'Kort 3 (Trawa)', date: '24 Paź 2026', time: '16:00–17:30', partner: 'Marek W.',   status: 'confirmed' },
+  { court: 'Kort 1',         date: '28 Paź 2026', time: '09:00–10:00', partner: 'Solo (trening)', status: 'confirmed' },
+  { court: 'Kort 2',         date: '5 Lis 2026',  time: '17:00–18:00', partner: 'Adam K.',    status: 'pending'   },
+];
+
+// Zmienna do przeliczania pozycji na gridzie
+const gridStart = 8;   // 08:00
+const gridRows  = 13;  // liczba godzin
+const SLOT_PX   = 60;  // px na godzinę
+
+function reservationStyle(r: typeof reservations[0]) {
+  const top    = (r.start - gridStart) * SLOT_PX;
+  const height = (r.end - r.start) * SLOT_PX - 4;
+  return `top:${top}px; height:${height}px;`;
+}
+---
+
+<AppLayout
+  title="Rezerwacje kortów"
+  greeting="Rezerwacje kortów"
+  showSearch={false}
+  showCta={true}
+  ctaLabel="+ Nowa rezerwacja"
+  ctaHref={url('/courts/reservations/new')}
+>
+
+  <PageHeader
+    eyebrow="Korty"
+    title="Rezerwacje kortów"
+    subtitle="Wtorek, 24 Październik 2026 — Korty Otwock"
+  />
+
+  <!-- Moje rezerwacje — szybki podgląd -->
+  <section class="my-res-section" aria-labelledby="my-res-heading">
+    <h2 class="section-label" id="my-res-heading">Moje rezerwacje</h2>
+    <div class="my-res-grid">
+      {myReservations.map(r => (
+        <div class={`my-res-card my-res-card--${r.status}`}>
+          <div class="my-res-card__left">
+            <div class="my-res-card__court">{r.court}</div>
+            <div class="my-res-card__time">{r.date} · {r.time}</div>
+            <div class="my-res-card__partner">z {r.partner}</div>
+          </div>
+          <div class="my-res-card__right">
+            <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
+              {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
+            </span>
+            <button class="tc-btn tc-btn-ghost tc-btn-sm" style="margin-top:6px;">
+              Odwołaj
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <!-- Grafik kortów — grid godziny × korty -->
+  <section class="calendar-section tc-card" aria-labelledby="calendar-heading">
+    <div class="tc-card-header">
+      <h2 class="tc-card-title" id="calendar-heading">
+        Grafik kortów — Wtorek, 24 Paź
+      </h2>
+      <div class="calendar-nav">
+        <button class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Poprzedni dzień">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        <span class="calendar-date-label">24 Październik 2026</span>
+        <button class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Następny dzień">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="calendar-wrap" style="overflow-x:auto;">
+      <div class="calendar-grid" style={`--slot-px:${SLOT_PX}px; --courts:${courts.length};`}>
+
+        <!-- Nagłówki kortów -->
+        <div class="calendar-header">
+          <div class="calendar-time-col" aria-hidden="true"></div>
+          {courts.map(c => (
+            <div class="calendar-court-header">{c}</div>
+          ))}
+        </div>
+
+        <!-- Body: godziny + rezerwacje -->
+        <div class="calendar-body">
+          <!-- Kolumna godzin -->
+          <div class="calendar-time-col" aria-label="Godziny">
+            {hours.map(h => (
+              <div class="calendar-hour-label" style={`height:${SLOT_PX}px;`}>
+                {String(h).padStart(2,'0')}:00
+              </div>
+            ))}
+          </div>
+
+          <!-- Kolumny kortów -->
+          {courts.map((c, courtIdx) => (
+            <div
+              class="calendar-court-col"
+              style={`height:${gridRows * SLOT_PX}px;`}
+              aria-label={c}
+            >
+              <!-- Linie godzin (tło) -->
+              {hours.map(h => (
+                <div
+                  class={`calendar-hour-line${h % 2 === 0 ? ' calendar-hour-line--even' : ''}`}
+                  style={`height:${SLOT_PX}px;`}
+                  aria-hidden="true"
+                ></div>
+              ))}
+
+              <!-- Rezerwacje na tym korcie -->
+              {reservations
+                .filter(r => r.court === courtIdx)
+                .map(r => (
+                  <div
+                    class={`cal-res cal-res--${r.type}`}
+                    style={reservationStyle(r)}
+                    role="button"
+                    tabindex="0"
+                    aria-label={`${r.user}, ${r.start}:00–${r.end}:00, ${c}`}
+                  >
+                    <div class="cal-res__time">{String(r.start).padStart(2,'0')}:00–{String(r.end).padStart(2,'0')}{r.end % 1 === 0.5 ? '30' : ':00'}</div>
+                    <div class="cal-res__user">{r.label}</div>
+                  </div>
+                ))
+              }
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Legenda -->
+    <div class="tc-card-footer">
+      <div class="cal-legend">
+        <div class="cal-legend__item">
+          <div class="cal-legend__dot cal-legend__dot--own" aria-hidden="true"></div>
+          Moja rezerwacja
+        </div>
+        <div class="cal-legend__item">
+          <div class="cal-legend__dot cal-legend__dot--other" aria-hidden="true"></div>
+          Zarezerwowane
+        </div>
+        <div class="cal-legend__item">
+          <div class="cal-legend__dot cal-legend__dot--free" aria-hidden="true"></div>
+          Wolny slot
+        </div>
+      </div>
+      <span style="font-size:0.75rem; color:var(--text-dim);">Dane demo — endpoint: GET /courts/api/timeline-data/&lt;pk&gt;/</span>
+    </div>
+  </section>
+
+</AppLayout>
+
+<style>
+  /* ── My reservations ───────────────────────────────────────────────────── */
+  .my-res-section { margin-bottom: 24px; }
+
+  .section-label {
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); margin-bottom: 10px; padding-left: 2px;
+  }
+
+  .my-res-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .my-res-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 16px 18px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 12px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s;
+  }
+  .my-res-card:hover { box-shadow: var(--shadow-md); }
+  .my-res-card--confirmed { border-left: 3px solid #22c55e; }
+  .my-res-card--pending   { border-left: 3px solid var(--warning); }
+
+  .my-res-card__court {
+    font-weight: 700; font-size: 0.9rem; color: var(--text);
+    margin-bottom: 3px;
+  }
+  .my-res-card__time {
+    font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;
+  }
+  .my-res-card__partner {
+    font-size: 0.78rem; color: var(--text-dim);
+  }
+
+  .my-res-card__right {
+    display: flex; flex-direction: column; align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  /* ── Calendar ──────────────────────────────────────────────────────────── */
+  .calendar-section { margin-top: 0; }
+
+  .calendar-nav {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .calendar-date-label {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    white-space: nowrap;
+  }
+
+  .calendar-wrap {
+    padding-bottom: 4px;
+  }
+
+  .calendar-grid {
+    min-width: 560px;
+  }
+
+  /* Nagłówki kortów */
+  .calendar-header {
+    display: grid;
+    grid-template-columns: 56px repeat(var(--courts), 1fr);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 2;
+    background: var(--surface);
+  }
+
+  .calendar-time-col {
+    flex-shrink: 0;
+    width: 56px;
+  }
+
+  .calendar-court-header {
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 0.78rem; font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    border-left: 1px solid var(--border);
+  }
+
+  /* Body: godziny × korty */
+  .calendar-body {
+    display: grid;
+    grid-template-columns: 56px repeat(var(--courts), 1fr);
+  }
+
+  .calendar-time-col {
+    display: flex; flex-direction: column;
+  }
+
+  .calendar-hour-label {
+    display: flex; align-items: flex-start;
+    padding: 0 8px 0 4px;
+    font-size: 0.7rem; color: var(--text-dim);
+    font-weight: 500;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+
+  /* Kolumna kortu */
+  .calendar-court-col {
+    border-left: 1px solid var(--border);
+    position: relative;
+  }
+
+  .calendar-hour-line {
+    border-bottom: 1px solid var(--border);
+    box-sizing: border-box;
+  }
+  .calendar-hour-line--even { background: rgba(0,0,0,0.01); }
+  [data-theme="dark"] .calendar-hour-line--even { background: rgba(255,255,255,0.01); }
+
+  /* Rezerwacje */
+  .cal-res {
+    position: absolute;
+    left: 3px; right: 3px;
+    border-radius: 6px;
+    padding: 5px 7px;
+    cursor: pointer;
+    overflow: hidden;
+    font-size: 0.75rem;
+    transition: filter 0.12s, transform 0.12s;
+    z-index: 1;
+  }
+  .cal-res:hover {
+    filter: brightness(1.08);
+    transform: scaleX(1.01);
+    z-index: 2;
+  }
+
+  /* Moja rezerwacja — zielona */
+  .cal-res--own {
+    background: rgba(34,197,94,0.2);
+    border: 1.5px solid #22c55e;
+    color: #16a34a;
+  }
+  [data-theme="dark"] .cal-res--own {
+    background: rgba(34,197,94,0.18);
+    color: #4ade80;
+    border-color: #22c55e;
+  }
+
+  /* Inna rezerwacja — niebieska jak na makiecie */
+  .cal-res--other {
+    background: rgba(59,130,246,0.15);
+    border: 1.5px solid rgba(59,130,246,0.4);
+    color: #2563eb;
+  }
+  [data-theme="dark"] .cal-res--other {
+    background: rgba(59,130,246,0.2);
+    color: #93c5fd;
+    border-color: rgba(59,130,246,0.5);
+  }
+
+  .cal-res__time {
+    font-size: 0.68rem; font-weight: 600; opacity: 0.75; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cal-res__user {
+    font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Legenda */
+  .cal-legend {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+
+  .cal-legend__item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+
+  .cal-legend__dot {
+    width: 10px; height: 10px; border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .cal-legend__dot--own   { background: rgba(34,197,94,0.4); border: 1px solid #22c55e; }
+  .cal-legend__dot--other { background: rgba(59,130,246,0.3); border: 1px solid rgba(59,130,246,0.5); }
+  .cal-legend__dot--free  { background: var(--surface-2); border: 1px solid var(--border); }
+
+  /* ── Responsive ────────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .my-res-grid { grid-template-columns: 1fr; }
+  }
+</style>

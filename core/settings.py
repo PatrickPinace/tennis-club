@@ -42,6 +42,11 @@ if DJANGO_ENV == 'development':
     SECURE_HSTS_PRELOAD = False
     # Ustawienia dla Django Debug Toolbar
     INTERNAL_IPS = ['127.0.0.1']
+    # CSRF — zaufane origins dla Astro dev-servera (fetch z innego portu)
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:4321',
+        'http://127.0.0.1:4321',
+    ]
 else: # Ustawienia produkcyjne
     DEBUG = False
     ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", "tennis.mediprima.pl", '89.78.213.129']
@@ -87,7 +92,8 @@ INSTALLED_APPS = [
     'apps.feedback',
     'apps.news',
     'rest_framework',
-    # 'apps.api',
+    'apps.api',
+    'corsheaders',
 ]
 
 SITE_ID = 2
@@ -122,6 +128,7 @@ SOCIALACCOUNT_AUTO_SIGNUP = False
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS — musi być przed CommonMiddleware
     'apps.home.middleware.BlockBotsMiddleware', # Blokowanie botów na początku
     'django.contrib.sessions.middleware.SessionMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -346,5 +353,22 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
+
+# ── CORS — pozwala Astro dev-serwerowi odpytać Django API ————————————
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4321",   # Astro dev
+    "http://127.0.0.1:4321",
+    "http://localhost:3000",   # alternatywny port Astro
+]
+# Pozwól przeglądarce wysyłać cookies sesji (potrzebne do endpointów @login_required)
+CORS_ALLOW_CREDENTIALS = True
+# Nagrówek wymagany przez DRF browsable API
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 

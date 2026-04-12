@@ -1,0 +1,343 @@
+---
+// matches.astro — historia meczów połączona z Django API
+// GET /api/matches/history/ (IsAuthenticated — wymaga cookie sesji)
+// Dane: id, p1/p2, sety, wynik (user-win/loss/draw), data, debel/singiel
+// SSR wymagane (prerender = false) — potrzebujemy cookie sesji z requestu
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getMatchHistory, type MatchHistoryEntry, type MatchUser } from '@/lib/api';
+import { url } from '@/lib/url';
+
+// ── Pobierz cookie sesji i dane z API ────────────────────────────────────────
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+let rawMatches: MatchHistoryEntry[] = [];
+let isLive = false;
+
+try {
+  const data = await getMatchHistory(sessionCookie);
+  if (data && data.length > 0) {
+    rawMatches = data;
+    isLive = true;
+  }
+} catch (e) {
+  console.warn('[matches] API error, using fallback:', e);
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function userName(u: MatchUser | null): string {
+  if (!u) return '?';
+  const full = [u.first_name, u.last_name].filter(Boolean).join(' ');
+  return full || u.username;
+}
+
+function userInitials(u: MatchUser | null): string {
+  if (!u) return '?';
+  const f = u.first_name?.[0] ?? '';
+  const l = u.last_name?.[0] ?? '';
+  return (f + l).toUpperCase() || u.username.slice(0, 2).toUpperCase();
+}
+
+function formatScore(m: MatchHistoryEntry): string {
+  const sets: string[] = [];
+  const pairs: [number | null, number | null][] = [
+    [m.p1_set1, m.p2_set1],
+    [m.p1_set2, m.p2_set2],
+    [m.p1_set3, m.p2_set3],
+  ];
+  for (const [a, b] of pairs) {
+    if (a !== null && b !== null) sets.push(`${a}:${b}`);
+  }
+  return sets.join(', ') || '—';
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── Mapuj surowe dane API na shape UI ────────────────────────────────────────
+
+type MatchRow = {
+  id: number;
+  result: 'win' | 'loss' | 'draw';
+  resultLabel: string;
+  resultLetter: string;
+  opponent: string;
+  opponentInitials: string;
+  date: string;
+  score: string;
+  format: 'SNG' | 'DBL';
+  typeLabel: string;
+};
+
+function mapMatch(m: MatchHistoryEntry): MatchRow {
+  const resultMap = {
+    'user-win':  { result: 'win'  as const, label: 'Wygrana',  letter: 'W' },
+    'user-loss': { result: 'loss' as const, label: 'Porażka',  letter: 'P' },
+    'user-draw': { result: 'draw' as const, label: 'Remis',    letter: 'R' },
+  };
+  const r = resultMap[m.user] ?? { result: 'draw' as const, label: '—', letter: '?' };
+
+  // Opponent: gdy zalogowany jest p1, przeciwnik to p2 i vice versa
+  // Nie wiemy tu kto jest zalogowany — używamy p2 jeśli p1 ma wynik user-win/loss jako p1
+  // Heurystyka: user-win = zalogowany wygrał jako p1 lub p2; pokazujemy drugą stronę
+  const opponent = m.win === 'p1' && m.user === 'user-win'
+    ? userName(m.p2)
+    : m.win === 'p2' && m.user === 'user-win'
+    ? userName(m.p1)
+    : m.win === 'p1' && m.user === 'user-loss'
+    ? userName(m.p1)
+    : m.win === 'p2' && m.user === 'user-loss'
+    ? userName(m.p2)
+    : userName(m.p2); // draw — domyślnie p2
+
+  const opponentObj = m.win === 'p1' && m.user === 'user-win'
+    ? m.p2
+    : m.win === 'p2' && m.user === 'user-win'
+    ? m.p1
+    : m.win === 'p1' && m.user === 'user-loss'
+    ? m.p1
+    : m.win === 'p2' && m.user === 'user-loss'
+    ? m.p2
+    : m.p2;
+
+  const typeLabel = m.description
+    ? m.description.charAt(0) + m.description.slice(1).toLowerCase()
+    : 'Mecz';
+
+  return {
+    id: m.id,
+    result: r.result,
+    resultLabel: r.label,
+    resultLetter: r.letter,
+    opponent,
+    opponentInitials: userInitials(opponentObj),
+    date: formatDate(m.match_date),
+    score: formatScore(m),
+    format: m.match_double ? 'DBL' : 'SNG',
+    typeLabel,
+  };
+}
+
+// ── Fallback demo — gdy API niedostępne lub niezalogowany ───────────────────
+const demoMatches: MatchRow[] = [
+  { id: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',        opponentInitials: 'TB', date: '21 paź 2026', score: '6:3, 7:5',     format: 'SNG', typeLabel: 'Towarzyski' },
+  { id: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',    opponentInitials: 'AK', date: '15 paź 2026', score: '4:6, 5:7',     format: 'SNG', typeLabel: 'Turniejowy' },
+  { id: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',       opponentInitials: 'RN', date: '8 paź 2026',  score: '6:1, 6:4',     format: 'SNG', typeLabel: 'Turniejowy' },
+  { id: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski',  opponentInitials: 'PW', date: '1 paź 2026',  score: '7:5, 4:6, 10:8', format: 'SNG', typeLabel: 'Towarzyski' },
+  { id: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',      opponentInitials: 'MW', date: '18 wrz 2026', score: '3:6, 6:7',     format: 'SNG', typeLabel: 'Towarzyski' },
+];
+
+const matches: MatchRow[] = isLive ? rawMatches.map(mapMatch) : demoMatches;
+
+const wins   = matches.filter(m => m.result === 'win').length;
+const losses = matches.filter(m => m.result === 'loss').length;
+const draws  = matches.filter(m => m.result === 'draw').length;
+const total  = matches.length;
+const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
+---
+
+<AppLayout
+  title="Mecze"
+  greeting="Historia meczów"
+  showSearch={false}
+  showCta={true}
+  ctaLabel="+ Dodaj mecz"
+  ctaHref={url('/matches/add')}
+>
+
+  <PageHeader
+    eyebrow="Rozgrywki"
+    title="Historia meczów"
+    subtitle="Wszystkie rozegrane mecze — towarzyskie i turniejowe."
+  />
+
+  <!-- Stats -->
+  <div class="m-stats">
+    <div class="m-stat">
+      <span class="m-stat__val">{total}</span>
+      <span class="m-stat__lbl">Wszystkie</span>
+    </div>
+    <div class="m-stat m-stat--win">
+      <span class="m-stat__val">{wins}</span>
+      <span class="m-stat__lbl">Wygrane</span>
+    </div>
+    <div class="m-stat m-stat--loss">
+      <span class="m-stat__val">{losses}</span>
+      <span class="m-stat__lbl">Porażki</span>
+    </div>
+    <div class="m-stat">
+      <span class="m-stat__val">{winRate}%</span>
+      <span class="m-stat__lbl">Win Rate</span>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="m-filters">
+    <button class="m-filter m-filter--active">Wszystkie</button>
+    <button class="m-filter">Wygrane</button>
+    <button class="m-filter">Porażki</button>
+    <button class="m-filter">Singiel</button>
+    <button class="m-filter">Debel</button>
+  </div>
+
+  <!-- Lista meczów -->
+  <div class="tc-card">
+    <div class="tc-card-header">
+      <span class="tc-card-title">Ostatnie mecze</span>
+      <span style="font-size:0.78rem; color:var(--text-dim);">
+        {isLive ? `Live · ${total} meczów` : 'Demo · GET /api/matches/history/'}
+      </span>
+    </div>
+
+    {matches.length === 0 ? (
+      <div class="tc-empty">
+        <div class="tc-empty__icon">🎾</div>
+        <div class="tc-empty__title">Brak meczów</div>
+        <div class="tc-empty__text">Nie rozegrałeś jeszcze żadnych meczów lub nie jesteś zalogowany.</div>
+      </div>
+    ) : (
+      <ul class="match-list" role="list">
+        {matches.map(m => (
+          <li class="match-row">
+            <!-- Result dot -->
+            <div class={`match-result match-result--${m.result}`} aria-label={m.resultLabel}>
+              {m.resultLetter}
+            </div>
+
+            <!-- Opponent -->
+            <div class="match-opponent">
+              <div class="tc-avatar tc-avatar-sm" aria-hidden="true">{m.opponentInitials}</div>
+              <div>
+                <div class="match-opponent__name">{m.opponent}</div>
+                <div class="match-opponent__meta">{m.date}</div>
+              </div>
+            </div>
+
+            <!-- Score -->
+            <div class="match-score" aria-label={`Wynik: ${m.score}`}>
+              <span class={`match-score__num match-score__num--${m.result}`}>{m.score}</span>
+            </div>
+
+            <!-- Type badge -->
+            <div class="match-badges">
+              <span class="tc-badge tc-badge-neutral">{m.typeLabel}</span>
+              {m.format === 'DBL' && <span class="tc-badge tc-badge-info">Debel</span>}
+            </div>
+
+            <!-- Actions -->
+            <div class="match-actions">
+              <a href={url(`/matches/${m.id}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+
+  </div>
+
+</AppLayout>
+
+<style>
+  /* ── Stats ─────────────────────────────────────────────────────────────── */
+  .m-stats {
+    display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+
+  .m-stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 14px 20px;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 100px; box-shadow: var(--shadow-card);
+  }
+
+  .m-stat__val {
+    font-size: 1.5rem; font-weight: 900; color: var(--text);
+    letter-spacing: -0.04em; line-height: 1;
+  }
+  .m-stat__lbl {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .m-stat--win  .m-stat__val { color: #22c55e; }
+  .m-stat--loss .m-stat__val { color: var(--danger); }
+
+  /* ── Filters ───────────────────────────────────────────────────────────── */
+  .m-filters {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px;
+  }
+
+  .m-filter {
+    padding: 6px 14px; border-radius: 99px;
+    font-size: 0.8rem; font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted);
+    cursor: pointer; transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .m-filter:hover { background: var(--surface-hover); color: var(--text); }
+  .m-filter--active {
+    background: var(--primary-subtle); color: var(--primary);
+    border-color: rgba(34,197,94,0.3);
+  }
+
+  /* ── Match list ────────────────────────────────────────────────────────── */
+  .match-list { list-style: none; padding: 0; margin: 0; }
+
+  .match-row {
+    display: grid;
+    grid-template-columns: 36px 1fr auto auto auto;
+    align-items: center; gap: 16px;
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .match-row:last-child { border-bottom: none; }
+  .match-row:hover { background: var(--surface-hover); }
+
+  .match-result {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 0.72rem; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .match-result--win  { background: rgba(34,197,94,0.12); color: #22c55e; }
+  .match-result--loss { background: rgba(239,68,68,0.12); color: var(--danger); }
+  .match-result--draw { background: rgba(245,158,11,0.12); color: var(--warning); }
+
+  .match-opponent {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+  }
+  .match-opponent__name {
+    font-weight: 600; font-size: 0.875rem; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .match-opponent__meta {
+    font-size: 0.75rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .match-score {}
+  .match-score__num {
+    font-weight: 700; font-size: 0.9rem; white-space: nowrap;
+  }
+  .match-score__num--win  { color: #22c55e; }
+  .match-score__num--loss { color: var(--text-muted); }
+  .match-score__num--draw { color: var(--warning); }
+
+  .match-badges { display: flex; gap: 5px; flex-wrap: wrap; }
+  .match-actions { flex-shrink: 0; }
+
+  /* ── Responsive ────────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .match-row {
+      grid-template-columns: 28px 1fr auto;
+      gap: 10px;
+    }
+    .match-badges { display: none; }
+    .match-actions { display: none; }
+  }
+</style>

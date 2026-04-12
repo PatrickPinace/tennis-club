@@ -2400,10 +2400,20 @@ def edit_match(request, pk, match_pk):
 @require_POST
 def start_match(request, pk, match_pk):
     """
-    Pozwala każdemu zalogowanemu użytkownikowi na zmianę statusu meczu z 'Zaplanowany' na 'W trakcie'.
+    Zmienia status meczu z 'Zaplanowany' na 'W trakcie'.
+    Dozwolone dla: organizatora turnieju, is_staff, lub uczestnika tego meczu.
     """
     tournament = get_object_or_404(Tournament, pk=pk)
     match = get_object_or_404(TournamentsMatch, pk=match_pk, tournament=tournament)
+
+    is_organizer = request.user == tournament.created_by or request.user.is_staff
+    is_participant = (
+        (match.participant1 and match.participant1.user == request.user) or
+        (match.participant2 and match.participant2.user == request.user)
+    )
+    if not is_organizer and not is_participant:
+        messages.error(request, 'Brak uprawnień do rozpoczęcia tego meczu.')
+        return redirect(get_tournament_details_url(tournament))
 
     if match.status == TournamentsMatch.Status.SCHEDULED.value:
         match.status = TournamentsMatch.Status.IN_PROGRESS.value

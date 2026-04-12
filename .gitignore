@@ -55,6 +55,14 @@ build/
 dist/
 *.egg-info/
 
+# Node / Astro frontend
+node_modules/
+frontend-astro/node_modules/
+frontend-astro/dist/
+frontend-astro/.astro/
+.astro/
+*.tsbuildinfo
+
 # Database
 *.sqlite
 *.sqlite3

@@ -1,0 +1,69 @@
+---
+// PageHeader.astro — wspólny nagłówek strony
+// Używany na wszystkich stronach zamiast duplikowania kodu
+interface Props {
+  eyebrow?: string;
+  title: string;
+  subtitle?: string;
+  // Opcjonalne CTA po prawej stronie
+  ctaLabel?: string;
+  ctaHref?: string;
+  ctaPrimary?: boolean;
+}
+
+const {
+  eyebrow,
+  title,
+  subtitle,
+  ctaLabel,
+  ctaHref = '#',
+  ctaPrimary = true,
+} = Astro.props;
+---
+
+<header class="page-hdr">
+  <div class="page-hdr__text">
+    {eyebrow && <p class="page-hdr__eyebrow">{eyebrow}</p>}
+    <h1 class="page-hdr__title">{title}</h1>
+    {subtitle && <p class="page-hdr__subtitle">{subtitle}</p>}
+  </div>
+  {ctaLabel && (
+    <div class="page-hdr__actions">
+      <a href={ctaHref} class={`tc-btn ${ctaPrimary ? 'tc-btn-primary' : 'tc-btn-secondary'}`}>
+        {ctaLabel}
+      </a>
+    </div>
+  )}
+</header>
+
+<style>
+  .page-hdr {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .page-hdr__eyebrow {
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--primary); margin-bottom: 4px;
+  }
+
+  .page-hdr__title {
+    font-size: 1.4rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.025em; line-height: 1.15;
+  }
+
+  .page-hdr__subtitle {
+    margin-top: 4px;
+    font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;
+  }
+
+  .page-hdr__actions {
+    flex-shrink: 0;
+    padding-top: 2px;
+  }
+</style>
