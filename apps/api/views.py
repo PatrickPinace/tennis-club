@@ -31,10 +31,48 @@ class MatchCreateView(generics.CreateAPIView):
 
 
 class UserListView(generics.ListAPIView):
-    """API endpoint that lists all users."""
-    queryset = User.objects.all().order_by('username')
+    """
+    Lista użytkowników z filtrowaniem po ?search= i trybem podpowiedzi ?suggest=1.
+
+    ?search=<query> — filtruje po first_name, last_name, username (icontains, OR).
+      Bez search lub query < 2 znaki → pusta lista (nie ujawniamy wszystkich).
+      Wyniki posortowane relevance-first, limit 20.
+
+    ?suggest=1 — zwraca do 8 ostatnio zarejestrowanych użytkowników (bez filtrowania).
+      Używane przez autocomplete jako "startowe sugestie" przy focus na polu search.
+    """
     serializer_class = UserDetailsSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Q, Case, When, IntegerField
+
+        # Tryb podpowiedzi — kilka ostatnich userów bez filtrowania
+        if self.request.query_params.get('suggest') == '1':
+            return User.objects.order_by('-date_joined')[:8]
+
+        q = self.request.query_params.get('search', '').strip()
+        if len(q) < 2:
+            return User.objects.none()
+        return (
+            User.objects
+            .filter(
+                Q(first_name__icontains=q) |
+                Q(last_name__icontains=q) |
+                Q(username__icontains=q)
+            )
+            .annotate(
+                relevance=Case(
+                    When(username__iexact=q, then=0),
+                    When(username__istartswith=q, then=1),
+                    When(first_name__istartswith=q, then=2),
+                    When(last_name__istartswith=q, then=2),
+                    default=3,
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('relevance', 'last_name', 'first_name')[:20]
+        )
 
 
 class UserDetailsView(APIView):
@@ -90,7 +128,8 @@ class TournamentListView(generics.ListAPIView):
     Różnica vs TournamentViewSet:
       - Brak pełnej listy uczestników — tylko participant_count
       - Zawiera: rank, created_by_name, facility_name
-      - Sortowanie: aktywne (REG/ACT) na górze, potem DRAFT, potem FIN/CNC
+      - Sortowanie: aktywne (ACT) na górze, potem REG, SCH, FIN/CNC
+      - DRF (szkice) są wykluczone domyślnie — widoczne tylko przez /mine/
 
     Auth: IsAuthenticatedOrReadOnly — odczyt publiczny.
     """
@@ -101,6 +140,7 @@ class TournamentListView(generics.ListAPIView):
         from django.db.models import Case, When, IntegerField
         return (
             Tournament.objects
+            .exclude(status='DRF')
             .select_related('created_by', 'facility')
             .prefetch_related('participants')
             .annotate(
@@ -108,9 +148,8 @@ class TournamentListView(generics.ListAPIView):
                     When(status='ACT', then=0),
                     When(status='REG', then=1),
                     When(status='SCH', then=2),
-                    When(status='DRF', then=3),
-                    When(status='FIN', then=4),
-                    When(status='CNC', then=5),
+                    When(status='FIN', then=3),
+                    When(status='CNC', then=4),
                     default=9,
                     output_field=IntegerField(),
                 )
@@ -1063,37 +1102,38 @@ class TournamentFinishView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # ── Guard: żaden mecz nie może być INP ───────────────────────────────
-        inp_count = TournamentsMatch.objects.filter(
+        # ── Policz nierozegrane mecze (INP/WAI/SCH) — soft warning ──────────
+        unplayed_statuses = [
+            TournamentsMatch.Status.IN_PROGRESS,
+            TournamentsMatch.Status.WAITING,
+            TournamentsMatch.Status.SCHEDULED,
+        ]
+        unplayed_count = TournamentsMatch.objects.filter(
             tournament=tournament,
-            status=TournamentsMatch.Status.IN_PROGRESS,
+            status__in=unplayed_statuses,
         ).count()
-        if inp_count > 0:
-            return Response(
-                {
-                    'detail': (
-                        f'Nie można zakończyć turnieju — {inp_count} '
-                        f'{"mecz ma" if inp_count == 1 else "mecze mają"} status „W trakcie" (INP). '
-                        'Zakończ lub anuluj te mecze przed zamknięciem turnieju.'
-                    )
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
 
         # ── Uzupełnij end_date jeśli brak (wymagane przez signal rebuild) ─────
-        warning = None
+        warnings = []
+        if unplayed_count > 0:
+            noun = 'mecz nie został rozegrany' if unplayed_count == 1 else 'meczów nie zostało rozegranych'
+            pronoun = 'jego wynik' if unplayed_count == 1 else 'ich wyniki'
+            warnings.append(f'{unplayed_count} {noun} — {pronoun} nie będą liczone do rankingu.')
+        end_date_set = False
         if not tournament.end_date:
             tournament.end_date = timezone.now()
-            warning = 'Brak daty zakończenia — ustawiono automatycznie na teraz.'
+            end_date_set = True
+            warnings.append('Brak daty zakończenia — ustawiono automatycznie na teraz.')
             logger.info(
                 '[finish] Turniej id=%d nie miał end_date — ustawiono %s.',
                 tournament.pk, tournament.end_date,
             )
+        warning = ' '.join(warnings) if warnings else None
 
         # ── Zmień status na FIN i zapisz ──────────────────────────────────────
         tournament.status = Tournament.Status.FINISHED
         save_fields = ['status']
-        if warning:
+        if end_date_set:
             save_fields.append('end_date')
         tournament.save(update_fields=save_fields)
 
@@ -1107,6 +1147,7 @@ class TournamentFinishView(APIView):
             'status': tournament.status,
             'end_date': tournament.end_date.isoformat() if tournament.end_date else None,
             'warning': warning,
+            'unplayed_count': unplayed_count,
         }, status=status.HTTP_200_OK)
 
 
@@ -1305,20 +1346,124 @@ class TournamentStatusView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
+        # REG → SCH: wymaga ≥2 uczestników, auto-generuje mecze RR
+        if new_status == 'SCH' and tournament.status == 'REG':
+            from apps.tournaments.models import Participant as _Participant
+            participants_qs = _Participant.objects.filter(
+                tournament=tournament,
+                status__in=['REG', 'ACT'],
+            )
+            participant_count = participants_qs.count()
+            if participant_count < 2:
+                return Response(
+                    {'detail': f'Za mało uczestników ({participant_count}). Wymagane co najmniej 2, aby zamknąć zapisy i wygenerować mecze.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if tournament.tournament_type == 'RND':
+                from apps.tournaments.views import generate_round_robin_matches_initial
+                try:
+                    match_count, gen_message = generate_round_robin_matches_initial(tournament, participants_qs)
+                except Exception as exc:
+                    logger.error('[status] Błąd generowania meczów RR dla turnieju id=%d: %s', tournament.pk, exc)
+                    return Response(
+                        {'detail': f'Błąd generowania meczów: {exc}. Status nie został zmieniony.'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+                logger.info('[status] Wygenerowano %d meczów RR dla turnieju id=%d.', match_count, tournament.pk)
+            else:
+                match_count, gen_message = 0, 'Generowanie meczów pominięte (nie Round Robin).'
+
+        # SCH → REG: usuń wszystkie mecze i ich historię wyników
+        if new_status == 'REG' and tournament.status == 'SCH':
+            from apps.tournaments.models import TournamentsMatch as _Match, MatchScoreHistory as _MSH
+            match_ids = list(_Match.objects.filter(tournament=tournament).values_list('pk', flat=True))
+            if match_ids:
+                _MSH.objects.filter(match_id__in=match_ids).delete()
+                _Match.objects.filter(pk__in=match_ids).delete()
+                logger.info('[status] Usunięto %d meczów i ich historię dla turnieju id=%d (SCH→REG).', len(match_ids), tournament.pk)
+
+        old_status = tournament.status
         tournament.status = new_status
         tournament.save(update_fields=['status'])
 
         logger.info(
             '[status] Turniej "%s" (id=%d): %s → %s przez %s.',
             tournament.name, tournament.pk,
-            tournament.status, new_status, request.user.username,
+            old_status, new_status, request.user.username,
         )
 
-        return Response({
+        response_data = {
             'id': tournament.pk,
             'status': tournament.status,
             'status_display': tournament.get_status_display(),
-        }, status=status.HTTP_200_OK)
+        }
+        if new_status == 'SCH' and tournament.tournament_type == 'RND':
+            response_data['matches_generated'] = match_count
+            response_data['message'] = gen_message
+
+        return Response(response_data, status=status.HTTP_200_OK)
+
+
+class GenerateMatchesView(APIView):
+    """
+    Ręczne generowanie meczów dla turnieju RR.
+    POST /api/tournaments/{pk}/generate-matches/
+
+    Uprawnienia: IsAuthenticated + (created_by OR is_staff).
+    Guard:
+      - Tylko RND.
+      - Status musi być REG lub SCH.
+      - Jeśli mecze już istnieją → 409 (użyj SCH→REG aby cofnąć i wyczyścić).
+    Zwraca: { count, message }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament as _T, Participant as _P, TournamentsMatch as _M
+        from apps.tournaments.views import generate_round_robin_matches_initial
+
+        try:
+            tournament = _T.objects.select_related('created_by').get(pk=pk)
+        except _T.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not (request.user == tournament.created_by or request.user.is_staff):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if tournament.tournament_type != 'RND':
+            return Response(
+                {'detail': 'Generowanie meczów przez ten endpoint jest dostępne tylko dla Round Robin.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if tournament.status not in ('REG', 'SCH'):
+            return Response(
+                {'detail': f'Turniej musi być w statusie REG lub SCH (aktualny: {tournament.status}).'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        existing = _M.objects.filter(tournament=tournament).count()
+        if existing > 0:
+            return Response(
+                {'detail': f'Turniej ma już {existing} meczów. Cofnij status do REG aby usunąć mecze i wygenerować ponownie.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        participants_qs = _P.objects.filter(tournament=tournament, status__in=['REG', 'ACT'])
+        if participants_qs.count() < 2:
+            return Response(
+                {'detail': f'Za mało uczestników ({participants_qs.count()}). Wymagane co najmniej 2.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        try:
+            count, message = generate_round_robin_matches_initial(tournament, participants_qs)
+        except Exception as exc:
+            logger.error('[generate-matches] Błąd dla turnieju id=%d: %s', tournament.pk, exc)
+            return Response({'detail': f'Błąd generowania: {exc}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        logger.info('[generate-matches] Wygenerowano %d meczów RR dla turnieju id=%d przez %s.', count, tournament.pk, request.user.username)
+        return Response({'count': count, 'message': message}, status=status.HTTP_200_OK)
 
 
 class TournamentParticipantView(APIView):
@@ -1359,7 +1504,7 @@ class TournamentParticipantView(APIView):
         return t, None
 
     def post(self, request, pk):
-        from apps.tournaments.models import Tournament, Participant
+        from apps.tournaments.models import Tournament, Participant, TeamMember
 
         tournament, err = self._get_tournament(pk, request.user)
         if err:
@@ -1381,6 +1526,17 @@ class TournamentParticipantView(APIView):
         except (User.DoesNotExist, ValueError, TypeError):
             return Response({'detail': 'Użytkownik nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Opcjonalny partner (debel)
+        partner_user = None
+        partner_user_id = request.data.get('partner_user_id')
+        if partner_user_id:
+            try:
+                partner_user = User.objects.get(pk=int(partner_user_id))
+            except (User.DoesNotExist, ValueError, TypeError):
+                return Response({'detail': 'Partner nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+            if partner_user == target_user:
+                return Response({'detail': 'Kapitan i partner muszą być różnymi osobami.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Sprawdź duplikat (aktywny uczestnik tego samego usera)
         if Participant.objects.filter(
             tournament=tournament,
@@ -1388,6 +1544,16 @@ class TournamentParticipantView(APIView):
         ).exclude(status='WDN').exists():
             return Response(
                 {'detail': f'Użytkownik „{target_user.get_full_name() or target_user.username}" jest już uczestnikiem turnieju.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Sprawdź duplikat partnera
+        if partner_user and Participant.objects.filter(
+            tournament=tournament,
+            user=partner_user,
+        ).exclude(status='WDN').exists():
+            return Response(
+                {'detail': f'Partner „{partner_user.get_full_name() or partner_user.username}" jest już uczestnikiem turnieju.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -1422,9 +1588,17 @@ class TournamentParticipantView(APIView):
             status='REG',
         )
 
+        # Dodaj TeamMember dla kapitana i partnera (debel)
+        TeamMember.objects.create(participant=participant, user=target_user)
+        partner_name = None
+        if partner_user:
+            TeamMember.objects.create(participant=participant, user=partner_user)
+            partner_name = partner_user.get_full_name().strip() or partner_user.username
+
         logger.info(
-            '[participant] Dodano uczestnika %s (id=%d) do turnieju "%s" (id=%d) przez %s.',
+            '[participant] Dodano uczestnika %s (id=%d) do turnieju "%s" (id=%d) przez %s.%s',
             display_name, participant.pk, tournament.name, tournament.pk, request.user.username,
+            f' Partner: {partner_name}' if partner_name else '',
         )
 
         return Response({
@@ -1433,6 +1607,7 @@ class TournamentParticipantView(APIView):
             'seed_number': participant.seed_number,
             'status': participant.status,
             'user_id': target_user.pk,
+            'partner_name': partner_name,
         }, status=status.HTTP_201_CREATED)
 
     def delete(self, request, pk, p_pk):

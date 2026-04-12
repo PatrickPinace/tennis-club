@@ -18,6 +18,7 @@ urlpatterns = [
     path('tournaments/<int:pk>/config/', views.RoundRobinConfigUpdateView.as_view(), name='tournament-rr-config'),
     path('tournaments/<int:pk>/finish/', views.TournamentFinishView.as_view(), name='tournament-finish'),
     path('tournaments/<int:pk>/status/', views.TournamentStatusView.as_view(), name='tournament-status'),
+    path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),
     path('tournaments/<int:pk>/participants/', views.TournamentParticipantView.as_view(), name='tournament-participants'),
     path('tournaments/<int:pk>/participants/<int:p_pk>/', views.TournamentParticipantView.as_view(), name='tournament-participant-detail'),
     path('tournaments/create/', views.TournamentCreateView.as_view(), name='tournament-create'),

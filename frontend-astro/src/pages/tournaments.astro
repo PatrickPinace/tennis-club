@@ -68,20 +68,6 @@ if (tournaments.length === 0) {
       facility_name: 'Korty Otwock',
     },
     {
-      id: 4,
-      name: 'Turniej Świąteczny 2026',
-      description: '',
-      tournament_type: 'SWS',
-      match_format: 'SNG',
-      start_date: '2026-12-20T09:00:00',
-      end_date:   '2026-12-21T18:00:00',
-      status: 'DRF',
-      rank: 1,
-      participant_count: 0,
-      created_by_name: 'Admin',
-      facility_name: 'Hala Praga',
-    },
-    {
       id: 5,
       name: 'Liga Letnia — Finał',
       description: '',
@@ -101,9 +87,9 @@ if (tournaments.length === 0) {
 // ── Stałe mapy ────────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
-  DRF: 'Wkrótce',
-  REG: 'Rejestracja',
-  SCH: 'Zaplanowany',
+  DRF: 'Szkic',
+  REG: 'Otwarte zapisy',
+  SCH: 'Nadchodzący',
   ACT: 'Trwa',
   FIN: 'Zakończony',
   CNC: 'Odwołany',
@@ -163,9 +149,13 @@ function fmtDate(iso: string | null): string {
 }
 
 // ── Segmentacja turniejów ─────────────────────────────────────────────────────
-const active   = tournaments.filter(t => t.status === 'REG' || t.status === 'ACT' || t.status === 'SCH');
-const upcoming = tournaments.filter(t => t.status === 'DRF');
-const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC');
+// DRF (szkice) są wykluczone z publicznej listy — backend już je filtruje,
+// ale filtrujemy też lokalnie (ochrona przed demo data i edge cases).
+const registration = tournaments.filter(t => t.status === 'REG');
+const running      = tournaments.filter(t => t.status === 'ACT');
+const scheduled    = tournaments.filter(t => t.status === 'SCH');
+const finished     = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC');
+const publicTotal  = registration.length + running.length + scheduled.length + finished.length;
 ---
 
 <AppLayout
@@ -186,33 +176,31 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
   <!-- Stats row -->
   <div class="t-stats-row">
     <div class="t-stat">
-      <span class="t-stat__val">{active.length}</span>
-      <span class="t-stat__lbl">Otwarta rejestracja</span>
+      <span class="t-stat__val">{running.length}</span>
+      <span class="t-stat__lbl">Trwa</span>
     </div>
     <div class="t-stat">
-      <span class="t-stat__val">{tournaments.length}</span>
-      <span class="t-stat__lbl">Wszystkich</span>
+      <span class="t-stat__val">{registration.length}</span>
+      <span class="t-stat__lbl">Otwarte zapisy</span>
+    </div>
+    <div class="t-stat">
+      <span class="t-stat__val">{scheduled.length}</span>
+      <span class="t-stat__lbl">Nadchodzące</span>
     </div>
     <div class="t-stat">
       <span class="t-stat__val">{finished.length}</span>
       <span class="t-stat__lbl">Zakończone</span>
     </div>
-    <div class="t-stat">
-      <span class="t-stat__val">{upcoming.length}</span>
-      <span class="t-stat__lbl">Wkrótce</span>
-    </div>
   </div>
 
-  <!-- Aktywne turnieje -->
-  {active.length > 0 && (
-    <section aria-labelledby="active-heading">
-      <h2 class="section-label" id="active-heading">Otwarta rejestracja</h2>
+  <!-- Trwa (ACT) -->
+  {running.length > 0 && (
+    <section aria-labelledby="running-heading">
+      <h2 class="section-label" id="running-heading">Trwa</h2>
       <div class="t-grid">
-        {active.map(t => (
+        {running.map(t => (
           <article class="t-card" aria-label={t.name}>
-            <!-- Pasek koloru na górze karty wg typu -->
             <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}`} aria-hidden="true"></div>
-
             <div class="t-card__body">
               <div class="t-card__top">
                 <div class="t-card__badges">
@@ -225,9 +213,7 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
                   <span class="t-card__rank" title="Turniej rangi 1">★ Ranga {t.rank}</span>
                 )}
               </div>
-
               <h3 class="t-card__name">{t.name}</h3>
-
               <div class="t-card__meta">
                 <div class="t-card__meta-item">
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -244,29 +230,35 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
                   </div>
                 )}
               </div>
-
-              <!-- Participants bar -->
-              <div class="t-card__participants">
-                <div class="t-part-bar">
-                  <div
-                    class="t-part-bar__fill"
-                    style={`width:${t.participant_count > 0 ? Math.min(Math.round(t.participant_count / 16 * 100), 100) : 0}%; background:${typeColor[t.tournament_type] ?? '#6b7280'}`}
-                    aria-hidden="true"
-                  ></div>
+              {t.matches_progress && t.matches_progress.total > 0 ? (
+                <div class="t-card__match-progress">
+                  <div class="t-match-bar">
+                    <div
+                      class="t-match-bar__fill"
+                      style={`width:${Math.round(t.matches_progress.done / t.matches_progress.total * 100)}%`}
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <span class="t-match-bar__label">
+                    {t.matches_progress.done}/{t.matches_progress.total} meczów · {t.participant_count} uczestników
+                  </span>
                 </div>
-                <span class="t-part-bar__label">
-                  {t.participant_count} uczestników
-                </span>
-              </div>
+              ) : (
+                <div class="t-card__participants">
+                  <div class="t-part-bar">
+                    <div
+                      class="t-part-bar__fill"
+                      style={`width:${t.participant_count > 0 ? Math.min(Math.round(t.participant_count / 16 * 100), 100) : 0}%; background:${typeColor[t.tournament_type] ?? '#6b7280'}`}
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <span class="t-part-bar__label">{t.participant_count} uczestników</span>
+                </div>
+              )}
             </div>
-
             <div class="t-card__footer">
-              <span class={`tc-badge ${statusBadge[t.status] ?? 'tc-badge-neutral'}`}>
-                {STATUS_LABEL[t.status] ?? t.status}
-              </span>
-              <div style="display:flex; gap:8px;">
-                <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-secondary tc-btn-sm">Szczegóły</a>
-              </div>
+              <span class="tc-badge tc-badge-warning">{STATUS_LABEL[t.status]}</span>
+              <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-secondary tc-btn-sm">Wyniki →</a>
             </div>
           </article>
         ))}
@@ -274,19 +266,25 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
     </section>
   )}
 
-  <!-- Wkrótce (DRAFT) -->
-  {upcoming.length > 0 && (
-    <section aria-labelledby="upcoming-heading" style="margin-top:28px;">
-      <h2 class="section-label" id="upcoming-heading">Wkrótce</h2>
+  <!-- Otwarte zapisy (REG) -->
+  {registration.length > 0 && (
+    <section aria-labelledby="reg-heading" style={running.length > 0 ? 'margin-top:28px;' : ''}>
+      <h2 class="section-label" id="reg-heading">Otwarte zapisy</h2>
       <div class="t-grid">
-        {upcoming.map(t => (
-          <article class="t-card t-card--dim" aria-label={t.name}>
-            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}; opacity:0.4`} aria-hidden="true"></div>
+        {registration.map(t => (
+          <article class="t-card" aria-label={t.name}>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}`} aria-hidden="true"></div>
             <div class="t-card__body">
               <div class="t-card__top">
-                <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
-                  {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
-                </span>
+                <div class="t-card__badges">
+                  <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                    {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                  </span>
+                  <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </div>
+                {t.rank === 1 && (
+                  <span class="t-card__rank" title="Turniej rangi 1">★ Ranga {t.rank}</span>
+                )}
               </div>
               <h3 class="t-card__name">{t.name}</h3>
               <div class="t-card__meta">
@@ -294,7 +292,7 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                   </svg>
-                  {fmtDate(t.start_date)}
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
                 </div>
                 {t.facility_name && (
                   <div class="t-card__meta-item">
@@ -305,9 +303,20 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
                   </div>
                 )}
               </div>
+              <div class="t-card__participants">
+                <div class="t-part-bar">
+                  <div
+                    class="t-part-bar__fill"
+                    style={`width:${t.participant_count > 0 ? Math.min(Math.round(t.participant_count / 16 * 100), 100) : 0}%; background:${typeColor[t.tournament_type] ?? '#6b7280'}`}
+                    aria-hidden="true"
+                  ></div>
+                </div>
+                <span class="t-part-bar__label">{t.participant_count} uczestników</span>
+              </div>
             </div>
             <div class="t-card__footer">
-              <span class="tc-badge tc-badge-neutral">{STATUS_LABEL[t.status]}</span>
+              <span class="tc-badge tc-badge-success">{STATUS_LABEL[t.status]}</span>
+              <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-secondary tc-btn-sm">Szczegóły</a>
             </div>
           </article>
         ))}
@@ -315,7 +324,55 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
     </section>
   )}
 
-  <!-- Zakończone -->
+  <!-- Nadchodzące (SCH) -->
+  {scheduled.length > 0 && (
+    <section aria-labelledby="scheduled-heading" style="margin-top:28px;">
+      <h2 class="section-label" id="scheduled-heading">Nadchodzące</h2>
+      <div class="t-grid">
+        {scheduled.map(t => (
+          <article class="t-card t-card--dim" aria-label={t.name}>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}; opacity:0.5`} aria-hidden="true"></div>
+            <div class="t-card__body">
+              <div class="t-card__top">
+                <div class="t-card__badges">
+                  <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                    {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                  </span>
+                  <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </div>
+              </div>
+              <h3 class="t-card__name">{t.name}</h3>
+              <div class="t-card__meta">
+                <div class="t-card__meta-item">
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                  </svg>
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
+                </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
+              </div>
+              <div class="t-card__participants">
+                <span class="t-part-bar__label">{t.participant_count} uczestników</span>
+              </div>
+            </div>
+            <div class="t-card__footer">
+              <span class="tc-badge tc-badge-info">{STATUS_LABEL[t.status]}</span>
+              <a href={`/tournaments/${t.id}`} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- Zakończone (FIN + CNC) -->
   {finished.length > 0 && (
     <section aria-labelledby="finished-heading" style="margin-top:28px;">
       <h2 class="section-label" id="finished-heading">Zakończone</h2>
@@ -335,7 +392,7 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                   </svg>
-                  {fmtDate(t.start_date)}
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
                 </div>
                 {t.facility_name && (
                   <div class="t-card__meta-item">
@@ -361,7 +418,7 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
   )}
 
   <!-- Stan pusty — brak turniejów -->
-  {tournaments.length === 0 && (
+  {publicTotal === 0 && (
     <div class="t-empty">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
         <circle cx="12" cy="12" r="10"/>
@@ -500,6 +557,22 @@ const finished = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC
     transition: width 0.3s;
   }
   .t-part-bar__label {
+    font-size: 0.75rem; color: var(--text-muted);
+  }
+
+  /* ── Match progress bar (ACT cards) ────────────────────────────── */
+  .t-card__match-progress { display: flex; flex-direction: column; gap: 5px; }
+  .t-match-bar {
+    height: 5px; border-radius: 99px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .t-match-bar__fill {
+    height: 100%; border-radius: 99px;
+    background: var(--primary);
+    transition: width 0.3s;
+  }
+  .t-match-bar__label {
     font-size: 0.75rem; color: var(--text-muted);
   }
 

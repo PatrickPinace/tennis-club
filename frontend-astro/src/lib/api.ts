@@ -36,6 +36,7 @@ export interface TournamentListEntry {
   participant_count: number;
   created_by_name: string;
   facility_name: string | null;
+  matches_progress: { done: number; total: number } | null;
 }
 
 export interface Participant {
@@ -208,6 +209,7 @@ export interface TournamentDetail {
   config: RRConfig | null;
   matches: TournamentMatch[];
   standings: RRStandingRow[] | null;
+  matches_progress: { done: number; total: number } | null;
 }
 
 // ── Rankingi ─────────────────────────────────────────────────────────────────

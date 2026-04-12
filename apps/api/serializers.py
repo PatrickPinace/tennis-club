@@ -51,11 +51,12 @@ class TournamentListSerializer(serializers.ModelSerializer):
     """
     Lekki serializer dla listy turniejów — używany przez /api/tournaments/list/.
     Zamiast pełnej listy uczestników zwraca tylko ich liczbę.
-    Dodaje: participant_count, created_by_name, facility_name.
+    Dodaje: participant_count, created_by_name, facility_name, matches_progress.
     """
     participant_count = serializers.SerializerMethodField()
     created_by_name = serializers.SerializerMethodField()
     facility_name = serializers.SerializerMethodField()
+    matches_progress = serializers.SerializerMethodField()
 
     class Meta:
         model = Tournament
@@ -65,6 +66,7 @@ class TournamentListSerializer(serializers.ModelSerializer):
             'status', 'tournament_type', 'match_format',
             'rank',
             'participant_count', 'created_by_name', 'facility_name',
+            'matches_progress',
         ]
 
     def get_participant_count(self, obj):
@@ -78,6 +80,17 @@ class TournamentListSerializer(serializers.ModelSerializer):
         if obj.facility:
             return str(obj.facility)
         return None
+
+    def get_matches_progress(self, obj):
+        """Postęp meczów — done/total (bez CNC). Tylko dla ACT/FIN."""
+        if obj.status not in ('ACT', 'FIN'):
+            return None
+        all_matches = obj.matches.exclude(status='CNC')
+        total = all_matches.count()
+        if total == 0:
+            return None
+        done = all_matches.filter(status__in=['CMP', 'WDR']).count()
+        return {'done': done, 'total': total}
 
 
 class UserDetailsSerializer(serializers.ModelSerializer):
@@ -386,6 +399,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
     created_by_username = serializers.SerializerMethodField()
     participant_count = serializers.SerializerMethodField()
+    matches_progress = serializers.SerializerMethodField()
 
     class Meta:
         model = Tournament
@@ -396,6 +410,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             'facility_name', 'created_by_name', 'created_by_username',
             'participant_count', 'participants',
             'config', 'matches', 'standings',
+            'matches_progress',
         ]
 
     def get_facility_name(self, obj):
@@ -457,3 +472,15 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             ]
         except Exception as e:
             return None
+
+    def get_matches_progress(self, obj):
+        """
+        Zwraca postęp meczów: { done, total }.
+        done  = CMP + WDR (rozegrane lub walkower)
+        total = wszystkie mecze bez CNC (anulowane nie liczą się do puli)
+        """
+        from django.db.models import Q
+        all_matches = obj.matches.exclude(status='CNC')
+        total = all_matches.count()
+        done = all_matches.filter(status__in=['CMP', 'WDR']).count()
+        return {'done': done, 'total': total}

@@ -48,7 +48,10 @@ function fmtDate(iso: string | null): string {
 
     <!-- Banner sukcesu po utworzeniu turnieju -->
     <div id="manage-created-banner" class="manage-banner" style="display:none;">
-      Turniej został utworzony. Możesz teraz zarządzać uczestnikami i meczami.
+      <span>Turniej został utworzony.</span>
+      <a id="manage-created-link" href="/tournaments/manage" class="manage-banner__link">
+        Przejdź do turnieju →
+      </a>
     </div>
 
     <div class="manage-toolbar">
@@ -120,12 +123,15 @@ function fmtDate(iso: string | null): string {
 <script>
   // Pokaż banner sukcesu jeśli wrócono po utworzeniu turnieju
   const params = new URLSearchParams(window.location.search);
-  if (params.get('created')) {
+  const createdId = params.get('created');
+  if (createdId) {
     const banner = document.getElementById('manage-created-banner');
+    const link = document.getElementById('manage-created-link') as HTMLAnchorElement | null;
     if (banner) {
+      if (link) link.href = `/tournaments/${createdId}`;
       banner.style.display = '';
-      // Auto-hide po 5s
-      setTimeout(() => { banner.style.display = 'none'; }, 5000);
+      // Auto-hide po 8s
+      setTimeout(() => { banner.style.display = 'none'; }, 8000);
     }
   }
 </script>
@@ -136,10 +142,24 @@ function fmtDate(iso: string | null): string {
   }
 
   .manage-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;
     background: color-mix(in srgb, var(--primary) 8%, transparent);
     border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
     color: var(--primary); font-size: 0.84rem; font-weight: 600;
+    flex-wrap: wrap;
+  }
+  .manage-banner__link {
+    font-size: 0.82rem; font-weight: 700;
+    color: var(--primary); text-decoration: none;
+    padding: 3px 10px; border-radius: 5px;
+    border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    white-space: nowrap;
+    transition: background 0.12s;
+  }
+  .manage-banner__link:hover {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
   }
 
   .manage-toolbar {
