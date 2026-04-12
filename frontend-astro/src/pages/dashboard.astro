@@ -23,7 +23,7 @@ const currentUser = await getCurrentUser(sessionCookie);
 // Turnieje: publiczne GET /api/tournaments/ — nie wymaga auth
 const apiTournaments = await getDashboardTournaments(5);
 
-// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
+/// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
 // Liczba powiadomień ładowana jest client-side przez JS (patrz <script> na końcu)
 // Gdy backend niedostępny lub niezalogowany — graceful degradation (brak odznaki)
 const unreadCount = null; // null = nie renderuj odznaki SSR
@@ -383,79 +383,7 @@ const quickActions = [
   Wymaga sesji Django w przegladarce (cookies).
   Graceful degradation: jeśli brak sesji lub backend niedostępny — nic nie robi.
 -->
-<script>
-  (async function initNotifications() {
-    const API_BASE = (window as any).__TC_API_BASE__ ||
-      (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ||
-      'http://localhost:8000';
-
-    // Pobierz liczbę nieprzeczytanych
-    try {
-      const res = await fetch(`${API_BASE}/notifications/api/unread-count/`, {
-        credentials: 'include',   // wyślij cookie sesji Django
-        headers: { 'Accept': 'application/json' },
-        redirect: 'manual',       // nie podążaj za redirect 302 → login
-      });
-
-      if (res.type === 'opaqueredirect' || !res.ok) return; // niezalogowany lub błąd
-
-      const data = await res.json();
-      const count: number = data?.count ?? 0;
-
-      if (count > 0) {
-        const badge = document.getElementById('notif-count');
-        if (badge) {
-          badge.textContent = count > 99 ? '99+' : String(count);
-          badge.style.display = '';
-        }
-      }
-    } catch {
-      // backend niedostępny — brak odznaki, brak błędu UI
-    }
-
-    // Po kliknięciu dzwonka: załaduj listę powiadomień
-    const btn = document.getElementById('notif-btn');
-    if (!btn) return;
-
-    let loaded = false;
-    btn.addEventListener('click', async () => {
-      if (loaded) return;
-      try {
-        const res = await fetch(`${API_BASE}/notifications/api/notifications/`, {
-          credentials: 'include',
-          headers: { 'Accept': 'application/json' },
-          redirect: 'manual',
-        });
-        if (res.type === 'opaqueredirect' || !res.ok) return;
-
-        const data = await res.json();
-        const list = document.getElementById('notif-list');
-        if (!list) return;
-
-        const notifications = data?.notifications ?? [];
-        if (notifications.length === 0) {
-          list.innerHTML = '<div class="topbar__notif-empty">Brak nowych powiadomień</div>';
-        } else {
-          list.innerHTML = notifications
-            .map((n: { message: string; created_at: string }) => `
-              <div class="topbar__notif-item">
-                <div class="topbar__notif-msg">${escHtml(n.message)}</div>
-                <div class="topbar__notif-time">${escHtml(n.created_at)}</div>
-              </div>
-            `)
-            .join('');
-        }
-        loaded = true;
-      } catch {
-        // cicho ignoruj
-      }
-    });
-
-    function escHtml(s: string): string {
-      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-  })();
-</script>
+<!-- Powiadomienia obsługiwane przez Topbar.astro -->
 
 <!--
   Client-side: ładuje dane dashboard summary z /api/dashboard/summary/.

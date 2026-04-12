@@ -1,5 +1,8 @@
+import logging
 from rest_framework import viewsets, generics, status
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny, IsAuthenticated
+
+logger = logging.getLogger(__name__)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.tournaments.models import Tournament
@@ -116,6 +119,40 @@ class TournamentListView(generics.ListAPIView):
         )
 
 
+class MyTournamentsView(generics.ListAPIView):
+    """
+    Turnieje utworzone przez zalogowanego użytkownika.
+    GET /api/tournaments/mine/
+
+    Reużywa TournamentListSerializer — ten sam kształt co /list/.
+    Auth: IsAuthenticated — prywatny endpoint.
+    """
+    serializer_class = TournamentListSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Case, When, IntegerField
+        return (
+            Tournament.objects
+            .filter(created_by=self.request.user)
+            .select_related('created_by', 'facility')
+            .prefetch_related('participants')
+            .annotate(
+                status_order=Case(
+                    When(status='ACT', then=0),
+                    When(status='REG', then=1),
+                    When(status='SCH', then=2),
+                    When(status='DRF', then=3),
+                    When(status='FIN', then=4),
+                    When(status='CNC', then=5),
+                    default=9,
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('status_order', '-created_at')
+        )
+
+
 class NotificationListView(generics.ListAPIView):
     """API endpoint that lists notifications for the current user."""
     serializer_class = NotificationSerializer
@@ -123,6 +160,36 @@ class NotificationListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Notifications.objects.filter(user=self.request.user)
+
+
+class NotificationMarkReadView(APIView):
+    """
+    PATCH /api/notifications/{pk}/read/
+    Oznacza pojedyncze powiadomienie jako przeczytane.
+    Tylko właściciel może oznaczyć swoje powiadomienie.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            notif = Notifications.objects.get(pk=pk, user=request.user)
+        except Notifications.DoesNotExist:
+            return Response({'detail': 'Nie znaleziono.'}, status=status.HTTP_404_NOT_FOUND)
+        notif.is_read = True
+        notif.save(update_fields=['is_read'])
+        return Response({'id': notif.pk, 'is_read': True}, status=status.HTTP_200_OK)
+
+
+class NotificationMarkAllReadView(APIView):
+    """
+    POST /api/notifications/read-all/
+    Oznacza wszystkie powiadomienia użytkownika jako przeczytane.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        updated = Notifications.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return Response({'marked': updated}, status=status.HTTP_200_OK)
 
 
 class MatchHistoryView(generics.ListAPIView):
@@ -329,9 +396,12 @@ class RoundRobinMatchScoreView(APIView):
     Tylko turnieje RND. Nie działa na meczach CMP/WDR/CNC.
 
     Body (JSON):
-      set1_p1, set1_p2  — wyniki 1. seta (wymagane)
+      set1_p1, set1_p2  — wyniki 1. seta (wymagane, chyba że walkover=true)
       set2_p1, set2_p2  — wyniki 2. seta (opcjonalne)
       set3_p1, set3_p2  — wyniki 3. seta / super tie-break (opcjonalne)
+      scheduled_time    — ISO 8601 datetime lub null (opcjonalne)
+      walkover          — true → ustaw WDR, wymaga winner_participant_id
+      winner_participant_id — id uczestnika (wymagane gdy walkover=true)
 
     Odpowiedź 200:
       { "match_id", "status", "winner_id", "winner_name", "score" }
@@ -341,6 +411,8 @@ class RoundRobinMatchScoreView(APIView):
       - jeśli jeden z nich ≥ sets_to_win → winner + status CMP
       - jeśli są wyniki ale brak zwycięzcy → status INP
       - zapisuje MatchScoreHistory
+
+    Re-edycja: mecze CMP i WDR mogą być edytowane (cofnięcie wyniku / korekta).
     """
     permission_classes = [IsAuthenticated]
 
@@ -375,13 +447,8 @@ class RoundRobinMatchScoreView(APIView):
         except TournamentsMatch.DoesNotExist:
             return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # ── Nie edytuj zakończonych / anulowanych ────────────────────────────
-        locked = {
-            TournamentsMatch.Status.COMPLETED.value,
-            TournamentsMatch.Status.WITHDRAWN.value,
-            TournamentsMatch.Status.CANCELLED.value,
-        }
-        if match.status in locked:
+        # ── Tylko CNC blokuje edycję ─────────────────────────────────────────
+        if match.status == TournamentsMatch.Status.CANCELLED.value:
             return Response(
                 {'detail': f'Mecz ma status „{match.get_status_display()}" i nie może być edytowany.'},
                 status=status.HTTP_409_CONFLICT,
@@ -389,6 +456,119 @@ class RoundRobinMatchScoreView(APIView):
 
         # ── Walidacja danych wejściowych ─────────────────────────────────────
         data = request.data
+        cancel = bool(data.get('cancel', False))
+        walkover = bool(data.get('walkover', False))
+
+        # ── Ścieżka anulowania meczu (CNC) ───────────────────────────────────
+        if cancel:
+            match.set1_p1_score = None
+            match.set1_p2_score = None
+            match.set2_p1_score = None
+            match.set2_p2_score = None
+            match.set3_p1_score = None
+            match.set3_p2_score = None
+            match.winner = None
+            match.status = TournamentsMatch.Status.CANCELLED.value
+            match.save(update_fields=[
+                'set1_p1_score', 'set1_p2_score',
+                'set2_p1_score', 'set2_p2_score',
+                'set3_p1_score', 'set3_p2_score',
+                'winner', 'status',
+            ])
+            MatchScoreHistory.objects.create(
+                match=match,
+                updated_by=request.user,
+                set1_p1_score=None, set1_p2_score=None,
+                set2_p1_score=None, set2_p2_score=None,
+                set3_p1_score=None, set3_p2_score=None,
+            )
+            return Response({
+                'match_id': match.pk,
+                'status': match.status,
+                'winner_id': None,
+                'winner_name': None,
+                'score': None,
+            }, status=status.HTTP_200_OK)
+
+        # ── Ścieżka walkover (WDR) ────────────────────────────────────────────
+        if walkover:
+            winner_participant_id = data.get('winner_participant_id')
+            if not winner_participant_id:
+                return Response(
+                    {'detail': 'walkover=true wymaga podania winner_participant_id.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                winner_participant_id = int(winner_participant_id)
+            except (ValueError, TypeError):
+                return Response(
+                    {'detail': 'winner_participant_id musi być liczbą całkowitą.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if winner_participant_id not in (
+                match.participant1_id,
+                match.participant2_id,
+            ):
+                return Response(
+                    {'detail': 'winner_participant_id musi być jednym z uczestników meczu.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            from apps.tournaments.models import Participant
+            try:
+                winner = Participant.objects.get(pk=winner_participant_id)
+            except Participant.DoesNotExist:
+                return Response({'detail': 'Uczestnik nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+            # Wyczyść wyniki setów i ustaw WDR
+            match.set1_p1_score = None
+            match.set1_p2_score = None
+            match.set2_p1_score = None
+            match.set2_p2_score = None
+            match.set3_p1_score = None
+            match.set3_p2_score = None
+            match.winner = winner
+            match.status = TournamentsMatch.Status.WITHDRAWN.value
+
+            # Opcjonalnie scheduled_time
+            if 'scheduled_time' in data:
+                raw_st = data.get('scheduled_time')
+                if raw_st in (None, '', 'null'):
+                    match.scheduled_time = None
+                else:
+                    from django.utils.dateparse import parse_datetime
+                    parsed = parse_datetime(str(raw_st))
+                    if parsed is None:
+                        return Response(
+                            {'detail': 'Nieprawidłowy format scheduled_time (oczekiwany ISO 8601).'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    match.scheduled_time = parsed
+
+            wdr_save_fields = [
+                'set1_p1_score', 'set1_p2_score',
+                'set2_p1_score', 'set2_p2_score',
+                'set3_p1_score', 'set3_p2_score',
+                'winner', 'status',
+            ]
+            if 'scheduled_time' in data:
+                wdr_save_fields.append('scheduled_time')
+            match.save(update_fields=wdr_save_fields)
+
+            MatchScoreHistory.objects.create(
+                match=match,
+                updated_by=request.user,
+                set1_p1_score=None, set1_p2_score=None,
+                set2_p1_score=None, set2_p2_score=None,
+                set3_p1_score=None, set3_p2_score=None,
+            )
+
+            return Response({
+                'match_id': match.pk,
+                'status': match.status,
+                'winner_id': winner.pk,
+                'winner_name': winner.display_name,
+                'score': None,
+            }, status=status.HTTP_200_OK)
 
         def _int_or_none(key):
             v = data.get(key)
@@ -425,6 +605,47 @@ class RoundRobinMatchScoreView(APIView):
             if val is not None and val < 0:
                 return Response(
                     {'detail': f'Wynik „{key}" nie może być ujemny.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # ── Walidacja gemów per set ───────────────────────────────────────────
+        config_for_validation = getattr(tournament, 'round_robin_config', None)
+        if config_for_validation is None:
+            from apps.tournaments.models import RoundRobinConfig as _RRC
+            config_for_validation, _ = _RRC.objects.get_or_create(tournament=tournament)
+
+        gps = config_for_validation.games_per_set   # np. 6
+        sts = config_for_validation.sets_to_win      # np. 2
+        max_sets = sts * 2 - 1                        # np. 3
+
+        # Sety 1 i 2: standardowy set gemowy (max gps+2 z przewagą, albo gps:gps → tie-break)
+        for i in (1, 2):
+            s1 = fields[f'set{i}_p1']
+            s2 = fields[f'set{i}_p2']
+            if s1 is None or s2 is None:
+                continue
+            hi, lo = max(s1, s2), min(s1, s2)
+            # Maksymalna dozwolona wartość: gps+1 (np. 7 przy 6-gemowym secie z tie-breakiem)
+            # lub gps+N gdy system "przewaga" — akceptujemy do gps+10 żeby nie ograniczać
+            max_gems = gps + 10
+            if hi > max_gems:
+                return Response(
+                    {'detail': f'Set {i}: wynik {hi} przekracza dozwolone max ({max_gems} gemów).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Zwycięzca seta musi mieć ≥ gps gemów
+            if hi < gps:
+                return Response(
+                    {'detail': f'Set {i}: zwycięzca musi mieć co najmniej {gps} gemów (max({s1}, {s2}) = {hi}).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Przy remisie gps:gps → OK (tie-break)
+            # Przy wygranym gps:x → x musi być ≤ gps-2 lub gps-1 (jeśli 7:5 lub 7:6)
+            # Uproszczona reguła: jeśli hi == gps, to lo może być gps (remis, tie-break)
+            # jeśli hi > gps, to różnica musi być ≥ 2 LUB hi == gps+1 (np. 7:6 jest OK)
+            if hi > gps and (hi - lo) < 2 and hi != gps + 1:
+                return Response(
+                    {'detail': f'Set {i}: wynik {s1}:{s2} jest nieprawidłowy (za mała przewaga).'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -466,6 +687,22 @@ class RoundRobinMatchScoreView(APIView):
             winner = match.participant2
             new_status = TournamentsMatch.Status.COMPLETED.value
 
+        # ── Opcjonalnie scheduled_time ────────────────────────────────────────
+        update_scheduled_time = 'scheduled_time' in data
+        if update_scheduled_time:
+            raw_st = data.get('scheduled_time')
+            if raw_st in (None, '', 'null'):
+                match.scheduled_time = None
+            else:
+                from django.utils.dateparse import parse_datetime
+                parsed = parse_datetime(str(raw_st))
+                if parsed is None:
+                    return Response(
+                        {'detail': 'Nieprawidłowy format scheduled_time (oczekiwany ISO 8601).'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                match.scheduled_time = parsed
+
         # ── Zapisz wynik ─────────────────────────────────────────────────────
         match.set1_p1_score = fields['set1_p1']
         match.set1_p2_score = fields['set1_p2']
@@ -475,12 +712,15 @@ class RoundRobinMatchScoreView(APIView):
         match.set3_p2_score = fields['set3_p2']
         match.winner = winner
         match.status = new_status
-        match.save(update_fields=[
+        save_fields = [
             'set1_p1_score', 'set1_p2_score',
             'set2_p1_score', 'set2_p2_score',
             'set3_p1_score', 'set3_p2_score',
             'winner', 'status',
-        ])
+        ]
+        if update_scheduled_time:
+            save_fields.append('scheduled_time')
+        match.save(update_fields=save_fields)
 
         MatchScoreHistory.objects.create(
             match=match,
@@ -687,4 +927,545 @@ class RoundRobinConfigUpdateView(APIView):
         return Response({
             'config': RoundRobinConfigSerializer(config).data,
             'standings': RoundRobinStandingSerializer(standings_out, many=True).data,
+        }, status=status.HTTP_200_OK)
+
+
+class RebuildRankingsView(APIView):
+    """
+    Ręczny rebuild precomputed rankingów.
+    POST /api/admin/rebuild-rankings/
+
+    Uprawnienia: is_staff only.
+
+    Body (JSON, wszystkie opcjonalne):
+      match_type — 'SNG' lub 'DBL' (domyślnie: oba)
+      season     — rok (liczba) lub pominięty = wszystkie sezony
+
+    Odpowiedź 200:
+      { "rebuilt": <liczba wpisów>, "match_type": ..., "season": ... }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not request.user.is_staff:
+            return Response(
+                {'detail': 'Wymagane uprawnienia is_staff.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        match_type = request.data.get('match_type')
+        season_raw = request.data.get('season')
+
+        # Walidacja match_type
+        if match_type is not None and match_type not in ('SNG', 'DBL'):
+            return Response(
+                {'detail': 'match_type musi być "SNG" lub "DBL".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Walidacja season
+        season = None
+        if season_raw is not None:
+            try:
+                season = int(season_raw)
+            except (ValueError, TypeError):
+                return Response(
+                    {'detail': 'season musi być liczbą całkowitą.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        logger.info(
+            '[rankings] Ręczny rebuild zainicjowany przez %s: match_type=%s, season=%s.',
+            request.user.username, match_type or 'all', season or 'all',
+        )
+
+        try:
+            from apps.rankings.services.ranking_calculator import rebuild_rankings
+            count = rebuild_rankings(match_type=match_type, season=season)
+        except Exception as exc:
+            logger.error('[rankings] Błąd ręcznego rebuild: %s', exc, exc_info=True)
+            return Response(
+                {'detail': f'Błąd rebuildu: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        logger.info('[rankings] Ręczny rebuild zakończony: %d wpisów.', count)
+        return Response({
+            'rebuilt': count,
+            'match_type': match_type or 'all',
+            'season': season or 'all',
+        }, status=status.HTTP_200_OK)
+
+
+class TournamentFinishView(APIView):
+    """
+    Zakończenie turnieju — ustawia status na FIN.
+    POST /api/tournaments/{pk}/finish/
+
+    Uprawnienia: IsAuthenticated + (created_by OR is_staff).
+
+    Guardy (walidacja przed zmianą statusu):
+    - Turniej musi istnieć.
+    - Status musi być ACT (tylko aktywny turniej można zakończyć).
+      Wyjątek: is_staff może też zakończyć turniej w REG/SCH.
+    - Żaden mecz nie może mieć statusu INP (w trakcie).
+    - Turniej musi mieć end_date — wymagane przez signal do rebuild rankingów.
+      Jeśli brak, endpoint ustawia end_date = teraz (automatyczne uzupełnienie).
+
+    Po zapisie:
+    - Signal rebuild_rankings_on_tournament_finish odpala rebuild automatycznie.
+
+    Odpowiedź 200:
+      { "id", "status", "end_date", "rankings_rebuilt": bool, "warning": str|null }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament, TournamentsMatch
+
+        # ── Pobierz turniej ───────────────────────────────────────────────────
+        try:
+            tournament = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # ── Uprawnienia ───────────────────────────────────────────────────────
+        if not (request.user == tournament.created_by or request.user.is_staff):
+            return Response(
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju lub is_staff.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # ── Guard: nie można zakończyć już zakończonego lub anulowanego ───────
+        if tournament.status == Tournament.Status.FINISHED:
+            return Response(
+                {'detail': 'Turniej jest już zakończony.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if tournament.status == Tournament.Status.CANCELLED:
+            return Response(
+                {'detail': 'Nie można zakończyć anulowanego turnieju.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # ── Guard: tylko ACT (lub admin może też REG/SCH) ─────────────────────
+        allowed_statuses = [Tournament.Status.ACTIVE]
+        if request.user.is_staff:
+            allowed_statuses += [Tournament.Status.REGISTRATION, Tournament.Status.SCHEDULED, Tournament.Status.DRAFT]
+        if tournament.status not in allowed_statuses:
+            return Response(
+                {
+                    'detail': (
+                        f'Turniej ma status „{tournament.get_status_display()}" '
+                        f'i nie może być zakończony. Wymagany status: Trwa (ACT).'
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # ── Guard: żaden mecz nie może być INP ───────────────────────────────
+        inp_count = TournamentsMatch.objects.filter(
+            tournament=tournament,
+            status=TournamentsMatch.Status.IN_PROGRESS,
+        ).count()
+        if inp_count > 0:
+            return Response(
+                {
+                    'detail': (
+                        f'Nie można zakończyć turnieju — {inp_count} '
+                        f'{"mecz ma" if inp_count == 1 else "mecze mają"} status „W trakcie" (INP). '
+                        'Zakończ lub anuluj te mecze przed zamknięciem turnieju.'
+                    )
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # ── Uzupełnij end_date jeśli brak (wymagane przez signal rebuild) ─────
+        warning = None
+        if not tournament.end_date:
+            tournament.end_date = timezone.now()
+            warning = 'Brak daty zakończenia — ustawiono automatycznie na teraz.'
+            logger.info(
+                '[finish] Turniej id=%d nie miał end_date — ustawiono %s.',
+                tournament.pk, tournament.end_date,
+            )
+
+        # ── Zmień status na FIN i zapisz ──────────────────────────────────────
+        tournament.status = Tournament.Status.FINISHED
+        save_fields = ['status']
+        if warning:
+            save_fields.append('end_date')
+        tournament.save(update_fields=save_fields)
+
+        logger.info(
+            '[finish] Turniej "%s" (id=%d) zakończony przez %s.',
+            tournament.name, tournament.pk, request.user.username,
+        )
+
+        return Response({
+            'id': tournament.pk,
+            'status': tournament.status,
+            'end_date': tournament.end_date.isoformat() if tournament.end_date else None,
+            'warning': warning,
+        }, status=status.HTTP_200_OK)
+
+
+class TournamentCreateView(APIView):
+    """
+    Tworzenie nowego turnieju przez zalogowanego użytkownika.
+    POST /api/tournaments/create/
+
+    Uprawnienia: IsAuthenticated.
+
+    Body (JSON):
+      name             — wymagane, max 200 znaków
+      tournament_type  — 'RND' | 'SGL' | 'DBE' | 'LDR' | 'AMR' | 'SWS' (domyślnie RND)
+      match_format     — 'SNG' | 'DBL' (domyślnie SNG)
+      description      — opcjonalne
+      start_date       — ISO 8601 datetime, opcjonalne
+      end_date         — ISO 8601 datetime, opcjonalne
+      rank             — 1 | 2 | 3 (domyślnie 1)
+
+    Odpowiedź 201:
+      { "id", "name", "status", "tournament_type", "match_format", ... }
+
+    Po utworzeniu tworzona jest domyślna konfiguracja (RoundRobinConfig dla RND).
+    Status domyślny: DRF (szkic).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from apps.tournaments.models import Tournament, RoundRobinConfig
+        from django.utils.dateparse import parse_datetime
+
+        data = request.data
+
+        # ── Walidacja name ────────────────────────────────────────────────────
+        name = str(data.get('name', '')).strip()
+        if not name:
+            return Response({'detail': 'Pole „name" jest wymagane.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(name) > 200:
+            return Response({'detail': 'Nazwa turnieju może mieć max 200 znaków.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Typ turnieju ──────────────────────────────────────────────────────
+        valid_types = [c[0] for c in Tournament.TournamentType.choices]
+        tournament_type = str(data.get('tournament_type', 'RND')).upper()
+        if tournament_type not in valid_types:
+            return Response(
+                {'detail': f'Nieprawidłowy tournament_type. Dostępne: {", ".join(valid_types)}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Format meczu ──────────────────────────────────────────────────────
+        valid_formats = [c[0] for c in Tournament.MatchFormat.choices]
+        match_format = str(data.get('match_format', 'SNG')).upper()
+        if match_format not in valid_formats:
+            return Response(
+                {'detail': f'Nieprawidłowy match_format. Dostępne: {", ".join(valid_formats)}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Ranga ─────────────────────────────────────────────────────────────
+        try:
+            rank = int(data.get('rank', 1))
+            if rank not in (1, 2, 3):
+                raise ValueError
+        except (ValueError, TypeError):
+            return Response({'detail': 'rank musi być 1, 2 lub 3.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Daty (opcjonalne) ─────────────────────────────────────────────────
+        start_date = None
+        end_date = None
+        for field_name, target in (('start_date', 'start'), ('end_date', 'end')):
+            raw = data.get(field_name)
+            if raw:
+                parsed = parse_datetime(str(raw))
+                if parsed is None:
+                    return Response(
+                        {'detail': f'Nieprawidłowy format {field_name} (oczekiwany ISO 8601).'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                if target == 'start':
+                    start_date = parsed
+                else:
+                    end_date = parsed
+
+        if start_date and end_date and end_date <= start_date:
+            return Response(
+                {'detail': 'end_date musi być późniejszy niż start_date.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ── Utwórz turniej ────────────────────────────────────────────────────
+        tournament = Tournament.objects.create(
+            name=name,
+            description=str(data.get('description', '')).strip(),
+            tournament_type=tournament_type,
+            match_format=match_format,
+            rank=rank,
+            start_date=start_date,
+            end_date=end_date,
+            status=Tournament.Status.DRAFT,
+            created_by=request.user,
+        )
+
+        # ── Utwórz domyślną konfigurację ─────────────────────────────────────
+        if tournament_type == 'RND':
+            RoundRobinConfig.objects.create(tournament=tournament)
+
+        logger.info(
+            '[create] Turniej "%s" (id=%d, typ=%s) utworzony przez %s.',
+            tournament.name, tournament.pk, tournament_type, request.user.username,
+        )
+
+        serializer = TournamentListSerializer(tournament)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+class TournamentStatusView(APIView):
+    """
+    Zmiana statusu turnieju przez organizatora.
+    PATCH /api/tournaments/{pk}/status/
+
+    Uprawnienia: IsAuthenticated + (created_by OR is_staff).
+
+    Dozwolone przejścia statusów (dla organizatora):
+      DRF → REG  (otwórz rejestrację)
+      REG → DRF  (cofnij do szkicu — tylko gdy brak uczestników)
+      REG → SCH  (zamknij rejestrację)
+      SCH → REG  (ponownie otwórz rejestrację)
+      SCH → ACT  (rozpocznij turniej)
+      ACT → FIN  (zakończ — lepiej używać /finish/ z pełną walidacją)
+
+    is_staff może wykonać dowolne przejście.
+
+    Body: { "status": "REG" }
+    Odpowiedź 200: { "id", "status", "status_display" }
+    """
+    permission_classes = [IsAuthenticated]
+
+    # Dozwolone przejścia dla zwykłego organizatora
+    ALLOWED_TRANSITIONS = {
+        'DRF': ['REG'],
+        'REG': ['DRF', 'SCH'],
+        'SCH': ['REG', 'ACT'],
+        'ACT': ['FIN'],
+        'FIN': [],
+        'CNC': [],
+    }
+
+    def patch(self, request, pk):
+        from apps.tournaments.models import Tournament
+
+        try:
+            tournament = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not (request.user == tournament.created_by or request.user.is_staff):
+            return Response(
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju lub is_staff.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        new_status = str(request.data.get('status', '')).upper()
+        valid_statuses = [c[0] for c in Tournament.Status.choices]
+        if new_status not in valid_statuses:
+            return Response(
+                {'detail': f'Nieprawidłowy status. Dostępne: {", ".join(valid_statuses)}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if new_status == tournament.status:
+            return Response(
+                {'detail': f'Turniej już ma status „{tournament.get_status_display()}".'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Weryfikacja przejścia (is_staff może wszystko)
+        if not request.user.is_staff:
+            allowed = self.ALLOWED_TRANSITIONS.get(tournament.status, [])
+            if new_status not in allowed:
+                return Response(
+                    {
+                        'detail': (
+                            f'Niedozwolone przejście: {tournament.status} → {new_status}. '
+                            f'Dozwolone z tego statusu: {allowed or "brak"}.'
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        # Guard: cofnięcie do DRF tylko gdy brak uczestników
+        if new_status == 'DRF' and tournament.status == 'REG':
+            count = tournament.participants.count()
+            if count > 0:
+                return Response(
+                    {'detail': f'Nie można cofnąć do szkicu — turniej ma {count} uczestników.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        tournament.status = new_status
+        tournament.save(update_fields=['status'])
+
+        logger.info(
+            '[status] Turniej "%s" (id=%d): %s → %s przez %s.',
+            tournament.name, tournament.pk,
+            tournament.status, new_status, request.user.username,
+        )
+
+        return Response({
+            'id': tournament.pk,
+            'status': tournament.status,
+            'status_display': tournament.get_status_display(),
+        }, status=status.HTTP_200_OK)
+
+
+class TournamentParticipantView(APIView):
+    """
+    Zarządzanie uczestnikami turnieju przez organizatora.
+
+    POST   /api/tournaments/{pk}/participants/        — dodaj uczestnika
+    DELETE /api/tournaments/{pk}/participants/{p_pk}/ — usuń uczestnika
+
+    Uprawnienia: IsAuthenticated + (created_by OR is_staff).
+
+    POST body:
+      user_id     — id użytkownika (wymagane)
+      display_name — opcjonalne (domyślnie: first_name + last_name)
+      seed_number — opcjonalne
+
+    DELETE: ustawia status uczestnika na WDN (wycofany), nie usuwa rekordu.
+    Nie usuwa meczów — mecze z tym uczestnikiem pozostają, organizator musi je obsłużyć.
+
+    Ograniczenia:
+    - Turniej musi być w statusie DRF lub REG (dodawanie/usuwanie tylko przed startem)
+    - is_staff może modyfikować w każdym statusie
+    - Uczestnik nie może być dodany dwa razy
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _get_tournament(self, pk, user):
+        from apps.tournaments.models import Tournament
+        try:
+            t = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return None, Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+        if not (user == t.created_by or user.is_staff):
+            return None, Response(
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju lub is_staff.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return t, None
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament, Participant
+
+        tournament, err = self._get_tournament(pk, request.user)
+        if err:
+            return err
+
+        # Status guard: tylko DRF/REG (is_staff może więcej)
+        if not request.user.is_staff and tournament.status not in ('DRF', 'REG'):
+            return Response(
+                {'detail': f'Nie można dodawać uczestników gdy turniej ma status „{tournament.get_status_display()}".'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'detail': 'Pole „user_id" jest wymagane.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            target_user = User.objects.get(pk=int(user_id))
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'Użytkownik nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Sprawdź duplikat (aktywny uczestnik tego samego usera)
+        if Participant.objects.filter(
+            tournament=tournament,
+            user=target_user,
+        ).exclude(status='WDN').exists():
+            return Response(
+                {'detail': f'Użytkownik „{target_user.get_full_name() or target_user.username}" jest już uczestnikiem turnieju.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Sprawdź limit uczestników (RoundRobinConfig)
+        if tournament.tournament_type == 'RND':
+            cfg = getattr(tournament, 'round_robin_config', None)
+            if cfg:
+                active_count = tournament.participants.exclude(status='WDN').count()
+                if active_count >= cfg.max_participants:
+                    return Response(
+                        {'detail': f'Osiągnięto limit uczestników ({cfg.max_participants}).'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+        display_name = str(request.data.get('display_name', '')).strip()
+        if not display_name:
+            full = target_user.get_full_name().strip()
+            display_name = full if full else target_user.username
+
+        seed_number = request.data.get('seed_number')
+        if seed_number is not None:
+            try:
+                seed_number = int(seed_number)
+            except (ValueError, TypeError):
+                seed_number = None
+
+        participant = Participant.objects.create(
+            tournament=tournament,
+            user=target_user,
+            display_name=display_name,
+            seed_number=seed_number,
+            status='REG',
+        )
+
+        logger.info(
+            '[participant] Dodano uczestnika %s (id=%d) do turnieju "%s" (id=%d) przez %s.',
+            display_name, participant.pk, tournament.name, tournament.pk, request.user.username,
+        )
+
+        return Response({
+            'id': participant.pk,
+            'display_name': participant.display_name,
+            'seed_number': participant.seed_number,
+            'status': participant.status,
+            'user_id': target_user.pk,
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, pk, p_pk):
+        from apps.tournaments.models import Tournament, Participant
+
+        tournament, err = self._get_tournament(pk, request.user)
+        if err:
+            return err
+
+        if not request.user.is_staff and tournament.status not in ('DRF', 'REG', 'SCH'):
+            return Response(
+                {'detail': f'Nie można usuwać uczestników gdy turniej ma status „{tournament.get_status_display()}".'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        try:
+            participant = Participant.objects.get(pk=p_pk, tournament=tournament)
+        except Participant.DoesNotExist:
+            return Response({'detail': 'Uczestnik nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if participant.status == 'WDN':
+            return Response({'detail': 'Uczestnik jest już wycofany.'}, status=status.HTTP_409_CONFLICT)
+
+        participant.status = 'WDN'
+        participant.save(update_fields=['status'])
+
+        logger.info(
+            '[participant] Wycofano uczestnika %s (id=%d) z turnieju "%s" (id=%d) przez %s.',
+            participant.display_name, participant.pk, tournament.name, tournament.pk, request.user.username,
+        )
+
+        return Response({
+            'id': participant.pk,
+            'status': 'WDN',
+            'display_name': participant.display_name,
         }, status=status.HTTP_200_OK)

@@ -1,0 +1,292 @@
+---
+// tournaments/create.astro — formularz tworzenia nowego turnieju
+// Prywatna strona: wymaga zalogowania.
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getCurrentUser } from '@/lib/api';
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const currentUser = await getCurrentUser(sessionCookie);
+
+if (!currentUser) {
+  return Astro.redirect('/login?next=/tournaments/create');
+}
+---
+
+<AppLayout title="Nowy turniej" showSearch={false} showCta={false}>
+  <nav class="tc-breadcrumb" aria-label="Nawigacja">
+    <a href="/tournaments/manage">← Moje turnieje</a>
+  </nav>
+
+  <PageHeader
+    title="Nowy turniej"
+    subtitle="Wypełnij podstawowe dane — konfigurację punktacji możesz zmienić później"
+  />
+
+  <div class="cr-wrap">
+    <div class="tc-card cr-card">
+
+      <div id="cr-error" class="cr-alert cr-alert--err" style="display:none;"></div>
+
+      <form id="cr-form" novalidate>
+
+        <!-- Nazwa -->
+        <div class="cr-field">
+          <label class="cr-label" for="cr-name">Nazwa turnieju *</label>
+          <input
+            id="cr-name" name="name" type="text"
+            class="cr-input" maxlength="200" required
+            placeholder="np. Liga wiosenna 2026"
+            autocomplete="off"
+          >
+        </div>
+
+        <!-- Opis -->
+        <div class="cr-field">
+          <label class="cr-label" for="cr-desc">Opis</label>
+          <textarea id="cr-desc" name="description" class="cr-input cr-textarea" rows="2"
+            placeholder="Opcjonalny opis zasad, miejsca, kontaktu…"></textarea>
+        </div>
+
+        <div class="cr-row">
+          <!-- Typ turnieju -->
+          <div class="cr-field">
+            <label class="cr-label" for="cr-type">Typ turnieju</label>
+            <select id="cr-type" name="tournament_type" class="cr-input cr-select">
+              <option value="RND" selected>Liga (Round Robin)</option>
+              <option value="SGL">Eliminacja pojedyncza</option>
+              <option value="DBE">Eliminacja podwójna</option>
+              <option value="LDR">Drabinka</option>
+              <option value="AMR">Americano / Mexicano</option>
+              <option value="SWS">System szwajcarski</option>
+            </select>
+            <span id="cr-type-note" class="cr-hint">Panel zarządzania meczami dostępny dla Round Robin.</span>
+          </div>
+
+          <!-- Format -->
+          <div class="cr-field">
+            <label class="cr-label" for="cr-format">Format</label>
+            <select id="cr-format" name="match_format" class="cr-input cr-select">
+              <option value="SNG" selected>Singiel (1 vs 1)</option>
+              <option value="DBL">Debel (2 vs 2)</option>
+            </select>
+          </div>
+
+          <!-- Ranga -->
+          <div class="cr-field cr-field--sm">
+            <label class="cr-label" for="cr-rank">Ranga</label>
+            <select id="cr-rank" name="rank" class="cr-input cr-select">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cr-row">
+          <!-- Data startu -->
+          <div class="cr-field">
+            <label class="cr-label" for="cr-start">Data rozpoczęcia</label>
+            <input id="cr-start" name="start_date" type="datetime-local" class="cr-input">
+          </div>
+
+          <!-- Data końca -->
+          <div class="cr-field">
+            <label class="cr-label" for="cr-end">Data zakończenia</label>
+            <input id="cr-end" name="end_date" type="datetime-local" class="cr-input">
+          </div>
+        </div>
+
+        <div class="cr-actions">
+          <button type="submit" id="cr-submit" class="tc-btn tc-btn-primary">
+            Utwórz turniej
+          </button>
+          <a href="/tournaments/manage" class="tc-btn tc-btn-ghost">Anuluj</a>
+          <span class="cr-saving" id="cr-saving" style="display:none;">Zapisywanie…</span>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</AppLayout>
+
+<script>
+  const API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+
+  function getCsrf(): string {
+    return document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? '';
+  }
+
+  const form = document.getElementById('cr-form') as HTMLFormElement;
+  const errBox = document.getElementById('cr-error') as HTMLElement;
+  const submitBtn = document.getElementById('cr-submit') as HTMLButtonElement;
+  const savingEl = document.getElementById('cr-saving') as HTMLElement;
+  const typeSelect = document.getElementById('cr-type') as HTMLSelectElement;
+  const typeNote = document.getElementById('cr-type-note') as HTMLElement;
+
+  typeSelect.addEventListener('change', () => {
+    const isRR = typeSelect.value === 'RND';
+    typeNote.style.display = isRR ? '' : 'none';
+    if (!isRR) {
+      typeNote.textContent = 'Uwaga: panel zarządzania meczami działa tylko dla Round Robin.';
+      typeNote.style.display = '';
+    } else {
+      typeNote.textContent = 'Panel zarządzania meczami dostępny dla Round Robin.';
+    }
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errBox.style.display = 'none';
+    errBox.textContent = '';
+
+    const name = (document.getElementById('cr-name') as HTMLInputElement).value.trim();
+    if (!name) {
+      showErr('Nazwa turnieju jest wymagana.');
+      return;
+    }
+
+    const startVal = (document.getElementById('cr-start') as HTMLInputElement).value;
+    const endVal   = (document.getElementById('cr-end') as HTMLInputElement).value;
+    if (startVal && endVal && endVal <= startVal) {
+      showErr('Data zakończenia musi być późniejsza niż data rozpoczęcia.');
+      return;
+    }
+
+    const body: Record<string, string | number> = {
+      name,
+      tournament_type: (document.getElementById('cr-type') as HTMLSelectElement).value,
+      match_format:    (document.getElementById('cr-format') as HTMLSelectElement).value,
+      rank:            Number((document.getElementById('cr-rank') as HTMLSelectElement).value),
+      description:     (document.getElementById('cr-desc') as HTMLTextAreaElement).value.trim(),
+    };
+    if (startVal) body.start_date = startVal;
+    if (endVal)   body.end_date   = endVal;
+
+    submitBtn.disabled = true;
+    savingEl.style.display = '';
+
+    try {
+      const res = await fetch(`${API}/api/tournaments/create/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrf(),
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        // Sukces → redirect do manage z komunikatem
+        window.location.href = `/tournaments/manage?created=${data.id}`;
+      } else {
+        showErr(data.detail ?? `Błąd ${res.status}.`);
+        submitBtn.disabled = false;
+        savingEl.style.display = 'none';
+      }
+    } catch {
+      showErr('Błąd połączenia z API. Sprawdź połączenie i spróbuj ponownie.');
+      submitBtn.disabled = false;
+      savingEl.style.display = 'none';
+    }
+  });
+
+  function showErr(msg: string) {
+    errBox.textContent = msg;
+    errBox.style.display = '';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+
+<style>
+  .tc-breadcrumb {
+    font-size: 0.8rem; color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+  .tc-breadcrumb a {
+    color: var(--text-muted); text-decoration: none;
+  }
+  .tc-breadcrumb a:hover { color: var(--primary); }
+
+  .cr-wrap {
+    padding: 0 var(--page-px, 28px) 40px;
+    max-width: 720px;
+  }
+
+  .cr-card { padding: 28px; }
+
+  .cr-alert {
+    padding: 10px 14px; border-radius: 7px;
+    font-size: 0.84rem; margin-bottom: 20px;
+  }
+  .cr-alert--err {
+    background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
+    color: var(--danger, #ef4444);
+  }
+
+  .cr-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; }
+  .cr-field--sm { max-width: 100px; }
+  .cr-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+
+  .cr-input {
+    padding: 8px 12px; border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.88rem;
+    font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .cr-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-subtle);
+  }
+  .cr-select { cursor: pointer; }
+  .cr-textarea { resize: vertical; min-height: 60px; }
+
+  .cr-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 0;
+  }
+  .cr-row .cr-field { flex: 1; min-width: 140px; }
+
+  .cr-hint {
+    font-size: 0.74rem; color: var(--text-dim);
+  }
+
+  .cr-actions {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 24px; flex-wrap: wrap;
+  }
+  .cr-saving {
+    font-size: 0.8rem; color: var(--text-muted);
+  }
+
+  /* Reuse global tc-btn classes */
+  .tc-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 18px; height: 38px;
+    font-size: 0.88rem; font-weight: 600;
+    border-radius: 8px; cursor: pointer;
+    border: none; text-decoration: none;
+    font-family: var(--font-sans);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .tc-btn-primary { background: var(--primary); color: #fff; }
+  .tc-btn-primary:hover:not(:disabled) { background: var(--primary-btn-hover, #16a34a); }
+  .tc-btn-primary:disabled { opacity: 0.55; cursor: default; }
+  .tc-btn-ghost {
+    background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .tc-btn-ghost:hover { background: var(--surface-hover); }
+</style>

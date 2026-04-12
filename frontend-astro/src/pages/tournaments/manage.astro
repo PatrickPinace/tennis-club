@@ -1,0 +1,219 @@
+---
+// tournaments/manage.astro — dashboard organizatora
+// Prywatna strona: lista turniejów utworzonych przez zalogowanego użytkownika.
+// SSR wymagane — potrzebujemy cookie sesji do /api/tournaments/mine/
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getMyTournaments, getCurrentUser, type TournamentListEntry } from '@/lib/api';
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+
+const [currentUser, myTournaments] = await Promise.all([
+  getCurrentUser(sessionCookie),
+  getMyTournaments(sessionCookie),
+]);
+
+// Niezalogowany — middleware powinien przechwycić, ale zabezpieczenie SSR
+if (!currentUser) {
+  return Astro.redirect('/login?next=/tournaments/manage');
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  DRF: 'Szkic', REG: 'Rejestracja', SCH: 'Zaplanowany',
+  ACT: 'Trwa', FIN: 'Zakończony', CNC: 'Odwołany',
+};
+const STATUS_BADGE: Record<string, string> = {
+  DRF: 'tc-badge-neutral', REG: 'tc-badge-success', SCH: 'tc-badge-info',
+  ACT: 'tc-badge-warning',  FIN: 'tc-badge-neutral', CNC: 'tc-badge-neutral',
+};
+const TYPE_LABEL: Record<string, string> = {
+  RND: 'Round Robin', SEL: 'Eliminacja', DEL: 'Dbl. eliminacja',
+  LAD: 'Drabinka', AME: 'Americano', SWS: 'Szwajcarski',
+};
+const FORMAT_LABEL: Record<string, string> = { SNG: 'Singiel', DBL: 'Debel' };
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  catch { return iso; }
+}
+---
+
+<AppLayout title="Moje turnieje">
+  <PageHeader title="Moje turnieje" subtitle={`Zarządzaj turniejami, które stworzyłeś — ${myTournaments.length} łącznie`} />
+
+  <div class="manage-wrap">
+
+    <!-- Banner sukcesu po utworzeniu turnieju -->
+    <div id="manage-created-banner" class="manage-banner" style="display:none;">
+      Turniej został utworzony. Możesz teraz zarządzać uczestnikami i meczami.
+    </div>
+
+    <div class="manage-toolbar">
+      <a href="/tournaments/create" class="manage-create-btn">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+        </svg>
+        Nowy turniej
+      </a>
+    </div>
+
+    {myTournaments.length === 0 ? (
+      <div class="manage-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-dim);margin-bottom:12px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.25 9.71 2 12 2c2.291 0 4.545.25 6.75.721v1.515M18.75 4.236c.983.143 1.955.317 2.917.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5a9.023 9.023 0 01-2.48 5.228" />
+        </svg>
+        <p class="manage-empty__title">Nie masz jeszcze żadnych turniejów</p>
+        <p class="manage-empty__sub">Kliknij „Nowy turniej" aby stworzyć swój pierwszy turniej.</p>
+      </div>
+    ) : (
+      <div class="tc-card" style="overflow:hidden;">
+        <table class="tc-table manage-table">
+          <thead>
+            <tr>
+              <th>Nazwa</th>
+              <th>Status</th>
+              <th>Typ / Format</th>
+              <th class="col-date">Start</th>
+              <th class="col-date">Koniec</th>
+              <th class="col-num">Uczestników</th>
+              <th style="width:80px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {myTournaments.map((t: TournamentListEntry) => (
+              <tr class="manage-row">
+                <td class="manage-name">
+                  <a href={`/tournaments/${t.id}`} class="manage-name__link">{t.name}</a>
+                  {t.facility_name && (
+                    <span class="manage-name__facility">{t.facility_name}</span>
+                  )}
+                </td>
+                <td>
+                  <span class={`tc-badge ${STATUS_BADGE[t.status] ?? 'tc-badge-neutral'}`}>
+                    {STATUS_LABEL[t.status] ?? t.status}
+                  </span>
+                </td>
+                <td class="manage-type">
+                  <span>{TYPE_LABEL[t.tournament_type] ?? t.tournament_type}</span>
+                  <span class="manage-type__format">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </td>
+                <td class="col-date">{fmtDate(t.start_date)}</td>
+                <td class="col-date">{fmtDate(t.end_date)}</td>
+                <td class="col-num">{t.participant_count}</td>
+                <td>
+                  <a href={`/tournaments/${t.id}`} class="manage-action-btn">
+                    Zarządzaj
+                  </a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</AppLayout>
+
+<script>
+  // Pokaż banner sukcesu jeśli wrócono po utworzeniu turnieju
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('created')) {
+    const banner = document.getElementById('manage-created-banner');
+    if (banner) {
+      banner.style.display = '';
+      // Auto-hide po 5s
+      setTimeout(() => { banner.style.display = 'none'; }, 5000);
+    }
+  }
+</script>
+
+<style>
+  .manage-wrap {
+    padding: 0 var(--page-px, 28px) 40px;
+  }
+
+  .manage-banner {
+    padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    color: var(--primary); font-size: 0.84rem; font-weight: 600;
+  }
+
+  .manage-toolbar {
+    display: flex; justify-content: flex-end;
+    margin-bottom: 16px;
+  }
+  .manage-create-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 16px; height: 36px;
+    font-size: 0.84rem; font-weight: 600;
+    background: var(--primary); color: #fff;
+    border-radius: 8px; text-decoration: none;
+    transition: background 0.12s;
+  }
+  .manage-create-btn:hover { background: var(--primary-btn-hover, #16a34a); }
+
+  /* Empty state */
+  .manage-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 64px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .manage-empty__title {
+    font-size: 1rem; font-weight: 700; color: var(--text);
+    margin: 0 0 8px;
+  }
+  .manage-empty__sub {
+    font-size: 0.85rem; color: var(--text-muted);
+    max-width: 360px; line-height: 1.5; margin: 0;
+  }
+
+  /* Table */
+  .manage-table { width: 100%; }
+
+  .manage-row:hover td { background: var(--surface-hover); }
+
+  .manage-name { min-width: 180px; }
+  .manage-name__link {
+    font-weight: 700; color: var(--text);
+    text-decoration: none;
+    transition: color 0.12s;
+  }
+  .manage-name__link:hover { color: var(--primary); }
+  .manage-name__facility {
+    display: block;
+    font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;
+  }
+
+  .manage-type {
+    display: flex; flex-direction: column; gap: 1px;
+    font-size: 0.85rem;
+  }
+  .manage-type__format {
+    font-size: 0.72rem; color: var(--text-muted);
+  }
+
+  .col-date { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
+  .col-num  { text-align: center; font-weight: 600; }
+
+  .manage-action-btn {
+    display: inline-flex; align-items: center;
+    padding: 5px 12px; height: 30px;
+    font-size: 0.78rem; font-weight: 600;
+    background: var(--primary); color: #fff;
+    border-radius: 6px; text-decoration: none;
+    transition: background 0.12s;
+    white-space: nowrap;
+  }
+  .manage-action-btn:hover { background: var(--primary-btn-hover, #16a34a); }
+
+  @media (max-width: 768px) {
+    .col-date { display: none; }
+  }
+</style>

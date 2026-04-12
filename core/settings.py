@@ -42,6 +42,11 @@ if DJANGO_ENV == 'development':
     SECURE_HSTS_PRELOAD = False
     # Ustawienia dla Django Debug Toolbar
     INTERNAL_IPS = ['127.0.0.1']
+    # CSRF — zaufane origins dla Astro dev-servera (fetch z innego portu)
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:4321',
+        'http://127.0.0.1:4321',
+    ]
 else: # Ustawienia produkcyjne
     DEBUG = False
     ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", "tennis.mediprima.pl", '89.78.213.129']

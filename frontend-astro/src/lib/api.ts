@@ -148,6 +148,8 @@ export interface TournamentMatch {
   round_number: number;
   match_index: number;
   status: string;
+  participant1_id: number | null;
+  participant2_id: number | null;
   participant1_name: string | null;
   participant2_name: string | null;
   winner_name: string | null;
@@ -357,6 +359,19 @@ export async function getTournamentDetail(
 }
 
 /**
+ * Zwraca turnieje utworzone przez zalogowanego użytkownika.
+ * Endpoint: GET /api/tournaments/mine/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django.
+ * Zwraca [] gdy niezalogowany lub backend niedostępny.
+ */
+export async function getMyTournaments(
+  sessionCookie?: string
+): Promise<TournamentListEntry[]> {
+  const data = await apiFetch<TournamentListEntry[]>('/api/tournaments/mine/', { sessionCookie });
+  return data ?? [];
+}
+
+/**
  * Zwraca turnieje przefiltrowane do dashboardu:
  * aktywne (REG/ACT) i nadchodzące, max `limit` sztuk.
  */
@@ -478,5 +493,17 @@ export async function getMatchHistory(
   sessionCookie?: string
 ): Promise<MatchHistoryEntry[]> {
   const data = await apiFetch<MatchHistoryEntry[]>('/api/matches/history/', { sessionCookie });
+  return data ?? [];
+}
+
+/**
+ * Zwraca wszystkie powiadomienia zalogowanego użytkownika (przeczytane i nie).
+ * Endpoint: GET /api/notifications/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django.
+ */
+export async function getAllNotifications(
+  sessionCookie?: string
+): Promise<Notification[]> {
+  const data = await apiFetch<Notification[]>('/api/notifications/', { sessionCookie });
   return data ?? [];
 }

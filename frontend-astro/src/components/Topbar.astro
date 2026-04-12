@@ -83,8 +83,14 @@ const {
 
       <!-- Notifications panel -->
       <div class="topbar__notif-panel" id="notif-panel" style="display:none;" role="dialog" aria-label="Powiadomienia">
+        <div class="topbar__notif-arrow" aria-hidden="true"></div>
         <div class="topbar__notif-header">
-          <span>Powiadomienia</span>
+          <span class="topbar__notif-title">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+            </svg>
+            Powiadomienia
+          </span>
           <button onclick="readAllNotif()" class="topbar__notif-mark">Oznacz wszystkie</button>
         </div>
         <div id="notif-list" class="topbar__notif-list">
@@ -111,8 +117,22 @@ const {
         <svg class="topbar__user-caret" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
         </svg>
-        <!-- Dropdown logout -->
+        <!-- Dropdown menu -->
         <div class="topbar__user-menu" id="user-menu" style="display:none;">
+          <a href="/tournaments/manage" class="topbar__user-menu-item topbar__user-menu-link">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+              <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+            </svg>
+            Moje turnieje
+          </a>
+          <a href="/profile" class="topbar__user-menu-item topbar__user-menu-link">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+            Mój profil
+          </a>
+          <div class="topbar__user-menu-divider"></div>
           <button class="topbar__user-menu-item" id="logout-btn">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8z" clip-rule="evenodd"/>
@@ -245,34 +265,70 @@ const {
 
   .topbar__notif-panel {
     position: absolute; right: 0; top: calc(100% + 8px);
-    width: 320px;
+    width: 340px;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08);
     z-index: 200;
     overflow: hidden;
+    animation: notif-enter 0.15s ease;
+  }
+
+  @keyframes notif-enter {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Strzałka wskazująca na dzwoneczek */
+  .topbar__notif-arrow {
+    position: absolute; top: -6px; right: 14px;
+    width: 11px; height: 11px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-left: 1px solid var(--border);
+    transform: rotate(45deg);
+  }
+
+  .topbar__notif-title {
+    display: flex; align-items: center; gap: 7px;
+    font-weight: 700; font-size: 0.875rem; color: var(--text);
   }
 
   .topbar__notif-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 16px;
+    padding: 13px 16px;
     border-bottom: 1px solid var(--border);
-    font-weight: 700; font-size: 0.875rem; color: var(--text);
+    background: var(--surface);
   }
 
   .topbar__notif-mark {
     font-size: 0.75rem; color: var(--primary);
     background: none; border: none; cursor: pointer;
     font-family: var(--font-sans);
+    padding: 3px 8px; border-radius: 5px;
+    transition: background 0.1s;
   }
-  .topbar__notif-mark:hover { text-decoration: underline; }
+  .topbar__notif-mark:hover {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
 
-  .topbar__notif-list { max-height: 360px; overflow-y: auto; }
+  .topbar__notif-list {
+    max-height: 380px; overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .topbar__notif-list::-webkit-scrollbar { width: 4px; }
+  .topbar__notif-list::-webkit-scrollbar-track { background: transparent; }
+  .topbar__notif-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
+  /* Uwaga: .topbar__notif-empty duplikowana w :global poniżej (potrzebne dla JS innerHTML) */
   .topbar__notif-empty {
-    padding: 28px; text-align: center;
-    color: var(--text-muted); font-size: 0.85rem;
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--text-muted); font-size: 0.84rem;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 80px;
   }
 
   /* ── CTA button ───────────────────────────────────────────────────────── */
@@ -360,6 +416,20 @@ const {
   }
   .topbar__user-menu-item:hover { background: var(--surface-hover); }
 
+  .topbar__user-menu-link {
+    text-decoration: none;
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    font-size: 0.875rem; font-weight: 500; color: var(--text);
+    transition: background 0.1s;
+  }
+  .topbar__user-menu-link:hover { background: var(--surface-hover); }
+
+  .topbar__user-menu-divider {
+    height: 1px; background: var(--border);
+    margin: 2px 0;
+  }
+
   /* ── Responsive ───────────────────────────────────────────────────────── */
   @media (max-width: 1024px) {
     .topbar__hamburger { display: flex !important; }
@@ -377,27 +447,230 @@ const {
 
   /* ── Notification panel items (wstrzykiwane przez JS) ────────── */
   :global(.topbar__notif-item) {
-    padding: 12px 16px;
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 11px 16px;
     border-bottom: 1px solid var(--border);
     transition: background 0.1s;
+    cursor: default;
   }
   :global(.topbar__notif-item:last-child) { border-bottom: none; }
   :global(.topbar__notif-item:hover) { background: var(--surface-hover); }
+
+  :global(.topbar__notif-dot) {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+    background: transparent;
+  }
+
+  :global(.topbar__notif-body) { flex: 1; min-width: 0; }
+
   :global(.topbar__notif-msg) {
-    font-size: 0.83rem; color: var(--text); line-height: 1.4;
-    margin-bottom: 3px;
+    font-size: 0.82rem; color: var(--text); line-height: 1.45;
+    margin: 0 0 3px;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   :global(.topbar__notif-time) {
     font-size: 0.7rem; color: var(--text-muted);
+    display: block;
+  }
+
+  :global(.topbar__notif-item--unread) {
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+    border-left: 3px solid var(--primary);
+    padding-left: 13px;
+    cursor: pointer;
+  }
+  :global(.topbar__notif-item--unread .topbar__notif-dot) {
+    background: var(--primary);
+  }
+  :global(.topbar__notif-item--unread .topbar__notif-msg) {
+    font-weight: 600;
+  }
+  :global(.topbar__notif-item--unread:hover) {
+    background: color-mix(in srgb, var(--primary) 9%, transparent);
+  }
+
+  :global(.topbar__notif-footer) {
+    padding: 9px 16px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    background: var(--surface-2);
+  }
+  :global(.topbar__notif-footer a) {
+    font-size: 0.78rem; color: var(--primary);
+    text-decoration: none; font-weight: 600;
+  }
+  :global(.topbar__notif-footer a:hover) { text-decoration: underline; }
+
+  /* Elementy generowane przez JS — wymagają :global bo nie dostają scoped atrybutu */
+  :global(.topbar__notif-empty) {
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--text-muted); font-size: 0.84rem;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 80px;
   }
 </style>
 
 <script>
+  const _API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
+             ?? 'http://localhost:8000';
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function getCsrf(): string {
+    return document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? '';
+  }
+
+  function fmtTime(iso: string): string {
+    try {
+      const d = new Date(iso);
+      const now = new Date();
+      const diff = (now.getTime() - d.getTime()) / 1000;
+      if (diff < 60) return 'przed chwilą';
+      if (diff < 3600) return `${Math.floor(diff / 60)} min temu`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)} godz. temu`;
+      return d.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' });
+    } catch { return iso; }
+  }
+
+  // ── Notifications panel ───────────────────────────────────────────────────
+  let notifPanelOpen = false;
+  let notifLoaded = false;
+
+  function toggleNotifPanel() {
+    const panel = document.getElementById('notif-panel') as HTMLElement | null;
+    if (!panel) return;
+    notifPanelOpen = !notifPanelOpen;
+    panel.style.display = notifPanelOpen ? 'block' : 'none';
+    if (notifPanelOpen && !notifLoaded) {
+      loadNotifications();
+    }
+  }
+  // Eksponuj globalnie — wymagane przez onclick="" w HTML
+  (window as any).toggleNotifPanel = toggleNotifPanel;
+
+  async function loadNotifications() {
+    const list = document.getElementById('notif-list');
+    if (!list) return;
+    list.innerHTML = '<div class="topbar__notif-empty" style="padding:16px;text-align:center;font-size:0.8rem;color:var(--text-dim);">Ładowanie…</div>';
+    try {
+      const res = await fetch(`${_API}/api/notifications/`, { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      const data: Array<{id:number;message:string;created_at:string;is_read:boolean}> = await res.json();
+      notifLoaded = true;
+      renderNotifList(data);
+    } catch {
+      list.innerHTML = '<div class="topbar__notif-empty">Nie udało się pobrać powiadomień.</div>';
+    }
+  }
+
+  function renderNotifList(notifications: Array<{id:number;message:string;created_at:string;is_read:boolean}>) {
+    const list = document.getElementById('notif-list');
+    if (!list) return;
+    const unread = notifications.filter(n => !n.is_read);
+    const recent = notifications.slice(0, 10);
+    if (!recent.length) {
+      list.innerHTML = '<div class="topbar__notif-empty">Brak powiadomień.</div>';
+      updateBadge(0);
+      return;
+    }
+    list.innerHTML = recent.map(n => `
+      <div class="topbar__notif-item${n.is_read ? '' : ' topbar__notif-item--unread'}"
+           data-notif-id="${n.id}">
+        <div class="topbar__notif-dot"></div>
+        <div class="topbar__notif-body">
+          <p class="topbar__notif-msg">${escHtmlNotif(n.message)}</p>
+          <time class="topbar__notif-time">${fmtTime(n.created_at)}</time>
+        </div>
+      </div>`).join('')
+      + `<div class="topbar__notif-footer"><a href="/notifications">Zobacz wszystkie powiadomienia →</a></div>`;
+    updateBadge(unread.length);
+    // Kliknięcie → mark as read
+    list.querySelectorAll<HTMLElement>('.topbar__notif-item--unread').forEach(el => {
+      el.addEventListener('click', () => markRead(parseInt(el.dataset.notifId!), el));
+    });
+  }
+
+  function escHtmlNotif(s: string): string {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  async function markRead(id: number, el: HTMLElement) {
+    try {
+      const res = await fetch(`${_API}/api/notifications/${id}/read/`, {
+        method: 'PATCH', credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+      });
+      if (res.ok) {
+        el.classList.remove('topbar__notif-item--unread');
+        el.style.cursor = 'default';
+        // Zmniejsz badge
+        const badge = document.getElementById('notif-count');
+        if (badge) {
+          const cur = parseInt(badge.textContent ?? '0', 10);
+          updateBadge(Math.max(0, cur - 1));
+        }
+      }
+    } catch { /* cicha degradacja */ }
+  }
+
+  async function readAllNotif() {
+    try {
+      await fetch(`${_API}/api/notifications/read-all/`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+      });
+      updateBadge(0);
+      notifLoaded = false;
+      loadNotifications();
+    } catch { /* cicha degradacja */ }
+  }
+  (window as any).readAllNotif = readAllNotif;
+
+  function updateBadge(count: number) {
+    const badge = document.getElementById('notif-count');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  async function fetchUnreadCount() {
+    try {
+      const res = await fetch(`${_API}/api/notifications/`, {
+        credentials: 'include', redirect: 'manual',
+      });
+      if (res.type === 'opaqueredirect' || !res.ok) return;
+      const data: Array<{is_read: boolean}> = await res.json();
+      const count = data.filter(n => !n.is_read).length;
+      updateBadge(count);
+    } catch { /* niezalogowany lub błąd — ukryj badge */ }
+  }
+
+  // Odśwież badge przy każdym załadowaniu strony
+  fetchUnreadCount();
+
+  // Zamknij panel po kliknięciu poza nim
+  document.addEventListener('click', (e) => {
+    const wrap = document.querySelector('.topbar__notif-wrap');
+    if (wrap && !wrap.contains(e.target as Node) && notifPanelOpen) {
+      toggleNotifPanel();
+    }
+  });
+
   // ── Auth state w topbarze ──────────────────────────────────────────────────
   // Sprawdza /api/auth/me/ i wypełnia user chip lub pokazuje link "Zaloguj się"
   (async function initUserChip() {
-    const API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
-                ?? 'http://localhost:8000';
+    const API = _API;
     const chip      = document.getElementById('user-chip') as HTMLElement | null;
     const loginLink = document.getElementById('login-link') as HTMLElement | null;
     const avatar    = document.getElementById('user-avatar') as HTMLElement | null;

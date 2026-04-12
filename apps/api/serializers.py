@@ -238,6 +238,7 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
         model = TournamentsMatch
         fields = [
             'id', 'round_number', 'match_index', 'status',
+            'participant1_id', 'participant2_id',
             'participant1_name', 'participant2_name', 'winner_name',
             'set1_p1_score', 'set1_p2_score',
             'set2_p1_score', 'set2_p2_score',

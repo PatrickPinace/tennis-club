@@ -277,12 +277,22 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
 
           <!-- ── Mecze wg rund ──────────────────────────────────────────── -->
           {tournament.matches.length > 0 ? (
-            <div class="tc-card" style="margin-bottom:24px;">
+            <div class="tc-card" style="margin-bottom:24px;" id="matches-card">
               <div class="tc-card-header">
                 <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
-                <span style="font-size:0.78rem; color:var(--text-dim);">
-                  {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
-                </span>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:0.78rem; color:var(--text-dim);">
+                    {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
+                  </span>
+                  <div class="view-toggle" id="matches-view-toggle">
+                    <button class="view-toggle__btn view-toggle__btn--active" data-view="list" title="Lista">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="1" width="16" height="2.5" rx="1"/><rect x="0" y="6.75" width="16" height="2.5" rx="1"/><rect x="0" y="12.5" width="16" height="2.5" rx="1"/></svg>
+                    </button>
+                    <button class="view-toggle__btn" data-view="matrix" title="Macierz">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/><rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/></svg>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {rounds.map(roundNum => (
@@ -317,6 +327,13 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
                 </div>
               ))}
             </div>
+
+            <!-- Widok macierzy (ukryty domyślnie, wypełniany przez JS) -->
+            <div id="rr-matrix-wrap" style="display:none; overflow-x:auto; padding:0 0 16px;">
+              <div id="rr-matrix-inner" style="padding:0 16px;"></div>
+            </div>
+
+            </div>
           ) : (
             <div class="tc-card td-empty-section" style="margin-bottom:24px;">
               <span>Brak zaplanowanych meczów. Mecze pojawią się po zamknięciu rejestracji.</span>
@@ -334,6 +351,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
             data-created-by={tournament.created_by_username}
             data-tournament-status={tournament.status}
             data-sets-to-win={tournament.config?.sets_to_win ?? 2}
+            data-end-date={tournament.end_date ?? ''}
           >
             <div class="tc-card org-card">
               <div class="tc-card-header">
@@ -349,6 +367,38 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
               <!-- Komunikat gdy turniej FIN/CNC -->
               <div id="org-locked-msg" style="display:none;" class="org-locked-notice">
                 Turniej jest zakończony lub odwołany — edycja wyników jest zablokowana.
+              </div>
+
+              <!-- ── Status turnieju ──────────────────────────────────────── -->
+              <div id="org-status-section" style="padding:0 20px 16px; border-bottom:1px solid var(--border);">
+                <div class="org-section-label" style="margin-bottom:10px;">Status turnieju</div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <span id="org-status-badge" class="tc-badge tc-badge-neutral" style="font-size:0.8rem;">
+                    {STATUS_LABEL[tournament.status] ?? tournament.status}
+                  </span>
+                  <div id="org-status-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+                  <span id="org-status-msg" class="org-form-msg" style="margin-left:4px;"></span>
+                </div>
+              </div>
+
+              <!-- ── Uczestnicy ───────────────────────────────────────────── -->
+              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                  <div class="org-section-label" style="margin-bottom:0;">Uczestnicy</div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <input id="org-add-user-search" class="org-search-input" type="text"
+                      placeholder="Szukaj użytkownika…" autocomplete="off"
+                      style="width:180px;">
+                    <button id="org-add-user-btn" class="org-save-btn" style="white-space:nowrap;" type="button">
+                      + Dodaj
+                    </button>
+                  </div>
+                </div>
+                <div id="org-user-suggestions" style="display:none; position:relative;"></div>
+                <div id="org-participants-list" class="org-participants-list">
+                  <div class="org-loading">Ładowanie uczestników…</div>
+                </div>
+                <span id="org-participant-msg" class="org-form-msg" style="margin-top:6px;display:block;"></span>
               </div>
 
               <!-- Tabela standings (odświeżana) -->
@@ -376,18 +426,137 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
               </div>
 
               <!-- Lista meczów do wpisania wyników -->
-              <div style="padding:16px 20px 4px;">
-                <div class="org-section-label">Wpisz wyniki meczów</div>
+              <div class="org-matches-header">
+                <div class="org-section-label">Wyniki meczów</div>
+                <div class="org-matches-toolbar">
+                  <div class="org-filter-group" id="org-filter-group">
+                    <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
+                    <button class="org-filter-btn" data-filter="done">Zakończone</button>
+                    <button class="org-filter-btn" data-filter="all">Wszystkie</button>
+                  </div>
+                  <div class="org-search-wrap">
+                    <input id="org-match-search" class="org-search-input" type="text" placeholder="Szukaj zawodnika…" autocomplete="off">
+                  </div>
+                </div>
               </div>
-              <div id="org-matches-list" style="padding:0 20px 16px;">
+              <div id="org-matches-list" class="org-matches-list-wrap">
                 <div class="org-loading">Ładowanie meczów…</div>
               </div>
+
+              <!-- Konfiguracja RR (edycja) -->
+              <div style="padding:16px 20px 4px;">
+                <div class="org-section-label">Konfiguracja punktacji</div>
+              </div>
+              <form id="org-config-form" style="padding:0 20px 20px;" novalidate>
+                <div class="org-config-grid">
+
+                  <div class="org-config-group">
+                    <div class="org-config-group-label">Ogólne</div>
+                    <label class="org-field-label">Maks. uczestników
+                      <input class="org-field-input" type="number" name="max_participants" min="2" max="128" step="1">
+                    </label>
+                    <label class="org-field-label" id="lbl-sets-to-win">Sety do wygrania meczu
+                      <input class="org-field-input" type="number" name="sets_to_win" min="1" max="5" step="1">
+                    </label>
+                    <label class="org-field-label" id="lbl-games-per-set">Gemy do wygrania seta
+                      <input class="org-field-input" type="number" name="games_per_set" min="1" max="21" step="1">
+                    </label>
+                    <label class="org-field-label">Tie-breaker (remis punktowy)
+                      <select class="org-field-input org-field-select" name="tie_breaker_priority">
+                        <option value="SETS">Bilans setów</option>
+                        <option value="GAMES">Bilans gemów</option>
+                        <option value="HEAD">Bezpośrednie spotkanie</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div class="org-config-group">
+                    <div class="org-config-group-label">Punkty za mecz</div>
+                    <label class="org-field-label">Za wygraną
+                      <input class="org-field-input" type="number" name="points_for_win" min="-100" max="100" step="0.01">
+                    </label>
+                    <label class="org-field-label">Za przegraną
+                      <input class="org-field-input" type="number" name="points_for_loss" min="-100" max="100" step="0.01">
+                    </label>
+                  </div>
+
+                  <div class="org-config-group">
+                    <div class="org-config-group-label">Punkty za sety</div>
+                    <label class="org-field-label">Za wygrany set
+                      <input class="org-field-input" type="number" name="points_for_set_win" min="-100" max="100" step="0.01">
+                    </label>
+                    <label class="org-field-label">Za przegrany set
+                      <input class="org-field-input" type="number" name="points_for_set_loss" min="-100" max="100" step="0.01">
+                    </label>
+                  </div>
+
+                  <div class="org-config-group">
+                    <div class="org-config-group-label">Punkty za gemy</div>
+                    <label class="org-field-label">Za wygrany gem
+                      <input class="org-field-input" type="number" name="points_for_gem_win" min="-100" max="100" step="0.01">
+                    </label>
+                    <label class="org-field-label">Za przegrany gem
+                      <input class="org-field-input" type="number" name="points_for_gem_loss" min="-100" max="100" step="0.01">
+                    </label>
+                  </div>
+
+                  <div class="org-config-group">
+                    <div class="org-config-group-label">Super tie-break</div>
+                    <label class="org-field-label">Za wygrany punkt (STB)
+                      <input class="org-field-input" type="number" name="points_for_supertiebreak_win" min="-100" max="100" step="0.01">
+                    </label>
+                    <label class="org-field-label">Za przegrany punkt (STB)
+                      <input class="org-field-input" type="number" name="points_for_supertiebreak_loss" min="-100" max="100" step="0.01">
+                    </label>
+                  </div>
+
+                </div>
+
+                <div class="org-form-actions" style="margin-top:12px;">
+                  <button type="submit" class="org-save-btn" id="org-config-save-btn">Zapisz konfigurację</button>
+                  <span class="org-form-msg" id="org-config-msg"></span>
+                </div>
+              </form>
+
+              <!-- Zakończ turniej — widoczny tylko gdy status ACT -->
+              <div id="org-finish-section" style="display:none; padding:0 20px 20px; border-top:1px solid var(--border); margin-top:8px; padding-top:16px;">
+                <div class="org-section-label" style="margin-bottom:12px;">Zakończenie turnieju</div>
+                <div id="org-finish-confirm" style="display:none;" class="org-finish-confirm-box">
+                  <p class="org-finish-confirm__msg">
+                    Czy na pewno chcesz zakończyć turniej? Ranking zostanie automatycznie przeliczony. Tej akcji nie można cofnąć.
+                  </p>
+                  <div class="org-finish-confirm__actions">
+                    <button id="org-finish-yes-btn" class="org-finish-btn org-finish-btn--danger">
+                      Tak, zakończ turniej
+                    </button>
+                    <button id="org-finish-cancel-btn" class="org-finish-btn org-finish-btn--ghost">
+                      Anuluj
+                    </button>
+                  </div>
+                </div>
+                <div id="org-finish-trigger-wrap">
+                  <button id="org-finish-btn" class="org-finish-btn org-finish-btn--outline">
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    Zakończ turniej
+                  </button>
+                  <span id="org-finish-msg" class="org-form-msg" style="margin-left:12px;"></span>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <!-- Dane meczów dla org-panel JS (SSR JSON) -->
+          <!-- Dane meczów, uczestników i config dla org-panel JS (SSR JSON) -->
           {tournament && (
             <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
+          )}
+          {tournament && (
+            <script id="ssr-participants-data" type="application/json" set:html={JSON.stringify(tournament.participants)} />
+          )}
+          {tournament?.config && (
+            <script id="ssr-config-data" type="application/json" set:html={JSON.stringify(tournament.config)} />
           )}
 
           <!-- ── Konfiguracja (zwijana) ─────────────────────────────────── -->
@@ -638,118 +807,479 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
     font-size: 0.82rem; color: var(--danger);
   }
 
-  /* Mecz w panelu organizatora */
+  /* ── Matches header + toolbar (scoped — static HTML) ────────────────── */
+  .org-matches-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px; padding: 16px 20px 10px;
+  }
+  .org-matches-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .org-search-wrap { position: relative; }
+  .org-search-wrap::before {
+    content: '⌕'; position: absolute; left: 7px; top: 50%;
+    transform: translateY(-50%); font-size: 0.95rem;
+    color: var(--text-dim); pointer-events: none;
+  }
+  .org-matches-list-wrap { padding: 0 20px 16px; }
+
+  /* ── View toggle (Lista / Macierz) ──────────────────────────────────── */
+  .view-toggle {
+    display: flex; gap: 1px;
+    background: var(--border); border-radius: 7px; padding: 2px;
+  }
+  .view-toggle__btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 24px; border: none; border-radius: 5px;
+    background: transparent; color: var(--text-dim); cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .view-toggle__btn--active {
+    background: var(--surface); color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .view-toggle__btn:hover:not(.view-toggle__btn--active) { color: var(--text-muted); }
+
+  /* ── Config form ─────────────────────────────────────────────────────── */
+  .org-config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .org-config-group {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .org-config-group-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-muted);
+    padding-bottom: 4px; border-bottom: 1px solid var(--border-light);
+    margin-bottom: 2px;
+  }
+  .org-field-label {
+    display: flex; flex-direction: column; gap: 3px;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+  .org-field-input {
+    height: 32px; padding: 0 8px;
+    font-size: 0.88rem; font-weight: 600;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text);
+    font-family: var(--font-sans);
+    transition: border-color 0.12s;
+    width: 100%; box-sizing: border-box;
+  }
+  .org-field-input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
+  }
+  .org-field-input:disabled {
+    opacity: 0.45; cursor: not-allowed; background: var(--surface-3, var(--surface-2));
+  }
+  .org-field-select { cursor: pointer; }
+</style>
+
+<!-- Reguły dla dynamicznie wstawianych kart meczów (innerHTML) — muszą być global -->
+<style is:global>
+  /* ── Filter toolbar ─────────────────────────────────────────────────────── */
+  .org-filter-group {
+    display: flex; gap: 2px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 2px;
+  }
+  .org-filter-btn {
+    font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 6px; padding: 4px 12px;
+    background: transparent; color: var(--text-muted);
+    transition: background 0.12s, color 0.12s; white-space: nowrap;
+  }
+  .org-filter-btn--active {
+    background: var(--surface); color: var(--text);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .org-filter-btn:hover:not(.org-filter-btn--active) { color: var(--text); }
+  .org-search-input {
+    height: 30px; padding: 0 8px 0 28px;
+    font-size: 0.8rem; font-family: var(--font-sans);
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface-2); color: var(--text);
+    width: 160px; transition: border-color 0.12s, width 0.2s;
+  }
+  .org-search-input:focus {
+    outline: none; border-color: var(--primary); width: 200px;
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.12);
+  }
+
+  /* ── Karta meczu ────────────────────────────────────────────────────────── */
   .org-match {
     border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 10px;
-    background: var(--surface-2);
-    overflow: hidden;
+    border-radius: 8px; margin-bottom: 8px;
+    background: var(--surface-2); overflow: hidden;
+    transition: border-color 0.12s;
   }
-  .org-match--done { opacity: 0.65; }
+  .org-match:hover { border-color: var(--primary); }
+  .org-match--done { opacity: 0.62; }
+  .org-match--done:hover { opacity: 0.88; }
+  .org-match--pending { border-left: 3px solid var(--primary); }
 
-  .org-match__header {
+  .org-match-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 10px 14px;
-    gap: 12px;
+    padding: 9px 12px; gap: 8px;
+    cursor: pointer; user-select: none;
   }
-  .org-match__players {
+  /* header nie klikalny dla read-only */
+  .org-match--done.org-match:not([data-status="CMP"]):not([data-status="WDR"]) .org-match-header { cursor: default; }
+
+  .org-match-meta {
     display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;
   }
-  .org-match__name {
+  .org-match-label {
+    font-size: 0.68rem; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.06em;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .org-match-players {
     font-size: 0.875rem; font-weight: 600; color: var(--text);
-    flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .org-match__vs {
-    font-size: 0.7rem; font-weight: 700; color: var(--text-dim);
-    text-transform: uppercase; flex-shrink: 0;
+  .org-match-players .vs {
+    font-size: 0.72rem; font-weight: 400;
+    color: var(--text-dim); margin: 0 5px;
   }
-  .org-match__score-badge {
-    font-size: 0.82rem; font-weight: 700; color: var(--text);
-    background: var(--surface); border: 1px solid var(--border);
-    padding: 2px 10px; border-radius: 6px; white-space: nowrap;
-    font-variant-numeric: tabular-nums;
+  .org-match-right {
+    display: flex; align-items: center; gap: 7px; flex-shrink: 0;
   }
-  .org-match__score-badge--done {
-    background: rgba(34,197,94,0.08);
-    border-color: rgba(34,197,94,0.25);
-    color: #15803d;
+  .org-match-score {
+    font-size: 0.8rem; font-weight: 700;
+    color: var(--text-dim); font-variant-numeric: tabular-nums;
   }
+  .org-match-score--done { color: #15803d; }
+  .org-match-time {
+    font-size: 0.7rem; color: var(--text-dim); white-space: nowrap;
+  }
+  .org-match-chevron {
+    font-size: 0.65rem; color: var(--text-dim);
+    transition: transform 0.15s; line-height: 1;
+  }
+  .org-match.is-open .org-match-chevron { transform: rotate(180deg); }
 
-  .org-match__edit-btn {
-    font-size: 0.75rem; font-weight: 600; cursor: pointer;
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 4px 10px; background: var(--surface);
-    color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
-    transition: background 0.12s;
-  }
-  .org-match__edit-btn:hover { background: var(--surface-hover); color: var(--text); }
-  .org-match__edit-btn:disabled { opacity: 0.4; cursor: default; }
-
-  /* Formularz wpisywania wyników */
+  /* ── Formularz w karcie ─────────────────────────────────────────────────── */
   .org-score-form {
     display: none;
     padding: 12px 14px 14px;
     border-top: 1px solid var(--border);
     background: var(--surface);
   }
-  .org-score-form.is-open { display: block; }
+  .org-match.is-open .org-score-form { display: block; }
 
-  .org-sets-row {
-    display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;
-    margin-bottom: 12px;
+  .org-form-row {
+    display: flex; gap: 14px; align-items: flex-end;
+    flex-wrap: wrap; margin-bottom: 12px;
   }
-  .org-set-group { display: flex; flex-direction: column; gap: 4px; }
+  .org-sets-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .org-set-group { display: flex; flex-direction: column; gap: 3px; }
   .org-set-label {
-    font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 0.65rem; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.06em;
   }
-  .org-set-inputs {
-    display: flex; align-items: center; gap: 4px;
+  .org-set-inputs { display: flex; align-items: center; gap: 5px; }
+  .org-set-sep { font-size: 0.9rem; font-weight: 700; color: var(--text-dim); margin: 0 2px; }
+
+  /* Spinner — pionowy układ: ▲ input ▼ */
+  .org-score-spinner {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
   }
   .org-set-input {
-    width: 44px; height: 34px;
-    text-align: center; font-size: 0.95rem; font-weight: 700;
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius-sm);
+    width: 48px; height: 36px; text-align: center;
+    font-size: 1rem; font-weight: 700;
+    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
     background: var(--surface-2); color: var(--text);
-    font-family: var(--font-sans);
-    transition: border-color 0.12s;
+    font-family: var(--font-sans); transition: border-color 0.12s;
+    /* ukryj natywne strzałki */
+    -moz-appearance: textfield;
+    appearance: textfield;
   }
+  .org-set-input::-webkit-outer-spin-button,
+  .org-set-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .org-set-input:focus {
-    outline: none;
-    border-color: var(--primary);
+    outline: none; border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
   }
-  .org-set-sep {
-    font-size: 0.85rem; font-weight: 700; color: var(--text-muted);
+  .org-spin-btn {
+    width: 36px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; line-height: 1;
+    border: 1px solid var(--border-light); border-radius: 5px;
+    background: var(--surface); color: var(--text-muted);
+    cursor: pointer; user-select: none;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .org-spin-btn:hover {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+  }
+  .org-spin-btn:active { transform: scale(0.94); }
+
+  .org-scheduled-group { display: flex; flex-direction: column; gap: 3px; }
+  .org-scheduled-label {
+    font-size: 0.65rem; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .org-datetime-input {
+    height: 32px; padding: 0 8px;
+    font-size: 0.82rem; font-family: var(--font-sans);
+    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text); transition: border-color 0.12s;
+  }
+  .org-datetime-input:focus {
+    outline: none; border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
   }
 
-  .org-form-actions {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  .org-wdr-section {
+    margin-bottom: 10px; padding: 8px 10px;
+    background: rgba(239,68,68,0.04);
+    border: 1px solid rgba(239,68,68,0.15); border-radius: var(--radius-sm);
   }
+  .org-wdr-label {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--text-muted); cursor: pointer;
+  }
+  .org-wdr-winner { margin-top: 8px; display: flex; align-items: center; gap: 8px; }
+  .org-wdr-select {
+    height: 32px; padding: 0 8px;
+    font-size: 0.85rem; font-family: var(--font-sans);
+    border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+    background: var(--surface-2); color: var(--text);
+  }
+
+  .org-cancel-section {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed var(--border);
+    display: flex; justify-content: flex-end;
+  }
+  .org-cancel-match-btn {
+    font-size: 0.72rem; color: var(--text-dim);
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-sans); padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.1s, background 0.1s;
+  }
+  .org-cancel-match-btn:hover { color: var(--danger,#ef4444); background: rgba(239,68,68,0.06); }
+  .org-cancel-match-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .org-form-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
   .org-save-btn {
-    font-size: 0.82rem; font-weight: 600; cursor: pointer;
-    border: none; border-radius: 6px;
-    padding: 6px 16px; background: var(--primary);
-    color: #fff; transition: background 0.12s;
+    font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 6px; padding: 6px 16px;
+    background: var(--primary); color: #fff; transition: background 0.12s;
   }
   .org-save-btn:hover:not(:disabled) { background: var(--primary-btn-hover, #16a34a); }
   .org-save-btn:disabled { opacity: 0.5; cursor: default; }
-
-  .org-cancel-btn {
-    font-size: 0.82rem; font-weight: 600; cursor: pointer;
-    border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 12px; background: transparent;
-    color: var(--text-muted); transition: background 0.12s;
-  }
-  .org-cancel-btn:hover { background: var(--surface-2); }
-
-  .org-form-msg {
-    font-size: 0.78rem; font-weight: 600;
-  }
+  .org-form-msg { font-size: 0.75rem; font-weight: 600; }
   .org-form-msg--ok  { color: var(--primary); }
   .org-form-msg--err { color: var(--danger); }
+
+  .org-matches-empty {
+    text-align: center; padding: 20px 0;
+    font-size: 0.82rem; color: var(--text-dim);
+  }
+
+  /* ── RR Matrix ──────────────────────────────────────────────────────────── */
+  .rr-matrix {
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    min-width: max-content;
+  }
+  .rr-matrix th, .rr-matrix td {
+    border: 1px solid var(--border-light);
+    padding: 0;
+  }
+  /* Nagłówek kolumny (skrót imienia) */
+  .rr-matrix__col-head {
+    position: sticky; top: 0;
+    background: var(--surface-2);
+    padding: 6px 8px;
+    font-weight: 700; color: var(--text-muted);
+    text-align: center; white-space: nowrap;
+    font-size: 0.72rem;
+    z-index: 2;
+  }
+  /* Nagłówek wiersza (pełne imię) */
+  .rr-matrix__row-head {
+    position: sticky; left: 0;
+    background: var(--surface-2);
+    padding: 6px 10px 6px 8px;
+    font-weight: 600; color: var(--text);
+    white-space: nowrap; text-align: left;
+    max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+    z-index: 1;
+    border-right: 2px solid var(--border);
+  }
+  /* Przekątna */
+  .rr-matrix__diag {
+    background: var(--surface-3, #f0f0f0);
+    width: 44px; height: 44px;
+  }
+  /* Komórka meczu */
+  .rr-matrix__cell {
+    width: 60px; height: 44px;
+    text-align: center; vertical-align: middle;
+    cursor: pointer; transition: background 0.1s;
+    position: relative;
+  }
+  .rr-matrix__cell:hover { filter: brightness(0.93); }
+  .rr-matrix__cell--pending {
+    background: var(--surface-2);
+    color: var(--text-dim);
+  }
+  .rr-matrix__cell--inprogress {
+    background: rgba(234,179,8,0.15);
+    color: #a16207;
+  }
+  .rr-matrix__cell--done {
+    background: rgba(34,197,94,0.12);
+    color: #15803d;
+  }
+  .rr-matrix__cell--wdr {
+    background: rgba(148,163,184,0.18);
+    color: var(--text-dim);
+  }
+  .rr-matrix__cell-score {
+    font-weight: 700; font-size: 0.72rem;
+    line-height: 1.2; display: block;
+  }
+  .rr-matrix__cell-status {
+    font-size: 0.62rem; color: inherit; opacity: 0.8;
+  }
+  /* Highlight kliknięcia */
+  .rr-matrix__cell--highlight {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    z-index: 1;
+  }
+
+  /* ── Finish tournament ─────────────────────────────────────────────── */
+  .org-finish-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 16px; height: 34px;
+    font-size: 0.82rem; font-weight: 600;
+    border-radius: 7px; cursor: pointer;
+    font-family: var(--font-sans);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    border: none;
+  }
+  .org-finish-btn--outline {
+    background: transparent;
+    color: var(--danger, #ef4444);
+    border: 1px solid var(--danger, #ef4444);
+  }
+  .org-finish-btn--outline:hover {
+    background: rgba(239,68,68,0.08);
+  }
+  .org-finish-btn--danger {
+    background: var(--danger, #ef4444);
+    color: #fff;
+    border: 1px solid transparent;
+  }
+  .org-finish-btn--danger:hover:not(:disabled) { background: #dc2626; }
+  .org-finish-btn--danger:disabled { opacity: 0.55; cursor: default; }
+  .org-finish-btn--ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .org-finish-btn--ghost:hover { background: var(--surface-hover); }
+
+  .org-finish-confirm-box {
+    background: color-mix(in srgb, var(--danger, #ef4444) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .org-finish-confirm__msg {
+    font-size: 0.84rem; color: var(--text); line-height: 1.5;
+    margin: 0 0 12px;
+  }
+  .org-finish-confirm__actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+
+  .org-finish-success {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 12px 14px;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    border-radius: 8px;
+    font-size: 0.84rem; color: var(--primary); font-weight: 600;
+    flex-wrap: wrap;
+  }
+  .org-finish-warning {
+    display: block; width: 100%;
+    font-size: 0.78rem; color: var(--text-muted); font-weight: 400;
+    margin-top: 4px;
+  }
+
+  /* ── Status buttons ─────────────────────────────────────────────── */
+  .org-status-btn {
+    display: inline-flex; align-items: center;
+    padding: 5px 12px; height: 30px;
+    font-size: 0.78rem; font-weight: 600;
+    border: 1px solid var(--primary); color: var(--primary);
+    border-radius: 6px; cursor: pointer; background: transparent;
+    font-family: var(--font-sans);
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+  }
+  .org-status-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+  }
+  .org-status-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* ── Participants list ──────────────────────────────────────────── */
+  .org-participants-list {
+    display: flex; flex-direction: column; gap: 4px;
+    max-height: 240px; overflow-y: auto;
+  }
+  .org-participant-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 4px; border-radius: 6px;
+    transition: background 0.1s;
+  }
+  .org-participant-row:hover { background: var(--surface-hover); }
+  .org-participant-name {
+    flex: 1; font-size: 0.84rem; color: var(--text); min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .org-participant-remove {
+    width: 22px; height: 22px; border-radius: 4px;
+    border: none; background: transparent; cursor: pointer;
+    color: var(--text-dim); font-size: 0.75rem;
+    display: grid; place-items: center;
+    transition: background 0.1s, color 0.1s;
+    flex-shrink: 0;
+  }
+  .org-participant-remove:hover { background: rgba(239,68,68,0.1); color: var(--danger,#ef4444); }
+
+  /* User search suggestions */
+  .org-sug-item {
+    padding: 7px 12px; cursor: pointer; font-size: 0.83rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s; color: var(--text);
+  }
+  .org-sug-item:last-child { border-bottom: none; }
+  .org-sug-item:hover { background: var(--surface-hover); }
+  .org-sug-empty {
+    padding: 10px 12px; font-size: 0.82rem; color: var(--text-muted);
+  }
+  #org-user-suggestions {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    box-shadow: var(--shadow-md);
+    max-height: 200px; overflow-y: auto;
+    margin-bottom: 8px;
+  }
 </style>
 
 <script>
@@ -788,32 +1318,38 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
   }
 
   // ── 2. Załaduj i wyrenderuj standings ────────────────────────────────────
+  function renderStandingsRows(rows: Array<{
+    position: number; display_name: string; points: number;
+    matches_played: number; wins: number; losses: number;
+    win_rate: number | null; sets_won: number; sets_lost: number;
+  }>) {
+    const tbody = document.getElementById('org-standings-body');
+    if (!tbody) return;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="org-loading">Brak danych standings.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td style="text-align:center;font-weight:700;">${r.position}</td>
+        <td>${escHtml(r.display_name)}</td>
+        <td class="col-num" style="font-weight:700;">${Number(r.points).toFixed(1).replace('.0','')}</td>
+        <td class="col-num">${r.matches_played}</td>
+        <td class="col-num">${r.wins}</td>
+        <td class="col-num">${r.losses}</td>
+        <td class="col-num">${r.win_rate != null ? r.win_rate + '%' : '—'}</td>
+        <td class="col-num">${r.sets_won}:${r.sets_lost}</td>
+      </tr>`).join('');
+  }
+
   async function loadStandings() {
     const tbody = document.getElementById('org-standings-body');
     if (!tbody) return;
     try {
       const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/standings/`, { credentials: 'include' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const rows: Array<{
-        position: number; display_name: string; points: number;
-        matches_played: number; wins: number; losses: number;
-        win_rate: number; sets_won: number; sets_lost: number;
-      }> = await res.json();
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="org-loading">Brak danych standings.</td></tr>';
-        return;
-      }
-      tbody.innerHTML = rows.map(r => `
-        <tr>
-          <td style="text-align:center;font-weight:700;">${r.position}</td>
-          <td>${escHtml(r.display_name)}</td>
-          <td class="col-num" style="font-weight:700;">${Number(r.points).toFixed(1).replace('.0','')}</td>
-          <td class="col-num">${r.matches_played}</td>
-          <td class="col-num">${r.wins}</td>
-          <td class="col-num">${r.losses}</td>
-          <td class="col-num">${r.win_rate != null ? r.win_rate + '%' : '—'}</td>
-          <td class="col-num">${r.sets_won}:${r.sets_lost}</td>
-        </tr>`).join('');
+      const rows = await res.json();
+      renderStandingsRows(rows);
     } catch {
       const tbody2 = document.getElementById('org-standings-body');
       if (tbody2) tbody2.innerHTML = '<tr><td colspan="8" class="org-loading">Błąd ładowania tabeli.</td></tr>';
@@ -821,94 +1357,323 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
   }
 
   // ── 3. Wyrenderuj listę meczów ────────────────────────────────────────────
+  type MatchData = {
+    id: number; round_number: number; match_index: number; status: string;
+    participant1_id: number | null; participant2_id: number | null;
+    participant1_name: string | null; participant2_name: string | null;
+    winner_name: string | null; score: string | null; scheduled_time: string | null;
+    set1_p1_score: number|null; set1_p2_score: number|null;
+    set2_p1_score: number|null; set2_p2_score: number|null;
+    set3_p1_score: number|null; set3_p2_score: number|null;
+  };
+
+  let allMatches: MatchData[] = [];
+  let activeFilter = 'pending';
+  let searchQuery = '';
+
+  const PENDING_STATUSES = new Set(['WAI', 'SCH', 'INP']);
+  const DONE_STATUSES    = new Set(['CMP', 'WDR', 'CNC']);
+
+  function isPending(m: MatchData) { return PENDING_STATUSES.has(m.status); }
+  function isDone(m: MatchData)    { return DONE_STATUSES.has(m.status); }
+
+  function filterMatches(matches: MatchData[]): MatchData[] {
+    let list = matches;
+    if (activeFilter === 'pending') list = list.filter(isPending);
+    else if (activeFilter === 'done') list = list.filter(isDone);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(m =>
+        (m.participant1_name ?? '').toLowerCase().includes(q) ||
+        (m.participant2_name ?? '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }
+
+  function buildMatchCard(m: MatchData): string {
+    const p1 = escHtml(m.participant1_name ?? 'BYE');
+    const p2 = escHtml(m.participant2_name ?? 'BYE');
+    const roundLabel = `R${m.round_number} M${m.match_index}`;
+
+    const statusBadge = m.status === 'CMP'
+      ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
+      : m.status === 'WDR'
+        ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
+        : m.status === 'CNC'
+          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
+          : m.status === 'INP'
+            ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
+            : m.status === 'SCH'
+              ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
+              : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+
+    const scoreChip = m.score
+      ? `<span class="org-match-score org-match-score--done">${escHtml(m.score)}</span>`
+      : m.status === 'WDR' && m.winner_name
+        ? `<span class="org-match-score" style="font-size:0.72rem;">WO: ${escHtml(m.winner_name)}</span>`
+        : '';
+
+    const timeChip = m.scheduled_time
+      ? (() => { try {
+          const d = new Date(m.scheduled_time!);
+          return `<span class="org-match-time">${d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})} ${d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span>`;
+        } catch { return ''; } })()
+      : '';
+
+    const isPendingMatch = PENDING_STATUSES.has(m.status);
+    const cardCls = [
+      'org-match',
+      isDone(m) ? 'org-match--done' : '',
+      isPendingMatch ? 'org-match--pending' : '',
+    ].filter(Boolean).join(' ');
+
+    // Tylko podgląd dla CNC lub zablokowanego panelu
+    if (m.status === 'CNC' || locked) {
+      return `
+        <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
+          <div class="org-match-header">
+            <div class="org-match-meta">
+              <span class="org-match-label">${roundLabel}</span>
+              <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+            </div>
+            <div class="org-match-right">
+              ${timeChip}${scoreChip}${statusBadge}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // Formularz edycji
+    const v = (n: number | null) => n != null ? String(n) : '';
+    const stVal = m.scheduled_time
+      ? (() => { try { return new Date(m.scheduled_time!).toISOString().slice(0,16); } catch { return ''; } })()
+      : '';
+
+    const hasParticipants = m.participant1_id && m.participant2_id;
+    const wdrSection = hasParticipants ? `
+      <div class="org-wdr-section">
+        <label class="org-wdr-label">
+          <input type="checkbox" name="walkover" class="org-wdr-checkbox" data-match-id="${m.id}">
+          Walkover (WDR)
+        </label>
+        <div class="org-wdr-winner" style="display:none;">
+          <label style="font-size:0.78rem;color:var(--text-muted);">Zwycięzca:</label>
+          <select name="winner_participant_id" class="org-wdr-select">
+            <option value="">— wybierz —</option>
+            <option value="${m.participant1_id}">${p1}</option>
+            <option value="${m.participant2_id}">${p2}</option>
+          </select>
+        </div>
+      </div>` : '';
+
+    const cancelSection = (m.status !== 'CNC') ? `
+      <div class="org-cancel-section">
+        <button type="button" class="org-cancel-match-btn" data-match-id="${m.id}"
+          title="Anuluj mecz (CNC)">Anuluj mecz</button>
+      </div>` : '';
+
+    const btnLabel = (m.status === 'CMP' || m.status === 'WDR') ? 'Koryguj' : 'Zapisz wynik';
+
+    return `
+      <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
+        <div class="org-match-header">
+          <div class="org-match-meta">
+            <span class="org-match-label">${roundLabel}</span>
+            <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+          </div>
+          <div class="org-match-right">
+            ${timeChip}${scoreChip}${statusBadge}
+            <span class="org-match-chevron">▼</span>
+          </div>
+        </div>
+        <form class="org-score-form" data-match-id="${m.id}">
+          <div class="org-form-row">
+            <div class="org-sets-row">
+              ${[1,2,3].map(s => {
+                const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+                const v2 = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+                return `
+                <div class="org-set-group">
+                  <div class="org-set-label">Set ${s}</div>
+                  <div class="org-set-inputs">
+                    <div class="org-score-spinner">
+                      <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
+                      <input class="org-set-input" type="number" min="0" max="99"
+                        name="set${s}_p1" placeholder="—" value="${v1}">
+                      <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
+                    </div>
+                    <span class="org-set-sep">:</span>
+                    <div class="org-score-spinner">
+                      <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
+                      <input class="org-set-input" type="number" min="0" max="99"
+                        name="set${s}_p2" placeholder="—" value="${v2}">
+                      <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
+                    </div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+            <div class="org-scheduled-group">
+              <div class="org-scheduled-label">Termin</div>
+              <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
+                name="scheduled_time" value="${stVal}">
+            </div>
+          </div>
+          ${wdrSection}
+          <div class="org-form-actions">
+            <button type="submit" class="org-save-btn">${btnLabel}</button>
+            <span class="org-form-msg" data-match-id="${m.id}"></span>
+          </div>
+          ${cancelSection}
+        </form>
+      </div>`;
+  }
+
   function renderMatches() {
     const container = document.getElementById('org-matches-list');
     if (!container) return;
 
-    // Pobierz dane meczów z SSR (wbudowane w stronę jako JSON)
     const matchesEl = document.getElementById('ssr-matches-data');
-    if (!matchesEl) { container.innerHTML = '<div class="org-loading">Brak danych meczów.</div>'; return; }
+    if (!matchesEl) { container.innerHTML = '<div class="org-matches-empty">Brak danych meczów.</div>'; return; }
+    try { allMatches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { return; }
 
-    let matches: Array<{
-      id: number; round_number: number; match_index: number; status: string;
-      participant1_name: string | null; participant2_name: string | null;
-      winner_name: string | null; score: string | null; scheduled_time: string | null;
-      set1_p1_score: number|null; set1_p2_score: number|null;
-      set2_p1_score: number|null; set2_p2_score: number|null;
-      set3_p1_score: number|null; set3_p2_score: number|null;
-    }> = [];
-    try { matches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { return; }
+    applyMatchFilter();
+  }
 
-    if (!matches.length) {
-      container.innerHTML = '<div class="org-loading">Brak zaplanowanych meczów.</div>';
+  function applyMatchFilter() {
+    const container = document.getElementById('org-matches-list');
+    if (!container) return;
+
+    if (!allMatches.length) {
+      container.innerHTML = '<div class="org-matches-empty">Brak zaplanowanych meczów.</div>';
       return;
     }
 
-    const SKIP = ['CMP', 'WDR', 'CNC'];
-    container.innerHTML = matches.map(m => {
-      const p1 = escHtml(m.participant1_name ?? 'BYE');
-      const p2 = escHtml(m.participant2_name ?? 'BYE');
-      const roundLabel = `R${m.round_number} M${m.match_index}`;
-      const statusBadge = m.status === 'CMP'
-        ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.7rem;">Zakończony</span>`
-        : m.status === 'WDR' || m.status === 'CNC'
-          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.7rem;">Nieaktywny</span>`
-          : m.status === 'INP'
-            ? `<span class="tc-badge tc-badge-warning" style="font-size:0.7rem;">W trakcie</span>`
-            : `<span class="tc-badge tc-badge-info" style="font-size:0.7rem;">Oczekuje</span>`;
+    const filtered = filterMatches(allMatches);
 
-      const scoreDisplay = m.score
-        ? `<span style="font-weight:700;font-size:0.92rem;">${escHtml(m.score)}</span>`
-        : '—';
+    // Liczniki dla filtrów
+    const pendingCount = allMatches.filter(isPending).length;
+    const doneCount    = allMatches.filter(isDone).length;
+    document.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+      const f = btn.dataset.filter!;
+      const count = f === 'pending' ? pendingCount : f === 'done' ? doneCount : allMatches.length;
+      btn.textContent = f === 'pending' ? `Do wpisania${count ? ` (${count})` : ''}`
+                      : f === 'done'    ? `Zakończone${count ? ` (${count})` : ''}`
+                      :                   `Wszystkie (${count})`;
+    });
 
-      if (SKIP.includes(m.status) || locked) {
-        // Mecz zakończony lub panel zablokowany — tylko podgląd
-        return `
-          <div class="org-match org-match--done" data-match-id="${m.id}">
-            <div class="org-match-header">
-              <span class="org-match-label">${roundLabel}</span>
-              ${statusBadge}
-            </div>
-            <div class="org-match-players">${p1} <span style="color:var(--text-muted);font-size:0.85rem;">vs</span> ${p2}</div>
-            <div style="margin-top:4px;font-size:0.85rem;color:var(--text-muted);">Wynik: ${scoreDisplay}${m.winner_name ? ` — zwycięzca: <strong>${escHtml(m.winner_name)}</strong>` : ''}</div>
-          </div>`;
-      }
+    if (!filtered.length) {
+      container.innerHTML = `<div class="org-matches-empty">Brak meczów dla wybranego filtra.</div>`;
+      return;
+    }
 
-      // Formularz do wpisania/edycji wyniku
-      const v = (n: number | null) => n != null ? String(n) : '';
-      return `
-        <div class="org-match" data-match-id="${m.id}">
-          <div class="org-match-header">
-            <span class="org-match-label">${roundLabel}</span>
-            ${statusBadge}
-          </div>
-          <div class="org-match-players">${p1} <span style="color:var(--text-muted);font-size:0.85rem;">vs</span> ${p2}</div>
-          <form class="org-score-form" data-match-id="${m.id}">
-            <div class="org-sets-row">
-              ${[1,2,3].map(s => `
-                <div class="org-set-group">
-                  <div class="org-set-label">Set ${s}</div>
-                  <div class="org-set-inputs">
-                    <input class="org-set-input" type="number" min="0" max="99"
-                      name="set${s}_p1" placeholder="—" value="${v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score)}">
-                    <span class="org-set-sep">:</span>
-                    <input class="org-set-input" type="number" min="0" max="99"
-                      name="set${s}_p2" placeholder="—" value="${v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score)}">
-                  </div>
-                </div>`).join('')}
-            </div>
-            <div class="org-form-actions">
-              <button type="submit" class="org-save-btn">Zapisz wynik</button>
-              <span class="org-form-msg" data-match-id="${m.id}"></span>
-            </div>
-          </form>
-        </div>`;
-    }).join('');
+    container.innerHTML = filtered.map(buildMatchCard).join('');
+
+    // Toggle collapse kliknięciem w header
+    container.querySelectorAll<HTMLElement>('.org-match-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const card = header.closest<HTMLElement>('.org-match');
+        if (!card || card.dataset.status === 'CNC' || locked) return;
+        card.classList.toggle('is-open');
+      });
+    });
 
     // Podepnij handlery formularzy
     container.querySelectorAll<HTMLFormElement>('.org-score-form').forEach(form => {
       form.addEventListener('submit', handleScoreSubmit);
     });
+
+    // Przyciski +/− dla inputów setów
+    container.querySelectorAll<HTMLButtonElement>('.org-spin-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = btn.closest('.org-score-spinner')?.querySelector<HTMLInputElement>('.org-set-input');
+        if (!input) return;
+        const cur = input.value === '' ? 0 : parseInt(input.value, 10);
+        const max = parseInt(input.max || '99', 10);
+        const min = parseInt(input.min || '0', 10);
+        if (btn.classList.contains('org-spin-up')) {
+          input.value = String(Math.min(cur + 1, max));
+        } else {
+          input.value = String(Math.max(cur - 1, min));
+        }
+        input.dispatchEvent(new Event('input'));
+      });
+    });
+
+    // WDR checkbox toggle
+    container.querySelectorAll<HTMLInputElement>('.org-wdr-checkbox').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const form = cb.closest('form') as HTMLFormElement;
+        const wdrWinner = form?.querySelector<HTMLElement>('.org-wdr-winner');
+        const sets = form?.querySelector<HTMLElement>('.org-sets-row');
+        if (!wdrWinner) return;
+        wdrWinner.style.display = cb.checked ? '' : 'none';
+        if (sets) sets.style.opacity = cb.checked ? '0.35' : '';
+      });
+    });
+
+    // CNC (anuluj mecz) — handler
+    container.querySelectorAll<HTMLButtonElement>('.org-cancel-match-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Anulować mecz? Wyniki zostaną usunięte, mecz nie będzie brany pod uwagę w standings.')) return;
+        btn.disabled = true;
+        const matchId = btn.dataset.matchId;
+        const msgEl = btn.closest('form')?.querySelector<HTMLElement>('.org-form-msg');
+        try {
+          const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/matches/${matchId}/score/`, {
+            method: 'PATCH', credentials: 'include',
+            headers: { 'X-CSRFToken': getCsrfToken(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cancel: true }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (res.ok) {
+            const card = btn.closest<HTMLElement>('.org-match');
+            if (card) {
+              card.dataset.status = 'CNC';
+              card.classList.remove('is-open');
+            }
+            // Zaktualizuj allMatches
+            const idx = allMatches.findIndex(m => m.id === Number(matchId));
+            if (idx !== -1) {
+              allMatches[idx] = { ...allMatches[idx], status: 'CNC', score: null,
+                set1_p1_score: null, set1_p2_score: null,
+                set2_p1_score: null, set2_p2_score: null,
+                set3_p1_score: null, set3_p2_score: null,
+                winner_name: null };
+              renderMatches();
+            }
+            await loadStandings();
+          } else {
+            if (msgEl) { msgEl.textContent = d.detail ?? 'Błąd anulowania.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+            btn.disabled = false;
+          }
+        } catch {
+          if (msgEl) { msgEl.textContent = 'Błąd sieci.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+          btn.disabled = false;
+        }
+      });
+    });
+  }
+
+  // ── Inicjalizacja filtrów i search ────────────────────────────────────────
+  function initMatchFilters() {
+    document.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
+        btn.classList.add('org-filter-btn--active');
+        activeFilter = btn.dataset.filter ?? 'all';
+        applyMatchFilter();
+      });
+    });
+
+    const searchInput = document.getElementById('org-match-search') as HTMLInputElement | null;
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        searchQuery = searchInput.value.trim();
+        applyMatchFilter();
+      });
+    }
   }
 
   // ── 4. Zapisz wynik ────────────────────────────────────────────────────────
@@ -924,11 +1689,34 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
       return v !== '' && v != null ? parseInt(v, 10) : null;
     };
 
-    const body = {
-      set1_p1: getVal('set1_p1'), set1_p2: getVal('set1_p2'),
-      set2_p1: getVal('set2_p1'), set2_p2: getVal('set2_p2'),
-      set3_p1: getVal('set3_p1'), set3_p2: getVal('set3_p2'),
-    };
+    // Sprawdź czy walkover zaznaczony
+    const wdrCheckbox = form.querySelector<HTMLInputElement>('.org-wdr-checkbox');
+    const isWalkover = wdrCheckbox?.checked ?? false;
+
+    // scheduled_time — wysyłaj tylko gdy pole istnieje w formularzu
+    const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
+    const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+
+    let body: Record<string, unknown>;
+
+    if (isWalkover) {
+      const winnerSelect = form.elements.namedItem('winner_participant_id') as HTMLSelectElement | null;
+      const winnerId = winnerSelect?.value ?? '';
+      if (!winnerId) {
+        if (msgEl) { msgEl.textContent = 'Wybierz zwycięzcę walkowera.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+        if (btn) btn.disabled = false;
+        return;
+      }
+      body = { walkover: true, winner_participant_id: parseInt(winnerId, 10) };
+      if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
+    } else {
+      body = {
+        set1_p1: getVal('set1_p1'), set1_p2: getVal('set1_p2'),
+        set2_p1: getVal('set2_p1'), set2_p2: getVal('set2_p2'),
+        set3_p1: getVal('set3_p1'), set3_p2: getVal('set3_p2'),
+      };
+      if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
+    }
 
     if (btn) btn.disabled = true;
     if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
@@ -995,8 +1783,605 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
     return m ? m[1] : '';
   }
 
+  // ── 6. Formularz konfiguracji RR ─────────────────────────────────────────
+  function initConfigForm() {
+    const form = document.getElementById('org-config-form') as HTMLFormElement | null;
+    if (!form) return;
+
+    // Wypełnij formularz aktualnym configiem z SSR data
+    const cfgEl = document.getElementById('ssr-config-data');
+    if (cfgEl) {
+      try {
+        const cfg: Record<string, string | number> = JSON.parse(cfgEl.textContent ?? '{}');
+        for (const [k, v] of Object.entries(cfg)) {
+          const el = form.elements.namedItem(k) as HTMLInputElement | HTMLSelectElement | null;
+          if (el) el.value = String(v);
+        }
+      } catch { /* nie blokuj */ }
+    }
+
+    // Zablokuj sets_to_win / games_per_set jeśli turniej started
+    const started = ['ACT', 'FIN', 'CNC', 'SCH'].includes(tStatus ?? '');
+    if (started) {
+      ['sets_to_win', 'games_per_set'].forEach(name => {
+        const el = form.elements.namedItem(name) as HTMLInputElement | null;
+        if (el) {
+          el.disabled = true;
+          const lbl = document.getElementById(`lbl-${name.replaceAll('_', '-')}`);
+          if (lbl) lbl.title = 'Nie można zmieniać po rozpoczęciu turnieju';
+        }
+      });
+    }
+
+    form.addEventListener('submit', handleConfigSubmit);
+  }
+
+  async function handleConfigSubmit(e: Event) {
+    e.preventDefault();
+    const form = e.currentTarget as HTMLFormElement;
+    const btn = document.getElementById('org-config-save-btn') as HTMLButtonElement | null;
+    const msgEl = document.getElementById('org-config-msg');
+
+    if (btn) btn.disabled = true;
+    if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
+
+    // Walidacja frontendowa: points_for_win >= points_for_loss
+    const win  = parseFloat((form.elements.namedItem('points_for_win') as HTMLInputElement)?.value ?? '0');
+    const loss = parseFloat((form.elements.namedItem('points_for_loss') as HTMLInputElement)?.value ?? '0');
+    if (!isNaN(win) && !isNaN(loss) && win < loss) {
+      if (msgEl) { msgEl.textContent = 'Błąd: punkty za wygraną muszą być ≥ punkty za przegraną.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    // Zbierz tylko pola, które nie są disabled
+    const body: Record<string, string | number> = {};
+    for (const el of Array.from(form.elements) as (HTMLInputElement | HTMLSelectElement)[]) {
+      if (!el.name || el.disabled || el.value === '') continue;
+      body[el.name] = el.value;
+    }
+
+    const csrf = getCsrfToken();
+    try {
+      const res = await fetch(
+        `${apiBase}/api/tournaments/${tournamentId}/config/`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRFToken': csrf } : {}),
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+
+        // Zaktualizuj SSR JSON cache dla formularza
+        const cfgEl = document.getElementById('ssr-config-data');
+        if (cfgEl && data.config) cfgEl.textContent = JSON.stringify(data.config);
+
+        // Odśwież standings z odpowiedzi (nie potrzeba dodatkowego fetcha)
+        if (data.standings) {
+          renderStandingsFromData(data.standings);
+        } else {
+          await loadStandings();
+        }
+
+        if (msgEl) { msgEl.textContent = 'Konfiguracja zapisana.'; msgEl.className = 'org-form-msg org-form-msg--ok'; }
+        setTimeout(() => { if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; } }, 4000);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        // DRF zwraca błędy jako {field: ["msg"]} lub {detail: "msg"}
+        const firstErr = Object.values(err as Record<string, unknown>)
+          .map(v => Array.isArray(v) ? v[0] : String(v))
+          .find(Boolean);
+        if (msgEl) { msgEl.textContent = firstErr || `Błąd ${res.status}`; msgEl.className = 'org-form-msg org-form-msg--err'; }
+      }
+    } catch {
+      if (msgEl) { msgEl.textContent = 'Błąd sieci.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function renderStandingsFromData(rows: Parameters<typeof renderStandingsRows>[0]) {
+    renderStandingsRows(rows);
+  }
+
+  // ── RR Matrix ─────────────────────────────────────────────────────────────
+
+  type ParticipantData = { id: number; display_name: string };
+
+  function buildMatrix() {
+    const wrap = document.getElementById('rr-matrix-inner');
+    if (!wrap) return;
+
+    // Pobierz uczestników z SSR JSON
+    const partEl = document.getElementById('ssr-participants-data');
+    if (!partEl) return;
+    let participants: ParticipantData[] = [];
+    try { participants = JSON.parse(partEl.textContent ?? '[]'); } catch { return; }
+    if (participants.length < 2) {
+      wrap.innerHTML = '<p style="padding:12px;font-size:0.82rem;color:var(--text-dim);">Za mało uczestników do macierzy.</p>';
+      return;
+    }
+
+    // Zbuduj lookup: (p1id,p2id) → mecz; klucz: min-max żeby obsłużyć oba kierunki
+    const matchMap = new Map<string, MatchData>();
+    for (const m of allMatches) {
+      if (!m.participant1_id || !m.participant2_id) continue;
+      const key = `${Math.min(m.participant1_id, m.participant2_id)}_${Math.max(m.participant1_id, m.participant2_id)}`;
+      matchMap.set(key, m);
+    }
+
+    // Skróć imię do inicjałów lub 3 liter
+    function abbrev(name: string): string {
+      const parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      return name.slice(0, 3).toUpperCase();
+    }
+
+    // Buduj HTML tabeli
+    let html = '<table class="rr-matrix" role="grid">';
+
+    // Nagłówek kolumn
+    html += '<thead><tr><th class="rr-matrix__row-head" style="background:var(--surface-2);z-index:3;position:sticky;left:0;top:0;"></th>';
+    for (const p of participants) {
+      html += `<th class="rr-matrix__col-head" title="${escHtml(p.display_name)}">${escHtml(abbrev(p.display_name))}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+
+    // Wiersze
+    for (const row of participants) {
+      html += `<tr><td class="rr-matrix__row-head" title="${escHtml(row.display_name)}">${escHtml(row.display_name)}</td>`;
+      for (const col of participants) {
+        if (row.id === col.id) {
+          html += '<td class="rr-matrix__diag" aria-hidden="true"></td>';
+          continue;
+        }
+        const key = `${Math.min(row.id, col.id)}_${Math.max(row.id, col.id)}`;
+        const m = matchMap.get(key);
+
+        if (!m) {
+          // Brak meczu w danych — pusta komórka
+          html += '<td class="rr-matrix__cell rr-matrix__cell--pending" aria-label="brak meczu"><span class="rr-matrix__cell-status">—</span></td>';
+          continue;
+        }
+
+        let cellCls = 'rr-matrix__cell ';
+        let inner = '';
+
+        if (m.status === 'CMP') {
+          cellCls += 'rr-matrix__cell--done';
+          // Wynik z perspektywy wiersza (row)
+          const rowWon = m.winner_name === (row.id === m.participant1_id ? m.participant1_name : m.participant2_name);
+          inner = m.score
+            ? `<span class="rr-matrix__cell-score">${escHtml(m.score)}</span>`
+            : `<span class="rr-matrix__cell-score">${rowWon ? 'W' : 'P'}</span>`;
+        } else if (m.status === 'WDR') {
+          cellCls += 'rr-matrix__cell--wdr';
+          inner = '<span class="rr-matrix__cell-score">WO</span>';
+        } else if (m.status === 'INP') {
+          cellCls += 'rr-matrix__cell--inprogress';
+          inner = '<span class="rr-matrix__cell-status">● live</span>';
+        } else {
+          // WAI, SCH, CNC
+          cellCls += 'rr-matrix__cell--pending';
+          inner = `<span class="rr-matrix__cell-status">${m.status === 'SCH' ? 'SCH' : '·'}</span>`;
+        }
+
+        html += `<td class="${cellCls}" data-match-id="${m.id}" role="button" tabindex="0"
+          title="${escHtml(m.participant1_name ?? '')} vs ${escHtml(m.participant2_name ?? '')}: ${m.score ?? m.status}"
+          >${inner}</td>`;
+      }
+      html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+
+    // Kliknięcie komórki → przewiń i otwórz kartę meczu na liście org-panel
+    wrap.querySelectorAll<HTMLElement>('[data-match-id]').forEach(cell => {
+      const handler = () => {
+        const mid = cell.dataset.matchId;
+        if (!mid) return;
+
+        // Highlight komórki
+        wrap.querySelectorAll('.rr-matrix__cell--highlight').forEach(c => c.classList.remove('rr-matrix__cell--highlight'));
+        cell.classList.add('rr-matrix__cell--highlight');
+
+        // Znajdź kartę meczu w org-panel i w liście rund
+        const orgCard = document.querySelector<HTMLElement>(`.org-match[data-match-id="${mid}"]`);
+        const pubMatch = document.querySelector<HTMLElement>(`.td-match-anchor[data-match-id="${mid}"]`);
+
+        if (orgCard) {
+          orgCard.classList.add('is-open');
+          orgCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (pubMatch) {
+          pubMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          pubMatch.classList.add('td-match--highlight');
+          setTimeout(() => pubMatch.classList.remove('td-match--highlight'), 1500);
+        }
+      };
+      cell.addEventListener('click', handler);
+      cell.addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); } });
+    });
+  }
+
+  // ── Toggle Lista / Macierz ────────────────────────────────────────────────
+  function initViewToggle() {
+    const toggle = document.getElementById('matches-view-toggle');
+    if (!toggle) return;
+
+    const listWrap  = document.querySelector<HTMLElement>('.td-round:first-of-type')?.closest<HTMLElement>('[id="matches-card"] > div:last-of-type');
+    // Szukamy wszystkich .td-round jako widok listy
+    const roundEls  = document.querySelectorAll<HTMLElement>('.td-round');
+    const matrixWrap = document.getElementById('rr-matrix-wrap');
+    if (!matrixWrap) return;
+
+    let matrixBuilt = false;
+
+    toggle.querySelectorAll<HTMLButtonElement>('.view-toggle__btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view;
+        toggle.querySelectorAll('.view-toggle__btn').forEach(b => b.classList.remove('view-toggle__btn--active'));
+        btn.classList.add('view-toggle__btn--active');
+
+        if (view === 'matrix') {
+          roundEls.forEach(el => el.style.display = 'none');
+          matrixWrap.style.display = '';
+          if (!matrixBuilt) { buildMatrix(); matrixBuilt = true; }
+        } else {
+          roundEls.forEach(el => el.style.display = '');
+          matrixWrap.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  // ── Zakończenie turnieju ───────────────────────────────────────────────────
+  function initFinishButton() {
+    const panel = document.getElementById('org-panel') as HTMLElement | null;
+    if (!panel) return;
+
+    const tournStatus = panel.dataset.tournamentStatus ?? '';
+    const finishSection = document.getElementById('org-finish-section') as HTMLElement | null;
+
+    // Pokaż sekcję tylko gdy status ACT
+    if (tournStatus !== 'ACT' || !finishSection) return;
+    finishSection.style.display = 'block';
+
+    const triggerWrap   = document.getElementById('org-finish-trigger-wrap') as HTMLElement;
+    const confirmBox    = document.getElementById('org-finish-confirm') as HTMLElement;
+    const finishBtn     = document.getElementById('org-finish-btn') as HTMLButtonElement;
+    const yesBtn        = document.getElementById('org-finish-yes-btn') as HTMLButtonElement;
+    const cancelBtn     = document.getElementById('org-finish-cancel-btn') as HTMLButtonElement;
+    const msgEl         = document.getElementById('org-finish-msg') as HTMLElement;
+
+    // Krok 1: kliknięcie "Zakończ turniej" → pokaż confirm box
+    finishBtn.addEventListener('click', () => {
+      triggerWrap.style.display = 'none';
+      confirmBox.style.display = 'block';
+    });
+
+    // Anuluj → wróć do przycisku
+    cancelBtn.addEventListener('click', () => {
+      confirmBox.style.display = 'none';
+      triggerWrap.style.display = 'block';
+      msgEl.textContent = '';
+      msgEl.className = 'org-form-msg';
+    });
+
+    // Potwierdź → POST /api/tournaments/{id}/finish/
+    yesBtn.addEventListener('click', async () => {
+      yesBtn.disabled = true;
+      yesBtn.textContent = 'Kończenie…';
+
+      try {
+        const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/finish/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'X-CSRFToken': getCsrfToken(), 'Content-Type': 'application/json' },
+        });
+
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          // Sukces — zaktualizuj UI
+          confirmBox.style.display = 'none';
+          finishSection.style.cssText = 'padding:16px 20px 20px;border-top:1px solid var(--border);';
+          finishSection.innerHTML = `
+            <div class="org-finish-success">
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span>Turniej zakończony. Ranking zostanie przeliczony.</span>
+              ${data.warning ? `<span class="org-finish-warning">${escHtml(data.warning)}</span>` : ''}
+            </div>`;
+
+          // Zaktualizuj badge statusu na stronie
+          const statusBadges = document.querySelectorAll<HTMLElement>('.tc-badge');
+          statusBadges.forEach(el => {
+            if (el.textContent?.trim() === 'Trwa') {
+              el.textContent = 'Zakończony';
+              el.className = 'tc-badge tc-badge-neutral';
+            }
+          });
+
+          // Zaktualizuj data-tournament-status żeby zablokować ponowne kliknięcie
+          panel.dataset.tournamentStatus = 'FIN';
+
+          // Odśwież standings po chwili (rebuild rankingów może chwilę trwać)
+          setTimeout(() => loadStandings(), 1200);
+
+        } else {
+          // Błąd backendowy
+          confirmBox.style.display = 'none';
+          triggerWrap.style.display = 'block';
+          yesBtn.disabled = false;
+          yesBtn.textContent = 'Tak, zakończ turniej';
+          msgEl.textContent = data.detail ?? 'Błąd serwera.';
+          msgEl.className = 'org-form-msg org-form-msg--err';
+        }
+
+      } catch (e) {
+        confirmBox.style.display = 'none';
+        triggerWrap.style.display = 'block';
+        yesBtn.disabled = false;
+        yesBtn.textContent = 'Tak, zakończ turniej';
+        msgEl.textContent = 'Błąd połączenia z API.';
+        msgEl.className = 'org-form-msg org-form-msg--err';
+      }
+    });
+  }
+
+  // ── Status turnieju (zmiana przez organizatora) ───────────────────────────
+  function initStatusPanel() {
+    const statusSection = document.getElementById('org-status-section');
+    if (!statusSection) return;
+    const actionsEl = document.getElementById('org-status-actions') as HTMLElement;
+    const badgeEl   = document.getElementById('org-status-badge') as HTMLElement;
+    const msgEl     = document.getElementById('org-status-msg') as HTMLElement;
+
+    const STATUS_LABELS: Record<string, string> = {
+      DRF: 'Szkic', REG: 'Rejestracja', SCH: 'Zaplanowany',
+      ACT: 'Trwa', FIN: 'Zakończony', CNC: 'Odwołany',
+    };
+    const STATUS_BADGE_CLS: Record<string, string> = {
+      DRF: 'tc-badge-neutral', REG: 'tc-badge-success', SCH: 'tc-badge-info',
+      ACT: 'tc-badge-warning', FIN: 'tc-badge-neutral', CNC: 'tc-badge-neutral',
+    };
+
+    // Przyciski przejść dla danego statusu
+    const TRANSITIONS: Record<string, Array<{label: string; target: string}>> = {
+      DRF: [{ label: 'Otwórz rejestrację →', target: 'REG' }],
+      REG: [{ label: 'Zamknij rejestrację →', target: 'SCH' }, { label: '← Cofnij do szkicu', target: 'DRF' }],
+      SCH: [{ label: 'Rozpocznij turniej →', target: 'ACT' }, { label: '← Otwórz rejestrację', target: 'REG' }],
+      ACT: [],  // ACT → FIN obsłuż przez sekcję "Zakończ turniej"
+      FIN: [],
+      CNC: [],
+    };
+
+    function renderStatusActions(currentStatus: string) {
+      const transitions = TRANSITIONS[currentStatus] ?? [];
+      if (!transitions.length) {
+        actionsEl.innerHTML = '';
+        return;
+      }
+      actionsEl.innerHTML = transitions.map(t =>
+        `<button class="org-status-btn" data-target="${t.target}" type="button">${escHtml(t.label)}</button>`
+      ).join('');
+
+      actionsEl.querySelectorAll<HTMLButtonElement>('[data-target]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          msgEl.textContent = '';
+          try {
+            const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/status/`, {
+              method: 'PATCH', credentials: 'include',
+              headers: { 'X-CSRFToken': getCsrfToken(), 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: btn.dataset.target }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              const ns = data.status;
+              panel.dataset.tournamentStatus = ns;
+              badgeEl.textContent = STATUS_LABELS[ns] ?? ns;
+              badgeEl.className = `tc-badge ${STATUS_BADGE_CLS[ns] ?? 'tc-badge-neutral'}`;
+              renderStatusActions(ns);
+              // Odśwież sekcję finish jeśli przeszliśmy do ACT
+              if (ns === 'ACT') {
+                const fs = document.getElementById('org-finish-section');
+                if (fs) { fs.style.display = 'block'; }
+              }
+              msgEl.textContent = `Status zmieniony na: ${STATUS_LABELS[ns] ?? ns}`;
+              msgEl.className = 'org-form-msg org-form-msg--ok';
+              setTimeout(() => { msgEl.textContent = ''; }, 3000);
+            } else {
+              msgEl.textContent = data.detail ?? `Błąd ${res.status}`;
+              msgEl.className = 'org-form-msg org-form-msg--err';
+              btn.disabled = false;
+            }
+          } catch {
+            msgEl.textContent = 'Błąd sieci.';
+            msgEl.className = 'org-form-msg org-form-msg--err';
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    renderStatusActions(tStatus ?? '');
+  }
+
+  // ── Uczestnicy turnieju ────────────────────────────────────────────────────
+  function initParticipantsPanel() {
+    const listEl   = document.getElementById('org-participants-list') as HTMLElement;
+    const searchEl = document.getElementById('org-add-user-search') as HTMLInputElement;
+    const addBtn   = document.getElementById('org-add-user-btn') as HTMLButtonElement;
+    const sugEl    = document.getElementById('org-user-suggestions') as HTMLElement;
+    const msgEl    = document.getElementById('org-participant-msg') as HTMLElement;
+    if (!listEl) return;
+
+    // Renderuj uczestników z SSR danych
+    const ssrParticipants: Array<{id:number;display_name:string;seed_number:number|null;status:string}> =
+      JSON.parse(document.getElementById('ssr-participants-data')?.textContent ?? '[]');
+
+    function renderParticipants(list: typeof ssrParticipants) {
+      if (!list.length) {
+        listEl.innerHTML = '<div class="org-loading">Brak uczestników.</div>';
+        return;
+      }
+      const active = list.filter(p => p.status !== 'WDN');
+      listEl.innerHTML = active.map(p => `
+        <div class="org-participant-row" data-pid="${p.id}">
+          <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+            ${escHtml(p.display_name.split(' ').filter(Boolean).slice(0,2).map((w:string)=>w[0]).join(''))}
+          </div>
+          <span class="org-participant-name">${escHtml(p.display_name)}</span>
+          ${p.seed_number ? `<span class="td-seed">#${p.seed_number}</span>` : ''}
+          <span class="org-participant-status tc-badge tc-badge-neutral" style="font-size:0.68rem;">${escHtml(p.status)}</span>
+          <button class="org-participant-remove" data-pid="${p.id}" type="button" title="Wycofaj uczestnika">✕</button>
+        </div>`).join('');
+
+      listEl.querySelectorAll<HTMLButtonElement>('.org-participant-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm(`Wycofać uczestnika?`)) return;
+          btn.disabled = true;
+          const pid = btn.dataset.pid;
+          try {
+            const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/participants/${pid}/`, {
+              method: 'DELETE', credentials: 'include',
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            const d = await res.json().catch(() => ({}));
+            if (res.ok) {
+              const row = listEl.querySelector<HTMLElement>(`[data-pid="${pid}"]`);
+              if (row) row.remove();
+              msgEl.textContent = `Wycofano: ${d.display_name}`;
+              msgEl.className = 'org-form-msg org-form-msg--ok';
+              setTimeout(() => { msgEl.textContent = ''; }, 3000);
+            } else {
+              msgEl.textContent = d.detail ?? 'Błąd usuwania.';
+              msgEl.className = 'org-form-msg org-form-msg--err';
+              btn.disabled = false;
+            }
+          } catch {
+            msgEl.textContent = 'Błąd sieci.';
+            msgEl.className = 'org-form-msg org-form-msg--err';
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+
+    renderParticipants(ssrParticipants);
+
+    // User search z debounce
+    let searchTimer: ReturnType<typeof setTimeout>;
+    let selectedUser: {id:number; display:string} | null = null;
+
+    searchEl.addEventListener('input', () => {
+      clearTimeout(searchTimer);
+      const q = searchEl.value.trim();
+      if (q.length < 2) { sugEl.style.display = 'none'; sugEl.innerHTML = ''; return; }
+      searchTimer = setTimeout(async () => {
+        try {
+          const res = await fetch(`${apiBase}/api/users/?search=${encodeURIComponent(q)}`, {
+            credentials: 'include',
+          });
+          if (!res.ok) return;
+          const users: Array<{id:number;first_name:string;last_name:string;username:string}> = await res.json();
+          if (!users.length) { sugEl.innerHTML = '<div class="org-sug-empty">Brak wyników</div>'; sugEl.style.display = ''; return; }
+          sugEl.innerHTML = users.slice(0, 8).map(u => {
+            const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username;
+            return `<div class="org-sug-item" data-uid="${u.id}" data-name="${escHtml(name)}">${escHtml(name)} <span style="color:var(--text-dim);font-size:0.75rem;">@${escHtml(u.username)}</span></div>`;
+          }).join('');
+          sugEl.style.display = '';
+          sugEl.querySelectorAll<HTMLElement>('.org-sug-item').forEach(item => {
+            item.addEventListener('click', () => {
+              selectedUser = { id: Number(item.dataset.uid), display: item.dataset.name! };
+              searchEl.value = selectedUser.display;
+              sugEl.style.display = 'none';
+            });
+          });
+        } catch { /* cicho ignoruj */ }
+      }, 300);
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!sugEl.contains(e.target as Node) && e.target !== searchEl) {
+        sugEl.style.display = 'none';
+      }
+    });
+
+    addBtn.addEventListener('click', async () => {
+      if (!selectedUser) {
+        msgEl.textContent = 'Wybierz użytkownika z listy.';
+        msgEl.className = 'org-form-msg org-form-msg--err';
+        return;
+      }
+      addBtn.disabled = true;
+      try {
+        const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/participants/`, {
+          method: 'POST', credentials: 'include',
+          headers: { 'X-CSRFToken': getCsrfToken(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: selectedUser.id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (res.ok) {
+          // Dodaj do listy bez przeładowania
+          const row = document.createElement('div');
+          row.className = 'org-participant-row';
+          row.dataset.pid = String(d.id);
+          row.innerHTML = `
+            <div class="tc-avatar tc-avatar-sm" aria-hidden="true">${escHtml(d.display_name.split(' ').filter(Boolean).slice(0,2).map((w:string)=>w[0]).join(''))}</div>
+            <span class="org-participant-name">${escHtml(d.display_name)}</span>
+            <span class="org-participant-status tc-badge tc-badge-neutral" style="font-size:0.68rem;">REG</span>
+            <button class="org-participant-remove" data-pid="${d.id}" type="button" title="Wycofaj">✕</button>`;
+          // Usuń "Brak uczestników" jeśli był
+          const empty = listEl.querySelector('.org-loading');
+          if (empty) empty.remove();
+          listEl.appendChild(row);
+          // Re-bind remove button
+          row.querySelector<HTMLButtonElement>('.org-participant-remove')?.addEventListener('click', async (ev) => {
+            if (!confirm('Wycofać uczestnika?')) return;
+            const b = ev.currentTarget as HTMLButtonElement;
+            b.disabled = true;
+            const pid = b.dataset.pid;
+            const res2 = await fetch(`${apiBase}/api/tournaments/${tournamentId}/participants/${pid}/`, {
+              method: 'DELETE', credentials: 'include',
+              headers: { 'X-CSRFToken': getCsrfToken() },
+            });
+            if (res2.ok) { row.remove(); }
+            else { b.disabled = false; }
+          });
+          msgEl.textContent = `Dodano: ${d.display_name}`;
+          msgEl.className = 'org-form-msg org-form-msg--ok';
+          searchEl.value = '';
+          selectedUser = null;
+          setTimeout(() => { msgEl.textContent = ''; }, 3000);
+        } else {
+          msgEl.textContent = d.detail ?? 'Błąd dodawania.';
+          msgEl.className = 'org-form-msg org-form-msg--err';
+        }
+      } catch {
+        msgEl.textContent = 'Błąd sieci.';
+        msgEl.className = 'org-form-msg org-form-msg--err';
+      }
+      addBtn.disabled = false;
+    });
+  }
+
   // ── Inicjalizacja ─────────────────────────────────────────────────────────
   await loadStandings();
+  initMatchFilters();
   renderMatches();
+  initConfigForm();
+  initViewToggle();
+  initFinishButton();
+  initStatusPanel();
+  initParticipantsPanel();
 })();
 </script>
