@@ -7,6 +7,7 @@ export const prerender = false;
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import { getMyTournaments, getCurrentUser, type TournamentListEntry } from '@/lib/api';
+import { url } from '@/lib/url';
 
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
 
@@ -17,7 +18,7 @@ const [currentUser, myTournaments] = await Promise.all([
 
 // Niezalogowany — middleware powinien przechwycić, ale zabezpieczenie SSR
 if (!currentUser) {
-  return Astro.redirect('/login?next=/tournaments/manage');
+  return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/tournaments/manage')));
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -49,13 +50,13 @@ function fmtDate(iso: string | null): string {
     <!-- Banner sukcesu po utworzeniu turnieju -->
     <div id="manage-created-banner" class="manage-banner" style="display:none;">
       <span>Turniej został utworzony.</span>
-      <a id="manage-created-link" href="/tournaments/manage" class="manage-banner__link">
+      <a id="manage-created-link" href={url('/tournaments/manage')} class="manage-banner__link">
         Przejdź do turnieju →
       </a>
     </div>
 
     <div class="manage-toolbar">
-      <a href="/tournaments/create" class="manage-create-btn">
+      <a href={url('/tournaments/create')} class="manage-create-btn">
         <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
           <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
         </svg>
@@ -89,7 +90,7 @@ function fmtDate(iso: string | null): string {
             {myTournaments.map((t: TournamentListEntry) => (
               <tr class="manage-row">
                 <td class="manage-name">
-                  <a href={`/tournaments/${t.id}`} class="manage-name__link">{t.name}</a>
+                  <a href={url(`/tournaments/${t.id}`)} class="manage-name__link">{t.name}</a>
                   {t.facility_name && (
                     <span class="manage-name__facility">{t.facility_name}</span>
                   )}
@@ -107,7 +108,7 @@ function fmtDate(iso: string | null): string {
                 <td class="col-date">{fmtDate(t.end_date)}</td>
                 <td class="col-num">{t.participant_count}</td>
                 <td>
-                  <a href={`/tournaments/${t.id}`} class="manage-action-btn">
+                  <a href={url(`/tournaments/${t.id}`)} class="manage-action-btn">
                     Zarządzaj
                   </a>
                 </td>

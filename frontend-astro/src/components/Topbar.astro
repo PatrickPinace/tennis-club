@@ -1,6 +1,7 @@
 ---
 // Topbar.astro — przepisany wg projektu grafika
 // Search bar + CTA "+ Nowa Rezerwacja" + user chip z inicjałami
+import { url } from '@/lib/url';
 interface Props {
   greeting?: string;   // "Witaj z powrotem, Marcin!" — opcjonalny heading w treści
   showSearch?: boolean;
@@ -119,14 +120,14 @@ const {
         </svg>
         <!-- Dropdown menu -->
         <div class="topbar__user-menu" id="user-menu" style="display:none;">
-          <a href="/tournaments/manage" class="topbar__user-menu-item topbar__user-menu-link">
+          <a href={url('/tournaments/manage')} class="topbar__user-menu-item topbar__user-menu-link">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
               <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
             </svg>
             Moje turnieje
           </a>
-          <a href="/profile" class="topbar__user-menu-item topbar__user-menu-link">
+          <a href={url('/profile')} class="topbar__user-menu-item topbar__user-menu-link">
             <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
             </svg>
@@ -142,8 +143,13 @@ const {
         </div>
       </div>
       <!-- Stan niezalogowany -->
-      <a href="/login" class="topbar__login-link" id="login-link">Zaloguj się</a>
+      <a href={url('/login')} class="topbar__login-link" id="login-link">Zaloguj się</a>
     </div>
+
+    <!-- Link do wersji klasycznej (Django) -->
+    <a href="/tournaments" class="topbar__classic-link" title="Wróć do wersji klasycznej">
+      Wersja klasyczna →
+    </a>
 
     <!-- Theme toggle — dyskretny -->
     <button
@@ -375,6 +381,24 @@ const {
 
   .topbar__theme-btn { margin-left: 2px; }
 
+  /* ── Classic version link ─────────────────────────────────────────────── */
+  .topbar__classic-link {
+    font-size: 0.75rem; font-weight: 500;
+    color: var(--text-dim);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.12s, color 0.12s;
+  }
+  .topbar__classic-link:hover {
+    background: var(--surface-hover);
+    color: var(--text-muted);
+  }
+  @media (max-width: 768px) {
+    .topbar__classic-link { display: none; }
+  }
+
   /* ── User wrap (auth state) ────────────────────────────────────────── */
   .topbar__user-wrap { position: relative; }
 
@@ -589,7 +613,7 @@ const {
           <time class="topbar__notif-time">${fmtTime(n.created_at)}</time>
         </div>
       </div>`).join('')
-      + `<div class="topbar__notif-footer"><a href="/notifications">Zobacz wszystkie powiadomienia →</a></div>`;
+      + `<div class="topbar__notif-footer"><a href="${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/notifications">Zobacz wszystkie powiadomienia →</a></div>`;
     updateBadge(unread.length);
     // Kliknięcie → mark as read
     list.querySelectorAll<HTMLElement>('.topbar__notif-item--unread').forEach(el => {
@@ -719,7 +743,7 @@ const {
                 headers: { 'Content-Type': 'application/json' },
                 body: '{}',
               });
-              window.location.href = '/login';
+              window.location.href = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '') + '/login';
             });
           }
           return;

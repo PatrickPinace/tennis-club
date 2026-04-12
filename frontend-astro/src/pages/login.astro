@@ -5,14 +5,15 @@
 export const prerender = false;
 
 import '@/styles/global.css';
+import { url } from '@/lib/url';
 
 // W dev bez PUBLIC_API_BASE_URL: pusty string → relative URL → Vite proxy → Django :8000
 const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
 
 // Odczytaj ?next= żeby po zalogowaniu wrócić do żądanej strony
-const nextUrl = Astro.url.searchParams.get('next') ?? '/dashboard';
+const nextUrl = Astro.url.searchParams.get('next') ?? url('/dashboard');
 // Walidacja: akceptuj tylko ścieżki zaczynające się od / (zapobieganie open redirect)
-const safeNext = nextUrl.startsWith('/') ? nextUrl : '/dashboard';
+const safeNext = nextUrl.startsWith('/') ? nextUrl : url('/dashboard');
 ---
 
 <!doctype html>
@@ -21,7 +22,7 @@ const safeNext = nextUrl.startsWith('/') ? nextUrl : '/dashboard';
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Logowanie — Tennis Club</title>
-  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
   <meta name="api-base" content={apiBase} />
   <meta name="next-url" content={safeNext} />
   <script is:inline>
@@ -103,8 +104,9 @@ const safeNext = nextUrl.startsWith('/') ? nextUrl : '/dashboard';
 <script>
   const API     = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
                   ?? 'http://localhost:8000';
+  const BASE    = import.meta.env.BASE_URL.replace(/\/$/, '');
   const NEXT    = (document.querySelector('meta[name="next-url"]') as HTMLMetaElement)?.content
-                  ?? '/dashboard';
+                  || (BASE + '/dashboard');
 
   const form    = document.getElementById('login-form') as HTMLFormElement;
   const btn     = document.getElementById('login-btn') as HTMLButtonElement;

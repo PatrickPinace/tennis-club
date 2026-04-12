@@ -8,6 +8,7 @@ export const prerender = false;
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import { getMatchHistory, type MatchHistoryEntry, type MatchUser } from '@/lib/api';
+import { url } from '@/lib/url';
 
 // ── Pobierz cookie sesji i dane z API ────────────────────────────────────────
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
@@ -145,7 +146,7 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
   showSearch={false}
   showCta={true}
   ctaLabel="+ Dodaj mecz"
-  ctaHref="/matches/add"
+  ctaHref={url('/matches/add')}
 >
 
   <PageHeader
@@ -229,7 +230,7 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
 
             <!-- Actions -->
             <div class="match-actions">
-              <a href={`/matches/${m.id}`} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
+              <a href={url(`/matches/${m.id}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
             </div>
           </li>
         ))}

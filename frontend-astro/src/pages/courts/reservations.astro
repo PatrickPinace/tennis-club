@@ -3,6 +3,7 @@
 // Docelowo: GET /courts/api/timeline-data/<pk>/ (istnieje w Django)
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
+import { url } from '@/lib/url';
 
 // Dane demo — docelowo z /courts/api/timeline-data/<pk>/
 const courts = ['Kort 1', 'Kort 2', 'Kort 3 (Trawa)', 'Kort 4'];
@@ -46,7 +47,7 @@ function reservationStyle(r: typeof reservations[0]) {
   showSearch={false}
   showCta={true}
   ctaLabel="+ Nowa rezerwacja"
-  ctaHref="/courts/reservations/new"
+  ctaHref={url('/courts/reservations/new')}
 >
 
   <PageHeader

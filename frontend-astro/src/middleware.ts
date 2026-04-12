@@ -34,23 +34,28 @@ function hasSession(request: Request): boolean {
   return cookieHeader.split(';').some(c => c.trim().startsWith('sessionid='));
 }
 
+const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+
 export const onRequest = defineMiddleware((context, next) => {
   const { pathname } = context.url;
 
-  const isPrivate = PRIVATE_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
-  const isAuthOnly = AUTH_ONLY_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+  // Usuwamy prefix base z pathname by porównywać do logicznych ścieżek
+  const path = pathname.startsWith(BASE) ? pathname.slice(BASE.length) || '/' : pathname;
+
+  const isPrivate = PRIVATE_PATHS.some(p => path === p || path.startsWith(p + '/'));
+  const isAuthOnly = AUTH_ONLY_PATHS.some(p => path === p || path.startsWith(p + '/'));
 
   const loggedIn = hasSession(context.request);
 
   // Zalogowany user wchodzi na /login → dashboard
   if (isAuthOnly && loggedIn) {
-    return context.redirect('/dashboard');
+    return context.redirect(BASE + '/dashboard');
   }
 
   // Niezalogowany user wchodzi na chronioną trasę → /login?next=...
   if (isPrivate && !loggedIn) {
     const next_url = encodeURIComponent(pathname);
-    return context.redirect(`/login?next=${next_url}`);
+    return context.redirect(`${BASE}/login?next=${next_url}`);
   }
 
   return next();

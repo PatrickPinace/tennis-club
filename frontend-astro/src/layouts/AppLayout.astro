@@ -4,6 +4,7 @@
 import Sidebar from '@/components/Sidebar.astro';
 import Topbar from '@/components/Topbar.astro';
 import '@/styles/global.css';
+import { url } from '@/lib/url';
 
 interface Props {
   title?: string;
@@ -35,7 +36,7 @@ const currentPath = Astro.url.pathname;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title} — Tennis Club</title>
-  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
   <!-- Adres Django API — używany przez client-side JS do fetchów -->
   <!-- W dev bez PUBLIC_API_BASE_URL: pusty string = relative URL → Vite proxy /api/* → :8000 -->
   <!-- W produkcji: ustaw PUBLIC_API_BASE_URL na adres Django, np. https://api.example.com -->

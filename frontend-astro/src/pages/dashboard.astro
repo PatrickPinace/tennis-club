@@ -13,6 +13,7 @@ import {
   TOURNAMENT_TYPE_LABEL,
   type Tournament,
 } from '../lib/api';
+import { url } from '@/lib/url';
 
 // ── Dane z Django API (server-side) ──────────────────────────────────────────
 
@@ -84,7 +85,7 @@ const stats = [
     label: 'Najbliższa Rezerwacja',
     value: '—',
     detail: 'Brak nadchodzących rezerwacji',
-    action: { label: 'Rezerwuj', href: '/courts/reservations' },
+    action: { label: 'Rezerwuj', href: url('/courts/reservations') },
     accent: 'primary',
   },
   {
@@ -129,10 +130,10 @@ const myStats = {
 };
 
 const quickActions = [
-  { label: 'Nowa Rezerwacja', href: '/courts/reservations', icon: 'calendar', primary: true },
-  { label: 'Dodaj Mecz',      href: '/matches',             icon: 'vs',       primary: false },
-  { label: 'Turnieje',         href: '/tournaments',         icon: 'trophy',   primary: false },
-  { label: 'Ranking',          href: '/rankings',            icon: 'chart',    primary: false },
+  { label: 'Nowa Rezerwacja', href: url('/courts/reservations'), icon: 'calendar', primary: true },
+  { label: 'Dodaj Mecz',      href: url('/matches'),             icon: 'vs',       primary: false },
+  { label: 'Turnieje',         href: url('/tournaments'),         icon: 'trophy',   primary: false },
+  { label: 'Ranking',          href: url('/rankings'),            icon: 'chart',    primary: false },
 ];
 ---
 
@@ -225,7 +226,7 @@ const quickActions = [
             </svg>
             Nadchodzące turnieje
           </h2>
-          <a href="/tournaments" class="tc-btn tc-btn-ghost tc-btn-sm">Wszystkie →</a>
+          <a href={url('/tournaments')} class="tc-btn tc-btn-ghost tc-btn-sm">Wszystkie →</a>
         </div>
 
         <div class="tournament-list">
@@ -259,7 +260,7 @@ const quickActions = [
         </div>
 
         <div class="tc-card-footer">
-          <a href="/tournaments" class="tc-btn tc-btn-primary tc-btn-sm">
+          <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
             Zapisz się do turnieju
           </a>
         </div>
@@ -367,7 +368,7 @@ const quickActions = [
         )}
 
         <div class="tc-card-footer">
-          <a href="/matches" class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+          <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
             Pełna historia →
           </a>
         </div>
