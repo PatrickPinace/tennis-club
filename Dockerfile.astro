@@ -25,9 +25,11 @@ FROM node:20-slim AS runtime
 
 WORKDIR /app
 
-# Tylko artefakty buildu — nie dev deps
+# Artefakty buildu
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
+# node_modules potrzebne w runtime przez Astro Node adapter (np. pakiet 'cookie')
+COPY --from=builder /app/node_modules ./node_modules
 
 # Astro standalone adapter generuje plik server/entry.mjs
 ENV HOST=0.0.0.0
