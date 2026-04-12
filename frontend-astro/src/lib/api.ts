@@ -284,6 +284,11 @@ async function apiFetch<T>(
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    // Django sprawdza Host header względem ALLOWED_HOSTS.
+    // Astro SSR woła Django przez wewnętrzną sieć Docker (tennis-web:8000),
+    // więc Node automatycznie ustawia Host: tennis-web:8000 — nie ma go w ALLOWED_HOSTS.
+    // Przekazujemy prawidłowy zewnętrzny host żeby Django przyjął request.
+    Host: process.env.DJANGO_INTERNAL_HOST ?? 'tennis.mediprima.pl',
   };
 
   // Przekaż cookie sesji Django dla endpointów chronionych @login_required
