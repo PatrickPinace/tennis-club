@@ -2,6 +2,19 @@
 // Topbar.astro — przepisany wg projektu grafika
 // Search bar + CTA "+ Nowa Rezerwacja" + user chip z inicjałami
 import { url } from '@/lib/url';
+
+// Link "Wersja klasyczna" → Django.
+// W dev: DJANGO_API_URL=http://localhost:8000 → http://localhost:8000/tournaments
+// W prod za Caddy: DJANGO_API_URL jest wewnętrzny (http://tennis-web:8000),
+//   ale przeglądarka musi dostać zewnętrzny URL, więc używamy ścieżki relatywnej /tournaments
+//   (Caddy routuje /tournaments → Django, bo nie pasuje do /astro/*).
+// Aby to działało w obu środowiskach, używamy PUBLIC_DJANGO_URL jeśli ustawiony,
+// albo DJANGO_API_URL tylko gdy zawiera localhost (dev), w prod fallback to '/tournaments'.
+const _djangoApiUrl = import.meta.env.DJANGO_API_URL ?? '';
+const classicUrl = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
+  ? _djangoApiUrl.replace(/\/$/, '') + '/tournaments'
+  : '/tournaments';
+
 interface Props {
   greeting?: string;   // "Witaj z powrotem, Marcin!" — opcjonalny heading w treści
   showSearch?: boolean;
@@ -147,7 +160,7 @@ const {
     </div>
 
     <!-- Link do wersji klasycznej (Django) -->
-    <a href="/tournaments" class="topbar__classic-link" title="Wróć do wersji klasycznej">
+    <a href={classicUrl} class="topbar__classic-link" title="Wróć do wersji klasycznej">
       Wersja klasyczna →
     </a>
 
