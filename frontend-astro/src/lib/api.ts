@@ -239,18 +239,19 @@ export interface DashboardSummary {
 
 export const TOURNAMENT_STATUS_LABEL: Record<string, string> = {
   DRF: 'Szkic',
-  REG: 'Rejestracja',
+  REG: 'Otwarte zapisy',
+  SCH: 'Nadchodzący',
   ACT: 'Trwa',
   FIN: 'Zakończony',
   CNC: 'Odwołany',
 };
 
 export const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
-  RR:  'Round Robin',
-  SE:  'Eliminacja pojedyncza',
-  DE:  'Eliminacja podwójna',
-  LAD: 'Drabinka',
-  AME: 'Americano',
+  RND: 'Round Robin',
+  SGL: 'Eliminacja pojedyncza',
+  DBE: 'Eliminacja podwójna',
+  LDR: 'Drabinka',
+  AMR: 'Americano',
   SWS: 'System szwajcarski',
 };
 
@@ -378,11 +379,12 @@ export async function getMyTournaments(
 
 /**
  * Zwraca turnieje przefiltrowane do dashboardu:
- * aktywne (REG/ACT) i nadchodzące, max `limit` sztuk.
+ * aktywne (REG/ACT) i nadchodzące (SCH), max `limit` sztuk.
+ * Używa lekkiego /api/tournaments/list/ zamiast pełnego /api/tournaments/.
  */
-export async function getDashboardTournaments(limit = 5): Promise<Tournament[]> {
-  const all = await getTournaments();
-  const active = all.filter(t => t.status === 'REG' || t.status === 'ACT');
+export async function getDashboardTournaments(limit = 5): Promise<TournamentListEntry[]> {
+  const all = await getTournamentsList();
+  const active = all.filter(t => t.status === 'REG' || t.status === 'ACT' || t.status === 'SCH');
   return active.slice(0, limit);
 }
 

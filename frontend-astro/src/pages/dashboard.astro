@@ -11,7 +11,7 @@ import {
   getCurrentUser,
   TOURNAMENT_STATUS_LABEL,
   TOURNAMENT_TYPE_LABEL,
-  type Tournament,
+  type TournamentListEntry,
 } from '../lib/api';
 import { url } from '@/lib/url';
 
@@ -40,14 +40,13 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-const liveTournaments = apiTournaments.map((t: Tournament) => ({
+const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
   name: t.name,
   type: TOURNAMENT_TYPE_LABEL[t.tournament_type] ?? t.tournament_type,
   date: t.start_date ? formatDate(t.start_date) : '—',
-  status: t.status === 'REG' ? 'open' : 'active',
+  status: t.status === 'REG' ? 'open' : t.status === 'SCH' ? 'scheduled' : 'active',
   statusLabel: TOURNAMENT_STATUS_LABEL[t.status] ?? t.status,
-  participants: t.participants.length,
-  maxParticipants: t.participants.length || 8, // max nieznany z API — używamy liczby uczestników lub 8
+  participants: t.participant_count,
 }));
 
 // Fallback gdy backend niedostępny lub brak danych
@@ -56,19 +55,17 @@ const fallbackTournaments = [
     name: 'Puchar Jesieni',
     type: 'Single Elimination',
     date: '28–29 Paź 2026',
-    status: 'registered',
-    statusLabel: 'Zarejestrowany',
+    status: 'open',
+    statusLabel: 'Otwarte zapisy',
     participants: 16,
-    maxParticipants: 16,
   },
   {
     name: 'Liga Zimowa — Runda 3',
     type: 'Round Robin',
     date: '15 Lis 2026',
     status: 'open',
-    statusLabel: 'Otwarta rejestracja',
+    statusLabel: 'Otwarte zapisy',
     participants: 9,
-    maxParticipants: 12,
   },
 ];
 
@@ -242,16 +239,9 @@ const quickActions = [
               </div>
               <div class="tournament-item__right">
                 <div class="tournament-item__participants">
-                  <div class="participants-bar">
-                    <div
-                      class="participants-bar__fill"
-                      style={`width: ${Math.round(t.participants / t.maxParticipants * 100)}%`}
-                      aria-hidden="true"
-                    ></div>
-                  </div>
-                  <span class="participants-bar__label">{t.participants}/{t.maxParticipants}</span>
+                  <span class="participants-bar__label">{t.participants} uczestników</span>
                 </div>
-                <span class={`tc-badge ${t.status === 'registered' ? 'tc-badge-primary' : 'tc-badge-success'}`}>
+                <span class={`tc-badge ${t.status === 'active' ? 'tc-badge-success' : t.status === 'scheduled' ? 'tc-badge-info' : 'tc-badge-success'}`}>
                   {t.statusLabel}
                 </span>
               </div>

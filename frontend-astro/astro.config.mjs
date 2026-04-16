@@ -1,6 +1,10 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
 import node from '@astrojs/node';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://astro.build/config
 export default defineConfig({
@@ -23,6 +27,13 @@ export default defineConfig({
   // Dev proxy: przekazuje /api/* do Django :8000 — dzięki temu cookie sessionid
   // jest ustawiane na tym samym origin co Astro (:4321) i middleware widzi sesję.
   vite: {
+    resolve: {
+      alias: {
+        // Alias @/ → src/ — Astro 4 nie zawsze czyta paths z tsconfig.json w trybie SSR dev.
+        // Jawna definicja tu jest niezawodna i nie wymaga vite-tsconfig-paths.
+        '@': path.resolve(__dirname, 'src'),
+      },
+    },
     server: {
       proxy: {
         '/api': {
