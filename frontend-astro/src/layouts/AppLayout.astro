@@ -41,6 +41,8 @@ const currentPath = Astro.url.pathname;
   <!-- W dev bez PUBLIC_API_BASE_URL: pusty string = relative URL → Vite proxy /api/* → :8000 -->
   <!-- W produkcji: ustaw PUBLIC_API_BASE_URL na adres Django, np. https://api.example.com -->
   <meta name="api-base" content={import.meta.env.PUBLIC_API_BASE_URL ?? ''} />
+  <!-- Referrer-Policy: same-origin — wymagane przez Django CSRF Referer check dla HTTPS -->
+  <meta name="referrer" content="same-origin" />
 
   <!-- Zapobiegaj FOIT: ustaw motyw PRZED renderowaniem -->
   <script is:inline>
