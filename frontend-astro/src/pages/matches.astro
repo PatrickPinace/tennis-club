@@ -176,12 +176,12 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
   </div>
 
   <!-- Filters -->
-  <div class="m-filters">
-    <button class="m-filter m-filter--active">Wszystkie</button>
-    <button class="m-filter">Wygrane</button>
-    <button class="m-filter">Porażki</button>
-    <button class="m-filter">Singiel</button>
-    <button class="m-filter">Debel</button>
+  <div class="m-filters" id="match-filters">
+    <button class="m-filter m-filter--active" data-filter="all">Wszystkie</button>
+    <button class="m-filter" data-filter="win">Wygrane</button>
+    <button class="m-filter" data-filter="loss">Porażki</button>
+    <button class="m-filter" data-filter="SNG">Singiel</button>
+    <button class="m-filter" data-filter="DBL">Debel</button>
   </div>
 
   <!-- Lista meczów -->
@@ -200,9 +200,9 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
         <div class="tc-empty__text">Nie rozegrałeś jeszcze żadnych meczów lub nie jesteś zalogowany.</div>
       </div>
     ) : (
-      <ul class="match-list" role="list">
+      <ul class="match-list" id="match-list" role="list">
         {matches.map(m => (
-          <li class="match-row">
+          <li class="match-row" data-result={m.result} data-format={m.format}>
             <!-- Result dot -->
             <div class={`match-result match-result--${m.result}`} aria-label={m.resultLabel}>
               {m.resultLetter}
@@ -240,6 +240,30 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
   </div>
 
 </AppLayout>
+
+<script>
+  const filters = document.querySelectorAll<HTMLButtonElement>('#match-filters .m-filter');
+  const rows    = document.querySelectorAll<HTMLElement>('#match-list .match-row');
+
+  filters.forEach(btn => {
+    btn.addEventListener('click', () => {
+      filters.forEach(b => b.classList.remove('m-filter--active'));
+      btn.classList.add('m-filter--active');
+
+      const f = btn.dataset.filter ?? 'all';
+      rows.forEach(row => {
+        if (f === 'all') {
+          row.style.display = '';
+        } else if (f === 'win' || f === 'loss' || f === 'draw') {
+          row.style.display = row.dataset.result === f ? '' : 'none';
+        } else {
+          // SNG / DBL
+          row.style.display = row.dataset.format === f ? '' : 'none';
+        }
+      });
+    });
+  });
+</script>
 
 <style>
   /* ── Stats ─────────────────────────────────────────────────────────────── */

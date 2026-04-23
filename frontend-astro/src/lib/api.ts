@@ -87,11 +87,12 @@ export interface MatchHistoryEntry {
   description: string | null;
   match_date: string;          // "YYYY-MM-DD"
   win: 'p1' | 'p2' | 'draw';
-  user: 'user-win' | 'user-loss' | 'user-draw';
+  user: 'user-win' | 'user-loss' | 'user-draw';  // backend: user-lose → user-loss (naprawione w tools.py)
   p1_win_set: number;
   p2_win_set: number;
   p1_win_gem: number;
   p2_win_gem: number;
+  can_edit?: boolean;  // tylko w /api/matches/<id>/ — true gdy uczestnik lub is_staff
 }
 
 export interface RankingData {
@@ -217,7 +218,7 @@ export interface TournamentDetail {
 export interface PlayerRankingEntry {
   position: number;
   display_name: string;
-  points: number;
+  points: number | string;  // DRF zwraca DecimalField jako string "2840.00"
   matches_played: number;
   matches_won: number;
   matches_lost: number;
@@ -446,6 +447,19 @@ export async function getRankings(
   if (year !== undefined) params.set('year', String(year));
   const data = await apiFetch<PlayerRankingEntry[]>(`/api/rankings/list/?${params}`);
   return data ?? [];
+}
+
+/**
+ * Zwraca szczegóły pojedynczego meczu towarzyskiego.
+ * Endpoint: GET /api/matches/<id>/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django.
+ * Zwraca null gdy mecz nie istnieje lub użytkownik niezalogowany.
+ */
+export async function getMatch(
+  id: number,
+  sessionCookie?: string
+): Promise<MatchHistoryEntry | null> {
+  return apiFetch<MatchHistoryEntry>(`/api/matches/${id}/`, { sessionCookie });
 }
 
 // ── Bieżący użytkownik ───────────────────────────────────────────────────────

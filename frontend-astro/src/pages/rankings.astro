@@ -140,7 +140,7 @@ function winRateClass(wr: number): string {
                   </div>
                 </div>
               </td>
-              <td class="col-num rank-points">{p.points.toLocaleString('pl-PL')}</td>
+              <td class="col-num rank-points">{Math.round(Number(p.points)).toLocaleString('pl-PL')}</td>
               <td class="col-num col-muted">{p.matches_played}</td>
               <td class="col-num col-muted">{p.matches_won}</td>
               <td class="col-num">
@@ -197,7 +197,8 @@ function winRateClass(wr: number): string {
       const card = document.getElementById('my-rank-card');
       if (card) {
         (document.getElementById('my-rank-pos') as HTMLElement).textContent = String(pos);
-        (document.getElementById('my-rank-pts') as HTMLElement).textContent = String(pts);
+        (document.getElementById('my-rank-pts') as HTMLElement).textContent =
+          pts != null && pts !== '—' ? Math.round(Number(pts)).toLocaleString('pl-PL') : '—';
         (document.getElementById('my-rank-record') as HTMLElement).textContent = `${won}/${played}`;
         (document.getElementById('my-rank-wr') as HTMLElement).textContent = wr;
         card.style.display = '';
@@ -268,7 +269,7 @@ function winRateClass(wr: number): string {
                 <div><div class="rank-player__name">${p.display_name}</div></div>
               </div>
             </td>
-            <td class="col-num rank-points">${p.points.toLocaleString('pl-PL')}</td>
+            <td class="col-num rank-points">${Math.round(Number(p.points)).toLocaleString('pl-PL')}</td>
             <td class="col-num col-muted">${p.matches_played}</td>
             <td class="col-num col-muted">${p.matches_won}</td>
             <td class="col-num"><span class="${wrClass(p.win_rate)}">${Math.round(p.win_rate)}%</span></td>
