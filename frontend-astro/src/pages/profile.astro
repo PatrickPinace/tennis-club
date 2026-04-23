@@ -69,12 +69,13 @@ function formatMatchDate(iso: string): string {
 }
 
 function getOpponentName(m: MatchHistoryEntry): string {
-  // user: 'user-win' | 'user-loss' | 'user-draw' — player jest po stronie p1
+  // user: 'user-win' | 'user-loss' | 'user-draw'
   // win: 'p1' | 'p2' — kto wygrał
-  // jeśli user jest p1 → przeciwnik to p2 (singiel) lub p3/p4 (debel)
-  const isP1Side = m.user === 'user-win' ? m.win === 'p1' : m.win !== 'p1';
-  // Najprostsza heurystyka: jeśli user jest p1, przeciwnik to p2
-  const opp = m.p2;
+  // zalogowany jest po stronie p1 gdy: wygrał i win=p1, LUB przegrał i win=p2
+  const isP1Side =
+    (m.user === 'user-win'  && m.win === 'p1') ||
+    (m.user === 'user-loss' && m.win === 'p2');
+  const opp = isP1Side ? m.p2 : m.p1;
   if (!opp) return 'Nieznany';
   const name = [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
   return name;
@@ -124,7 +125,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 
       {points !== null && (
         <div class="player-level">
-          <span class="level-badge">{points.toLocaleString('pl')} pkt SNG</span>
+          <span class="level-badge">{Math.round(Number(points)).toLocaleString('pl-PL')} pkt SNG</span>
         </div>
       )}
 
@@ -188,7 +189,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
               </div>
               <div class="stat-tile tc-card">
                 <div class="stat-tile__value">
-                  {points !== null ? points.toLocaleString('pl') : '—'}
+                  {points !== null ? Math.round(Number(points)).toLocaleString('pl-PL') : '—'}
                 </div>
                 <div class="stat-tile__label">Punkty rankingowe</div>
               </div>
@@ -244,7 +245,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
               <div class="stat-tile__label">Pozycja rankingowa</div>
             </div>
             <div class="stat-tile tc-card">
-              <div class="stat-tile__value">{rDbl.points !== null ? rDbl.points.toLocaleString('pl') : '—'}</div>
+              <div class="stat-tile__value">{rDbl.points !== null ? Math.round(Number(rDbl.points)).toLocaleString('pl-PL') : '—'}</div>
               <div class="stat-tile__label">Punkty</div>
             </div>
             <div class="stat-tile tc-card">

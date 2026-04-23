@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from apps.tournaments.models import Tournament
 from apps.matches import tools as match_tools
+from apps.matches.models import Match
 from .serializers import (TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
                           RegisterSerializer, UserDetailsSerializer, NotificationSerializer,
                           MatchCreateSerializer, MatchHistorySerializer, PlayerRankingSerializer,
@@ -28,6 +29,26 @@ class MatchCreateView(generics.CreateAPIView):
     """API endpoint to create a new friendly match."""
     serializer_class = MatchCreateSerializer
     permission_classes = [IsAuthenticated]
+
+
+class MatchDetailView(generics.RetrieveAPIView):
+    """GET /api/matches/<id>/ — szczegóły pojedynczego meczu towarzyskiego.
+    Dodaje pole can_edit: true gdy request.user jest uczestnikiem lub is_staff."""
+    serializer_class = MatchHistorySerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Match.objects.select_related('p1', 'p2', 'p3', 'p4').all()
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        players = [instance.p1_id, instance.p2_id]
+        if instance.p3_id:
+            players.append(instance.p3_id)
+        if instance.p4_id:
+            players.append(instance.p4_id)
+        data['can_edit'] = request.user.is_staff or request.user.pk in players
+        return Response(data)
 
 
 class UserListView(generics.ListAPIView):
@@ -486,7 +507,19 @@ class RoundRobinMatchScoreView(APIView):
         except TournamentsMatch.DoesNotExist:
             return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-        # ── Tylko CNC blokuje edycję ─────────────────────────────────────────
+        # ── Turniej musi być ACT lub FIN — wyniki można edytować tylko w trakcie lub po zakończeniu
+        # SCH/DRF/REG: turniej nie wystartował — zapis wyników niedozwolony
+        EDITABLE_STATUSES = (
+            Tournament.Status.ACTIVE.value,
+            Tournament.Status.FINISHED.value,
+        )
+        if tournament.status not in EDITABLE_STATUSES:
+            return Response(
+                {'detail': f'Wyniki meczów można edytować tylko gdy turniej jest w toku (ACT) lub zakończony (FIN). Obecny status: {tournament.status}.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # ── Tylko CNC blokuje edycję meczu ───────────────────────────────────
         if match.status == TournamentsMatch.Status.CANCELLED.value:
             return Response(
                 {'detail': f'Mecz ma status „{match.get_status_display()}" i nie może być edytowany.'},

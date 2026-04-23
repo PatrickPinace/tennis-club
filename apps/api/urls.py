@@ -38,5 +38,6 @@ urlpatterns = [
     path('users/', views.UserListView.as_view(), name='user-list'),
     path('matches/history/', views.MatchHistoryView.as_view(), name='api-match-history'),
     path('matches/filters/', views.MatchFiltersView.as_view(), name='api-match-filters'),
+    path('matches/<int:pk>/', views.MatchDetailView.as_view(), name='api-match-detail'),
     path('admin/rebuild-rankings/', views.RebuildRankingsView.as_view(), name='admin-rebuild-rankings'),
 ]

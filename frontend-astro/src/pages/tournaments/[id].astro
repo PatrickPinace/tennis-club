@@ -70,8 +70,10 @@ const isRoundRobin = tournament?.tournament_type === 'RND';
 const matchesByRound = tournament && isRoundRobin ? groupByRound(tournament.matches) : new Map();
 const rounds = Array.from(matchesByRound.keys()).sort((a, b) => a - b);
 
-const completedMatches = tournament?.matches.filter(m => m.status === 'CMP') ?? [];
-const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m.status !== 'WDR' && m.status !== 'CNC') ?? [];
+// done  = CMP + WDR (spójne z backendem matches_progress)
+// pending = WAI + SCH + INP (nie wliczamy CNC — anulowane nie czekają na rozegranie)
+const completedMatches = tournament?.matches.filter(m => m.status === 'CMP' || m.status === 'WDR') ?? [];
+const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m.status === 'SCH' || m.status === 'INP') ?? [];
 ---
 
 <AppLayout
@@ -1052,6 +1054,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
   .org-match:hover { border-color: var(--primary); }
   .org-match--done { opacity: 0.62; }
   .org-match--done:hover { opacity: 0.88; }
+  .org-match--cancelled { opacity: 0.45; }
+  .org-match--cancelled:hover { opacity: 0.65; }
   .org-match--pending { border-left: 3px solid var(--primary); }
 
   .org-match-header {
@@ -1593,9 +1597,12 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
   // Pokaż panel
   panel.style.display = '';
 
-  // Turniej FIN/CNC → pokaż komunikat, nie renderuj formularzy
-  const locked = tStatus === 'FIN' || tStatus === 'CNC';
-  if (locked) {
+  // locked: edycja wyników meczów zablokowana.
+  // FIN/CNC — turniej zakończony/odwołany → pokaż komunikat
+  // SCH/DRF — mecze wygenerowane ale turniej nie wystartował → blokuj po cichu (brak edit form)
+  const lockedHard = tStatus === 'FIN' || tStatus === 'CNC'; // pokazuje org-locked-msg
+  const locked     = lockedHard || tStatus === 'SCH' || tStatus === 'DRF';
+  if (lockedHard) {
     const lockedMsg = document.getElementById('org-locked-msg');
     if (lockedMsg) lockedMsg.style.display = '';
   }
@@ -1655,7 +1662,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
   let searchQuery = '';
 
   const PENDING_STATUSES = new Set(['WAI', 'SCH', 'INP']);
-  const DONE_STATUSES    = new Set(['CMP', 'WDR', 'CNC']);
+  const DONE_STATUSES    = new Set(['CMP', 'WDR']); // CNC nie wlicza się do "rozegranych"
 
   function isPending(m: MatchData) { return PENDING_STATUSES.has(m.status); }
   function isDone(m: MatchData)    { return DONE_STATUSES.has(m.status); }
@@ -1708,6 +1715,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
     const cardCls = [
       'org-match',
       isDone(m) ? 'org-match--done' : '',
+      m.status === 'CNC' ? 'org-match--cancelled' : '',
       isPendingMatch ? 'org-match--pending' : '',
     ].filter(Boolean).join(' ');
 
@@ -2326,17 +2334,15 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
   }
 
   // ── Zakończenie turnieju ───────────────────────────────────────────────────
-  function initFinishButton() {
-    const panel = document.getElementById('org-panel') as HTMLElement | null;
-    if (!panel) return;
+  // bindFinishHandlers: podpina event listenery na przyciski sekcji finish.
+  // Wywoływana zarówno przy init (jeśli status=ACT od razu) jak i dynamicznie
+  // po przejściu SCH→ACT przez initStatusPanel — bez reloadu.
+  let finishHandlersBound = false;
+  function bindFinishHandlers(finishSection: HTMLElement) {
+    if (finishHandlersBound) return; // guard: nie podpinaj dwa razy
+    finishHandlersBound = true;
 
-    const tournStatus = panel.dataset.tournamentStatus ?? '';
-    const finishSection = document.getElementById('org-finish-section') as HTMLElement | null;
-
-    // Pokaż sekcję tylko gdy status ACT
-    if (tournStatus !== 'ACT' || !finishSection) return;
-    finishSection.style.display = 'block';
-
+    const panel = document.getElementById('org-panel') as HTMLElement;
     const triggerWrap   = document.getElementById('org-finish-trigger-wrap') as HTMLElement;
     const confirmBox    = document.getElementById('org-finish-confirm') as HTMLElement;
     const finishBtn     = document.getElementById('org-finish-btn') as HTMLButtonElement;
@@ -2450,6 +2456,17 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
     });
   }
 
+  function initFinishButton() {
+    const panel = document.getElementById('org-panel') as HTMLElement | null;
+    if (!panel) return;
+    const finishSection = document.getElementById('org-finish-section') as HTMLElement | null;
+    if (!finishSection) return;
+    if (panel.dataset.tournamentStatus === 'ACT') {
+      finishSection.style.display = 'block';
+      bindFinishHandlers(finishSection);
+    }
+  }
+
   // ── Status turnieju (zmiana przez organizatora) ───────────────────────────
   function initStatusPanel() {
     const statusSection = document.getElementById('org-status-section');
@@ -2536,10 +2553,13 @@ const pendingMatches   = tournament?.matches.filter(m => m.status !== 'CMP' && m
                 msgEl.textContent = `Status zmieniony na: ${STATUS_LABELS[ns] ?? ns}`;
               }
 
-              // Pokaż sekcję finish jeśli przeszliśmy do ACT
+              // Pokaż sekcję finish i podepnij handlery jeśli przeszliśmy do ACT
               if (ns === 'ACT') {
                 const fs = document.getElementById('org-finish-section');
-                if (fs) { fs.style.display = 'block'; }
+                if (fs) {
+                  fs.style.display = 'block';
+                  bindFinishHandlers(fs); // kluczowe: handlery podpinane dynamicznie, bez reloadu
+                }
               }
 
               msgEl.className = 'org-form-msg org-form-msg--ok';

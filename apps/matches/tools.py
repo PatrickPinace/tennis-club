@@ -95,14 +95,14 @@ class Results:
                 if self.user.pk in [row.get("p1_id"), row.get("p3_id")]:
                     row["user"] = "user-win"
                 else:
-                    row["user"] = "user-lose"
+                    row["user"] = "user-loss"
             elif p2_win_set >= 2 and p2_win_set > p1_win_set:
                 row['win'] = "p2"
                 # Sprawdzenie, czy docelowy użytkownik jest w zwycięskiej drużynie
                 if self.user.pk in [row.get("p2_id"), row.get("p4_id")]:
                     row["user"] = "user-win"
                 else:
-                    row["user"] = "user-lose"
+                    row["user"] = "user-loss"
             else:
                 row['win'] = 'draw'
                 row["user"] = "user-draw"

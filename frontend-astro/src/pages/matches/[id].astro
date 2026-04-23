@@ -1,0 +1,359 @@
+---
+// matches/[id].astro — detal meczu towarzyskiego
+// GET /api/matches/<id>/  (IsAuthenticated — wymaga cookie sesji)
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import { getMatch, getCurrentUser, type MatchHistoryEntry } from '@/lib/api';
+import { url } from '@/lib/url';
+
+const { id } = Astro.params;
+const matchId = id ? parseInt(id, 10) : NaN;
+
+if (isNaN(matchId)) {
+  return Astro.redirect(url('/matches'));
+}
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const [match, currentUser] = await Promise.all([
+  getMatch(matchId, sessionCookie),
+  getCurrentUser(sessionCookie),
+]);
+
+// Nie znaleziono meczu lub brak dostępu
+if (!match) {
+  return Astro.redirect(url('/matches'));
+}
+
+// ── Helpery ────────────────────────────────────────────────────────────────
+
+function userName(u: MatchHistoryEntry['p1']): string {
+  if (!u) return '—';
+  const full = `${u.first_name} ${u.last_name}`.trim();
+  return full || u.username;
+}
+
+function userInitials(u: MatchHistoryEntry['p1']): string {
+  if (!u) return '?';
+  const parts = [u.first_name, u.last_name].filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (u.username?.[0] ?? '?').toUpperCase();
+}
+
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('pl-PL', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
+  } catch { return iso; }
+}
+
+// Sety: lista par [p1_gems, p2_gems] dla rozegranych setów
+const sets: Array<[number, number]> = [];
+if (match.p1_set1 != null && match.p2_set1 != null) sets.push([match.p1_set1, match.p2_set1]);
+if (match.p1_set2 != null && match.p2_set2 != null) sets.push([match.p1_set2, match.p2_set2]);
+if (match.p1_set3 != null && match.p2_set3 != null) sets.push([match.p1_set3, match.p2_set3]);
+
+const scoreStr = sets.map(([a, b]) => `${a}:${b}`).join(', ') || '—';
+
+// Kto wygrał
+const p1Won = match.win === 'p1';
+const p2Won = match.win === 'p2';
+
+// Czy zalogowany user jest uczestnikiem — do podświetlenia "Twój" wynik
+const myId = currentUser?.id ?? null;
+const iAmP1 = myId === match.p1?.id || myId === match.p3?.id;
+const iAmP2 = myId === match.p2?.id || myId === match.p4?.id;
+
+const myResult = iAmP1 ? (p1Won ? 'win' : 'loss') : iAmP2 ? (p2Won ? 'win' : 'loss') : null;
+const resultLabel = myResult === 'win' ? 'Wygrana' : myResult === 'loss' ? 'Porażka' : null;
+const resultClass = myResult === 'win' ? 'result--win' : myResult === 'loss' ? 'result--loss' : '';
+
+const typeLabel = match.description
+  ? match.description.charAt(0) + match.description.slice(1).toLowerCase()
+  : 'Mecz';
+const formatLabel = match.match_double ? 'Debel' : 'Singiel';
+
+// Drużyny (dla debla: p1+p3 vs p2+p4)
+const team1 = [match.p1, match.p3].filter(Boolean) as NonNullable<MatchHistoryEntry['p1']>[];
+const team2 = [match.p2, match.p4].filter(Boolean) as NonNullable<MatchHistoryEntry['p1']>[];
+
+// Link do edycji meczu w Django — widoczny tylko gdy can_edit (uczestnik lub is_staff)
+// Lokalnie DJANGO_API_URL = http://localhost:8000, produkcja = ten sam origin → relative URL
+const djangoBase = (process.env.DJANGO_API_URL ?? '').replace(/\/$/, '');
+const editHref = djangoBase ? `${djangoBase}/matches/edit/match/${matchId}/` : `/matches/edit/match/${matchId}/`;
+const canEdit = match.can_edit ?? false;
+---
+
+<AppLayout
+  title={`Mecz #${matchId}`}
+  showSearch={false}
+  showCta={false}
+>
+
+  <!-- Breadcrumb + akcje -->
+  <div class="match-topbar">
+    <nav class="breadcrumb" aria-label="Nawigacja okruszkowa">
+      <a href={url('/matches')} class="breadcrumb__link">Mecze</a>
+      <span class="breadcrumb__sep" aria-hidden="true">›</span>
+      <span class="breadcrumb__current">Mecz #{matchId}</span>
+    </nav>
+    {canEdit && (
+      <a href={editHref} class="tc-btn tc-btn-secondary tc-btn-sm">
+        ✏ Edytuj wynik
+      </a>
+    )}
+  </div>
+
+  <!-- Header karty meczu -->
+  <div class={`match-header tc-card ${resultClass}`}>
+    <div class="match-header__top">
+      <div class="match-header__badges">
+        <span class="tc-badge tc-badge-neutral">{typeLabel}</span>
+        <span class="tc-badge tc-badge-neutral">{formatLabel}</span>
+      </div>
+      {resultLabel && (
+        <span class={`match-result-badge match-result-badge--${myResult}`}>
+          {resultLabel}
+        </span>
+      )}
+    </div>
+
+    <!-- Sędziowanie: gracze vs wynik -->
+    <div class="match-scoreboard">
+      <!-- Drużyna 1 -->
+      <div class={`match-team ${p1Won ? 'match-team--winner' : ''}`}>
+        {team1.map(u => (
+          <div class="match-team__player">
+            <div class={`tc-avatar tc-avatar-md${u.id === myId ? ' tc-avatar--me' : ''}`} aria-hidden="true">
+              {userInitials(u)}
+            </div>
+            <div class="match-team__name">
+              {userName(u)}
+              {u.id === myId && <span class="me-badge">Ty</span>}
+            </div>
+          </div>
+        ))}
+        {p1Won && <div class="match-team__crown" aria-label="Zwycięzca">🏆</div>}
+      </div>
+
+      <!-- Wynik setów -->
+      <div class="match-score">
+        <div class="match-score__sets">
+          {sets.length > 0 ? sets.map(([a, b]) => (
+            <div class="match-score__set">
+              <span class={a > b ? 'set-gem--win' : 'set-gem--loss'}>{a}</span>
+              <span class="set-sep">:</span>
+              <span class={b > a ? 'set-gem--win' : 'set-gem--loss'}>{b}</span>
+            </div>
+          )) : (
+            <span class="match-score__empty">—</span>
+          )}
+        </div>
+        <div class="match-score__label">{scoreStr}</div>
+      </div>
+
+      <!-- Drużyna 2 -->
+      <div class={`match-team match-team--right ${p2Won ? 'match-team--winner' : ''}`}>
+        {team2.map(u => (
+          <div class="match-team__player">
+            <div class={`tc-avatar tc-avatar-md${u.id === myId ? ' tc-avatar--me' : ''}`} aria-hidden="true">
+              {userInitials(u)}
+            </div>
+            <div class="match-team__name">
+              {u.id === myId && <span class="me-badge">Ty</span>}
+              {userName(u)}
+            </div>
+          </div>
+        ))}
+        {p2Won && <div class="match-team__crown" aria-label="Zwycięzca">🏆</div>}
+      </div>
+    </div>
+
+    <div class="match-header__date">{fmtDate(match.match_date)}</div>
+  </div>
+
+  <!-- Szczegółowa tabela setów -->
+  {sets.length > 0 && (
+    <div class="tc-card" style="margin-top:16px;">
+      <div class="tc-card-header">
+        <span class="tc-card-title">Wynik setów</span>
+      </div>
+      <table class="tc-table sets-table">
+        <thead>
+          <tr>
+            <th>Gracz</th>
+            {sets.map((_, i) => <th class="col-num">Set {i + 1}</th>)}
+            <th class="col-num">Sety</th>
+            <th class="col-num">Gemy</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class={p1Won ? 'row--winner' : ''}>
+            <td>
+              <div class="sets-player">
+                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">{userInitials(match.p1)}</div>
+                <span>{userName(match.p1)}{match.match_double && match.p3 ? ` / ${userName(match.p3)}` : ''}</span>
+                {p1Won && <span class="tc-badge tc-badge-success" style="margin-left:6px;">Wygrana</span>}
+              </div>
+            </td>
+            {sets.map(([a]) => <td class="col-num">{a}</td>)}
+            <td class="col-num font-bold">{match.p1_win_set}</td>
+            <td class="col-num">{match.p1_win_gem}</td>
+          </tr>
+          <tr class={p2Won ? 'row--winner' : ''}>
+            <td>
+              <div class="sets-player">
+                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">{userInitials(match.p2)}</div>
+                <span>{userName(match.p2)}{match.match_double && match.p4 ? ` / ${userName(match.p4)}` : ''}</span>
+                {p2Won && <span class="tc-badge tc-badge-success" style="margin-left:6px;">Wygrana</span>}
+              </div>
+            </td>
+            {sets.map(([, b]) => <td class="col-num">{b}</td>)}
+            <td class="col-num font-bold">{match.p2_win_set}</td>
+            <td class="col-num">{match.p2_win_gem}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )}
+
+  <!-- Powrót -->
+  <div style="margin-top:20px;">
+    <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm">← Wróć do listy meczów</a>
+  </div>
+
+</AppLayout>
+
+<style>
+  .match-topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px; gap: 12px;
+  }
+  .match-topbar .breadcrumb { margin-bottom: 0; }
+
+  .breadcrumb {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--text-muted);
+    margin-bottom: 18px;
+  }
+  .breadcrumb__link { color: var(--primary); text-decoration: none; }
+  .breadcrumb__link:hover { text-decoration: underline; }
+  .breadcrumb__sep { color: var(--text-dim); }
+  .breadcrumb__current { color: var(--text); font-weight: 500; }
+
+  /* ── Match header card ───────────────────────────────────────────────── */
+  .match-header { padding: 24px 28px; }
+
+  .result--win  { border-left: 3px solid #22c55e; }
+  .result--loss { border-left: 3px solid var(--danger); }
+
+  .match-header__top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+  }
+  .match-header__badges { display: flex; gap: 6px; }
+
+  .match-result-badge {
+    font-size: 0.78rem; font-weight: 700;
+    padding: 4px 12px; border-radius: 99px;
+  }
+  .match-result-badge--win  { background: rgba(34,197,94,0.12); color: #22c55e; }
+  .match-result-badge--loss { background: rgba(239,68,68,0.1);  color: var(--danger); }
+
+  /* ── Scoreboard ──────────────────────────────────────────────────────── */
+  .match-scoreboard {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 0 20px;
+  }
+
+  .match-team {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .match-team--right {
+    align-items: flex-end;
+    text-align: right;
+  }
+  .match-team--winner .match-team__name {
+    font-weight: 700; color: var(--text);
+  }
+
+  .match-team__player {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .match-team--right .match-team__player {
+    flex-direction: row-reverse;
+  }
+
+  .match-team__name {
+    font-size: 0.95rem; color: var(--text-muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .match-team__crown {
+    font-size: 1.1rem; margin-top: 2px;
+  }
+
+  .me-badge {
+    font-size: 0.65rem; font-weight: 700;
+    background: rgba(34,197,94,0.15); color: #22c55e;
+    padding: 1px 6px; border-radius: 99px;
+  }
+
+  .tc-avatar--me {
+    border: 1.5px solid #22c55e;
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+  }
+
+  /* ── Score display ───────────────────────────────────────────────────── */
+  .match-score {
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+
+  .match-score__sets {
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .match-score__set {
+    display: flex; align-items: baseline; gap: 2px;
+    font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;
+  }
+
+  .set-gem--win  { color: var(--text); }
+  .set-gem--loss { color: var(--text-dim); }
+  .set-sep       { color: var(--text-dim); font-size: 1.2rem; }
+
+  .match-score__empty { font-size: 1.6rem; color: var(--text-dim); }
+
+  .match-score__label {
+    font-size: 0.75rem; color: var(--text-muted); font-weight: 500;
+  }
+
+  .match-header__date {
+    font-size: 0.82rem; color: var(--text-muted);
+    text-align: center; margin-top: 4px;
+  }
+
+  /* ── Sets table ──────────────────────────────────────────────────────── */
+  .sets-table { min-width: 400px; }
+  .col-num { text-align: right; }
+  .font-bold { font-weight: 700; color: var(--text); }
+
+  .row--winner td { background: rgba(34,197,94,0.03); }
+
+  .sets-player {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 0.875rem;
+  }
+
+  /* Avatar sizes */
+  .tc-avatar-md {
+    width: 40px; height: 40px;
+    font-size: 0.85rem;
+  }
+</style>
