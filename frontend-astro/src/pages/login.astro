@@ -10,6 +10,14 @@ import { url } from '@/lib/url';
 // W dev bez PUBLIC_API_BASE_URL: pusty string → relative URL → Vite proxy → Django :8000
 const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
 
+// URL do klasycznej wersji Django — ten sam pattern co Topbar.astro
+const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
+const classicBase = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
+  ? _djangoApiUrl.replace(/\/$/, '')
+  : '';
+const registerUrl  = classicBase + '/users/register/';
+const classicLoginUrl = classicBase + '/users/login/';
+
 // Odczytaj ?next= żeby po zalogowaniu wrócić do żądanej strony
 const nextUrl = Astro.url.searchParams.get('next') ?? url('/dashboard');
 // Walidacja: akceptuj tylko ścieżki zaczynające się od / (zapobieganie open redirect)
@@ -90,8 +98,13 @@ const safeNext = nextUrl.startsWith('/') ? nextUrl : url('/dashboard');
 
     </div>
 
+    <p class="login-register">
+      Nie masz konta?
+      <a href={registerUrl}>Zarejestruj się →</a>
+    </p>
+
     <p class="login-back">
-      <a href="http://localhost:8000/users/login/">
+      <a href={classicLoginUrl}>
         Wróć do starej wersji aplikacji →
       </a>
     </p>
@@ -294,18 +307,34 @@ const safeNext = nextUrl.startsWith('/') ? nextUrl : url('/dashboard');
     margin-top: 8px;
   }
 
+  /* ── Register link ───────────────────────────────────────────────────────── */
+  .login-register {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .login-register a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .login-register a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
   /* ── Back link ────────────────────────────────────────────────────────── */
   .login-back {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-dim);
     margin: 0;
   }
   .login-back a {
-    color: var(--text-muted);
+    color: var(--text-dim);
     text-decoration: underline;
     text-underline-offset: 3px;
   }
   .login-back a:hover {
-    color: var(--text);
+    color: var(--text-muted);
   }
 </style>

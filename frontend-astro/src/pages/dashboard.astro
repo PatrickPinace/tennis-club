@@ -56,27 +56,7 @@ const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
   participants: t.participant_count,
 }));
 
-// Fallback gdy backend niedostępny lub brak danych
-const fallbackTournaments = [
-  {
-    name: 'Puchar Jesieni',
-    type: 'Single Elimination',
-    date: '28–29 Paź 2026',
-    status: 'open',
-    statusLabel: 'Otwarte zapisy',
-    participants: 16,
-  },
-  {
-    name: 'Liga Zimowa — Runda 3',
-    type: 'Round Robin',
-    date: '15 Lis 2026',
-    status: 'open',
-    statusLabel: 'Otwarte zapisy',
-    participants: 9,
-  },
-];
-
-const tournaments = liveTournaments.length > 0 ? liveTournaments : fallbackTournaments;
+const tournaments = liveTournaments;
 const isLiveData = liveTournaments.length > 0;
 
 // ── Statyczne dane (fallback) ─────────────────────────────────────────────
@@ -272,34 +252,47 @@ const quickActions = [
           <a href={url('/tournaments')} class="tc-btn tc-btn-ghost tc-btn-sm">Wszystkie →</a>
         </div>
 
-        <div class="tournament-list">
-          {tournaments.map(t => (
-            <div class="tournament-item">
-              <div class="tournament-item__left">
-                <div class="tournament-item__name">{t.name}</div>
-                <div class="tournament-item__meta">
-                  <span class="tournament-item__type">{t.type}</span>
-                  <span class="tournament-item__sep">·</span>
-                  <span>{t.date}</span>
+        {isLiveData ? (
+          <>
+            <div class="tournament-list">
+              {tournaments.map(t => (
+                <div class="tournament-item">
+                  <div class="tournament-item__left">
+                    <div class="tournament-item__name">{t.name}</div>
+                    <div class="tournament-item__meta">
+                      <span class="tournament-item__type">{t.type}</span>
+                      <span class="tournament-item__sep">·</span>
+                      <span>{t.date}</span>
+                    </div>
+                  </div>
+                  <div class="tournament-item__right">
+                    <div class="tournament-item__participants">
+                      <span class="participants-bar__label">{t.participants} uczestników</span>
+                    </div>
+                    <span class={`tc-badge ${t.status === 'active' ? 'tc-badge-success' : t.status === 'scheduled' ? 'tc-badge-info' : 'tc-badge-success'}`}>
+                      {t.statusLabel}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div class="tournament-item__right">
-                <div class="tournament-item__participants">
-                  <span class="participants-bar__label">{t.participants} uczestników</span>
-                </div>
-                <span class={`tc-badge ${t.status === 'active' ? 'tc-badge-success' : t.status === 'scheduled' ? 'tc-badge-info' : 'tc-badge-success'}`}>
-                  {t.statusLabel}
-                </span>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        <div class="tc-card-footer">
-          <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
-            Zapisz się do turnieju
-          </a>
-        </div>
+            <div class="tc-card-footer">
+              <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
+                Zapisz się do turnieju
+              </a>
+            </div>
+          </>
+        ) : (
+          <div class="dash-empty-tournaments">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.25 9.71 2 12 2c2.291 0 4.545.25 6.75.721v1.515M18.75 4.236c.983.143 1.955.317 2.917.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5a9.023 9.023 0 01-2.48 5.228" />
+            </svg>
+            <p>Brak nadchodzących turniejów.</p>
+            <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
+              Przeglądaj turnieje →
+            </a>
+          </div>
+        )}
       </section>
 
     </div>
@@ -730,6 +723,16 @@ const quickActions = [
   .participants-bar__label {
     font-size: 0.72rem; color: var(--text-dim); font-weight: 500;
     white-space: nowrap;
+  }
+
+  /* ── Tournament empty state ──────────────────────────────────────────────── */
+  .dash-empty-tournaments {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 36px 24px;
+    color: var(--text-dim); text-align: center;
+  }
+  .dash-empty-tournaments p {
+    font-size: 0.875rem; color: var(--text-muted); margin: 0;
   }
 
   /* ── My stats ────────────────────────────────────────────────────────────── */
