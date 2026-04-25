@@ -28,6 +28,12 @@ const classicUrl = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes
   ? _djangoApiUrl.replace(/\/$/, '') + '/tournaments'
   : '/tournaments';
 
+// Link do wersji klasycznej Django — ta sama logika co w Topbar.astro
+const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
+const classicUrl = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
+  ? _djangoApiUrl.replace(/\/$/, '') + '/tournaments'
+  : '/tournaments';
+
 const navItems = [
   {
     href: url('/dashboard'),
