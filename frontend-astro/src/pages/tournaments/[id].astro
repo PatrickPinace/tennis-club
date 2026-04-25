@@ -1230,38 +1230,46 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     border: 1px solid var(--border-light);
     padding: 0;
   }
-  /* Nagłówek kolumny (skrót imienia) */
+  /* Nagłówek kolumny (skrót inicjałów) */
   .rr-matrix__col-head {
     position: sticky; top: 0;
     background: var(--surface-2);
-    padding: 6px 8px;
+    padding: 7px 6px;
     font-weight: 700; color: var(--text-muted);
     text-align: center; white-space: nowrap;
-    font-size: 0.72rem;
+    font-size: 0.70rem; letter-spacing: 0.02em;
     z-index: 2;
+    min-width: 48px;
   }
-  /* Nagłówek wiersza (pełne imię) */
+  /* Nagłówek wiersza (pełna nazwa, skrócona) */
   .rr-matrix__row-head {
     position: sticky; left: 0;
     background: var(--surface-2);
-    padding: 6px 10px 6px 8px;
+    padding: 0 12px 0 10px;
     font-weight: 600; color: var(--text);
     white-space: nowrap; text-align: left;
-    max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+    max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+    vertical-align: middle;
+    height: 44px;
     z-index: 1;
     border-right: 2px solid var(--border);
   }
   /* Przekątna */
   .rr-matrix__diag {
     background: var(--surface-3, #f0f0f0);
-    width: 44px; height: 44px;
+    width: 48px; height: 44px;
   }
   /* Komórka meczu */
   .rr-matrix__cell {
-    width: 60px; height: 44px;
+    width: 64px; height: 44px;
     text-align: center; vertical-align: middle;
     cursor: pointer; transition: background 0.1s;
     position: relative;
+  }
+  /* Flexbox na td: wyśrodkuj zawartość pionowo i poziomo */
+  .rr-matrix__cell > span {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; height: 100%;
   }
   .rr-matrix__cell:hover { filter: brightness(0.93); }
   .rr-matrix__cell--pending {
@@ -1281,11 +1289,11 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     color: var(--text-dim);
   }
   .rr-matrix__cell-score {
-    font-weight: 700; font-size: 0.72rem;
-    line-height: 1.2; display: block;
+    font-weight: 700; font-size: 0.75rem;
+    line-height: 1;
   }
   .rr-matrix__cell-status {
-    font-size: 0.62rem; color: inherit; opacity: 0.8;
+    font-size: 0.64rem; color: inherit; opacity: 0.75;
   }
   /* Highlight kliknięcia */
   .rr-matrix__cell--highlight {
@@ -2208,10 +2216,12 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       matchMap.set(key, m);
     }
 
-    // Skróć imię do inicjałów lub 3 liter
+    // Skróć imię do inicjałów, pomijając separator debla '/'.
+    // "Minor / Midura" → "MM", "Kowalski" → "KOW"
     function abbrev(name: string): string {
-      const parts = name.trim().split(/\s+/);
+      const parts = name.trim().split(/\s+/).filter(w => w && w !== '/');
       if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+      if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
       return name.slice(0, 3).toUpperCase();
     }
 
@@ -2549,17 +2559,14 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                 msgEl.className = 'org-form-msg org-form-msg--ok';
                 setTimeout(() => window.location.reload(), 600);
                 return;
+              } else if (ns === 'ACT') {
+                // SCH→ACT: formularz edycji wyników wymaga aktualnego `locked=false` z SSR
+                msgEl.textContent = 'Turniej rozpoczęty. Ładowanie…';
+                msgEl.className = 'org-form-msg org-form-msg--ok';
+                setTimeout(() => window.location.reload(), 600);
+                return;
               } else {
                 msgEl.textContent = `Status zmieniony na: ${STATUS_LABELS[ns] ?? ns}`;
-              }
-
-              // Pokaż sekcję finish i podepnij handlery jeśli przeszliśmy do ACT
-              if (ns === 'ACT') {
-                const fs = document.getElementById('org-finish-section');
-                if (fs) {
-                  fs.style.display = 'block';
-                  bindFinishHandlers(fs); // kluczowe: handlery podpinane dynamicznie, bez reloadu
-                }
               }
 
               msgEl.className = 'org-form-msg org-form-msg--ok';
@@ -2589,6 +2596,12 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     const closeRegBtn  = document.getElementById('org-close-reg-btn') as HTMLButtonElement | null;
     const closeRegMsg  = document.getElementById('org-close-reg-msg') as HTMLElement | null;
     if (!listEl) return;
+
+    // Backend pozwala dodawać uczestników tylko w DRF i REG (non-staff).
+    // Ukryj cały formularz add w pozostałych statusach.
+    const addRow = document.querySelector<HTMLElement>('.org-add-row');
+    const canAdd = tStatus === 'DRF' || tStatus === 'REG';
+    if (addRow && !canAdd) addRow.style.display = 'none';
 
     // Debel: przełącz widok
     const matchFormat = panel?.dataset.matchFormat ?? '';
@@ -2646,6 +2659,14 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       });
     }
 
+    // Inicjały z display_name — pomija '/' (separator deblowy).
+    function getInitials(name: string): string {
+      return name.split(' ').filter(w => w && w !== '/').slice(0, 2).map(w => w[0].toUpperCase()).join('');
+    }
+
+    // Backend pozwala usuwać uczestników w DRF, REG i SCH (blokuje w ACT/FIN/CNC).
+    const canRemove = tStatus === 'DRF' || tStatus === 'REG' || tStatus === 'SCH';
+
     function renderParticipants(list: typeof ssrParticipants) {
       const active = list.filter(p => p.status !== 'WDN');
       if (!active.length) {
@@ -2656,11 +2677,11 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       listEl.innerHTML = active.map(p => `
         <div class="org-participant-row" data-pid="${p.id}">
           <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
-            ${escHtml(p.display_name.split(' ').filter(Boolean).slice(0,2).map((w:string)=>w[0]).join(''))}
+            ${escHtml(getInitials(p.display_name))}
           </div>
           <span class="org-participant-name">${escHtml(p.display_name)}</span>
           ${p.seed_number ? `<span class="td-seed">#${p.seed_number}</span>` : ''}
-          <button class="org-participant-remove" data-pid="${p.id}" type="button" title="Wycofaj uczestnika">✕</button>
+          ${canRemove ? `<button class="org-participant-remove" data-pid="${p.id}" type="button" title="Wycofaj uczestnika">✕</button>` : ''}
         </div>`).join('');
 
       listEl.querySelectorAll<HTMLButtonElement>('.org-participant-remove').forEach(btn => {
@@ -2902,13 +2923,13 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       const row = document.createElement('div');
       row.className = 'org-participant-row';
       row.dataset.pid = String(d.id);
-      const initials = d.display_name.split(' ').filter(Boolean).slice(0,2).map((w:string)=>w[0]).join('');
       row.innerHTML = `
-        <div class="tc-avatar tc-avatar-sm" aria-hidden="true">${escHtml(initials)}</div>
+        <div class="tc-avatar tc-avatar-sm" aria-hidden="true">${escHtml(getInitials(d.display_name))}</div>
         <span class="org-participant-name">${escHtml(d.display_name)}</span>
-        <button class="org-participant-remove" data-pid="${d.id}" type="button" title="Wycofaj">✕</button>`;
+        ${canRemove ? `<button class="org-participant-remove" data-pid="${d.id}" type="button" title="Wycofaj">✕</button>` : ''}`;
       listEl.appendChild(row);
-      bindRemoveBtn(row.querySelector('.org-participant-remove')!, row);
+      const removeBtn = row.querySelector<HTMLButtonElement>('.org-participant-remove');
+      if (removeBtn) bindRemoveBtn(removeBtn, row);
     }
 
     // Przycisk "Zamknij zapisy i generuj mecze" z sekcji uczestników
