@@ -18,9 +18,10 @@ const [profileData, matchHistory] = await Promise.all([
 
 // ── Dane użytkownika ──────────────────────────────────────────────────────────
 
-const user = profileData?.user ?? null;
-const rSng = profileData?.ranking_sng ?? null;
-const rDbl = profileData?.ranking_dbl ?? null;
+const user    = profileData?.user ?? null;
+const rSng    = profileData?.ranking_sng ?? null;
+const rDbl    = profileData?.ranking_dbl ?? null;
+const tStats  = profileData?.tournament_stats ?? null;
 
 // Dane wyświetlane
 const displayName = user
@@ -257,6 +258,51 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
           </div>
         </section>
       )}
+
+      <!-- Statystyki turniejowe -->
+      <section>
+        <h3 class="section-title">Statystyki turniejowe</h3>
+
+        {tStats === null || tStats.tournaments_played === 0 ? (
+          <div class="no-data-box tc-card">
+            Brak udziału w turniejach — <a href={url('/tournaments')} class="no-data-link">sprawdź dostępne turnieje →</a>
+          </div>
+        ) : (
+          <>
+            <div class="stats-grid stats-grid--3">
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.tournaments_played}</div>
+                <div class="stat-tile__label">Turnieje (łącznie)</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.tournaments_finished}</div>
+                <div class="stat-tile__label">Ukończone</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.tournaments_active}</div>
+                <div class="stat-tile__label">Aktywne</div>
+              </div>
+            </div>
+            <div class="stats-grid stats-grid--3">
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.matches_played}</div>
+                <div class="stat-tile__label">Mecze turniejowe</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.matches_won}</div>
+                <div class="stat-tile__label">Wygrane mecze</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {tStats.win_rate !== null ? tStats.win_rate : '—'}
+                  {tStats.win_rate !== null && <span class="stat-tile__unit">%</span>}
+                </div>
+                <div class="stat-tile__label">Win rate (turnieje)</div>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
 
       <!-- Ostatnie mecze -->
       <section>
