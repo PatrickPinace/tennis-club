@@ -1592,21 +1592,27 @@ class TournamentParticipantView(APIView):
             if partner_user == target_user:
                 return Response({'detail': 'Kapitan i partner muszą być różnymi osobami.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Sprawdź duplikat (aktywny uczestnik tego samego usera)
-        if Participant.objects.filter(
-            tournament=tournament,
-            user=target_user,
-        ).exclude(status='WDN').exists():
+        # Sprawdź duplikat — czy user jest już aktywnym uczestnikiem turnieju
+        # jako kapitan (Participant.user) LUB jako partner (TeamMember.user).
+        def _is_active_member(user):
+            """Zwraca True jeśli user jest aktywnym kapitanem LUB partnerem w turnieju."""
+            as_captain = Participant.objects.filter(
+                tournament=tournament, user=user,
+            ).exclude(status='WDN').exists()
+            if as_captain:
+                return True
+            as_partner = TeamMember.objects.filter(
+                participant__tournament=tournament, user=user,
+            ).exclude(participant__status='WDN').exists()
+            return as_partner
+
+        if _is_active_member(target_user):
             return Response(
                 {'detail': f'Użytkownik „{target_user.get_full_name() or target_user.username}" jest już uczestnikiem turnieju.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
-        # Sprawdź duplikat partnera
-        if partner_user and Participant.objects.filter(
-            tournament=tournament,
-            user=partner_user,
-        ).exclude(status='WDN').exists():
+        if partner_user and _is_active_member(partner_user):
             return Response(
                 {'detail': f'Partner „{partner_user.get_full_name() or partner_user.username}" jest już uczestnikiem turnieju.'},
                 status=status.HTTP_409_CONFLICT,
