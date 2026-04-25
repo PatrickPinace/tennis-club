@@ -247,7 +247,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                             )}
                           </div>
                         </td>
-                        <td class="col-num td-pts">{row.points.toFixed(1)}</td>
+                        <td class="col-num td-pts">{Number(row.points).toFixed(1)}</td>
                         <td class="col-num col-muted">{row.matches_played}</td>
                         <td class="col-num" style="color:var(--primary);">{row.wins}</td>
                         <td class="col-num" style="color:var(--danger);">{row.losses}</td>

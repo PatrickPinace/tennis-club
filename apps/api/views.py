@@ -1356,6 +1356,13 @@ class TournamentStatusView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        # FIN jest zarezerwowane dla /finish/ — ten endpoint nie obsługuje finalizacji
+        if new_status == 'FIN':
+            return Response(
+                {'detail': 'Użyj akcji zakończenia turnieju — endpoint /finish/ obsługuje walidację i rebuild rankingów.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         # Weryfikacja przejścia (is_staff może wszystko)
         if not request.user.is_staff:
             allowed = self.ALLOWED_TRANSITIONS.get(tournament.status, [])
@@ -1380,8 +1387,10 @@ class TournamentStatusView(APIView):
                 )
 
         # REG → SCH: wymaga ≥2 uczestników, auto-generuje mecze RR
+        # Cały blok owinięty w atomic() — albo mecze + status, albo nic.
         if new_status == 'SCH' and tournament.status == 'REG':
             from apps.tournaments.models import Participant as _Participant
+            from django.db import transaction as db_transaction
             participants_qs = _Participant.objects.filter(
                 tournament=tournament,
                 status__in=['REG', 'ACT'],
@@ -1392,19 +1401,32 @@ class TournamentStatusView(APIView):
                     {'detail': f'Za mało uczestników ({participant_count}). Wymagane co najmniej 2, aby zamknąć zapisy i wygenerować mecze.'},
                     status=status.HTTP_409_CONFLICT,
                 )
+            try:
+                with db_transaction.atomic():
+                    if tournament.tournament_type == 'RND':
+                        from apps.tournaments.views import generate_round_robin_matches_initial
+                        match_count, gen_message = generate_round_robin_matches_initial(tournament, participants_qs)
+                    else:
+                        match_count, gen_message = 0, 'Generowanie meczów pominięte (nie Round Robin).'
+                    tournament.status = new_status
+                    tournament.save(update_fields=['status'])
+            except Exception as exc:
+                logger.error('[status] Błąd REG→SCH dla turnieju id=%d: %s', tournament.pk, exc)
+                return Response(
+                    {'detail': f'Błąd generowania meczów: {exc}. Status nie został zmieniony.'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            logger.info('[status] Wygenerowano %d meczów RR, status→SCH dla turnieju id=%d.', match_count, tournament.pk)
+
+            response_data = {
+                'id': tournament.pk,
+                'status': tournament.status,
+                'status_display': tournament.get_status_display(),
+            }
             if tournament.tournament_type == 'RND':
-                from apps.tournaments.views import generate_round_robin_matches_initial
-                try:
-                    match_count, gen_message = generate_round_robin_matches_initial(tournament, participants_qs)
-                except Exception as exc:
-                    logger.error('[status] Błąd generowania meczów RR dla turnieju id=%d: %s', tournament.pk, exc)
-                    return Response(
-                        {'detail': f'Błąd generowania meczów: {exc}. Status nie został zmieniony.'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-                logger.info('[status] Wygenerowano %d meczów RR dla turnieju id=%d.', match_count, tournament.pk)
-            else:
-                match_count, gen_message = 0, 'Generowanie meczów pominięte (nie Round Robin).'
+                response_data['matches_generated'] = match_count
+                response_data['message'] = gen_message
+            return Response(response_data, status=status.HTTP_200_OK)
 
         # SCH → REG: usuń wszystkie mecze i ich historię wyników
         if new_status == 'REG' and tournament.status == 'SCH':

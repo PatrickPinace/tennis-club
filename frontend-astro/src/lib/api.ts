@@ -178,7 +178,7 @@ export interface TournamentMatch {
 export interface RRStandingRow {
   participant_id: number;
   display_name: string;
-  points: number;
+  points: number | string;  // DRF DecimalField zwraca string "2.50"
   matches_played: number;
   wins: number;
   losses: number;
