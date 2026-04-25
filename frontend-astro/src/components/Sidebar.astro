@@ -115,20 +115,23 @@ function isActive(item: { match: string[] }): boolean {
       </a>
     ))}
 
-    <!-- Separator + admin section -->
-    <div class="sidebar-nav__sep" aria-hidden="true"></div>
-
-    {adminItems.map(item => (
-      <a
-        href={item.href}
-        class={`sidebar-nav__link${isActive(item) ? ' sidebar-nav__link--active' : ''}`}
-      >
-        <span class="sidebar-nav__icon" aria-hidden="true">
-          <svg viewBox="0 0 20 20" fill="currentColor" set:html={item.icon} />
-        </span>
-        <span class="sidebar-nav__label">{item.label}</span>
-      </a>
-    ))}
+    <!-- Separator + admin section — widoczne tylko dla is_staff -->
+    {currentUser?.is_staff && (
+      <>
+        <div class="sidebar-nav__sep" aria-hidden="true"></div>
+        {adminItems.map(item => (
+          <a
+            href={item.href}
+            class={`sidebar-nav__link${isActive(item) ? ' sidebar-nav__link--active' : ''}`}
+          >
+            <span class="sidebar-nav__icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" fill="currentColor" set:html={item.icon} />
+            </span>
+            <span class="sidebar-nav__label">{item.label}</span>
+          </a>
+        ))}
+      </>
+    )}
 
     <!-- Link do wersji klasycznej Django — analogicznie jak "Nowa wersja (beta)" w Django sidebar -->
     <div class="sidebar-nav__sep" aria-hidden="true"></div>
