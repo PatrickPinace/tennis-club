@@ -2,11 +2,25 @@
 // Sidebar.astro — przepisany wg projektu grafika
 // Zawsze ciemny sidebar niezależnie od motywu strony
 import { url } from '@/lib/url';
+import type { CurrentUser } from '@/lib/api';
 
 interface Props {
   currentPath?: string;
+  currentUser?: CurrentUser | null;
 }
-const { currentPath = '/' } = Astro.props;
+const { currentPath = '/', currentUser = null } = Astro.props;
+
+// Dane do footera — inicjały, display name, rola
+const displayName = currentUser
+  ? ([currentUser.first_name, currentUser.last_name].filter(Boolean).join(' ') || currentUser.username)
+  : 'Użytkownik';
+const initials = displayName
+  .split(' ')
+  .filter(Boolean)
+  .slice(0, 2)
+  .map((w: string) => w[0].toUpperCase())
+  .join('') || 'U';
+const roleLabel = currentUser?.is_staff ? 'Administrator' : (currentUser ? 'Członek' : '—');
 
 // Link do wersji klasycznej Django — ta sama logika co w Topbar.astro
 const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
@@ -128,12 +142,12 @@ function isActive(item: { match: string[] }): boolean {
     </a>
   </nav>
 
-  <!-- User footer — Marcin Kowalski, Członek VIP -->
+  <!-- User footer — live dane z getCurrentUser() -->
   <div class="sidebar-user">
-    <div class="sidebar-user__avatar" aria-hidden="true">MK</div>
+    <div class="sidebar-user__avatar" aria-hidden="true">{initials}</div>
     <div class="sidebar-user__info">
-      <div class="sidebar-user__name">Marcin Kowalski</div>
-      <div class="sidebar-user__role">Członek VIP</div>
+      <div class="sidebar-user__name">{displayName}</div>
+      <div class="sidebar-user__role">{roleLabel}</div>
     </div>
     <button class="sidebar-user__settings" title="Ustawienia" aria-label="Ustawienia konta">
       <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

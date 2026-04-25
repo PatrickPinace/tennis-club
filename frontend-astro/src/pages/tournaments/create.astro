@@ -15,7 +15,7 @@ if (!currentUser) {
 }
 ---
 
-<AppLayout title="Nowy turniej" showSearch={false} showCta={false}>
+<AppLayout title="Nowy turniej" showSearch={false} showCta={false} currentUser={currentUser}>
   <nav class="tc-breadcrumb" aria-label="Nawigacja">
     <a href={url('/tournaments/manage')}>← Moje turnieje</a>
   </nav>

@@ -108,6 +108,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   title="Profil"
   greeting={user ? `Twój profil` : 'Profil'}
   showCta={false}
+  currentUser={user}
 >
   <PageHeader
     title={displayName}

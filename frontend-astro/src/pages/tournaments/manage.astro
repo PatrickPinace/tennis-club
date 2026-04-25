@@ -42,7 +42,7 @@ function fmtDate(iso: string | null): string {
 }
 ---
 
-<AppLayout title="Moje turnieje">
+<AppLayout title="Moje turnieje" currentUser={currentUser}>
   <PageHeader title="Moje turnieje" subtitle={`Zarządzaj turniejami, które stworzyłeś — ${myTournaments.length} łącznie`} />
 
   <div class="manage-wrap">

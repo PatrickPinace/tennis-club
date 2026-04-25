@@ -40,7 +40,7 @@ function fmtTime(iso: string): string {
 const unreadCount = notifications.filter(n => !n.is_read).length;
 ---
 
-<AppLayout title="Powiadomienia">
+<AppLayout title="Powiadomienia" currentUser={currentUser}>
   <PageHeader
     title="Powiadomienia"
     subtitle={unreadCount > 0
