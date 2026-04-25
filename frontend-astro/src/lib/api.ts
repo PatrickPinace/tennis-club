@@ -121,11 +121,21 @@ export interface UserProfileData {
   member_since: string | null; // ISO date (start_date lub date_joined)
 }
 
+export interface TournamentStats {
+  tournaments_played: number;
+  tournaments_finished: number;
+  tournaments_active: number;
+  matches_played: number;
+  matches_won: number;
+  win_rate: number | null;
+}
+
 export interface UserProfileResponse {
   authenticated: boolean;
   user: UserProfileData;
   ranking_sng: RankingData | null;
   ranking_dbl: RankingData | null;
+  tournament_stats: TournamentStats | null;
 }
 
 export interface LastMatchData {

@@ -210,6 +210,37 @@ def api_user_profile(request):
     except Exception:
         ranking_dbl = None
 
+    # ── Statystyki turniejowe ─────────────────────────────────────────────────
+    try:
+        from apps.tournaments.models import Participant, TournamentsMatch
+        from django.db.models import Q
+
+        participations = Participant.objects.filter(user=user).select_related('tournament')
+        participant_ids = list(participations.values_list('id', flat=True))
+
+        tournaments_all      = {p.tournament_id for p in participations}
+        tournaments_finished = {p.tournament_id for p in participations if p.tournament.status == 'FIN'}
+        tournaments_active   = {p.tournament_id for p in participations if p.tournament.status == 'ACT'}
+
+        t_matches = TournamentsMatch.objects.filter(
+            Q(participant1_id__in=participant_ids) | Q(participant2_id__in=participant_ids),
+            status__in=['CMP', 'WDR'],
+        )
+        t_matches_played = t_matches.count()
+        t_matches_won    = t_matches.filter(winner_id__in=participant_ids).count()
+        t_win_rate       = round(t_matches_won / t_matches_played * 100) if t_matches_played else None
+
+        tournament_stats = {
+            'tournaments_played':   len(tournaments_all),
+            'tournaments_finished': len(tournaments_finished),
+            'tournaments_active':   len(tournaments_active),
+            'matches_played':       t_matches_played,
+            'matches_won':          t_matches_won,
+            'win_rate':             t_win_rate,
+        }
+    except Exception:
+        tournament_stats = None
+
     return Response({
         'authenticated': True,
         'user': {
@@ -226,6 +257,7 @@ def api_user_profile(request):
         },
         'ranking_sng': ranking_sng,
         'ranking_dbl': ranking_dbl,
+        'tournament_stats': tournament_stats,
     })
 
 

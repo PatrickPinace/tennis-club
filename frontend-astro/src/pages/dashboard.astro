@@ -9,9 +9,12 @@ import {
   getDashboardTournaments,
   getUnreadCount,
   getCurrentUser,
+  getMatchHistory,
+  getUserProfile,
   TOURNAMENT_STATUS_LABEL,
   TOURNAMENT_TYPE_LABEL,
   type TournamentListEntry,
+  type MatchHistoryEntry,
 } from '../lib/api';
 import { url } from '@/lib/url';
 
@@ -19,10 +22,14 @@ import { url } from '@/lib/url';
 
 // Bieżący użytkownik — SSR z cookie sesji
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
-const currentUser = await getCurrentUser(sessionCookie);
+const [currentUser, apiTournaments, matchHistoryRaw, profileData] = await Promise.all([
+  getCurrentUser(sessionCookie),
+  getDashboardTournaments(5),
+  getMatchHistory(sessionCookie),
+  getUserProfile(sessionCookie),
+]);
 
-// Turnieje: publiczne GET /api/tournaments/ — nie wymaga auth
-const apiTournaments = await getDashboardTournaments(5);
+const tStats = profileData?.tournament_stats ?? null;
 
 /// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
 // Liczba powiadomień ładowana jest client-side przez JS (patrz <script> na końcu)
@@ -112,19 +119,57 @@ const stats = [
   },
 ];
 
-// TODO: recentActivity — podłączyć do /api/matches/history/ i /api/reservations/
-// Na razie pusta tablica; sekcja "Ostatnia aktywność" jest ukryta gdy brak danych
-const recentActivity: { type: string; title: string; desc: string; time: string; result: string }[] = [];
+// ── Ostatnia aktywność — z historii meczów (ostatnie 3) ──────────────────────
 
-// TODO: myStats — podłączyć do /api/dashboard/summary/ (client-side JS poniżej)
-// Wartości inicjalne '—' zastępowane przez JS po załadowaniu
-const myStats = {
-  matches: null as number | null,
-  wins: null as number | null,
-  winRate: null as number | null,
-  sets: null as number | null,
-  setsWon: null as number | null,
-};
+function activityDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+    if (diffDays === 0) return 'dzisiaj';
+    if (diffDays === 1) return 'wczoraj';
+    if (diffDays < 7)  return `${diffDays} dni temu`;
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  } catch { return iso; }
+}
+
+function matchScore(m: MatchHistoryEntry): string {
+  const parts: string[] = [];
+  if (m.p1_set1 !== null && m.p2_set1 !== null) parts.push(`${m.p1_set1}:${m.p2_set1}`);
+  if (m.p1_set2 !== null && m.p2_set2 !== null) parts.push(`${m.p1_set2}:${m.p2_set2}`);
+  if (m.p1_set3 !== null && m.p2_set3 !== null) parts.push(`${m.p1_set3}:${m.p2_set3}`);
+  return parts.join(', ') || '—';
+}
+
+function matchOpponent(m: MatchHistoryEntry): string {
+  const isP1Side =
+    (m.user === 'user-win'  && m.win === 'p1') ||
+    (m.user === 'user-loss' && m.win === 'p2');
+  const opp = isP1Side ? m.p2 : m.p1;
+  if (!opp) return 'Nieznany';
+  return [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
+}
+
+const recentActivity = matchHistoryRaw.slice(0, 3).map(m => {
+  const isWin  = m.user === 'user-win';
+  const isDraw = m.user === 'user-draw';
+  const result = isWin ? 'win' : isDraw ? 'neutral' : 'loss';
+  const label  = isWin ? 'Wygrana' : isDraw ? 'Remis' : 'Porażka';
+  const fmt    = m.match_double ? 'Debel' : 'Singiel';
+  return {
+    type:   'match',
+    title:  `${label} vs ${matchOpponent(m)}`,
+    desc:   `${fmt} · ${matchScore(m)}`,
+    time:   activityDate(m.match_date),
+    result,
+  };
+});
+
+// ── Moje mecze — statystyki z historii meczów (spójne z "Ostatnią aktywnością") ─
+const matchesPlayed = matchHistoryRaw.length;
+const matchesWon    = matchHistoryRaw.filter(m => m.user === 'user-win').length;
+const matchesLost   = matchHistoryRaw.filter(m => m.user === 'user-loss').length;
+const winRate       = matchesPlayed > 0 ? Math.round(matchesWon / matchesPlayed * 100) : 0;
 
 const quickActions = [
   { label: 'Nowa Rezerwacja', href: url('/courts/reservations'), icon: 'calendar', primary: true },
@@ -264,20 +309,20 @@ const quickActions = [
       <!-- Moje statystyki -->
       <section class="tc-card" aria-labelledby="my-stats-heading">
         <div class="tc-card-header">
-          <h2 class="tc-card-title" id="my-stats-heading">Moje Statystyki</h2>
+          <h2 class="tc-card-title" id="my-stats-heading">Moje Mecze</h2>
         </div>
         <div class="tc-card-body">
           <div class="my-stats-grid" id="my-stats-grid">
             <div class="my-stat">
-              <div class="my-stat__value" id="stat-matches">{myStats.matches ?? '—'}</div>
+              <div class="my-stat__value" id="stat-matches">{matchesPlayed}</div>
               <div class="my-stat__label">Mecze</div>
             </div>
             <div class="my-stat">
-              <div class="my-stat__value" id="stat-wins">{myStats.wins ?? '—'}</div>
+              <div class="my-stat__value" id="stat-wins">{matchesWon}</div>
               <div class="my-stat__label">Wygrane</div>
             </div>
             <div class="my-stat">
-              <div class="my-stat__value my-stat__value--highlight" id="stat-winrate">{myStats.winRate !== null ? `${myStats.winRate}%` : '—'}</div>
+              <div class="my-stat__value my-stat__value--highlight" id="stat-winrate">{matchesPlayed > 0 ? `${winRate}%` : '—'}</div>
               <div class="my-stat__label">Win Rate</div>
             </div>
           </div>
@@ -312,11 +357,51 @@ const quickActions = [
           <div class="my-stats-sub">
             <span class="my-stats-sub__item" id="stat-sets-label">
               <span class="my-stats-sub__dot" style="background:#22c55e"></span>
-              Sety wygrane: {myStats.setsWon !== null ? `${myStats.setsWon}/${myStats.sets}` : '—'}
+              {matchesPlayed > 0
+                ? `Wygrane: ${matchesWon} / Przegrane: ${matchesLost}`
+                : 'Brak rozegranych meczów'}
             </span>
           </div>
         </div>
       </section>
+
+      <!-- Turnieje — teaser -->
+      {tStats !== null && (
+        <section class="tc-card" aria-labelledby="tourn-teaser-heading">
+          <div class="tc-card-header">
+            <h2 class="tc-card-title" id="tourn-teaser-heading">Turnieje</h2>
+          </div>
+          <div class="tc-card-body">
+            <div class="my-stats-grid">
+              <div class="my-stat">
+                <div class="my-stat__value">{tStats.tournaments_played}</div>
+                <div class="my-stat__label">Łącznie</div>
+              </div>
+              <div class="my-stat">
+                <div class="my-stat__value">{tStats.tournaments_active}</div>
+                <div class="my-stat__label">Aktywne</div>
+              </div>
+              <div class="my-stat">
+                <div class="my-stat__value my-stat__value--highlight">
+                  {tStats.win_rate !== null ? `${tStats.win_rate}%` : '—'}
+                </div>
+                <div class="my-stat__label">Win rate</div>
+              </div>
+            </div>
+            <div class="my-stats-sub" style="margin-top:4px;">
+              <span class="my-stats-sub__item">
+                <span class="my-stats-sub__dot" style="background:#22c55e"></span>
+                Mecze: {tStats.matches_won} wygranych / {tStats.matches_played} rozegranych
+              </span>
+            </div>
+          </div>
+          <div class="tc-card-footer">
+            <a href={url('/profile')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+              Pełne statystyki w profilu →
+            </a>
+          </div>
+        </section>
+      )}
 
       <!-- Ostatnia aktywność -->
       <section class="tc-card" aria-labelledby="activity-heading">
@@ -451,9 +536,11 @@ const quickActions = [
         const rk = d.ranking;
         setCard('ranking',
           `${rk.position}. miejsce`,
-          `${rk.points !== null ? rk.points + ' pkt' : ''} · Win rate: ${rk.win_rate ?? '?'}%`
+          `${rk.points !== null ? Math.round(rk.points) + ' pkt' : ''} · Win rate: ${rk.win_rate ?? '?'}%`
         );
       }
+
+      // Moje Mecze — renderowane SSR z matchHistoryRaw, nie nadpisujemy client-side
 
       // ── Turnieje (jeśli nie mamy z build-time) ───────────────────
       if (d.upcoming_tournaments_count !== null) {
