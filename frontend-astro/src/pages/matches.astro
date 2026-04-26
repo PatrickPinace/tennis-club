@@ -17,7 +17,7 @@ let isLive = false;
 
 try {
   const data = await getMatchHistory(sessionCookie);
-  if (data && data.length > 0) {
+  if (data !== null && data !== undefined) {
     rawMatches = data;
     isLive = true;
   }

@@ -12,6 +12,7 @@ from rest_framework import status
 import logging
 
 from apps.users.models import Profile
+from apps.users.forms import UserRegisterForm
 from .authentication import CsrfExemptSessionAuthentication
 
 logger = logging.getLogger(__name__)
@@ -259,6 +260,73 @@ def api_user_profile(request):
         'ranking_dbl': ranking_dbl,
         'tournament_stats': tournament_stats,
     })
+
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def api_register(request):
+    """
+    Registration endpoint for Astro frontend.
+    POST /api/auth/register/
+    Body: { "login", "first_name", "last_name", "email", "password_1", "password_2", "data_processing_consent" }
+    Returns: { "success": true, "user": {...} }  on success
+             { "success": false, "errors": { field: [msg, ...] } }  on validation failure
+    Sets sessionid cookie (auto-login after registration).
+    """
+    # Przekaż dane z JSON do formularza Django (QueryDict-like via dict)
+    data = request.data
+    form_data = {
+        'login': data.get('login', ''),
+        'first_name': data.get('first_name', ''),
+        'last_name': data.get('last_name', ''),
+        'email': data.get('email', ''),
+        'password_1': data.get('password_1', ''),
+        'password_2': data.get('password_2', ''),
+        'data_processing_consent': data.get('data_processing_consent', False),
+    }
+
+    form = UserRegisterForm(form_data)
+
+    if not form.is_valid():
+        # Zwróć błędy per-field w formacie { field: ["komunikat", ...] }
+        errors = {field: list(errs) for field, errs in form.errors.items()}
+        return Response({
+            'success': False,
+            'errors': errors,
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    cleaned = form.cleaned_data
+    try:
+        user = User.objects.create_user(
+            username=cleaned['login'],
+            password=cleaned['password_1'],
+            first_name=cleaned['first_name'],
+            last_name=cleaned['last_name'],
+            email=cleaned['email'],
+        )
+    except Exception as e:
+        logger.error(f"api_register: create_user failed: {e}")
+        return Response({
+            'success': False,
+            'errors': {'__all__': ['Błąd podczas tworzenia konta. Spróbuj ponownie.']},
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # Auto-login — tworzy sesję (sessionid cookie)
+    login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    logger.info(f"api_register: user {user.username} registered and logged in")
+
+    return Response({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'is_staff': user.is_staff,
+        }
+    }, status=status.HTTP_201_CREATED)
 
 
 @api_view(['GET'])

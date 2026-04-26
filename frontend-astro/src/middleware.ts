@@ -27,6 +27,7 @@ const PRIVATE_PATHS = [
 // Trasy, które zalogowany user powinien opuścić (redirect na dashboard)
 const AUTH_ONLY_PATHS = [
   '/login',
+  '/register',
 ];
 
 function hasSession(request: Request): boolean {

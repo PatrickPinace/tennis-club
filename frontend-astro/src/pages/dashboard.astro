@@ -32,7 +32,7 @@ const [currentUser, apiTournaments, matchHistoryRaw, profileData] = await Promis
 const tStats = profileData?.tournament_stats ?? null;
 
 /// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
-// Liczba powiadomień ładowana jest client-side przez JS (patrz <script> na końcu)
+// Liczba powiadomień ładowana jest client-side przez JS (patrz script na końcu)
 // Gdy backend niedostępny lub niezalogowany — graceful degradation (brak odznaki)
 const unreadCount = null; // null = nie renderuj odznaki SSR
 
@@ -431,7 +431,7 @@ const quickActions = [
                 </a>
               </li>
               <li>
-                <a href="/users/edit/profile/" class="activity-empty-state__link">
+                <a href={url('/profile')} class="activity-empty-state__link">
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
                   Uzupełnij swój profil
                 </a>
