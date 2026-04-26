@@ -449,11 +449,11 @@ class DashboardSummaryView(APIView):
 
 class RoundRobinMatchScoreView(APIView):
     """
-    Zapis wyniku meczu Round Robin przez organizatora.
+    Zapis wyniku meczu przez organizatora.
     PATCH /api/tournaments/{pk}/matches/{match_pk}/score/
 
+    Obsługuje turnieje: RND (Round Robin) oraz SGL (Single Elimination).
     Uprawnienia: zalogowany + (created_by lub is_staff).
-    Tylko turnieje RND. Nie działa na meczach CMP/WDR/CNC.
 
     Body (JSON):
       set1_p1, set1_p2  — wyniki 1. seta (wymagane, chyba że walkover=true)
@@ -462,19 +462,27 @@ class RoundRobinMatchScoreView(APIView):
       scheduled_time    — ISO 8601 datetime lub null (opcjonalne)
       walkover          — true → ustaw WDR, wymaga winner_participant_id
       winner_participant_id — id uczestnika (wymagane gdy walkover=true)
+      cancel            — true → ustaw CNC, wyczyść wyniki
 
     Odpowiedź 200:
       { "match_id", "status", "winner_id", "winner_name", "score" }
 
-    Logika wyznaczania zwycięzcy identyczna jak TournamentsMatchForm.clean():
+    Logika wyznaczania zwycięzcy:
       - liczy wygrane sety per uczestnik
       - jeśli jeden z nich ≥ sets_to_win → winner + status CMP
       - jeśli są wyniki ale brak zwycięzcy → status INP
       - zapisuje MatchScoreHistory
 
-    Re-edycja: mecze CMP i WDR mogą być edytowane (cofnięcie wyniku / korekta).
+    SGL: po CMP lub WDR wywołuje advance_winner_in_bracket().
+    Re-edycja: mecze CMP i WDR mogą być edytowane (cofnięcie / korekta).
     """
     permission_classes = [IsAuthenticated]
+
+    # Typy turniejów obsługiwane przez ten endpoint
+    SUPPORTED_TYPES = (
+        Tournament.TournamentType.ROUND_ROBIN,
+        Tournament.TournamentType.SINGLE_ELIMINATION,
+    )
 
     def patch(self, request, pk, match_pk):
         from apps.tournaments.models import (
@@ -483,13 +491,15 @@ class RoundRobinMatchScoreView(APIView):
 
         # ── Pobierz turniej i mecz ────────────────────────────────────────────
         try:
-            tournament = Tournament.objects.select_related('round_robin_config').get(pk=pk)
+            tournament = Tournament.objects.select_related(
+                'round_robin_config', 'elimination_config'
+            ).get(pk=pk)
         except Tournament.DoesNotExist:
             return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if tournament.tournament_type != Tournament.TournamentType.ROUND_ROBIN:
+        if tournament.tournament_type not in self.SUPPORTED_TYPES:
             return Response(
-                {'detail': 'Endpoint obsługuje tylko turnieje Round Robin (RND).'},
+                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND) i Single Elimination (SGL).'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -633,6 +643,11 @@ class RoundRobinMatchScoreView(APIView):
                 set2_p1_score=None, set2_p2_score=None,
                 set3_p1_score=None, set3_p2_score=None,
             )
+
+            # SGL: awansuj zwycięzcę do następnej rundy
+            if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_winner_in_bracket
+                advance_winner_in_bracket(match, tournament)
 
             return Response({
                 'match_id': match.pk,
@@ -805,6 +820,14 @@ class RoundRobinMatchScoreView(APIView):
             set3_p2_score=match.set3_p2_score,
         )
 
+        # SGL: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
+        if (
+            tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION
+            and match.status == TournamentsMatch.Status.COMPLETED.value
+        ):
+            from apps.tournaments.bracket import advance_winner_in_bracket
+            advance_winner_in_bracket(match, tournament)
+
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
         for i in range(1, 4):
@@ -906,6 +929,56 @@ class RoundRobinStandingsView(APIView):
 
         serializer = RoundRobinStandingSerializer(result, many=True)
         return Response(serializer.data)
+
+
+class TournamentBracketView(APIView):
+    """
+    Struktura drabinki dla turnieju Single Elimination.
+    GET /api/tournaments/{pk}/bracket/
+
+    Auth: IsAuthenticatedOrReadOnly (publiczny odczyt, spójny z pozostałymi detail endpoints).
+    Tylko turnieje SGL — dla innych zwraca 404.
+
+    Zwraca listę rund w kolejności od R1 do finału:
+    [
+      {
+        "round": 1,
+        "round_label": "Runda 1" | "Ćwierćfinał" | "Półfinał" | "Finał",
+        "matches": [
+          {
+            "id": int,
+            "match_index": int,
+            "status": "WAI" | "SCH" | "INP" | "CMP" | "WDR" | "CNC",
+            "status_display": str,
+            "is_bye": bool,
+            "is_third_place": bool,
+            "participant1": {"id", "display_name", "seed_number", "user_id"} | null,
+            "participant2": {"id", "display_name", "seed_number", "user_id"} | null,
+            "winner_id": int | null,
+            "score": "6:4 7:5" | null,
+            "scheduled_time": ISO str | null
+          }, ...
+        ]
+      }, ...
+    ]
+    """
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, pk):
+        try:
+            tournament = Tournament.objects.get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.SINGLE_ELIMINATION:
+            return Response(
+                {'detail': 'Endpoint /bracket/ obsługuje tylko turnieje Single Elimination (SGL).'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        from apps.tournaments.bracket import build_bracket_data
+        bracket = build_bracket_data(tournament)
+        return Response(bracket, status=status.HTTP_200_OK)
 
 
 class RoundRobinConfigUpdateView(APIView):
@@ -1386,7 +1459,7 @@ class TournamentStatusView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-        # REG → SCH: wymaga ≥2 uczestników, auto-generuje mecze RR
+        # REG → SCH: wymaga ≥2 uczestników, auto-generuje mecze (RND lub SGL)
         # Cały blok owinięty w atomic() — albo mecze + status, albo nic.
         if new_status == 'SCH' and tournament.status == 'REG':
             from apps.tournaments.models import Participant as _Participant
@@ -1406,8 +1479,16 @@ class TournamentStatusView(APIView):
                     if tournament.tournament_type == 'RND':
                         from apps.tournaments.views import generate_round_robin_matches_initial
                         match_count, gen_message = generate_round_robin_matches_initial(tournament, participants_qs)
+                    elif tournament.tournament_type == 'SGL':
+                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.models import EliminationConfig
+                        config, _ = EliminationConfig.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
+                        )
+                        match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
                     else:
-                        match_count, gen_message = 0, 'Generowanie meczów pominięte (nie Round Robin).'
+                        match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
                     tournament.status = new_status
                     tournament.save(update_fields=['status'])
             except Exception as exc:
@@ -1416,16 +1497,15 @@ class TournamentStatusView(APIView):
                     {'detail': f'Błąd generowania meczów: {exc}. Status nie został zmieniony.'},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
-            logger.info('[status] Wygenerowano %d meczów RR, status→SCH dla turnieju id=%d.', match_count, tournament.pk)
+            logger.info('[status] Wygenerowano %d meczów (%s), status→SCH dla turnieju id=%d.', match_count, tournament.tournament_type, tournament.pk)
 
             response_data = {
                 'id': tournament.pk,
                 'status': tournament.status,
                 'status_display': tournament.get_status_display(),
+                'matches_generated': match_count,
+                'message': gen_message,
             }
-            if tournament.tournament_type == 'RND':
-                response_data['matches_generated'] = match_count
-                response_data['message'] = gen_message
             return Response(response_data, status=status.HTTP_200_OK)
 
         # SCH → REG: usuń wszystkie mecze i ich historię wyników
