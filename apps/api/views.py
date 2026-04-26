@@ -981,6 +981,59 @@ class TournamentBracketView(APIView):
         return Response(bracket, status=status.HTTP_200_OK)
 
 
+class EliminationConfigUpdateView(APIView):
+    """
+    Tworzenie/edycja konfiguracji Single Elimination przez organizatora.
+    POST/PATCH /api/tournaments/{pk}/config/sgl/
+
+    Pola: initial_seeding (RANDOM|SEEDING), third_place_match (bool).
+    Tworzy EliminationConfig jeśli nie istnieje.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        return self._upsert(request, pk)
+
+    def patch(self, request, pk):
+        return self._upsert(request, pk)
+
+    def _upsert(self, request, pk):
+        try:
+            tournament = Tournament.objects.get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.SINGLE_ELIMINATION:
+            return Response(
+                {'detail': 'Endpoint /config/sgl/ obsługuje tylko turnieje SGL.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (request.user.is_staff or tournament.created_by == request.user):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from apps.tournaments.models import EliminationConfig
+        config, _ = EliminationConfig.objects.get_or_create(
+            tournament=tournament,
+            defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
+        )
+
+        data = request.data
+        if 'initial_seeding' in data:
+            seeding = data['initial_seeding']
+            if seeding not in ('RANDOM', 'SEEDING'):
+                return Response({'detail': 'initial_seeding musi być RANDOM lub SEEDING.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.initial_seeding = seeding
+        if 'third_place_match' in data:
+            config.third_place_match = bool(data['third_place_match'])
+
+        config.save()
+        return Response({
+            'initial_seeding': config.initial_seeding,
+            'third_place_match': config.third_place_match,
+        }, status=status.HTTP_200_OK)
+
+
 class RoundRobinConfigUpdateView(APIView):
     """
     Edycja konfiguracji Round Robin przez organizatora.

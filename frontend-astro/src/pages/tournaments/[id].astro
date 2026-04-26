@@ -67,6 +67,7 @@ function groupByRound(matches: TournamentMatch[]): Map<number, TournamentMatch[]
 }
 
 const isRoundRobin = tournament?.tournament_type === 'RND';
+const isSingleElimination = tournament?.tournament_type === 'SGL';
 const matchesByRound = tournament && isRoundRobin ? groupByRound(tournament.matches) : new Map();
 const rounds = Array.from(matchesByRound.keys()).sort((a, b) => a - b);
 
@@ -128,7 +129,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       <PageHeader
         eyebrow="Rozgrywki"
         title={tournament.name}
-        subtitle={tournament.description || `${FORMAT_LABEL[tournament.match_format] ?? tournament.match_format} · Liga (każdy z każdym)`}
+        subtitle={tournament.description || `${FORMAT_LABEL[tournament.match_format] ?? tournament.match_format} · ${isRoundRobin ? 'Liga (każdy z każdym)' : isSingleElimination ? 'Eliminacja pojedyncza' : tournament.tournament_type}`}
       />
 
       <!-- Header info row -->
@@ -137,7 +138,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
           <span class={`tc-badge ${STATUS_BADGE[tournament.status] ?? 'tc-badge-neutral'}`}>
             {STATUS_LABEL[tournament.status] ?? tournament.status}
           </span>
-          <span class="tc-badge tc-badge-primary">Liga (Round Robin)</span>
+          <span class="tc-badge tc-badge-primary">{isRoundRobin ? 'Liga (Round Robin)' : isSingleElimination ? 'Eliminacja pojedyncza' : (tournament.tournament_type ?? '—')}</span>
           <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format}</span>
           {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
         </div>
@@ -173,13 +174,207 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         </div>
       </div>
 
-      <!-- ── Nie Round Robin → komunikat ──────────────────────────────────── -->
-      {!isRoundRobin && (
+      <!-- ── Nie Round Robin i nie SGL → komunikat ────────────────────────── -->
+      {!isRoundRobin && !isSingleElimination && (
         <div class="td-unsupported">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-          <p>Ten typ szczegółu nie jest jeszcze obsługiwany w Astro.</p>
-          <span>Obsługiwany typ: <strong>Round Robin</strong>. Ten turniej ma typ: <strong>{tournament.tournament_type}</strong>.</span>
-          <a href={`http://localhost:8000/tournaments/`} class="tc-btn tc-btn-ghost tc-btn-sm" target="_blank" rel="noopener">Otwórz w Django →</a>
+          <p>Ten typ szczegółu nie jest jeszcze obsługiwany.</p>
+          <span>Ten turniej ma typ: <strong>{tournament.tournament_type}</strong>.</span>
+        </div>
+      )}
+
+      <!-- ── Single Elimination — widok drabinki ───────────────────────────── -->
+      {isSingleElimination && (
+        <div class="td-layout">
+
+          <!-- Stat pills -->
+          <div class="td-stats">
+            <div class="td-stat">
+              <span class="td-stat__val">{tournament.participant_count}</span>
+              <span class="td-stat__lbl">Uczestników</span>
+            </div>
+            <div class="td-stat">
+              <span class="td-stat__val">{tournament.matches.length}</span>
+              <span class="td-stat__lbl">Meczów</span>
+            </div>
+            <div class="td-stat">
+              <span class="td-stat__val">{completedMatches.length}</span>
+              <span class="td-stat__lbl">Rozegranych</span>
+            </div>
+            <div class="td-stat">
+              <span class="td-stat__val">{pendingMatches.length}</span>
+              <span class="td-stat__lbl">Pozostałych</span>
+            </div>
+          </div>
+
+          <!-- Lista uczestników (bez drabinki zanim mecze zostaną wygenerowane) -->
+          {tournament.participants.length > 0 && (
+            <div class="tc-card" style="margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Uczestnicy ({tournament.participant_count})</span>
+              </div>
+              <div class="td-participants">
+                {tournament.participants.map(p => (
+                  <div class="td-participant">
+                    <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+                      {p.display_name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('')}
+                    </div>
+                    <span class="td-participant__name">{p.display_name}</span>
+                    {p.seed_number && (
+                      <span class="td-seed">#{p.seed_number}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <!-- ── Drabinka ──────────────────────────────────────────────────── -->
+          {(tournament.status === 'DRF' || tournament.status === 'REG') ? (
+            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
+              <span>Drabinka zostanie wygenerowana po zamknięciu rejestracji.</span>
+            </div>
+          ) : (
+            <div class="tc-card" style="margin-bottom:24px;" id="bracket-card">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Drabinka</span>
+              </div>
+              <div id="bracket-container" class="bracket-container">
+                <div class="org-loading">Ładowanie drabinki…</div>
+              </div>
+            </div>
+          )}
+
+          <!-- ── Zarządzanie (organizer) — SGL ────────────────────────────── -->
+          <div
+            id="org-panel"
+            style="display:none;"
+            data-tournament-id={tournament.id}
+            data-created-by={tournament.created_by_username}
+            data-tournament-status={tournament.status}
+            data-tournament-type={tournament.tournament_type}
+            data-match-format={tournament.match_format}
+            data-sets-to-win={tournament.config?.sets_to_win ?? 2}
+            data-end-date={tournament.end_date ?? ''}
+          >
+            <div class="tc-card org-card">
+              <div class="tc-card-header">
+                <span class="tc-card-title">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--primary);">
+                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                  </svg>
+                  Zarządzanie turniejem
+                </span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <a href={url('/tournaments/manage')} class="org-manage-link">
+                    <svg width="11" height="11" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
+                    </svg>
+                    Moje turnieje
+                  </a>
+                  <span class="tc-badge tc-badge-warning" style="font-size:0.72rem;">Organizator</span>
+                </div>
+              </div>
+
+              <div id="org-locked-msg" style="display:none;" class="org-locked-notice">
+                Turniej jest zakończony lub odwołany — edycja wyników jest zablokowana.
+              </div>
+
+              <!-- Status -->
+              <div id="org-status-section" style="padding:0 20px 16px; border-bottom:1px solid var(--border);">
+                <div class="org-section-label" style="margin-bottom:10px;">Status turnieju</div>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <span id="org-status-badge" class="tc-badge tc-badge-neutral" style="font-size:0.8rem;">
+                    {STATUS_LABEL[tournament.status] ?? tournament.status}
+                  </span>
+                  <div id="org-status-actions" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+                  <span id="org-status-msg" class="org-form-msg" style="margin-left:4px;"></span>
+                </div>
+              </div>
+
+              <!-- Uczestnicy -->
+              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+                <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
+                <div id="org-participants-list" class="org-participants-list">
+                  <div class="org-loading">Ładowanie uczestników…</div>
+                </div>
+                <div class="org-add-row">
+                  <div id="org-add-sng-wrap">
+                    <div class="org-add-search-wrap">
+                      <div class="org-add-input-wrap">
+                        <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                        </svg>
+                        <input id="org-add-user-search" class="org-add-input" type="text"
+                          placeholder="Szukaj uczestnika…" autocomplete="off">
+                      </div>
+                      <button id="org-add-user-btn" class="org-add-btn" type="button">+ Dodaj</button>
+                    </div>
+                    <div id="org-user-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                  </div>
+                </div>
+                <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
+                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                  <button id="org-close-reg-btn" class="org-close-reg-btn" type="button">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    Zamknij zapisy i generuj drabinkę →
+                  </button>
+                  <span id="org-close-reg-msg" class="org-form-msg" style="margin-left:8px;"></span>
+                </div>
+              </div>
+
+              <!-- Wyniki meczów drabinki -->
+              <div class="org-matches-header">
+                <div class="org-section-label">Wyniki meczów</div>
+                <div class="org-matches-toolbar">
+                  <div class="org-filter-group" id="org-filter-group">
+                    <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
+                    <button class="org-filter-btn" data-filter="done">Zakończone</button>
+                    <button class="org-filter-btn" data-filter="all">Wszystkie</button>
+                  </div>
+                </div>
+              </div>
+              <div id="org-matches-list" class="org-matches-list-wrap">
+                <div class="org-loading">Ładowanie meczów…</div>
+              </div>
+
+              <!-- Zakończ turniej -->
+              <div id="org-finish-section" style="display:none; padding:0 20px 20px; border-top:1px solid var(--border); margin-top:8px; padding-top:16px;">
+                <div class="org-section-label" style="margin-bottom:12px;">Zakończenie turnieju</div>
+                <div id="org-finish-confirm" style="display:none;" class="org-finish-confirm-box">
+                  <div id="org-finish-unplayed-warn" style="display:none;" class="org-finish-unplayed-warn"></div>
+                  <p class="org-finish-confirm__msg">
+                    Czy na pewno chcesz zakończyć turniej? Ranking zostanie automatycznie przeliczony. Tej akcji nie można cofnąć.
+                  </p>
+                  <div class="org-finish-confirm__actions">
+                    <button id="org-finish-yes-btn" class="org-finish-btn org-finish-btn--danger">Tak, zakończ turniej</button>
+                    <button id="org-finish-cancel-btn" class="org-finish-btn org-finish-btn--ghost">Anuluj</button>
+                  </div>
+                </div>
+                <div id="org-finish-trigger-wrap">
+                  <button id="org-finish-btn" class="org-finish-btn org-finish-btn--outline">
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    Zakończ turniej
+                  </button>
+                  <span id="org-finish-msg" class="org-form-msg" style="margin-left:12px;"></span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- SSR data dla JS -->
+          {tournament && (
+            <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
+          )}
+          {tournament && (
+            <script id="ssr-participants-data" type="application/json" set:html={JSON.stringify(tournament.participants)} />
+          )}
+
         </div>
       )}
 
@@ -372,6 +567,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             data-tournament-id={tournament.id}
             data-created-by={tournament.created_by_username}
             data-tournament-status={tournament.status}
+            data-tournament-type={tournament.tournament_type}
             data-match-format={tournament.match_format}
             data-sets-to-win={tournament.config?.sets_to_win ?? 2}
             data-end-date={tournament.end_date ?? ''}
@@ -1575,9 +1771,140 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     letter-spacing: 0.07em; color: var(--text-dim);
     border-bottom: 1px solid var(--border);
   }
+
+  /* ── Bracket (SGL drabinka) ─────────────────────────────────────────────── */
+  .bracket-container {
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .bkt-wrap {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    min-width: max-content;
+  }
+  .bkt-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 160px;
+  }
+  .bkt-col-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .bkt-col-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .bkt-match {
+    background: var(--surface-2);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 160px;
+  }
+  .bkt-match--done {
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+  .bkt-player {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-light);
+    gap: 6px;
+  }
+  .bkt-player:last-child { border-bottom: none; }
+  .bkt-player--winner {
+    color: var(--text);
+    font-weight: 700;
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+  .bkt-player-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bkt-score {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .bkt-score-neutral {
+    padding: 3px 10px 5px;
+    font-size: 0.73rem;
+    color: var(--text-dim);
+    text-align: right;
+  }
+  .bkt-third-label {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 3px 6px 2px;
+    background: var(--surface-3, var(--surface-2));
+    border-bottom: 1px solid var(--border-light);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
 </style>
 
 <script>
+// ── Publiczna drabinka SGL — ładowana dla wszystkich userów ──────────────────
+(async () => {
+  const panel = document.getElementById('org-panel');
+  if (!panel) return;
+  const tType   = panel.dataset.tournamentType ?? 'RND';
+  const tStatus = panel.dataset.tournamentStatus ?? '';
+  const apiBase = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+  const tid     = panel.dataset.tournamentId;
+
+  if (tType === 'SGL' && tStatus !== 'DRF' && tStatus !== 'REG') {
+    const container = document.getElementById('bracket-container');
+    if (container) {
+      try {
+        const res = await fetch(`${apiBase}/api/tournaments/${tid}/bracket/`, { credentials: 'include' });
+        if (res.ok) {
+          const rounds = await res.json();
+          // renderBracket zdefiniowany niżej w organizer IIFE — użyj prostej renderki
+          if (!rounds.length) {
+            container.innerHTML = '<div style="padding:16px;color:var(--text-dim);font-size:0.85rem;">Brak danych drabinki.</div>';
+          } else {
+            function escH(s: string) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+            const cols = rounds.map((r: {round_label:string; matches: Array<{id:number;match_index:number;status:string;is_bye:boolean;is_third_place:boolean;participant1:{display_name:string}|null;participant2:{display_name:string}|null;winner_id:number|null;score:string|null}>}) => {
+              const cards = r.matches.map(m => {
+                const p1Name = m.participant1?.display_name ?? (m.is_bye ? 'BYE' : '—');
+                const p2Name = m.participant2?.display_name ?? (m.is_bye ? 'BYE' : '—');
+                const p1Won  = m.winner_id != null && m.participant1 && (m.winner_id === (m.participant1 as {id?:number}).id);
+                const p2Won  = m.winner_id != null && m.participant2 && (m.winner_id === (m.participant2 as {id?:number}).id);
+                const score  = m.score ?? (m.status === 'WDR' ? 'WO' : '');
+                const isDone = m.status === 'CMP' || m.status === 'WDR';
+                const third  = m.is_third_place ? `<span class="bkt-third-label">o 3. miejsce</span>` : '';
+                return `<div class="bkt-match${isDone?' bkt-match--done':''}">${third}<div class="bkt-player${p1Won?' bkt-player--winner':''}"><span class="bkt-player-name">${escH(p1Name)}</span>${p1Won&&score?`<span class="bkt-score">${escH(score)}</span>`:''}</div><div class="bkt-player${p2Won?' bkt-player--winner':''}"><span class="bkt-player-name">${escH(p2Name)}</span>${p2Won&&score?`<span class="bkt-score">${escH(score)}</span>`:''}</div>${isDone&&!p1Won&&!p2Won&&score?`<div class="bkt-score-neutral">${escH(score)}</div>`:''}</div>`;
+              }).join('');
+              return `<div class="bkt-col"><div class="bkt-col-label">${escH(r.round_label)}</div><div class="bkt-col-matches">${cards}</div></div>`;
+            }).join('');
+            container.innerHTML = `<div class="bkt-wrap">${cols}</div>`;
+          }
+        }
+      } catch { /* cicha degradacja */ }
+    }
+  }
+})();
+
 // ── Organizer panel ───────────────────────────────────────────────────────────
 (async () => {
   const panel = document.getElementById('org-panel');
@@ -1586,8 +1913,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   const tournamentId   = panel.dataset.tournamentId;
   const createdBy      = panel.dataset.createdBy;
   const tStatus        = panel.dataset.tournamentStatus;
+  const tType          = panel.dataset.tournamentType ?? 'RND';
   const setsToWin      = parseInt(panel.dataset.setsToWin ?? '2', 10);
   const apiBase        = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+  const isSGL          = tType === 'SGL';
 
   // ── 1. Sprawdź uprawnienia ────────────────────────────────────────────────
   let meData: { authenticated?: boolean; user?: { username?: string; is_staff?: boolean } } = {};
@@ -1651,6 +1980,74 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     } catch {
       const tbody2 = document.getElementById('org-standings-body');
       if (tbody2) tbody2.innerHTML = '<tr><td colspan="8" class="org-loading">Błąd ładowania tabeli.</td></tr>';
+    }
+  }
+
+  // ── Drabinka SGL ──────────────────────────────────────────────────────────
+  function renderBracket(rounds: Array<{
+    round: number; round_label: string;
+    matches: Array<{
+      id: number; match_index: number; status: string; status_display: string;
+      is_bye: boolean; is_third_place: boolean;
+      participant1: { id: number; display_name: string; seed_number: number | null; user_id: number | null } | null;
+      participant2: { id: number; display_name: string; seed_number: number | null; user_id: number | null } | null;
+      winner_id: number | null; score: string | null; scheduled_time: string | null;
+    }>;
+  }>) {
+    const container = document.getElementById('bracket-container');
+    if (!container) return;
+
+    if (!rounds.length) {
+      container.innerHTML = '<div class="org-matches-empty">Brak danych drabinki.</div>';
+      return;
+    }
+
+    const cols = rounds.map(r => {
+      const matchCards = r.matches.map(m => {
+        const p1Name = m.participant1?.display_name ?? (m.is_bye ? 'BYE' : '—');
+        const p2Name = m.participant2?.display_name ?? (m.is_bye ? 'BYE' : '—');
+        const p1Won  = m.winner_id != null && m.participant1 && m.winner_id === m.participant1.id;
+        const p2Won  = m.winner_id != null && m.participant2 && m.winner_id === m.participant2.id;
+        const score  = m.score ?? (m.status === 'WDR' ? 'WO' : '');
+        const isDone = m.status === 'CMP' || m.status === 'WDR';
+        const labelBadge = m.is_third_place
+          ? `<span class="bkt-third-label">o 3. miejsce</span>`
+          : '';
+
+        return `
+          <div class="bkt-match${isDone ? ' bkt-match--done' : ''}" data-match-id="${m.id}">
+            ${labelBadge}
+            <div class="bkt-player${p1Won ? ' bkt-player--winner' : ''}">
+              <span class="bkt-player-name">${escHtml(p1Name)}</span>
+              ${p1Won && score ? `<span class="bkt-score">${escHtml(score)}</span>` : ''}
+            </div>
+            <div class="bkt-player${p2Won ? ' bkt-player--winner' : ''}">
+              <span class="bkt-player-name">${escHtml(p2Name)}</span>
+              ${p2Won && score ? `<span class="bkt-score">${escHtml(score)}</span>` : ''}
+            </div>
+            ${isDone && !p1Won && !p2Won && score ? `<div class="bkt-score-neutral">${escHtml(score)}</div>` : ''}
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="bkt-col">
+          <div class="bkt-col-label">${escHtml(r.round_label)}</div>
+          <div class="bkt-col-matches">${matchCards}</div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `<div class="bkt-wrap">${cols}</div>`;
+  }
+
+  async function loadBracket() {
+    const container = document.getElementById('bracket-container');
+    try {
+      const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/bracket/`, { credentials: 'include' });
+      if (!res.ok) return;
+      const rounds = await res.json();
+      renderBracket(rounds);
+    } catch {
+      if (container) container.innerHTML = '<div class="org-matches-empty">Błąd ładowania drabinki.</div>';
     }
   }
 
@@ -1942,7 +2339,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                 winner_name: null };
               renderMatches();
             }
-            await loadStandings();
+            if (isSGL) { await loadBracket(); } else { await loadStandings(); }
           } else {
             if (msgEl) { msgEl.textContent = d.detail ?? 'Błąd anulowania.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
             btn.disabled = false;
@@ -2045,9 +2442,13 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             : 'Zapisano wynik.';
           msgEl.className = 'org-form-msg org-form-msg--ok';
         }
-        // Odśwież standings i listę meczów
-        await loadStandings();
+        // Odśwież dane po zapisie wyniku
         await refreshMatchesData();
+        if (isSGL) {
+          await loadBracket();
+        } else {
+          await loadStandings();
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         const msg = err?.detail || err?.error || `Błąd ${res.status}`;
@@ -2964,13 +3365,25 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   }
 
   // ── Inicjalizacja ─────────────────────────────────────────────────────────
-  await loadStandings();
-  initMatchFilters();
-  renderMatches();
-  initConfigForm();
-  initViewToggle();
-  initFinishButton();
-  initStatusPanel();
-  initParticipantsPanel();
+  if (isSGL) {
+    // SGL: załaduj drabinkę; pomijamy standings, config RR i macierz
+    if (tStatus !== 'DRF' && tStatus !== 'REG') {
+      await loadBracket();
+    }
+    initMatchFilters();
+    renderMatches();
+    initFinishButton();
+    initStatusPanel();
+    initParticipantsPanel();
+  } else {
+    await loadStandings();
+    initMatchFilters();
+    renderMatches();
+    initConfigForm();
+    initViewToggle();
+    initFinishButton();
+    initStatusPanel();
+    initParticipantsPanel();
+  }
 })();
 </script>
