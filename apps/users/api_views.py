@@ -12,7 +12,7 @@ from rest_framework import status
 import logging
 
 from apps.users.models import Profile
-from apps.users.forms import UserRegisterForm
+from apps.users.forms import UserRegisterForm, UserUpdateForm, ProfileUpdateForm
 from .authentication import CsrfExemptSessionAuthentication
 
 logger = logging.getLogger(__name__)
@@ -327,6 +327,59 @@ def api_register(request):
             'is_staff': user.is_staff,
         }
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PATCH'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def api_update_profile(request):
+    """
+    Aktualizacja danych profilu zalogowanego użytkownika.
+    PATCH /api/auth/profile/update/
+    Body (wszystkie pola opcjonalne):
+      { "first_name", "last_name", "email", "city", "birth_date" }
+    Returns: { "success": true }  |  { "success": false, "errors": {field: [msg]} }
+    Auth: sesja Django. Gdy niezalogowany → 401.
+    """
+    if not request.user.is_authenticated:
+        return Response({'success': False, 'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    user = request.user
+    profile, _ = Profile.objects.get_or_create(user=user)
+
+    data = request.data
+
+    # Pola User — budujemy dane formularza z aktualnych wartości + patch
+    user_data = {
+        'first_name': data.get('first_name', user.first_name),
+        'last_name':  data.get('last_name',  user.last_name),
+        'email':      data.get('email',       user.email),
+    }
+
+    # Pola Profile
+    profile_data = {
+        'city':       data.get('city',       profile.city       or ''),
+        'birth_date': data.get('birth_date', profile.birth_date or ''),
+        'start_date': profile.start_date or '',  # nie edytowalne przez user — zachowaj
+    }
+
+    user_form    = UserUpdateForm(user_data, instance=user)
+    profile_form = ProfileUpdateForm(profile_data, instance=profile)
+
+    user_valid    = user_form.is_valid()
+    profile_valid = profile_form.is_valid()
+
+    if not user_valid or not profile_valid:
+        errors = {}
+        errors.update({f: list(v) for f, v in user_form.errors.items()})
+        errors.update({f: list(v) for f, v in profile_form.errors.items()})
+        return Response({'success': False, 'errors': errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    user_form.save()
+    profile_form.save()
+    logger.info(f"api_update_profile: user {user.username} updated profile")
+
+    return Response({'success': True})
 
 
 @api_view(['GET'])

@@ -13,5 +13,6 @@ urlpatterns = [
     path('register/', api_views.api_register, name='api_register'),
     path('me/', api_views.api_current_user, name='api_current_user'),
     path('profile/', api_views.api_user_profile, name='api_user_profile'),
+    path('profile/update/', api_views.api_update_profile, name='api_update_profile'),
     path('csrf/', api_views.get_csrf_token, name='get_csrf_token'),
 ]
