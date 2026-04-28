@@ -1580,12 +1580,12 @@ class TournamentStatusView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-        # Guard: cofnięcie do DRF tylko gdy brak uczestników
+        # Guard: cofnięcie do DRF tylko gdy brak aktywnych uczestników (WDN nie liczy się)
         if new_status == 'DRF' and tournament.status == 'REG':
-            count = tournament.participants.count()
+            count = tournament.participants.exclude(status='WDN').count()
             if count > 0:
                 return Response(
-                    {'detail': f'Nie można cofnąć do szkicu — turniej ma {count} uczestników.'},
+                    {'detail': f'Nie można cofnąć do szkicu — turniej ma {count} aktywnych uczestników.'},
                     status=status.HTTP_409_CONFLICT,
                 )
 

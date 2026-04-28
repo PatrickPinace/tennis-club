@@ -213,6 +213,32 @@ if (!currentUser) {
 
         </div><!-- /#wiz-rr-config -->
 
+        <!-- ── Sekcja AMR ── -->
+        <div id="wiz-amr-config" style="display:none;">
+          <div class="cfg-group-label">Mecze Americano</div>
+          <div class="cfg-spinners-row">
+            <div class="cfg-spinner-col">
+              <span class="cfg-spinner-label">Liczba rund</span>
+              <div class="cfg-spinner">
+                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="1" aria-label="Więcej">▲</button>
+                <input id="amr-rounds" class="cfg-spin-input" type="number" min="1" max="99" value="7">
+                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="-1" aria-label="Mniej">▼</button>
+              </div>
+              <span class="cfg-hint">maks. n-1 dla n graczy</span>
+            </div>
+            <div class="cfg-spinner-col">
+              <span class="cfg-spinner-label">Punkty na mecz</span>
+              <div class="cfg-spinner">
+                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="4" aria-label="Więcej">▲</button>
+                <input id="amr-ppm" class="cfg-spin-input" type="number" min="1" max="999" value="32">
+                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="-4" aria-label="Mniej">▼</button>
+              </div>
+              <span class="cfg-hint">np. 32 = suma gemów w meczu</span>
+            </div>
+          </div>
+          <p class="cr-hint" style="margin-top:16px;">Americano singiel — każdy zagra z każdym maksymalnie raz. Harmonogram generowany automatycznie przy zamknięciu rejestracji.</p>
+        </div>
+
         <!-- ── Sekcja SGL ── -->
         <div id="wiz-sgl-config" style="display:none;">
           <div class="cfg-group-label">Rozstawienie</div>
@@ -348,8 +374,8 @@ document.getElementById('wiz-next-1')!.addEventListener('click', () => {
     return;
   }
 
-  // Krok 2: RND → konfiguracja punktacji, SGL → konfiguracja drabinki, inne → pomiń
-  if (typeEl.value === 'RND' || typeEl.value === 'SGL') {
+  // Krok 2: RND/SGL/AMR → konfiguracja, inne → pomiń
+  if (typeEl.value === 'RND' || typeEl.value === 'SGL' || typeEl.value === 'AMR') {
     updatePane2ForType(typeEl.value);
     goTo(2);
   } else {
@@ -376,7 +402,7 @@ document.getElementById('wiz-next-2')!.addEventListener('click', () => {
     if (!maxPart || maxPart < 2) { showErr('Maks. uczestników musi wynosić ≥ 2.'); return; }
     if (ptsWin < ptsLoss) { showErr('Punkty za wygraną muszą być ≥ punkty za przegraną.'); return; }
   }
-  // SGL — brak obowiązkowej walidacji (wartości domyślne zawsze ok)
+  // SGL / AMR — brak obowiązkowej walidacji (wartości domyślne zawsze ok)
 
   buildSummary();
   goTo(3);
@@ -385,7 +411,7 @@ document.getElementById('wiz-next-2')!.addEventListener('click', () => {
 // ── Krok 3 – back ─────────────────────────────────────────────────────────────
 document.getElementById('wiz-back-3')!.addEventListener('click', () => {
   const t = typeEl.value;
-  if (t === 'RND' || t === 'SGL') {
+  if (t === 'RND' || t === 'SGL' || t === 'AMR') {
     updatePane2ForType(t);
     goTo(2);
   } else {
@@ -454,6 +480,14 @@ function buildSummary() {
         <div class="sum-group-label">Eliminacja pojedyncza</div>
         ${row('Rozstawienie', seedLabel)}
         ${row('Mecz o 3. miejsce', sglThird.checked ? 'Tak' : 'Nie')}
+      </div>`;
+  } else if (typeEl.value === 'AMR') {
+    html += `
+      <div class="sum-group">
+        <div class="sum-group-label">Americano</div>
+        ${row('Liczba rund', amrRounds.value)}
+        ${row('Punkty na mecz', amrPpm.value)}
+        ${row('Tryb', 'Americano (stały harmonogram)')}
       </div>`;
   }
 
@@ -533,7 +567,23 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
       } catch { /* ignoruj */ }
     }
 
-    // 2b. PATCH /api/tournaments/{id}/config/ — tylko dla RND
+    // 2b. POST AmericanoConfig — tylko dla AMR
+    if (typeEl.value === 'AMR') {
+      try {
+        await fetch(`${API}/api/tournaments/${tournamentId}/config/amr/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({
+            points_per_match: Number(amrPpm.value),
+            number_of_rounds: Number(amrRounds.value),
+          }),
+        });
+        // Nie krytyczne — backend ma wartości domyślne
+      } catch { /* ignoruj */ }
+    }
+
+    // 2c. PATCH /api/tournaments/{id}/config/ — tylko dla RND
     if (typeEl.value === 'RND') {
       const configBody: Record<string, number | string> = {
         sets_to_win:           Number(cfgSetsWin.value),
@@ -573,20 +623,25 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
 // ── Przełącz zawartość pane2 w zależności od typu ───────────────────────────
 const rrConfigDiv  = document.getElementById('wiz-rr-config')  as HTMLElement;
 const sglConfigDiv = document.getElementById('wiz-sgl-config') as HTMLElement;
+const amrConfigDiv = document.getElementById('wiz-amr-config') as HTMLElement;
 const pane2Title   = document.getElementById('wiz-pane2-title') as HTMLElement;
 const pane2Sub     = document.getElementById('wiz-pane2-sub')   as HTMLElement;
 const sglSeeding   = document.getElementById('sgl-seeding')    as HTMLSelectElement;
 const sglThird     = document.getElementById('sgl-third-place') as HTMLInputElement;
+const amrRounds    = document.getElementById('amr-rounds')     as HTMLInputElement;
+const amrPpm       = document.getElementById('amr-ppm')        as HTMLInputElement;
 
 function updatePane2ForType(type: string) {
+  rrConfigDiv.style.display  = type === 'RND' ? '' : 'none';
+  sglConfigDiv.style.display = type === 'SGL' ? '' : 'none';
+  amrConfigDiv.style.display = type === 'AMR' ? '' : 'none';
   if (type === 'SGL') {
-    rrConfigDiv.style.display  = 'none';
-    sglConfigDiv.style.display = '';
     pane2Title.textContent = 'Konfiguracja drabinki';
     pane2Sub.textContent   = 'Opcje eliminacji pojedynczej. Możesz je zmienić też po utworzeniu.';
+  } else if (type === 'AMR') {
+    pane2Title.textContent = 'Konfiguracja Americano';
+    pane2Sub.textContent   = 'Ustaw liczbę rund i pulę punktów na mecz. Harmonogram generowany automatycznie.';
   } else {
-    rrConfigDiv.style.display  = '';
-    sglConfigDiv.style.display = 'none';
     pane2Title.textContent = 'Konfiguracja punktacji';
     pane2Sub.textContent   = 'Wartości domyślne działają dla większości lig. Możesz je zmienić też po utworzeniu.';
   }
@@ -598,6 +653,8 @@ typeEl.addEventListener('change', () => {
     typeNote.textContent = 'Panel zarządzania meczami i tabela ligowa dostępne dla Round Robin.';
   } else if (typeEl.value === 'SGL') {
     typeNote.textContent = 'Eliminacja pojedyncza — drabinka z awansem zwycięzców.';
+  } else if (typeEl.value === 'AMR') {
+    typeNote.textContent = 'Americano — stały harmonogram, każdy zagra z każdym w wybranej liczbie rund.';
   } else {
     typeNote.textContent = 'Uwaga: panel zarządzania meczami dostępny tylko dla Round Robin i Single Elimination.';
   }
