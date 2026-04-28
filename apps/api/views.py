@@ -1034,6 +1034,83 @@ class EliminationConfigUpdateView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class AmericanoConfigUpdateView(APIView):
+    """
+    Tworzenie/edycja konfiguracji Americano przez organizatora.
+    POST/PATCH /api/tournaments/{pk}/config/amr/
+
+    Pola: points_per_match (int >= 1), number_of_rounds (int >= 1).
+    scheduling_type zablokowane na STATIC w tym slice'u (DYNAMIC = Mexicano — później).
+    Tworzy AmericanoConfig jeśli nie istnieje.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        return self._upsert(request, pk)
+
+    def patch(self, request, pk):
+        return self._upsert(request, pk)
+
+    def _upsert(self, request, pk):
+        try:
+            tournament = Tournament.objects.get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.AMERICANO:
+            return Response(
+                {'detail': 'Endpoint /config/amr/ obsługuje tylko turnieje AMR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (request.user.is_staff or tournament.created_by == request.user):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from apps.tournaments.models import AmericanoConfig
+        config, _ = AmericanoConfig.objects.get_or_create(
+            tournament=tournament,
+            defaults={
+                'points_per_match': 32,
+                'number_of_rounds': 7,
+                'scheduling_type': 'STATIC',
+            },
+        )
+
+        data = request.data
+        if 'points_per_match' in data:
+            try:
+                ppm = int(data['points_per_match'])
+            except (TypeError, ValueError):
+                return Response({'detail': 'points_per_match musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+            if ppm < 1:
+                return Response({'detail': 'points_per_match musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.points_per_match = ppm
+
+        if 'number_of_rounds' in data:
+            try:
+                nor = int(data['number_of_rounds'])
+            except (TypeError, ValueError):
+                return Response({'detail': 'number_of_rounds musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+            if nor < 1:
+                return Response({'detail': 'number_of_rounds musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.number_of_rounds = nor
+
+        # scheduling_type zablokowane — obsługujemy tylko STATIC w tym slice'u
+        if 'scheduling_type' in data and data['scheduling_type'] != 'STATIC':
+            return Response(
+                {'detail': 'scheduling_type DYNAMIC (Mexicano) nie jest jeszcze obsługiwany. Zostaw STATIC.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        config.scheduling_type = 'STATIC'
+
+        config.save()
+        return Response({
+            'points_per_match': config.points_per_match,
+            'number_of_rounds': config.number_of_rounds,
+            'scheduling_type': config.scheduling_type,
+        }, status=status.HTTP_200_OK)
+
+
 class RoundRobinConfigUpdateView(APIView):
     """
     Edycja konfiguracji Round Robin przez organizatora.
@@ -1540,6 +1617,20 @@ class TournamentStatusView(APIView):
                             defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
+                    elif tournament.tournament_type == 'AMR':
+                        from apps.tournaments.bracket import generate_americano_matches_static
+                        from apps.tournaments.models import AmericanoConfig
+                        config, _ = AmericanoConfig.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={
+                                'points_per_match': 32,
+                                'number_of_rounds': 7,
+                                'scheduling_type': 'STATIC',
+                            },
+                        )
+                        if config.scheduling_type != 'STATIC':
+                            raise ValueError('Tylko tryb STATIC (Americano) jest obsługiwany w tym etapie.')
+                        match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
                     tournament.status = new_status

@@ -350,3 +350,88 @@ def build_bracket_data(tournament) -> list[dict]:
         })
 
     return rounds_out
+
+
+# ── Americano STATIC — generowanie meczów ─────────────────────────────────────
+
+def generate_americano_matches_static(tournament, participants_qs, config) -> tuple[int, str]:
+    """
+    Generuje mecze dla turnieju Americano w trybie STATIC (stały harmonogram).
+
+    Algorytm round-robin z podziałem na rundy (rotation algorithm):
+      - n uczestników, każda runda = n/2 meczów
+      - Gracz 0 jest "kotwicą" (stały), pozostali rotują o 1 w prawo co rundę
+      - Generowane jest min(number_of_rounds, n-1) rund — w n-1 rundach każdy
+        zagra z każdym dokładnie raz; można wybrać mniejszą liczbę rund z configu
+
+    Guardy (400):
+      - parzysta liczba uczestników (n % 2 == 0)
+      - n >= 4 (sensowny turniej Americano wymaga co najmniej 4 graczy)
+      - number_of_rounds >= 1 i <= n-1
+
+    Zwraca: (liczba_meczów, komunikat)
+    """
+    from apps.tournaments.models import TournamentsMatch
+
+    participants = list(participants_qs.order_by('pk'))
+    n = len(participants)
+
+    # ── Guardy ────────────────────────────────────────────────────────────────
+    if n < 4:
+        raise ValueError(f'Americano wymaga co najmniej 4 uczestników (masz {n}).')
+    if n % 2 != 0:
+        raise ValueError(
+            f'Americano wymaga parzystej liczby uczestników (masz {n}). '
+            f'Dodaj lub usuń jednego gracza.'
+        )
+
+    max_rounds = n - 1
+    requested_rounds = config.number_of_rounds
+    if requested_rounds < 1:
+        raise ValueError('Liczba rund musi wynosić co najmniej 1.')
+    if requested_rounds > max_rounds:
+        raise ValueError(
+            f'Przy {n} uczestnikach można rozegrać maksymalnie {max_rounds} rund '
+            f'(każdy z każdym raz). Zmniejsz liczbę rund w konfiguracji.'
+        )
+
+    # ── Rotation algorithm (round-robin scheduling) ───────────────────────────
+    # Standardowy algorytm: gracz 0 stały, reszta rotuje w prawo co rundę.
+    # W rundzie r (0-indexed): lista rotowana = [0] + rotate_right(players[1:], r)
+    # Para: slot[i] vs slot[n-1-i] dla i in 0..n/2-1
+
+    players = list(range(n))  # indeksy uczestników
+    rotating = players[1:]    # gracze 0..n-1 bez "kotwicy" (index 0)
+    anchor = players[0]
+
+    matches_to_create = []
+    match_count = 0
+
+    for round_idx in range(requested_rounds):
+        # Rotacja: przesuń rotating o round_idx pozycji w prawo
+        rotated = rotating[-round_idx:] + rotating[:-round_idx] if round_idx > 0 else rotating[:]
+        circle = [anchor] + rotated  # pełna lista n graczy na tę rundę
+
+        round_number = round_idx + 1
+        match_index = 1
+
+        for i in range(n // 2):
+            p1 = participants[circle[i]]
+            p2 = participants[circle[n - 1 - i]]
+            matches_to_create.append(TournamentsMatch(
+                tournament=tournament,
+                participant1=p1,
+                participant2=p2,
+                round_number=round_number,
+                match_index=match_index,
+                status=TournamentsMatch.Status.WAITING.value,
+            ))
+            match_index += 1
+            match_count += 1
+
+    TournamentsMatch.objects.bulk_create(matches_to_create)
+    logger.info(
+        '[americano] Wygenerowano %d meczów (%d rund, %d graczy) dla turnieju id=%d.',
+        match_count, requested_rounds, n, tournament.pk,
+    )
+    return match_count, f'Wygenerowano {match_count} meczów Americano ({requested_rounds} rund, {n} graczy).'

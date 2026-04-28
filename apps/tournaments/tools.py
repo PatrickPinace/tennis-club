@@ -234,7 +234,14 @@ def get_single_tournament_match_as_friendly(match_id: int):
 
 def calculate_americano_standings(tournament):
     """
-    Helper function to calculate and return the standings for an Americano tournament.
+    Oblicza tabelę punktową dla turnieju Americano (singiel lub debl).
+
+    Model scoringu: set1_p1_score = gemy zdobyte przez stronę p1(/p2),
+                    set1_p2_score = gemy zdobyte przez stronę p3(/p4).
+    Suma powinna równać się points_per_match z AmericanoConfig.
+
+    Singiel (p3=None, p4=None): gemy idą bezpośrednio do p1 i p2.
+    Debl (p3!=None, p4!=None):  gemy idą do pary p1+p2 i pary p3+p4.
     """
     participants = tournament.participants.filter(status__in=['ACT', 'REG'])
     matches = tournament.matches.filter(status=TournamentsMatch.Status.COMPLETED.value)
@@ -248,23 +255,34 @@ def calculate_americano_standings(tournament):
     }
 
     for match in matches:
-        player_ids = [match.participant1_id, match.participant2_id, match.participant3_id, match.participant4_id]
-        if not all(pid in standings for pid in player_ids if pid is not None):
-            continue
+        p1_id = match.participant1_id
+        p2_id = match.participant2_id
+        p3_id = match.participant3_id
+        p4_id = match.participant4_id
+
+        is_doubles = p3_id is not None or p4_id is not None
 
         score1 = match.set1_p1_score or 0
-        if match.participant1_id:
-            standings[match.participant1_id]['points'] += score1
-        if match.participant2_id:
-            standings[match.participant2_id]['points'] += score1
-
         score2 = match.set1_p2_score or 0
-        if match.participant3_id:
-            standings[match.participant3_id]['points'] += score2
-        if match.participant4_id:
-            standings[match.participant4_id]['points'] += score2
 
-        for pid in player_ids:
+        if is_doubles:
+            # Debl: p1+p2 vs p3+p4 — każdy zawodnik dostaje punkty swojej pary
+            if p1_id and p1_id in standings:
+                standings[p1_id]['points'] += score1
+            if p2_id and p2_id in standings:
+                standings[p2_id]['points'] += score1
+            if p3_id and p3_id in standings:
+                standings[p3_id]['points'] += score2
+            if p4_id and p4_id in standings:
+                standings[p4_id]['points'] += score2
+        else:
+            # Singiel: p1 vs p2 — każdy dostaje własne gemy
+            if p1_id and p1_id in standings:
+                standings[p1_id]['points'] += score1
+            if p2_id and p2_id in standings:
+                standings[p2_id]['points'] += score2
+
+        for pid in [p1_id, p2_id, p3_id, p4_id]:
             if pid and pid in standings:
                 standings[pid]['matches_played'] += 1
 
