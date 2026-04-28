@@ -482,6 +482,7 @@ class RoundRobinMatchScoreView(APIView):
     SUPPORTED_TYPES = (
         Tournament.TournamentType.ROUND_ROBIN,
         Tournament.TournamentType.SINGLE_ELIMINATION,
+        Tournament.TournamentType.AMERICANO,
     )
 
     def patch(self, request, pk, match_pk):
@@ -499,7 +500,7 @@ class RoundRobinMatchScoreView(APIView):
 
         if tournament.tournament_type not in self.SUPPORTED_TYPES:
             return Response(
-                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND) i Single Elimination (SGL).'},
+                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND), Single Elimination (SGL) i Americano (AMR).'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
