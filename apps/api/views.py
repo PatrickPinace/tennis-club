@@ -1865,20 +1865,36 @@ class TournamentParticipantView(APIView):
             except (ValueError, TypeError):
                 seed_number = None
 
-        participant = Participant.objects.create(
-            tournament=tournament,
-            user=target_user,
-            display_name=display_name,
-            seed_number=seed_number,
-            status='REG',
-        )
+        # Reaktywuj WDN jeśli user był już wcześniej uczestnikiem
+        existing_wdn = Participant.objects.filter(
+            tournament=tournament, user=target_user, status='WDN',
+        ).first()
 
-        # Dodaj TeamMember dla kapitana i partnera (debel)
-        TeamMember.objects.create(participant=participant, user=target_user)
         partner_name = None
-        if partner_user:
-            TeamMember.objects.create(participant=participant, user=partner_user)
-            partner_name = partner_user.get_full_name().strip() or partner_user.username
+        if existing_wdn:
+            existing_wdn.display_name = display_name
+            existing_wdn.seed_number = seed_number
+            existing_wdn.status = 'REG'
+            existing_wdn.save(update_fields=['display_name', 'seed_number', 'status'])
+            participant = existing_wdn
+            # Upewnij się, że TeamMember kapitana istnieje (mógł nie być usunięty, ale dla pewności)
+            TeamMember.objects.get_or_create(participant=participant, user=target_user)
+            if partner_user:
+                TeamMember.objects.get_or_create(participant=participant, user=partner_user)
+                partner_name = partner_user.get_full_name().strip() or partner_user.username
+        else:
+            participant = Participant.objects.create(
+                tournament=tournament,
+                user=target_user,
+                display_name=display_name,
+                seed_number=seed_number,
+                status='REG',
+            )
+            # Dodaj TeamMember dla kapitana i partnera (debel)
+            TeamMember.objects.create(participant=participant, user=target_user)
+            if partner_user:
+                TeamMember.objects.create(participant=participant, user=partner_user)
+                partner_name = partner_user.get_full_name().strip() or partner_user.username
 
         logger.info(
             '[participant] Dodano uczestnika %s (id=%d) do turnieju "%s" (id=%d) przez %s.%s',
