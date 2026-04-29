@@ -702,6 +702,16 @@ class RoundRobinMatchScoreView(APIView):
         if tournament.tournament_type == Tournament.TournamentType.AMERICANO:
             g1 = fields['set1_p1']
             g2 = fields['set1_p2']
+            from apps.tournaments.models import AmericanoConfig
+            amr_cfg, _ = AmericanoConfig.objects.get_or_create(
+                tournament=tournament,
+                defaults={'points_per_match': 32, 'number_of_rounds': 7, 'scheduling_type': 'STATIC'},
+            )
+            if g1 + g2 != amr_cfg.points_per_match:
+                return Response(
+                    {'detail': f'Suma gemów ({g1}+{g2}={g1+g2}) musi być równa points_per_match ({amr_cfg.points_per_match}).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             if g1 > g2:
                 winner = match.participant1
             elif g2 > g1:
