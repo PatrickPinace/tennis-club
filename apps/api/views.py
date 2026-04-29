@@ -652,19 +652,34 @@ class RoundRobinMatchScoreView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # ── Uprawnienia: only organizer or is_staff ───────────────────────────
-        if not (request.user == tournament.created_by or request.user.is_staff):
-            return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju lub is_staff.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        is_organizer = request.user == tournament.created_by or request.user.is_staff
 
+        # ── Pobierz mecz ─────────────────────────────────────────────────────
         try:
             match = TournamentsMatch.objects.select_related(
-                'participant1', 'participant2'
+                'participant1__user', 'participant2__user'
             ).get(pk=match_pk, tournament=tournament)
         except TournamentsMatch.DoesNotExist:
             return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # ── Uprawnienia ───────────────────────────────────────────────────────
+        # Organizator / staff — pełny dostęp do wszystkich typów turniejów.
+        # Uczestnik meczu RR — może wpisać wynik setów oraz WDR (bez CNC).
+        # SGL i AMR: tylko organizer/staff.
+        is_rnd_participant = (
+            tournament.tournament_type == Tournament.TournamentType.ROUND_ROBIN
+            and match.participant1 is not None
+            and match.participant2 is not None
+            and request.user in (
+                match.participant1.user,
+                match.participant2.user,
+            )
+        )
+        if not is_organizer and not is_rnd_participant:
+            return Response(
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (tylko RR).'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # ── Turniej musi być ACT lub FIN — wyniki można edytować tylko w trakcie lub po zakończeniu
         # SCH/DRF/REG: turniej nie wystartował — zapis wyników niedozwolony
@@ -689,6 +704,19 @@ class RoundRobinMatchScoreView(APIView):
         data = request.data
         cancel = bool(data.get('cancel', False))
         walkover = bool(data.get('walkover', False))
+
+        # Cancel — tylko organizer/staff
+        if cancel and not is_organizer:
+            return Response(
+                {'detail': 'Anulowanie meczu jest dostępne wyłącznie dla organizatora i staff.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Walkover — organizer/staff lub uczestnik meczu RR
+        if walkover and not is_organizer and not is_rnd_participant:
+            return Response(
+                {'detail': 'Walkover jest dostępny wyłącznie dla organizatora, staff lub uczestnika meczu (tylko RR).'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # ── Ścieżka anulowania meczu (CNC) ───────────────────────────────────
         if cancel:
