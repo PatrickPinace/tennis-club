@@ -40,11 +40,15 @@ class ParticipantSerializer(serializers.ModelSerializer):
 
 
 class TournamentSerializer(serializers.ModelSerializer):
-    participants = ParticipantSerializer(many=True, read_only=True)
+    participants = serializers.SerializerMethodField()
 
     class Meta:
         model = Tournament
         fields = ['id', 'name', 'description', 'start_date', 'end_date', 'status', 'tournament_type', 'match_format', 'participants']
+
+    def get_participants(self, obj):
+        qs = obj.participants.exclude(status='WDN')
+        return ParticipantSerializer(qs, many=True).data
 
 
 class TournamentListSerializer(serializers.ModelSerializer):
@@ -70,7 +74,7 @@ class TournamentListSerializer(serializers.ModelSerializer):
         ]
 
     def get_participant_count(self, obj):
-        return obj.participants.count()
+        return obj.participants.exclude(status='WDN').count()
 
     def get_created_by_name(self, obj):
         full = obj.created_by.get_full_name()
@@ -166,6 +170,9 @@ class MatchHistorySerializer(serializers.ModelSerializer):
     p1_win_gem = serializers.SerializerMethodField()
     p2_win_gem = serializers.SerializerMethodField()
 
+    reported_by = UserDetailsSerializer(read_only=True)
+    confirmed_by = UserDetailsSerializer(read_only=True)
+
     class Meta:
         model = Match
         fields = [
@@ -173,6 +180,7 @@ class MatchHistorySerializer(serializers.ModelSerializer):
             'p1_set1', 'p1_set2', 'p1_set3',
             'p2_set1', 'p2_set2', 'p2_set3',
             'match_double', 'description', 'match_date',
+            'score_status', 'reported_by', 'confirmed_by',
             # Pola z wynikami
             'win', 'user',
             'p1_win_set', 'p2_win_set',
@@ -391,7 +399,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
     Dla Round Robin: zawiera config, mecze, tabelę standings.
     Dla innych typów: tylko podstawowe dane + uczestnicy.
     """
-    participants = ParticipantSerializer(many=True, read_only=True)
+    participants = serializers.SerializerMethodField()
     matches = serializers.SerializerMethodField()
     standings = serializers.SerializerMethodField()
     config = serializers.SerializerMethodField()
@@ -400,6 +408,10 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
     created_by_username = serializers.SerializerMethodField()
     participant_count = serializers.SerializerMethodField()
     matches_progress = serializers.SerializerMethodField()
+
+    def get_participants(self, obj):
+        qs = obj.participants.exclude(status='WDN')
+        return ParticipantSerializer(qs, many=True).data
 
     class Meta:
         model = Tournament
@@ -424,13 +436,21 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
         return obj.created_by.username
 
     def get_participant_count(self, obj):
-        return obj.participants.count()
+        return obj.participants.exclude(status='WDN').count()
 
     def get_config(self, obj):
         if obj.tournament_type == 'RND':
             cfg = getattr(obj, 'round_robin_config', None)
             if cfg:
                 return RoundRobinConfigSerializer(cfg).data
+        if obj.tournament_type == 'AMR':
+            cfg = getattr(obj, 'americano_config', None)
+            if cfg:
+                return {
+                    'points_per_match': cfg.points_per_match,
+                    'number_of_rounds': cfg.number_of_rounds,
+                    'scheduling_type': cfg.scheduling_type,
+                }
         return None
 
     def get_matches(self, obj):
@@ -442,36 +462,53 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
         return TournamentMatchSerializer(matches, many=True).data
 
     def get_standings(self, obj):
-        """Oblicza tabelę standings dla Round Robin używając istniejącej logiki z tools.py."""
-        if obj.tournament_type != 'RND':
-            return None
-        try:
-            from apps.tournaments.tools import calculate_round_robin_standings
-            from apps.tournaments.models import RoundRobinConfig
-            participants = obj.participants.filter(status__in=['ACT', 'REG'])
-            config = getattr(obj, 'round_robin_config', None)
-            if config is None:
-                config, _ = RoundRobinConfig.objects.get_or_create(tournament=obj)
-            standings = calculate_round_robin_standings(obj, participants, config)
-            return [
-                {
-                    'participant_id': s['participant'].id,
-                    'display_name': s['participant'].display_name,
-                    'points': float(s['points']),
-                    'matches_played': s['matches_played'],
-                    'wins': s['wins'],
-                    'losses': s['losses'],
-                    'sets_won': s['sets_won'],
-                    'sets_lost': s['sets_lost'],
-                    'games_won': s['games_won'],
-                    'games_lost': s['games_lost'],
-                    'sets_diff': s['sets_diff'],
-                    'games_diff': s['games_diff'],
-                }
-                for s in standings
-            ]
-        except Exception as e:
-            return None
+        """Oblicza tabelę standings — RR lub Americano."""
+        if obj.tournament_type == 'RND':
+            try:
+                from apps.tournaments.tools import calculate_round_robin_standings
+                from apps.tournaments.models import RoundRobinConfig
+                participants = obj.participants.filter(status__in=['ACT', 'REG'])
+                config = getattr(obj, 'round_robin_config', None)
+                if config is None:
+                    config, _ = RoundRobinConfig.objects.get_or_create(tournament=obj)
+                standings = calculate_round_robin_standings(obj, participants, config)
+                return [
+                    {
+                        'participant_id': s['participant'].id,
+                        'display_name': s['participant'].display_name,
+                        'points': float(s['points']),
+                        'matches_played': s['matches_played'],
+                        'wins': s['wins'],
+                        'losses': s['losses'],
+                        'sets_won': s['sets_won'],
+                        'sets_lost': s['sets_lost'],
+                        'games_won': s['games_won'],
+                        'games_lost': s['games_lost'],
+                        'sets_diff': s['sets_diff'],
+                        'games_diff': s['games_diff'],
+                    }
+                    for s in standings
+                ]
+            except Exception:
+                return None
+
+        if obj.tournament_type == 'AMR':
+            try:
+                from apps.tournaments.tools import calculate_americano_standings
+                standings = calculate_americano_standings(obj)
+                return [
+                    {
+                        'participant_id': s['participant'].id,
+                        'display_name': s['participant'].display_name,
+                        'points': s['points'],
+                        'matches_played': s['matches_played'],
+                    }
+                    for s in standings
+                ]
+            except Exception:
+                return None
+
+        return None
 
     def get_matches_progress(self, obj):
         """

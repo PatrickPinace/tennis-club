@@ -16,10 +16,28 @@ class Match(models.Model):
     p2_set2 = models.IntegerField(null=True, blank=True)
     p2_set3 = models.IntegerField(null=True, blank=True)
 
+    class ScoreStatus(models.TextChoices):
+        PENDING = 'PENDING', 'Oczekuje na potwierdzenie'
+        CONFIRMED = 'CONFIRMED', 'Potwierdzony'
+
     match_double = models.BooleanField(default=False)
     description = models.CharField(max_length=100, default="TOWARZYSKIE")
     match_date = models.DateField()
     last_updated = models.DateTimeField(auto_now=True)
+
+    score_status = models.CharField(
+        max_length=10,
+        choices=ScoreStatus.choices,
+        default=ScoreStatus.CONFIRMED,
+    )
+    reported_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reported_matches', db_column='reported_by',
+    )
+    confirmed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='confirmed_matches', db_column='confirmed_by',
+    )
 
     class Meta:
         db_table = "matches"

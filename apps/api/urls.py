@@ -17,6 +17,7 @@ urlpatterns = [
     path('tournaments/<int:pk>/standings/', views.RoundRobinStandingsView.as_view(), name='tournament-rr-standings'),
     path('tournaments/<int:pk>/bracket/', views.TournamentBracketView.as_view(), name='tournament-bracket'),
     path('tournaments/<int:pk>/config/sgl/', views.EliminationConfigUpdateView.as_view(), name='tournament-sgl-config'),
+    path('tournaments/<int:pk>/config/amr/', views.AmericanoConfigUpdateView.as_view(), name='tournament-amr-config'),
     path('tournaments/<int:pk>/config/', views.RoundRobinConfigUpdateView.as_view(), name='tournament-rr-config'),
     path('tournaments/<int:pk>/finish/', views.TournamentFinishView.as_view(), name='tournament-finish'),
     path('tournaments/<int:pk>/status/', views.TournamentStatusView.as_view(), name='tournament-status'),
@@ -41,5 +42,6 @@ urlpatterns = [
     path('matches/history/', views.MatchHistoryView.as_view(), name='api-match-history'),
     path('matches/filters/', views.MatchFiltersView.as_view(), name='api-match-filters'),
     path('matches/<int:pk>/', views.MatchDetailView.as_view(), name='api-match-detail'),
+    path('matches/<int:pk>/confirm/', views.MatchConfirmView.as_view(), name='api-match-confirm'),
     path('admin/rebuild-rankings/', views.RebuildRankingsView.as_view(), name='admin-rebuild-rankings'),
 ]

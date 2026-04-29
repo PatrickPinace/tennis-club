@@ -32,23 +32,171 @@ class MatchCreateView(generics.CreateAPIView):
 
 
 class MatchDetailView(generics.RetrieveAPIView):
-    """GET /api/matches/<id>/ — szczegóły pojedynczego meczu towarzyskiego.
-    Dodaje pole can_edit: true gdy request.user jest uczestnikiem lub is_staff."""
+    """
+    GET  /api/matches/<id>/ — szczegóły meczu towarzyskiego + pole can_edit.
+    PATCH /api/matches/<id>/ — edycja wyniku przez uczestnika lub is_staff.
+
+    PATCH body (wszystkie opcjonalne, ale p1_set1 i p2_set1 wymagane jeśli wpisujemy wynik):
+      p1_set1, p2_set1  — wyniki 1. seta (wymagane)
+      p1_set2, p2_set2  — wyniki 2. seta (opcjonalne)
+      p1_set3, p2_set3  — wyniki 3. seta (opcjonalne)
+      match_date        — data meczu ISO 8601 (opcjonalne)
+
+    Uprawnienia PATCH: uczestnik meczu (p1/p2/p3/p4) lub is_staff.
+    """
     serializer_class = MatchHistorySerializer
     permission_classes = [IsAuthenticated]
     queryset = Match.objects.select_related('p1', 'p2', 'p3', 'p4').all()
+
+    def _players(self, instance):
+        ids = [instance.p1_id, instance.p2_id]
+        if instance.p3_id:
+            ids.append(instance.p3_id)
+        if instance.p4_id:
+            ids.append(instance.p4_id)
+        return ids
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        players = [instance.p1_id, instance.p2_id]
-        if instance.p3_id:
-            players.append(instance.p3_id)
-        if instance.p4_id:
-            players.append(instance.p4_id)
-        data['can_edit'] = request.user.is_staff or request.user.pk in players
+        data['can_edit'] = request.user.is_staff or request.user.pk in self._players(instance)
         return Response(data)
+
+    def patch(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if not (request.user.is_staff or request.user.pk in self._players(instance)):
+            return Response(
+                {'detail': 'Brak uprawnień. Tylko uczestnik meczu lub administrator może edytować wynik.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        def _int_or_none(key):
+            v = request.data.get(key)
+            if v is None or v == '':
+                return None, False
+            try:
+                return int(v), False
+            except (ValueError, TypeError):
+                return None, True  # błąd
+
+        errors = {}
+        sets = {}
+        for field in ('p1_set1', 'p2_set1', 'p1_set2', 'p2_set2', 'p1_set3', 'p2_set3'):
+            val, err = _int_or_none(field)
+            if err:
+                errors[field] = 'Musi być liczbą całkowitą lub null.'
+            else:
+                sets[field] = val
+
+        if errors:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # set1 wymagane jeśli w ogóle wpisujemy wynik
+        if 'p1_set1' in request.data or 'p2_set1' in request.data:
+            if sets.get('p1_set1') is None or sets.get('p2_set1') is None:
+                return Response(
+                    {'detail': 'p1_set1 i p2_set1 są wymagane.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        # Wartości ujemne niedozwolone
+        for field, val in sets.items():
+            if val is not None and val < 0:
+                return Response(
+                    {'detail': f'Pole „{field}" nie może być ujemne.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        update_fields = []
+        for field, val in sets.items():
+            if field in request.data:
+                setattr(instance, field, val)
+                update_fields.append(field)
+
+        if 'match_date' in request.data:
+            from django.utils.dateparse import parse_date
+            raw = request.data.get('match_date')
+            parsed = parse_date(str(raw)) if raw else None
+            if raw and parsed is None:
+                return Response(
+                    {'detail': 'Nieprawidłowy format match_date (oczekiwany YYYY-MM-DD).'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            instance.match_date = parsed
+            update_fields.append('match_date')
+
+        # score_status: staff → CONFIRMED od razu; uczestnik → PENDING (czeka na potwierdzenie)
+        if update_fields:
+            if request.user.is_staff:
+                instance.score_status = 'CONFIRMED'
+                instance.reported_by = request.user
+                instance.confirmed_by = request.user
+            else:
+                instance.score_status = 'PENDING'
+                instance.reported_by = request.user
+                instance.confirmed_by = None
+            update_fields += ['score_status', 'reported_by', 'confirmed_by']
+            instance.save(update_fields=update_fields)
+
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        data['can_edit'] = True
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class MatchConfirmView(APIView):
+    """
+    POST /api/matches/<id>/confirm/
+
+    Drugi uczestnik meczu potwierdza wynik.
+    Reguły:
+    - tylko uczestnik meczu (p1/p2/p3/p4) może potwierdzić
+    - nie można potwierdzić własnego zgłoszenia (reported_by != request.user)
+    - mecz musi być w statusie PENDING
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            instance = Match.objects.select_related('p1', 'p2', 'p3', 'p4').get(pk=pk)
+        except Match.DoesNotExist:
+            return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        player_ids = [instance.p1_id, instance.p2_id]
+        if instance.p3_id:
+            player_ids.append(instance.p3_id)
+        if instance.p4_id:
+            player_ids.append(instance.p4_id)
+
+        if request.user.pk not in player_ids:
+            return Response(
+                {'detail': 'Brak uprawnień. Tylko uczestnik meczu może potwierdzić wynik.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if instance.score_status != 'PENDING':
+            return Response(
+                {'detail': 'Wynik nie czeka na potwierdzenie.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if instance.reported_by_id == request.user.pk:
+            return Response(
+                {'detail': 'Nie możesz potwierdzić własnego zgłoszenia.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance.score_status = 'CONFIRMED'
+        instance.confirmed_by = request.user
+        instance.save(update_fields=['score_status', 'confirmed_by'])
+
+        from .serializers import MatchHistorySerializer
+        serializer = MatchHistorySerializer(instance, context={'request': request})
+        data = serializer.data
+        data['can_edit'] = True
+        return Response(data, status=status.HTTP_200_OK)
 
 
 class UserListView(generics.ListAPIView):
@@ -482,6 +630,7 @@ class RoundRobinMatchScoreView(APIView):
     SUPPORTED_TYPES = (
         Tournament.TournamentType.ROUND_ROBIN,
         Tournament.TournamentType.SINGLE_ELIMINATION,
+        Tournament.TournamentType.AMERICANO,
     )
 
     def patch(self, request, pk, match_pk):
@@ -499,7 +648,7 @@ class RoundRobinMatchScoreView(APIView):
 
         if tournament.tournament_type not in self.SUPPORTED_TYPES:
             return Response(
-                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND) i Single Elimination (SGL).'},
+                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND), Single Elimination (SGL) i Americano (AMR).'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -695,84 +844,108 @@ class RoundRobinMatchScoreView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # ── Walidacja gemów per set ───────────────────────────────────────────
-        config_for_validation = getattr(tournament, 'round_robin_config', None)
-        if config_for_validation is None:
-            from apps.tournaments.models import RoundRobinConfig as _RRC
-            config_for_validation, _ = _RRC.objects.get_or_create(tournament=tournament)
-
-        gps = config_for_validation.games_per_set   # np. 6
-        sts = config_for_validation.sets_to_win      # np. 2
-        max_sets = sts * 2 - 1                        # np. 3
-
-        # Sety 1 i 2: standardowy set gemowy (max gps+2 z przewagą, albo gps:gps → tie-break)
-        for i in (1, 2):
-            s1 = fields[f'set{i}_p1']
-            s2 = fields[f'set{i}_p2']
-            if s1 is None or s2 is None:
-                continue
-            hi, lo = max(s1, s2), min(s1, s2)
-            # Maksymalna dozwolona wartość: gps+1 (np. 7 przy 6-gemowym secie z tie-breakiem)
-            # lub gps+N gdy system "przewaga" — akceptujemy do gps+10 żeby nie ograniczać
-            max_gems = gps + 10
-            if hi > max_gems:
+        # ── AMR: osobna logika — gemy zamiast setów tenisowych ──────────────────
+        # Americano używa set1_p1/set1_p2 jako łączne gemy zdobyte w meczu.
+        # Nie ma setów 2 i 3, nie ma RoundRobinConfig — pomijamy całą walidację RR.
+        if tournament.tournament_type == Tournament.TournamentType.AMERICANO:
+            g1 = fields['set1_p1']
+            g2 = fields['set1_p2']
+            from apps.tournaments.models import AmericanoConfig
+            amr_cfg, _ = AmericanoConfig.objects.get_or_create(
+                tournament=tournament,
+                defaults={'points_per_match': 32, 'number_of_rounds': 7, 'scheduling_type': 'STATIC'},
+            )
+            if g1 + g2 != amr_cfg.points_per_match:
                 return Response(
-                    {'detail': f'Set {i}: wynik {hi} przekracza dozwolone max ({max_gems} gemów).'},
+                    {'detail': f'Suma gemów ({g1}+{g2}={g1+g2}) musi być równa points_per_match ({amr_cfg.points_per_match}).'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            # Zwycięzca seta musi mieć ≥ gps gemów
-            if hi < gps:
-                return Response(
-                    {'detail': f'Set {i}: zwycięzca musi mieć co najmniej {gps} gemów (max({s1}, {s2}) = {hi}).'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # Przy remisie gps:gps → OK (tie-break)
-            # Przy wygranym gps:x → x musi być ≤ gps-2 lub gps-1 (jeśli 7:5 lub 7:6)
-            # Uproszczona reguła: jeśli hi == gps, to lo może być gps (remis, tie-break)
-            # jeśli hi > gps, to różnica musi być ≥ 2 LUB hi == gps+1 (np. 7:6 jest OK)
-            if hi > gps and (hi - lo) < 2 and hi != gps + 1:
-                return Response(
-                    {'detail': f'Set {i}: wynik {s1}:{s2} jest nieprawidłowy (za mała przewaga).'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # ── Walidacja super tie-breaka (set 3: min 10 pkt, przewaga ≥ 2) ─────
-        s3p1, s3p2 = fields['set3_p1'], fields['set3_p2']
-        if s3p1 is not None and s3p2 is not None:
-            is_stb = s3p1 >= 10 or s3p2 >= 10
-            if is_stb and abs(s3p1 - s3p2) < 2:
-                return Response(
-                    {'detail': 'Super tie-break wymaga przewagi co najmniej 2 punktów.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # ── Wyznacz zwycięzcę (identyczna logika jak TournamentsMatchForm) ───
-        config = getattr(tournament, 'round_robin_config', None)
-        if config is None:
-            from apps.tournaments.models import RoundRobinConfig
-            config, _ = RoundRobinConfig.objects.get_or_create(tournament=tournament)
-
-        sets_to_win = config.sets_to_win
-        p1_sets = 0
-        p2_sets = 0
-
-        for i in range(1, 4):
-            s1 = fields[f'set{i}_p1']
-            s2 = fields[f'set{i}_p2']
-            if s1 is not None and s2 is not None:
-                if s1 > s2:
-                    p1_sets += 1
-                elif s2 > s1:
-                    p2_sets += 1
-
-        winner = None
-        new_status = TournamentsMatch.Status.IN_PROGRESS.value
-        if p1_sets >= sets_to_win:
-            winner = match.participant1
+            if g1 > g2:
+                winner = match.participant1
+            elif g2 > g1:
+                winner = match.participant2
+            else:
+                winner = None  # remis gemowy — standings liczą gemy, nie wymagają winnera
             new_status = TournamentsMatch.Status.COMPLETED.value
-        elif p2_sets >= sets_to_win:
-            winner = match.participant2
-            new_status = TournamentsMatch.Status.COMPLETED.value
+        else:
+            # ── Walidacja gemów per set (RND / SGL) ──────────────────────────────
+            config_for_validation = getattr(tournament, 'round_robin_config', None)
+            if config_for_validation is None:
+                from apps.tournaments.models import RoundRobinConfig as _RRC
+                config_for_validation, _ = _RRC.objects.get_or_create(tournament=tournament)
+
+            gps = config_for_validation.games_per_set   # np. 6
+            sts = config_for_validation.sets_to_win      # np. 2
+            max_sets = sts * 2 - 1                        # np. 3
+
+            # Sety 1 i 2: standardowy set gemowy (max gps+2 z przewagą, albo gps:gps → tie-break)
+            for i in (1, 2):
+                s1 = fields[f'set{i}_p1']
+                s2 = fields[f'set{i}_p2']
+                if s1 is None or s2 is None:
+                    continue
+                hi, lo = max(s1, s2), min(s1, s2)
+                # Maksymalna dozwolona wartość: gps+1 (np. 7 przy 6-gemowym secie z tie-breakiem)
+                # lub gps+N gdy system "przewaga" — akceptujemy do gps+10 żeby nie ograniczać
+                max_gems = gps + 10
+                if hi > max_gems:
+                    return Response(
+                        {'detail': f'Set {i}: wynik {hi} przekracza dozwolone max ({max_gems} gemów).'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # Zwycięzca seta musi mieć ≥ gps gemów
+                if hi < gps:
+                    return Response(
+                        {'detail': f'Set {i}: zwycięzca musi mieć co najmniej {gps} gemów (max({s1}, {s2}) = {hi}).'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                # Przy remisie gps:gps → OK (tie-break)
+                # Przy wygranym gps:x → x musi być ≤ gps-2 lub gps-1 (jeśli 7:5 lub 7:6)
+                # Uproszczona reguła: jeśli hi == gps, to lo może być gps (remis, tie-break)
+                # jeśli hi > gps, to różnica musi być ≥ 2 LUB hi == gps+1 (np. 7:6 jest OK)
+                if hi > gps and (hi - lo) < 2 and hi != gps + 1:
+                    return Response(
+                        {'detail': f'Set {i}: wynik {s1}:{s2} jest nieprawidłowy (za mała przewaga).'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # ── Walidacja super tie-breaka (set 3: min 10 pkt, przewaga ≥ 2) ─────
+            s3p1, s3p2 = fields['set3_p1'], fields['set3_p2']
+            if s3p1 is not None and s3p2 is not None:
+                is_stb = s3p1 >= 10 or s3p2 >= 10
+                if is_stb and abs(s3p1 - s3p2) < 2:
+                    return Response(
+                        {'detail': 'Super tie-break wymaga przewagi co najmniej 2 punktów.'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+            # ── Wyznacz zwycięzcę (identyczna logika jak TournamentsMatchForm) ───
+            config = getattr(tournament, 'round_robin_config', None)
+            if config is None:
+                from apps.tournaments.models import RoundRobinConfig
+                config, _ = RoundRobinConfig.objects.get_or_create(tournament=tournament)
+
+            sets_to_win = config.sets_to_win
+            p1_sets = 0
+            p2_sets = 0
+
+            for i in range(1, 4):
+                s1 = fields[f'set{i}_p1']
+                s2 = fields[f'set{i}_p2']
+                if s1 is not None and s2 is not None:
+                    if s1 > s2:
+                        p1_sets += 1
+                    elif s2 > s1:
+                        p2_sets += 1
+
+            winner = None
+            new_status = TournamentsMatch.Status.IN_PROGRESS.value
+            if p1_sets >= sets_to_win:
+                winner = match.participant1
+                new_status = TournamentsMatch.Status.COMPLETED.value
+            elif p2_sets >= sets_to_win:
+                winner = match.participant2
+                new_status = TournamentsMatch.Status.COMPLETED.value
 
         # ── Opcjonalnie scheduled_time ────────────────────────────────────────
         update_scheduled_time = 'scheduled_time' in data
@@ -1031,6 +1204,83 @@ class EliminationConfigUpdateView(APIView):
         return Response({
             'initial_seeding': config.initial_seeding,
             'third_place_match': config.third_place_match,
+        }, status=status.HTTP_200_OK)
+
+
+class AmericanoConfigUpdateView(APIView):
+    """
+    Tworzenie/edycja konfiguracji Americano przez organizatora.
+    POST/PATCH /api/tournaments/{pk}/config/amr/
+
+    Pola: points_per_match (int >= 1), number_of_rounds (int >= 1).
+    scheduling_type zablokowane na STATIC w tym slice'u (DYNAMIC = Mexicano — później).
+    Tworzy AmericanoConfig jeśli nie istnieje.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        return self._upsert(request, pk)
+
+    def patch(self, request, pk):
+        return self._upsert(request, pk)
+
+    def _upsert(self, request, pk):
+        try:
+            tournament = Tournament.objects.get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.AMERICANO:
+            return Response(
+                {'detail': 'Endpoint /config/amr/ obsługuje tylko turnieje AMR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (request.user.is_staff or tournament.created_by == request.user):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        from apps.tournaments.models import AmericanoConfig
+        config, _ = AmericanoConfig.objects.get_or_create(
+            tournament=tournament,
+            defaults={
+                'points_per_match': 32,
+                'number_of_rounds': 7,
+                'scheduling_type': 'STATIC',
+            },
+        )
+
+        data = request.data
+        if 'points_per_match' in data:
+            try:
+                ppm = int(data['points_per_match'])
+            except (TypeError, ValueError):
+                return Response({'detail': 'points_per_match musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+            if ppm < 1:
+                return Response({'detail': 'points_per_match musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.points_per_match = ppm
+
+        if 'number_of_rounds' in data:
+            try:
+                nor = int(data['number_of_rounds'])
+            except (TypeError, ValueError):
+                return Response({'detail': 'number_of_rounds musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+            if nor < 1:
+                return Response({'detail': 'number_of_rounds musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.number_of_rounds = nor
+
+        # scheduling_type zablokowane — obsługujemy tylko STATIC w tym slice'u
+        if 'scheduling_type' in data and data['scheduling_type'] != 'STATIC':
+            return Response(
+                {'detail': 'scheduling_type DYNAMIC (Mexicano) nie jest jeszcze obsługiwany. Zostaw STATIC.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        config.scheduling_type = 'STATIC'
+
+        config.save()
+        return Response({
+            'points_per_match': config.points_per_match,
+            'number_of_rounds': config.number_of_rounds,
+            'scheduling_type': config.scheduling_type,
         }, status=status.HTTP_200_OK)
 
 
@@ -1503,12 +1753,12 @@ class TournamentStatusView(APIView):
                     status=status.HTTP_409_CONFLICT,
                 )
 
-        # Guard: cofnięcie do DRF tylko gdy brak uczestników
+        # Guard: cofnięcie do DRF tylko gdy brak aktywnych uczestników (WDN nie liczy się)
         if new_status == 'DRF' and tournament.status == 'REG':
-            count = tournament.participants.count()
+            count = tournament.participants.exclude(status='WDN').count()
             if count > 0:
                 return Response(
-                    {'detail': f'Nie można cofnąć do szkicu — turniej ma {count} uczestników.'},
+                    {'detail': f'Nie można cofnąć do szkicu — turniej ma {count} aktywnych uczestników.'},
                     status=status.HTTP_409_CONFLICT,
                 )
 
@@ -1540,6 +1790,20 @@ class TournamentStatusView(APIView):
                             defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
+                    elif tournament.tournament_type == 'AMR':
+                        from apps.tournaments.bracket import generate_americano_matches_static
+                        from apps.tournaments.models import AmericanoConfig
+                        config, _ = AmericanoConfig.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={
+                                'points_per_match': 32,
+                                'number_of_rounds': 7,
+                                'scheduling_type': 'STATIC',
+                            },
+                        )
+                        if config.scheduling_type != 'STATIC':
+                            raise ValueError('Tylko tryb STATIC (Americano) jest obsługiwany w tym etapie.')
+                        match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
                     tournament.status = new_status
@@ -1774,20 +2038,36 @@ class TournamentParticipantView(APIView):
             except (ValueError, TypeError):
                 seed_number = None
 
-        participant = Participant.objects.create(
-            tournament=tournament,
-            user=target_user,
-            display_name=display_name,
-            seed_number=seed_number,
-            status='REG',
-        )
+        # Reaktywuj WDN jeśli user był już wcześniej uczestnikiem
+        existing_wdn = Participant.objects.filter(
+            tournament=tournament, user=target_user, status='WDN',
+        ).first()
 
-        # Dodaj TeamMember dla kapitana i partnera (debel)
-        TeamMember.objects.create(participant=participant, user=target_user)
         partner_name = None
-        if partner_user:
-            TeamMember.objects.create(participant=participant, user=partner_user)
-            partner_name = partner_user.get_full_name().strip() or partner_user.username
+        if existing_wdn:
+            existing_wdn.display_name = display_name
+            existing_wdn.seed_number = seed_number
+            existing_wdn.status = 'REG'
+            existing_wdn.save(update_fields=['display_name', 'seed_number', 'status'])
+            participant = existing_wdn
+            # Upewnij się, że TeamMember kapitana istnieje (mógł nie być usunięty, ale dla pewności)
+            TeamMember.objects.get_or_create(participant=participant, user=target_user)
+            if partner_user:
+                TeamMember.objects.get_or_create(participant=participant, user=partner_user)
+                partner_name = partner_user.get_full_name().strip() or partner_user.username
+        else:
+            participant = Participant.objects.create(
+                tournament=tournament,
+                user=target_user,
+                display_name=display_name,
+                seed_number=seed_number,
+                status='REG',
+            )
+            # Dodaj TeamMember dla kapitana i partnera (debel)
+            TeamMember.objects.create(participant=participant, user=target_user)
+            if partner_user:
+                TeamMember.objects.create(participant=participant, user=partner_user)
+                partner_name = partner_user.get_full_name().strip() or partner_user.username
 
         logger.info(
             '[participant] Dodano uczestnika %s (id=%d) do turnieju "%s" (id=%d) przez %s.%s',
