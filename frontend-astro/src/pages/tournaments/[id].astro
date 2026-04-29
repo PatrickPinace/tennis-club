@@ -3764,10 +3764,126 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     initMatchFilters();
     renderMatches();
     initConfigForm();
-    initViewToggle();
+    // initViewToggle() przeniesiony do osobnego publicznego IIFE poniżej
+    // (działa zarówno dla organizatora jak i zwykłego usera)
     initFinishButton();
     initStatusPanel();
     initParticipantsPanel();
   }
+})();
+
+// ── RR Matrix toggle — dostępny dla wszystkich użytkowników (nie tylko organizatora) ──────────
+// initViewToggle() zostało usunięte z IIFE organizatora — ten blok obsługuje toggle
+// zarówno dla zwykłego usera jak i organizatora. Działa synchronicznie, po załadowaniu DOM.
+// Mecze czyta z ssr-matches-data (SSR JSON) — nie wymaga fetch ani uprawnień.
+(() => {
+  const toggle = document.getElementById('matches-view-toggle');
+  if (!toggle) return; // nie ma toggle → nie RR lub brak meczów
+
+  const roundEls   = document.querySelectorAll<HTMLElement>('.td-round');
+  const matrixWrap = document.getElementById('rr-matrix-wrap');
+  if (!matrixWrap) return;
+
+  // Parsuj mecze z SSR
+  type PubMatchData = {
+    id: number; participant1_id: number | null; participant2_id: number | null;
+    participant1_name: string | null; participant2_name: string | null;
+    winner_name: string | null; score: string | null; status: string;
+  };
+  let pubMatches: PubMatchData[] = [];
+  const matchesEl = document.getElementById('ssr-matches-data');
+  if (matchesEl) {
+    try { pubMatches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { /* brak */ }
+  }
+
+  // Parsuj uczestników z SSR
+  type PubParticipant = { id: number; display_name: string };
+  let pubParticipants: PubParticipant[] = [];
+  const partEl = document.getElementById('ssr-participants-data');
+  if (partEl) {
+    try { pubParticipants = JSON.parse(partEl.textContent ?? '[]'); } catch { /* brak */ }
+  }
+
+  function escH(s: string): string {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function abbrev(name: string): string {
+    const parts = name.trim().split(/\s+/).filter(w => w && w !== '/');
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+    return name.slice(0, 3).toUpperCase();
+  }
+
+  function buildPublicMatrix() {
+    const wrap = document.getElementById('rr-matrix-inner');
+    if (!wrap) return;
+    if (pubParticipants.length < 2) {
+      wrap.innerHTML = '<p style="padding:12px;font-size:0.82rem;color:var(--text-dim);">Za mało uczestników do macierzy.</p>';
+      return;
+    }
+    const matchMap = new Map<string, PubMatchData>();
+    for (const m of pubMatches) {
+      if (!m.participant1_id || !m.participant2_id) continue;
+      const key = `${Math.min(m.participant1_id, m.participant2_id)}_${Math.max(m.participant1_id, m.participant2_id)}`;
+      matchMap.set(key, m);
+    }
+    let html = '<table class="rr-matrix" role="grid">';
+    html += '<thead><tr><th class="rr-matrix__row-head" style="background:var(--surface-2);z-index:3;position:sticky;left:0;top:0;"></th>';
+    for (const p of pubParticipants) {
+      html += `<th class="rr-matrix__col-head" title="${escH(p.display_name)}">${escH(abbrev(p.display_name))}</th>`;
+    }
+    html += '</tr></thead><tbody>';
+    for (const row of pubParticipants) {
+      html += `<tr><td class="rr-matrix__row-head" title="${escH(row.display_name)}">${escH(row.display_name)}</td>`;
+      for (const col of pubParticipants) {
+        if (row.id === col.id) { html += '<td class="rr-matrix__diag" aria-hidden="true"></td>'; continue; }
+        const key = `${Math.min(row.id, col.id)}_${Math.max(row.id, col.id)}`;
+        const m = matchMap.get(key);
+        if (!m) {
+          html += '<td class="rr-matrix__cell rr-matrix__cell--pending" aria-label="brak meczu"><span class="rr-matrix__cell-status">—</span></td>';
+          continue;
+        }
+        let cls = 'rr-matrix__cell ';
+        let inner = '';
+        if (m.status === 'CMP') {
+          cls += 'rr-matrix__cell--done';
+          const rowWon = m.winner_name === (row.id === m.participant1_id ? m.participant1_name : m.participant2_name);
+          inner = m.score
+            ? `<span class="rr-matrix__cell-score">${escH(m.score)}</span>`
+            : `<span class="rr-matrix__cell-score">${rowWon ? 'W' : 'P'}</span>`;
+        } else if (m.status === 'WDR') {
+          cls += 'rr-matrix__cell--wdr';
+          inner = '<span class="rr-matrix__cell-score">WO</span>';
+        } else if (m.status === 'INP') {
+          cls += 'rr-matrix__cell--inprogress';
+          inner = '<span class="rr-matrix__cell-status">● live</span>';
+        } else {
+          cls += 'rr-matrix__cell--pending';
+          inner = `<span class="rr-matrix__cell-status">${m.status === 'SCH' ? 'SCH' : '·'}</span>`;
+        }
+        html += `<td class="${cls}" title="${escH(m.participant1_name ?? '')} vs ${escH(m.participant2_name ?? '')}: ${m.score ?? m.status}"><span>${inner}</span></td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  let matrixBuilt = false;
+  toggle.querySelectorAll<HTMLButtonElement>('.view-toggle__btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      toggle.querySelectorAll('.view-toggle__btn').forEach(b => b.classList.remove('view-toggle__btn--active'));
+      btn.classList.add('view-toggle__btn--active');
+      if (view === 'matrix') {
+        roundEls.forEach(el => el.style.display = 'none');
+        matrixWrap.style.display = '';
+        if (!matrixBuilt) { buildPublicMatrix(); matrixBuilt = true; }
+      } else {
+        roundEls.forEach(el => el.style.display = '');
+        matrixWrap.style.display = 'none';
+      }
+    });
+  });
 })();
 </script>
