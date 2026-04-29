@@ -24,6 +24,7 @@ urlpatterns = [
     path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),
     path('tournaments/<int:pk>/participants/', views.TournamentParticipantView.as_view(), name='tournament-participants'),
     path('tournaments/<int:pk>/participants/<int:p_pk>/', views.TournamentParticipantView.as_view(), name='tournament-participant-detail'),
+    path('tournaments/<int:pk>/join/', views.TournamentJoinView.as_view(), name='tournament-join'),
     path('tournaments/create/', views.TournamentCreateView.as_view(), name='tournament-create'),
     path('tournaments/<int:pk>/matches/<int:match_pk>/score/', views.RoundRobinMatchScoreView.as_view(), name='tournament-rr-match-score'),
     path('rankings/list/', views.RankingListView.as_view(), name='rankings-list'),

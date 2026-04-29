@@ -2118,3 +2118,96 @@ class TournamentParticipantView(APIView):
             'status': 'WDN',
             'display_name': participant.display_name,
         }, status=status.HTTP_200_OK)
+
+
+class TournamentJoinView(APIView):
+    """
+    POST /api/tournaments/{pk}/join/
+
+    Zalogowany użytkownik zapisuje siebie do turnieju.
+    Reuse logiki z TournamentParticipantView (duplikat, WDN reaktywacja, limit miejsc).
+
+    Warunki:
+    - turniej musi być w statusie REG
+    - user nie może być już aktywnym uczestnikiem (Participant lub TeamMember)
+    - jeśli był WDN → reaktywacja rekordu
+    - jeśli osiągnięto max_participants (RND) → 409
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament, Participant, TeamMember
+
+        try:
+            tournament = Tournament.objects.select_related(
+                'created_by', 'round_robin_config'
+            ).get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.status != 'REG':
+            return Response(
+                {'detail': f'Zapisy są zamknięte. Turniej ma status „{tournament.get_status_display()}".'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        user = request.user
+
+        # Sprawdź duplikat
+        as_captain = Participant.objects.filter(
+            tournament=tournament, user=user,
+        ).exclude(status='WDN').exists()
+        as_partner = TeamMember.objects.filter(
+            participant__tournament=tournament, user=user,
+        ).exclude(participant__status='WDN').exists()
+
+        if as_captain or as_partner:
+            return Response(
+                {'detail': 'Jesteś już zapisany do tego turnieju.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Sprawdź limit (RND)
+        if tournament.tournament_type == 'RND':
+            cfg = getattr(tournament, 'round_robin_config', None)
+            if cfg:
+                active_count = tournament.participants.exclude(status='WDN').count()
+                if active_count >= cfg.max_participants:
+                    return Response(
+                        {'detail': f'Osiągnięto limit uczestników ({cfg.max_participants}).'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+        full = user.get_full_name().strip()
+        display_name = full if full else user.username
+
+        # Reaktywuj WDN lub utwórz nowy rekord
+        existing_wdn = Participant.objects.filter(
+            tournament=tournament, user=user, status='WDN',
+        ).first()
+
+        if existing_wdn:
+            existing_wdn.display_name = display_name
+            existing_wdn.status = 'REG'
+            existing_wdn.save(update_fields=['display_name', 'status'])
+            participant = existing_wdn
+            TeamMember.objects.get_or_create(participant=participant, user=user)
+        else:
+            participant = Participant.objects.create(
+                tournament=tournament,
+                user=user,
+                display_name=display_name,
+                status='REG',
+            )
+            TeamMember.objects.create(participant=participant, user=user)
+
+        logger.info(
+            '[join] Użytkownik %s zapisał się do turnieju "%s" (id=%d).',
+            user.username, tournament.name, tournament.pk,
+        )
+
+        return Response({
+            'id': participant.pk,
+            'display_name': participant.display_name,
+            'status': participant.status,
+        }, status=status.HTTP_201_CREATED)

@@ -34,9 +34,11 @@ class PlayerRankingSerializer(serializers.ModelSerializer):
 
 
 class ParticipantSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
+
     class Meta:
         model = Participant
-        fields = ['id', 'display_name', 'seed_number', 'status']
+        fields = ['id', 'display_name', 'seed_number', 'status', 'user_id']
 
 
 class TournamentSerializer(serializers.ModelSerializer):

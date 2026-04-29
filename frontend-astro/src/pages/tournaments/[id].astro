@@ -403,6 +403,19 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             </div>
           </div>
 
+          <!-- ── Dołącz do turnieju (self-registration) — AMR ───────────── -->
+          {tournament.status === 'REG' && (
+            <div id="join-panel" style="display:none;margin-bottom:24px;"
+              data-tournament-id={tournament.id}
+              data-tournament-status={tournament.status}>
+              <div class="join-bar">
+                <span class="join-bar__text">Rejestracja otwarta — dołącz do turnieju!</span>
+                <button id="join-btn" class="tc-btn tc-btn-primary tc-btn-sm">Dołącz</button>
+                <span id="join-msg" class="org-form-msg" style="margin-left:8px;"></span>
+              </div>
+            </div>
+          )}
+
           <!-- Tabela punktów AMR — SSR, odświeżana przez JS po CMP -->
           <div class="tc-card" style="margin-bottom:24px;" id="amr-standings-card">
             <div class="tc-card-header">
@@ -692,6 +705,19 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <span class="td-stat__lbl">Pozostałych</span>
             </div>
           </div>
+
+          <!-- ── Dołącz do turnieju (self-registration) — RR ────────────── -->
+          {tournament.status === 'REG' && (
+            <div id="join-panel" style="display:none;margin-bottom:24px;"
+              data-tournament-id={tournament.id}
+              data-tournament-status={tournament.status}>
+              <div class="join-bar">
+                <span class="join-bar__text">Rejestracja otwarta — dołącz do turnieju!</span>
+                <button id="join-btn" class="tc-btn tc-btn-primary tc-btn-sm">Dołącz</button>
+                <span id="join-msg" class="org-form-msg" style="margin-left:8px;"></span>
+              </div>
+            </div>
+          )}
 
           <!-- ── Tabela standings ────────────────────────────────────────── -->
           {tournament.standings && tournament.standings.length > 0 ? (
@@ -1541,6 +1567,16 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     opacity: 0.45; cursor: not-allowed; background: var(--surface-3, var(--surface-2));
   }
   .org-field-select { cursor: pointer; }
+
+  /* ── Join bar (self-registration) ─────────────────────────────────────── */
+  .join-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px 18px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 10px;
+  }
+  .join-bar__text { flex: 1; font-size: 0.9rem; color: var(--text); }
 </style>
 
 <!-- Reguły dla dynamicznie wstawianych kart meczów (innerHTML) — muszą być global -->
@@ -3938,5 +3974,80 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       }
     });
   });
+})();
+
+// ── Self-registration — dołącz do turnieju ──────────────────────────────────
+// Widoczny dla zalogowanego użytkownika gdy turniej ma status REG
+// i user nie jest już uczestnikiem.
+(() => {
+  const panel = document.getElementById('join-panel');
+  if (!panel) return; // turniej nie jest w REG
+
+  const tournamentId = panel.dataset.tournamentId;
+  const apiBase = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+
+  // Parsuj uczestników z SSR — sprawdź czy user jest już zapisany
+  type JoinParticipant = { id: number; user_id: number | null; status: string };
+  let participants: JoinParticipant[] = [];
+  try {
+    const el = document.getElementById('ssr-participants-data');
+    if (el) participants = JSON.parse(el.textContent ?? '[]');
+  } catch { /* brak */ }
+
+  function getCsrf(): string {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  // Sprawdź czy user jest zalogowany i pobierz jego ID
+  fetch(`${apiBase}/api/auth/me/`, { credentials: 'include' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data?.authenticated || !data?.user) return;
+      const myId: number | null = data.user.id ?? null;
+      if (!myId) return;
+
+      // Sprawdź czy user jest już aktywnym uczestnikiem
+      const alreadyIn = participants.some(p => p.user_id === myId);
+      if (alreadyIn) return;
+
+      // Pokaż panel
+      panel.style.display = '';
+
+      const btn = document.getElementById('join-btn') as HTMLButtonElement | null;
+      const msg = document.getElementById('join-msg');
+      if (!btn || !msg) return;
+
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Zapisuję…';
+        msg.textContent = '';
+        msg.className = 'org-form-msg';
+        try {
+          const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/join/`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+          });
+          if (res.ok) {
+            msg.textContent = 'Dołączono! Strona zostanie odświeżona…';
+            msg.classList.add('org-form-msg--ok');
+            setTimeout(() => window.location.reload(), 1200);
+          } else {
+            const err = await res.json().catch(() => ({}));
+            msg.textContent = err.detail ?? err.error ?? `Błąd ${res.status}`;
+            msg.classList.add('org-form-msg--err');
+            btn.disabled = false;
+            btn.textContent = 'Dołącz';
+          }
+        } catch {
+          msg.textContent = 'Błąd połączenia.';
+          msg.classList.add('org-form-msg--err');
+          btn.disabled = false;
+          btn.textContent = 'Dołącz';
+        }
+      });
+    })
+    .catch(() => { /* niezalogowany lub brak połączenia */ });
 })();
 </script>
