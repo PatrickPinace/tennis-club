@@ -1,0 +1,60 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Polityka Prywatności{% endblock %}
+{% block topbar_title %}Polityka Prywatności{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Polityka Prywatności</h1>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 760px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body" style="font-size:.875rem; line-height:1.8; color:var(--text-muted);">
+
+      <div style="margin-bottom:var(--space-6);">
+        <h2 style="font-size:.95rem; font-weight:700; color:var(--text); margin-bottom:var(--space-3); padding-bottom:var(--space-2); border-bottom:1px solid var(--border);">1. Administrator Danych</h2>
+        <p>Administratorem Twoich danych osobowych jest operator serwisu Tennis Club. W sprawach związanych z ochroną danych możesz skontaktować się z nami elektronicznie.</p>
+      </div>
+
+      <div style="margin-bottom:var(--space-6);">
+        <h2 style="font-size:.95rem; font-weight:700; color:var(--text); margin-bottom:var(--space-3); padding-bottom:var(--space-2); border-bottom:1px solid var(--border);">2. Przetwarzane Dane</h2>
+        <p>W ramach korzystania z portalu przetwarzamy następujące dane:</p>
+        <ul style="padding-left:var(--space-5); display:flex; flex-direction:column; gap:var(--space-2); margin-top:var(--space-3);">
+          <li>Imię i nazwisko (podawane przy rejestracji)</li>
+          <li>Adres e-mail</li>
+          <li>Dane logowania (login, hasło w formie zaszyfrowanej)</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom:var(--space-6);">
+        <h2 style="font-size:.95rem; font-weight:700; color:var(--text); margin-bottom:var(--space-3); padding-bottom:var(--space-2); border-bottom:1px solid var(--border);">3. Cel Przetwarzania</h2>
+        <p>Twoje dane przetwarzane są w celu:</p>
+        <ul style="padding-left:var(--space-5); display:flex; flex-direction:column; gap:var(--space-2); margin-top:var(--space-3);">
+          <li>Świadczenia usług drogą elektroniczną (prowadzenie konta użytkownika)</li>
+          <li>Organizacji turniejów i meczów tenisowych</li>
+          <li>Komunikacji systemowej (powiadomienia o meczach, reset hasła)</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom:var(--space-6);">
+        <h2 style="font-size:.95rem; font-weight:700; color:var(--text); margin-bottom:var(--space-3); padding-bottom:var(--space-2); border-bottom:1px solid var(--border);">4. Pliki Cookies</h2>
+        <p>Strona wykorzystuje pliki cookies w celu zapewnienia prawidłowego działania serwisu, utrzymania sesji użytkownika oraz w celach statystycznych. Możesz zarządzać ustawieniami cookies w swojej przeglądarce internetowej.</p>
+      </div>
+
+      <div>
+        <h2 style="font-size:.95rem; font-weight:700; color:var(--text); margin-bottom:var(--space-3); padding-bottom:var(--space-2); border-bottom:1px solid var(--border);">5. Twoje Prawa</h2>
+        <p>Masz prawo dostępu do swoich danych, ich sprostowania, usunięcia lub ograniczenia przetwarzania. Możesz również w dowolnym momencie wycofać zgodę na przetwarzanie danych, co może skutkować usunięciem konta.</p>
+      </div>
+
+    </div>
+    <div class="card-footer" style="text-align:center; font-size:.75rem; color:var(--text-muted);">
+      Ostatnia aktualizacja: Styczeń 2026
+    </div>
+  </div>
+</div>
+{% endblock %}

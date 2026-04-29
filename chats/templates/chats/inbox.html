@@ -1,0 +1,72 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Skrzynka odbiorcza{% endblock %}
+{% block topbar_title %}Czat{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Skrzynka odbiorcza</h1>
+  </div>
+  <div class="page-header__actions">
+    {% if friends_to_chat_with %}
+    <div class="tc-dropdown" style="position:relative;">
+      <button class="btn btn-primary tc-dropdown-toggle">+ Rozpocznij czat</button>
+      <div class="tc-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 4px); background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); min-width:200px; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,.15);">
+        {% for friend in friends_to_chat_with %}
+        <a href="{% url 'chats:conversation' username=friend.username %}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text); font-size:.875rem; border-bottom:1px solid var(--border);">
+          {{ friend.get_full_name|default:friend.username }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 720px; margin: 0 auto;">
+  {% if latest_messages %}
+  <div class="card">
+    <div class="card-body" style="padding:0;">
+      {% for item in latest_messages %}
+        {% if item.message.sender == request.user %}
+          {% with other_user=item.message.recipient %}
+            {% include "chats/inbox_item.html" with other_user=other_user message=item.message unread_count=item.unread_count %}
+          {% endwith %}
+        {% else %}
+          {% with other_user=item.message.sender %}
+            {% include "chats/inbox_item.html" with other_user=other_user message=item.message unread_count=item.unread_count %}
+          {% endwith %}
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state__icon">💬</div>
+    <p class="empty-state__title">Brak wiadomości</p>
+    <p class="empty-state__text">Nie masz jeszcze żadnych wiadomości.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('.tc-dropdown').forEach(function(wrap) {
+  const toggle = wrap.querySelector('.tc-dropdown-toggle');
+  const menu = wrap.querySelector('.tc-dropdown-menu');
+  toggle.addEventListener('click', function(e) {
+    e.stopPropagation();
+    const isOpen = menu.style.display === 'block';
+    document.querySelectorAll('.tc-dropdown-menu').forEach(m => m.style.display = 'none');
+    menu.style.display = isOpen ? 'none' : 'block';
+  });
+});
+document.addEventListener('click', function() {
+  document.querySelectorAll('.tc-dropdown-menu').forEach(m => m.style.display = 'none');
+});
+</script>
+{% endblock %}

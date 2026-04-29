@@ -1,0 +1,198 @@
+{% extends 'layouts/base_app.html' %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}{{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ tournament.name }}</h1>
+    <div style="display:flex; gap:var(--space-2); align-items:center; margin-top:var(--space-2);">
+      <span class="badge badge-primary">{{ tournament.get_tournament_type_display }}</span>
+      {% if tournament.status == 'ACT' %}<span class="badge badge-success">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'FIN' %}<span class="badge" style="background:var(--surface-2);color:var(--text-muted);">{{ tournament.get_status_display }}</span>
+      {% else %}<span class="badge badge-warning">{{ tournament.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <button onclick="history.back()" class="btn btn-secondary">← Powrót</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
+
+  {% if tournament.description %}
+  <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-5);">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+  <!-- Zasady -->
+  {% if tournament.elimination_config %}
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header" style="cursor:pointer;" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'">
+      <span class="card-title">Zasady i format</span>
+      <span style="color:var(--text-muted); font-size:.8rem;">▾ rozwiń</span>
+    </div>
+    <div style="display:none;">
+      <div class="card-body">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); font-size:.875rem;">
+          <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+            <p><strong>Format meczu:</strong> Do {{ tournament.elimination_config.sets_to_win }} wygranych setów</p>
+            <p><strong>Format seta:</strong> Do {{ tournament.elimination_config.games_per_set }} gemów</p>
+            <p><strong>Parowanie R1:</strong> {{ tournament.elimination_config.get_initial_seeding_display }}</p>
+            <p><strong>Mecz o 3. miejsce:</strong> {% if tournament.elimination_config.third_place_match %}Tak{% else %}Nie{% endif %}</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+            {% if tournament.start_date %}<p><strong>Rozpoczęcie:</strong> {{ tournament.start_date|date:"d.m.Y H:i" }}</p>{% endif %}
+            {% if tournament.end_date %}<p><strong>Zakończenie:</strong> {{ tournament.end_date|date:"d.m.Y H:i" }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Drabinka -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header"><span class="card-title">Drabinka turniejowa</span></div>
+    <div class="card-body" style="padding: var(--space-4);">
+      {% if matches_exist %}
+      <div class="bracket-container">
+        {% for round_num, round_matches in rounds.items %}
+        <div class="bracket-round">
+          <div class="bracket-round__label">
+            {% with mc=round_matches|length %}
+              {% if mc == 1 %}Finał{% elif mc == 2 %}Półfinał{% elif mc == 4 %}Ćwierćfinał{% else %}Runda {{ round_num }}{% endif %}
+            {% endwith %}
+          </div>
+          <div class="bracket-round__matches">
+            {% for match in round_matches %}
+            {% if round_num > 1 %}
+              {% with pow_r=2|pow:round_num %}
+              {% with pow_r_minus_1=pow_r|divide:2 %}
+              {% with pow_r_minus_2=pow_r|divide:4 %}
+              {% if forloop.counter0 == 0 %}
+                {% with mm=pow_r_minus_2|subtract:0.5 %}
+                <div class="bracket-match" style="margin-top:calc(var(--bm-slot)*{{ mm|force_dot }});--connector-h:calc(var(--bm-slot)*{{ pow_r_minus_1|force_dot }});">
+                  {% include "tournaments/partials/match_content.html" %}
+                </div>
+                {% endwith %}
+              {% else %}
+                {% with mm=pow_r_minus_1 %}
+                <div class="bracket-match" style="margin-top:calc(var(--bm-slot)*{{ mm|force_dot }} - var(--bm-h));--connector-h:calc(var(--bm-slot)*{{ pow_r_minus_1|force_dot }});">
+                  {% include "tournaments/partials/match_content.html" %}
+                </div>
+                {% endwith %}
+              {% endif %}
+              {% endwith %}{% endwith %}{% endwith %}
+            {% else %}
+              <div class="bracket-match" style="--connector-h:var(--bm-slot);">
+                {% include "tournaments/partials/match_content.html" %}
+              </div>
+            {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-state__icon">🏆</div>
+        <p class="empty-state__title">Drabinka nie została wygenerowana</p>
+        <p class="empty-state__text">Organizator musi najpierw wygenerować mecze.</p>
+        <a href="{% url 'tournaments:manage_matches' pk=tournament.pk %}" class="btn btn-primary" style="margin-top:var(--space-4);">Zarządzaj meczami</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Mecz o 3. miejsce -->
+  {% if third_place_match %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Mecz o 3. miejsce</span></div>
+    <div class="card-body" style="max-width:300px;">
+      <div class="bracket-match" style="position:relative; margin:0;">
+        {% with match=third_place_match %}{% include "tournaments/partials/match_content.html" %}{% endwith %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<style>
+  /* Bracket layout */
+  .bracket-container {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: var(--space-4);
+    align-items: flex-start;
+    --bm-h: 120px;
+    --bm-gap: 24px;
+    --bm-slot: calc(var(--bm-h) + var(--bm-gap));
+  }
+  .bracket-round {
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    padding: 0 var(--space-3);
+    flex-shrink: 0;
+  }
+  .bracket-round__label {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: var(--space-4);
+  }
+  .bracket-round__matches { display: flex; flex-direction: column; }
+
+  .bracket-match {
+    height: var(--bm-h);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--bm-gap);
+    position: relative;
+    overflow: hidden;
+  }
+  /* Connector lines */
+  .bracket-round:not(:last-child) .bracket-match::after {
+    content: '';
+    position: absolute;
+    background: var(--border);
+    top: 50%; right: -1rem; width: 1rem; height: 2px;
+    transform: translateY(-50%);
+  }
+  .bracket-round:not(:first-child):not(:last-child) .bracket-match::before {
+    content: '';
+    position: absolute;
+    background: var(--border);
+    top: 50%; left: -1rem; width: 1rem; height: 2px;
+    transform: translateY(-50%);
+  }
+  .bracket-round:not(:last-child) .bracket-match:nth-child(odd) {
+    --vh: calc(var(--connector-h, var(--bm-slot)) / 2);
+  }
+  .bracket-round:not(:last-child) .bracket-match:nth-child(odd)::after {
+    top: 50%; right: -1rem; width: 1rem; height: 2px;
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/reactions.js' %}"></script>
+<script>
+document.addEventListener('click', function() {
+  document.querySelectorAll('.match-actions-menu').forEach(function(el) { el.style.display = 'none'; });
+});
+</script>
+{% endblock %}

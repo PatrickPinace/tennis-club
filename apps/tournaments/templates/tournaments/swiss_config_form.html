@@ -1,0 +1,41 @@
+{% extends 'layouts/base_app.html' %}
+{% load static %}
+
+{% block title %}Konfiguracja — {{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Konfiguracja — System Szwajcarski</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form.visible_fields %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p style="font-size:.78rem; color:var(--text-muted); margin-top:4px;">{{ field.help_text }}</p>{% endif %}
+          {% if field.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ field.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% endfor %}
+        <div style="display:flex; gap:var(--space-3);">
+          <button type="submit" class="btn btn-primary">Zapisz konfigurację</button>
+          <a href="{% url 'tournaments:manage' %}" class="btn btn-secondary">Anuluj</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

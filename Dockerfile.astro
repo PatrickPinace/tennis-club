@@ -1,0 +1,47 @@
+# Dockerfile.astro — multi-stage build dla Astro SSR (Node standalone)
+# Wdrożenie: docker compose up -d --build astro-web
+# Env wymagany przy buildzie: ASTRO_BASE=/astro
+# Env wymagany w runtime: DJANGO_API_URL=http://tennis-web:8000
+
+# ── Stage 1: build ────────────────────────────────────────────────────────────
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Kopiuj manifesty i instaluj zależności (warstwa cache)
+COPY frontend-astro/package.json frontend-astro/package-lock.json ./
+RUN npm ci --ignore-scripts
+
+# Kopiuj kod źródłowy
+COPY frontend-astro/ ./
+
+# Zbuduj z prefiksem /astro/
+# BASE_URL jest używane przez Astro statically — musi być znane przy buildzie
+ENV ASTRO_BASE=/astro
+RUN npm run build
+
+# ── Stage 2: runtime ──────────────────────────────────────────────────────────
+FROM node:20-slim AS runtime
+
+WORKDIR /app
+
+# Artefakty buildu
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+# node_modules potrzebne w runtime przez Astro Node adapter (np. pakiet 'cookie')
+COPY --from=builder /app/node_modules ./node_modules
+
+# Astro standalone adapter generuje plik server/entry.mjs
+ENV HOST=0.0.0.0
+ENV PORT=4321
+
+# Django API dostępne wewnątrz sieci Docker przez nazwę serwisu
+ENV DJANGO_API_URL=http://tennis-web:8000
+
+# PUBLIC_API_BASE_URL — pusty string = client-side JS używa relative URL przez Caddy proxy
+# Caddy przekaże /api/* → Django, więc browser fetche /api/ działają bez absolutnego URL
+ENV PUBLIC_API_BASE_URL=
+
+EXPOSE 4321
+
+CMD ["node", "./dist/server/entry.mjs"]

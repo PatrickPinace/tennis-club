@@ -1,0 +1,56 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Korty Tenisowe{% endblock %}
+{% block topbar_title %}Korty{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Obiekty tenisowe</h1>
+    <p class="page-header__subtitle">Przeglądaj dostępne obiekty i rezerwuj korty.</p>
+  </div>
+  <div class="page-header__actions">
+    {% if user.is_authenticated %}
+    <a href="{% url 'courts:create-facility' %}" class="btn btn-primary">+ Dodaj obiekt</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto;">
+
+  {% if facilities %}
+  <div class="card">
+    <div class="card-body" style="padding:0;">
+      {% for facility in facilities %}
+      <a href="{% url 'courts:facility-detail' facility.pk %}" style="display:flex; align-items:center; gap:var(--space-4); padding:16px 20px; border-bottom:1px solid var(--border); text-decoration:none; transition:background .1s;" onmouseover="this.style.background='var(--surface-hover)'" onmouseout="this.style.background=''">
+        {% if facility.image %}
+        <img src="{{ facility.image.url }}" alt="{{ facility.name }}" style="width:80px; height:80px; object-fit:cover; border-radius:var(--radius-sm); flex-shrink:0;">
+        {% else %}
+        <div style="width:80px; height:80px; background:var(--primary-subtle); border-radius:var(--radius-sm); display:grid; place-items:center; color:var(--primary); font-size:1.5rem; flex-shrink:0;">🎾</div>
+        {% endif %}
+        <div>
+          <div style="font-weight:700; color:var(--text); font-size:.95rem;">{{ facility.name }}</div>
+          <div style="font-size:.8rem; color:var(--text-muted); margin-top:2px;">{{ facility.address }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state__icon">🎾</div>
+    <p class="empty-state__title">Brak obiektów</p>
+    <p class="empty-state__text">
+      Nie znaleziono żadnych obiektów.
+      {% if user.is_authenticated %}Możesz być pierwszy!{% endif %}
+    </p>
+    {% if user.is_authenticated %}
+    <a href="{% url 'courts:create-facility' %}" class="btn btn-primary" style="margin-top:var(--space-4);">+ Dodaj obiekt</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

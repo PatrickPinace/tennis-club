@@ -55,14 +55,21 @@ build/
 dist/
 *.egg-info/
 
+# Node / Astro frontend
+node_modules/
+frontend-astro/node_modules/
+frontend-astro/dist/
+frontend-astro/.astro/
+.astro/
+*.tsbuildinfo
+
 # Database
 *.sqlite
 *.sqlite3
 
 # Development
 workdir/
-chats/
-apps/
-notifications/
 Uwagi.txt
 tennis_club_projekt_dump.txt
+db.sqlite3
+.aider*

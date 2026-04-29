@@ -1,0 +1,124 @@
+{% extends 'layouts/base_app.html' %}
+{% load widget_tweaks %}
+{% load tournaments %}
+
+{% block title %}Edytuj Wynik{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Edytuj Wynik</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 560px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" id="form_edit_match">
+        {% csrf_token %}
+
+        {% if has_full_permissions %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ form.scheduled_time.label }}</label>
+          {{ form.scheduled_time }}
+          {% if form.scheduled_time.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.scheduled_time.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Tablica wyników -->
+        <div style="margin-bottom:var(--space-5);">
+          <div style="text-align:center; margin-bottom:var(--space-4);">
+            <div style="font-size:1.1rem; font-weight:700;">{{ match.participant1|default:"BYE" }}</div>
+            {% if is_doubles and p1_partner %}
+            <div style="font-size:.8rem; color:var(--text-muted); margin-top:3px; line-height:1.5;">
+              {{ match.participant1.user.get_full_name|default:match.participant1.user.username }}<br>
+              {{ p1_partner.user.get_full_name|default:p1_partner.user.username }}
+            </div>
+            {% endif %}
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
+            <div style="font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 1</div>
+            <div style="font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 2</div>
+            <div style="font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 3</div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
+            {% with p1_field_name="set1_p1_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
+            </div>
+            {% endwith %}
+            {% with p1_field_name="set2_p1_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
+            </div>
+            {% endwith %}
+            {% with p1_field_name="set3_p1_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p1_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
+            </div>
+            {% endwith %}
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-2);">
+            <div style="font-size:1.2rem; font-weight:700; color:var(--text-muted); text-align:center;">—</div>
+            <div style="font-size:1.2rem; font-weight:700; color:var(--text-muted); text-align:center;">—</div>
+            <div style="font-size:1.2rem; font-weight:700; color:var(--text-muted); text-align:center;">—</div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-3); text-align:center; margin-bottom:var(--space-4);">
+            {% with p2_field_name="set1_p2_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
+            </div>
+            {% endwith %}
+            {% with p2_field_name="set2_p2_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
+            </div>
+            {% endwith %}
+            {% with p2_field_name="set3_p2_score" %}
+            <div style="display:flex; justify-content:center;">
+              {{ form|get_item:p2_field_name|attr:"style:font-size:2rem;text-align:center;width:80px;"|attr:"min:0"|add_class:"num-stepper-target" }}
+            </div>
+            {% endwith %}
+          </div>
+
+          <div style="text-align:center;">
+            <div style="font-size:1.1rem; font-weight:700;">{{ match.participant2|default:"BYE" }}</div>
+            {% if is_doubles and p2_partner %}
+            <div style="font-size:.8rem; color:var(--text-muted); margin-top:3px; line-height:1.5;">
+              {{ match.participant2.user.get_full_name|default:match.participant2.user.username }}<br>
+              {{ p2_partner.user.get_full_name|default:p2_partner.user.username }}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if has_full_permissions or can_start_match %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ form.status.label }}</label>
+          {{ form.status }}
+          {% if form.status.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.status.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% else %}
+          <input type="hidden" name="status" value="{{ form.instance.status }}">
+        {% endif %}
+
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-3);">
+          <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+          <button type="submit" class="btn btn-primary">Zapisz Zmiany</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

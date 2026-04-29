@@ -1,0 +1,906 @@
+---
+// tournaments/create.astro — wizard tworzenia nowego turnieju (3 kroki)
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getCurrentUser } from '@/lib/api';
+import { url } from '@/lib/url';
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const currentUser = await getCurrentUser(sessionCookie);
+
+if (!currentUser) {
+  return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/tournaments/create')));
+}
+---
+
+<AppLayout title="Nowy turniej" showSearch={false} showCta={false} currentUser={currentUser}>
+  <nav class="tc-breadcrumb" aria-label="Nawigacja">
+    <a href={url('/tournaments/manage')}>← Moje turnieje</a>
+  </nav>
+
+  <PageHeader
+    title="Nowy turniej"
+    subtitle="Skonfiguruj turniej krok po kroku"
+  />
+
+  <div class="wiz-wrap">
+
+    <!-- Progress bar -->
+    <div class="wiz-progress" aria-label="Postęp kreatora">
+      <div class="wiz-steps">
+        <div class="wiz-step wiz-step--active" id="wiz-step-dot-1">
+          <div class="wiz-step__dot">1</div>
+          <span class="wiz-step__label">Podstawy</span>
+        </div>
+        <div class="wiz-step-connector"></div>
+        <div class="wiz-step" id="wiz-step-dot-2">
+          <div class="wiz-step__dot">2</div>
+          <span class="wiz-step__label">Konfiguracja</span>
+        </div>
+        <div class="wiz-step-connector"></div>
+        <div class="wiz-step" id="wiz-step-dot-3">
+          <div class="wiz-step__dot">3</div>
+          <span class="wiz-step__label">Podsumowanie</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tc-card wiz-card">
+
+      <div id="wiz-error" class="wiz-alert wiz-alert--err" style="display:none;" role="alert"></div>
+
+      <!-- ═══ KROK 1: Podstawy ══════════════════════════════════════════════ -->
+      <div id="wiz-pane-1" class="wiz-pane">
+        <h2 class="wiz-pane__title">Podstawowe informacje</h2>
+
+        <div class="cr-field">
+          <label class="cr-label" for="cr-name">Nazwa turnieju <span class="cr-required">*</span></label>
+          <input
+            id="cr-name" type="text"
+            class="cr-input" maxlength="200" required
+            placeholder="np. Liga wiosenna 2026"
+            autocomplete="off"
+          >
+        </div>
+
+        <div class="cr-field">
+          <label class="cr-label" for="cr-desc">Opis</label>
+          <textarea id="cr-desc" class="cr-input cr-textarea" rows="2"
+            placeholder="Opcjonalny opis zasad, miejsca, kontaktu…"></textarea>
+        </div>
+
+        <div class="cr-row">
+          <div class="cr-field">
+            <label class="cr-label" for="cr-type">Typ turnieju</label>
+            <select id="cr-type" class="cr-input cr-select">
+              <option value="RND" selected>Liga (Round Robin)</option>
+              <option value="SGL">Eliminacja pojedyncza</option>
+              <option value="DBE">Eliminacja podwójna</option>
+              <option value="LDR">Drabinka</option>
+              <option value="AMR">Americano / Mexicano</option>
+              <option value="SWS">System szwajcarski</option>
+            </select>
+            <span id="cr-type-note" class="cr-hint">
+              Panel zarządzania meczami i tabela ligowa dostępne dla Round Robin.
+            </span>
+          </div>
+
+          <div class="cr-field">
+            <label class="cr-label" for="cr-format">Format</label>
+            <select id="cr-format" class="cr-input cr-select">
+              <option value="SNG" selected>Singiel (1 vs 1)</option>
+              <option value="DBL">Debel (2 vs 2)</option>
+            </select>
+          </div>
+
+          <div class="cr-field cr-field--sm">
+            <label class="cr-label" for="cr-rank">Ranga</label>
+            <select id="cr-rank" class="cr-input cr-select">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="cr-row">
+          <div class="cr-field">
+            <label class="cr-label" for="cr-start">Data rozpoczęcia</label>
+            <input id="cr-start" type="datetime-local" class="cr-input">
+          </div>
+          <div class="cr-field">
+            <label class="cr-label" for="cr-end">Data zakończenia</label>
+            <input id="cr-end" type="datetime-local" class="cr-input">
+          </div>
+        </div>
+
+        <div class="wiz-actions">
+          <button type="button" id="wiz-next-1" class="tc-btn tc-btn-primary">
+            Dalej →
+          </button>
+          <a href={url('/tournaments/manage')} class="tc-btn tc-btn-ghost">Anuluj</a>
+        </div>
+      </div>
+
+      <!-- ═══ KROK 2: Config RR / SGL ═══════════════════════════════════════ -->
+      <div id="wiz-pane-2" class="wiz-pane" style="display:none;">
+        <!-- Nagłówek zmienia się zależnie od typu -->
+        <h2 class="wiz-pane__title" id="wiz-pane2-title">Konfiguracja punktacji</h2>
+        <p class="wiz-pane__sub" id="wiz-pane2-sub">Wartości domyślne działają dla większości lig. Możesz je zmienić też po utworzeniu.</p>
+
+        <!-- ── Sekcja RR ── -->
+        <div id="wiz-rr-config">
+
+        <!-- Mechanika meczu -->
+        <div class="cfg-group-label">Mechanika meczu</div>
+        <div class="cfg-spinners-row">
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Sety do wygrania</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-sets-to-win" data-dir="1" aria-label="Więcej">▲</button>
+              <input id="cfg-sets-to-win" class="cfg-spin-input" type="number" min="1" max="5" value="2">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-sets-to-win" data-dir="-1" aria-label="Mniej">▼</button>
+            </div>
+            <span class="cfg-hint">2 → „2 z 3"</span>
+          </div>
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Gemy w secie</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-games-per-set" data-dir="1" aria-label="Więcej">▲</button>
+              <input id="cfg-games-per-set" class="cfg-spin-input" type="number" min="1" max="12" value="6">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-games-per-set" data-dir="-1" aria-label="Mniej">▼</button>
+            </div>
+          </div>
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Maks. uczestników</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-max-part" data-dir="1" aria-label="Więcej">▲</button>
+              <input id="cfg-max-part" class="cfg-spin-input" type="number" min="2" max="128" value="16">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-max-part" data-dir="-1" aria-label="Mniej">▼</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Punkty -->
+        <div class="cfg-group-label" style="margin-top:20px;">Punkty</div>
+        <div class="cfg-spinners-row">
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Za wygraną</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-win" data-dir="0.5" aria-label="Więcej">▲</button>
+              <input id="cfg-pts-win" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="2">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-win" data-dir="-0.5" aria-label="Mniej">▼</button>
+            </div>
+          </div>
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Za przegraną</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-loss" data-dir="0.5" aria-label="Więcej">▲</button>
+              <input id="cfg-pts-loss" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="1">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-loss" data-dir="-0.5" aria-label="Mniej">▼</button>
+            </div>
+          </div>
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Za wygrany set</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-win" data-dir="0.5" aria-label="Więcej">▲</button>
+              <input id="cfg-pts-set-win" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="0.5">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-win" data-dir="-0.5" aria-label="Mniej">▼</button>
+            </div>
+          </div>
+          <div class="cfg-spinner-col">
+            <span class="cfg-spinner-label">Za przegrany set</span>
+            <div class="cfg-spinner">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-loss" data-dir="0.5" aria-label="Więcej">▲</button>
+              <input id="cfg-pts-set-loss" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="0">
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-loss" data-dir="-0.5" aria-label="Mniej">▼</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rozbijanie remisów -->
+        <div class="cfg-group-label" style="margin-top:20px;">Rozbijanie remisów</div>
+        <div class="cr-field" style="max-width:380px; margin-bottom:0;">
+          <select id="cfg-tiebreak" class="cr-input cr-select">
+            <option value="points_sets_games">Punkty → sety → gemy</option>
+            <option value="points_games_sets">Punkty → gemy → sety</option>
+            <option value="points_only">Tylko punkty</option>
+            <option value="sets_games">Sety → gemy</option>
+          </select>
+        </div>
+
+        </div><!-- /#wiz-rr-config -->
+
+        <!-- ── Sekcja AMR ── -->
+        <div id="wiz-amr-config" style="display:none;">
+          <div class="cfg-group-label">Mecze Americano</div>
+          <div class="cfg-spinners-row">
+            <div class="cfg-spinner-col">
+              <span class="cfg-spinner-label">Liczba rund</span>
+              <div class="cfg-spinner">
+                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="1" aria-label="Więcej">▲</button>
+                <input id="amr-rounds" class="cfg-spin-input" type="number" min="1" max="99" value="7">
+                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="-1" aria-label="Mniej">▼</button>
+              </div>
+              <span class="cfg-hint">maks. n-1 dla n graczy</span>
+            </div>
+            <div class="cfg-spinner-col">
+              <span class="cfg-spinner-label">Punkty na mecz</span>
+              <div class="cfg-spinner">
+                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="4" aria-label="Więcej">▲</button>
+                <input id="amr-ppm" class="cfg-spin-input" type="number" min="1" max="999" value="32">
+                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="-4" aria-label="Mniej">▼</button>
+              </div>
+              <span class="cfg-hint">np. 32 = suma gemów w meczu</span>
+            </div>
+          </div>
+          <p class="cr-hint" style="margin-top:16px;">Americano singiel — każdy zagra z każdym maksymalnie raz. Harmonogram generowany automatycznie przy zamknięciu rejestracji.</p>
+        </div>
+
+        <!-- ── Sekcja SGL ── -->
+        <div id="wiz-sgl-config" style="display:none;">
+          <div class="cfg-group-label">Rozstawienie</div>
+          <div class="cr-field" style="max-width:340px;">
+            <label class="cr-label" for="sgl-seeding">Kolejność w drabince</label>
+            <select id="sgl-seeding" class="cr-input cr-select">
+              <option value="RANDOM">Losowe (brak rozstawienia)</option>
+              <option value="SEEDING">Według rozstawienia (seed_number)</option>
+            </select>
+            <span class="cr-hint">Przy losowym — uczestnik bez seed_number trafia na przypadkową pozycję.</span>
+          </div>
+
+          <div class="cfg-group-label" style="margin-top:20px;">Opcje</div>
+          <label class="cr-field cr-field--checkbox">
+            <input type="checkbox" id="sgl-third-place" checked>
+            <span>Mecz o 3. miejsce</span>
+          </label>
+          <span class="cr-hint" style="margin-top:-10px; margin-bottom:16px;">Przegrani z półfinałów rozegrają mecz o brązowy medal.</span>
+        </div>
+
+        <div class="wiz-actions">
+          <button type="button" id="wiz-back-2" class="tc-btn tc-btn-ghost">← Wstecz</button>
+          <button type="button" id="wiz-next-2" class="tc-btn tc-btn-primary">Dalej →</button>
+        </div>
+      </div>
+
+      <!-- ═══ KROK 3: Podsumowanie ══════════════════════════════════════════ -->
+      <div id="wiz-pane-3" class="wiz-pane" style="display:none;">
+        <h2 class="wiz-pane__title">Podsumowanie</h2>
+        <p class="wiz-pane__sub">Sprawdź dane przed utworzeniem turnieju.</p>
+
+        <div id="wiz-summary">
+          <!-- wypełniane przez JS -->
+        </div>
+
+        <div class="wiz-actions">
+          <button type="button" id="wiz-back-3" class="tc-btn tc-btn-ghost">← Wstecz</button>
+          <button type="button" id="wiz-create" class="tc-btn tc-btn-primary">
+            Utwórz turniej
+          </button>
+          <span id="wiz-saving" class="wiz-saving" style="display:none;">Tworzenie…</span>
+        </div>
+      </div>
+
+    </div><!-- /.wiz-card -->
+  </div><!-- /.wiz-wrap -->
+</AppLayout>
+
+<script>
+const API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+
+function getCsrf(): string {
+  return document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? '';
+}
+
+// ── Elementy DOM ──────────────────────────────────────────────────────────────
+const errBox    = document.getElementById('wiz-error') as HTMLElement;
+const pane1     = document.getElementById('wiz-pane-1') as HTMLElement;
+const pane2     = document.getElementById('wiz-pane-2') as HTMLElement;
+const pane3     = document.getElementById('wiz-pane-3') as HTMLElement;
+const dot1      = document.getElementById('wiz-step-dot-1') as HTMLElement;
+const dot2      = document.getElementById('wiz-step-dot-2') as HTMLElement;
+const dot3      = document.getElementById('wiz-step-dot-3') as HTMLElement;
+
+// krok 1
+const nameEl    = document.getElementById('cr-name') as HTMLInputElement;
+const descEl    = document.getElementById('cr-desc') as HTMLTextAreaElement;
+const typeEl    = document.getElementById('cr-type') as HTMLSelectElement;
+const typeNote  = document.getElementById('cr-type-note') as HTMLElement;
+const formatEl  = document.getElementById('cr-format') as HTMLSelectElement;
+const rankEl    = document.getElementById('cr-rank') as HTMLSelectElement;
+const startEl   = document.getElementById('cr-start') as HTMLInputElement;
+const endEl     = document.getElementById('cr-end') as HTMLInputElement;
+
+// krok 2 (config)
+const cfgSetsWin   = document.getElementById('cfg-sets-to-win') as HTMLInputElement;
+const cfgGamesSet  = document.getElementById('cfg-games-per-set') as HTMLInputElement;
+const cfgMaxPart   = document.getElementById('cfg-max-part') as HTMLInputElement;
+const cfgPtsWin    = document.getElementById('cfg-pts-win') as HTMLInputElement;
+const cfgPtsLoss   = document.getElementById('cfg-pts-loss') as HTMLInputElement;
+const cfgPtsSetWin = document.getElementById('cfg-pts-set-win') as HTMLInputElement;
+const cfgPtsSetLos = document.getElementById('cfg-pts-set-loss') as HTMLInputElement;
+const cfgTiebreak  = document.getElementById('cfg-tiebreak') as HTMLSelectElement;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const TYPE_LABELS: Record<string, string> = {
+  RND: 'Liga (Round Robin)',
+  SGL: 'Eliminacja pojedyncza',
+  DBE: 'Eliminacja podwójna',
+  LDR: 'Drabinka',
+  AMR: 'Americano / Mexicano',
+  SWS: 'System szwajcarski',
+};
+const FORMAT_LABELS: Record<string, string> = { SNG: 'Singiel', DBL: 'Debel' };
+
+function showErr(msg: string) {
+  errBox.textContent = msg;
+  errBox.style.display = '';
+  errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function clearErr() {
+  errBox.style.display = 'none';
+  errBox.textContent = '';
+}
+
+// ── Nawigacja kroków ──────────────────────────────────────────────────────────
+let currentStep = 1;
+
+function goTo(step: number) {
+  clearErr();
+  [pane1, pane2, pane3].forEach((p, i) => {
+    p.style.display = (i + 1 === step) ? '' : 'none';
+  });
+  [dot1, dot2, dot3].forEach((d, i) => {
+    d.classList.toggle('wiz-step--active', i + 1 === step);
+    d.classList.toggle('wiz-step--done', i + 1 < step);
+  });
+  currentStep = step;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Krok 1 – walidacja ────────────────────────────────────────────────────────
+document.getElementById('wiz-next-1')!.addEventListener('click', () => {
+  clearErr();
+  const name = nameEl.value.trim();
+  if (!name) { showErr('Nazwa turnieju jest wymagana.'); nameEl.focus(); return; }
+  if (name.length > 200) { showErr('Nazwa może mieć maksymalnie 200 znaków.'); return; }
+
+  const sv = startEl.value;
+  const ev = endEl.value;
+  if (sv && ev && ev <= sv) {
+    showErr('Data zakończenia musi być późniejsza niż data rozpoczęcia.');
+    return;
+  }
+
+  // Krok 2: RND/SGL/AMR → konfiguracja, inne → pomiń
+  if (typeEl.value === 'RND' || typeEl.value === 'SGL' || typeEl.value === 'AMR') {
+    updatePane2ForType(typeEl.value);
+    goTo(2);
+  } else {
+    buildSummary();
+    goTo(3);
+  }
+});
+
+// ── Krok 2 – walidacja ────────────────────────────────────────────────────────
+document.getElementById('wiz-back-2')!.addEventListener('click', () => goTo(1));
+
+document.getElementById('wiz-next-2')!.addEventListener('click', () => {
+  clearErr();
+
+  if (typeEl.value === 'RND') {
+    const setsWin  = Number(cfgSetsWin.value);
+    const gamesSet = Number(cfgGamesSet.value);
+    const maxPart  = Number(cfgMaxPart.value);
+    const ptsWin   = Number(cfgPtsWin.value);
+    const ptsLoss  = Number(cfgPtsLoss.value);
+
+    if (!setsWin || setsWin < 1) { showErr('Sety do wygrania muszą wynosić ≥ 1.'); return; }
+    if (!gamesSet || gamesSet < 1) { showErr('Liczba gemów w secie musi wynosić ≥ 1.'); return; }
+    if (!maxPart || maxPart < 2) { showErr('Maks. uczestników musi wynosić ≥ 2.'); return; }
+    if (ptsWin < ptsLoss) { showErr('Punkty za wygraną muszą być ≥ punkty za przegraną.'); return; }
+  }
+  // SGL / AMR — brak obowiązkowej walidacji (wartości domyślne zawsze ok)
+
+  buildSummary();
+  goTo(3);
+});
+
+// ── Krok 3 – back ─────────────────────────────────────────────────────────────
+document.getElementById('wiz-back-3')!.addEventListener('click', () => {
+  const t = typeEl.value;
+  if (t === 'RND' || t === 'SGL' || t === 'AMR') {
+    updatePane2ForType(t);
+    goTo(2);
+  } else {
+    goTo(1);
+  }
+});
+
+// ── Stepper buttons ───────────────────────────────────────────────────────────
+document.querySelectorAll<HTMLButtonElement>('.cfg-spin-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const inputId = btn.dataset.target!;
+    const dir = parseFloat(btn.dataset.dir!);
+    const input = document.getElementById(inputId) as HTMLInputElement;
+    const min = parseFloat(input.min);
+    const max = parseFloat(input.max);
+    const cur = parseFloat(input.value) || 0;
+    const next = Math.min(max, Math.max(min, parseFloat((cur + dir).toFixed(2))));
+    input.value = String(next);
+    input.dispatchEvent(new Event('change'));
+  });
+});
+
+// ── Budowanie podsumowania ────────────────────────────────────────────────────
+function row(label: string, value: string): string {
+  return `<div class="sum-row"><span>${escHtml(label)}</span><strong>${escHtml(value)}</strong></div>`;
+}
+
+function buildSummary() {
+  const summaryEl = document.getElementById('wiz-summary')!;
+  const isRR = typeEl.value === 'RND';
+
+  // Sekcja: dane turnieju
+  let html = `
+    <div class="sum-grid">
+      <div class="sum-group">
+        <div class="sum-group-label">Turniej</div>
+        ${row('Nazwa', nameEl.value.trim())}
+        ${row('Typ', TYPE_LABELS[typeEl.value] ?? typeEl.value)}
+        ${row('Format', FORMAT_LABELS[formatEl.value] ?? formatEl.value)}
+        ${row('Ranga', rankEl.value)}
+        ${descEl.value.trim() ? row('Opis', descEl.value.trim()) : ''}
+        ${row('Data rozpoczęcia', startEl.value ? formatDate(startEl.value) : '—')}
+        ${row('Data zakończenia', endEl.value ? formatDate(endEl.value) : '—')}
+      </div>`;
+
+  if (isRR) {
+    html += `
+      <div class="sum-group">
+        <div class="sum-group-label">Mechanika meczu</div>
+        ${row('Sety do wygrania', cfgSetsWin.value)}
+        ${row('Gemy w secie', cfgGamesSet.value)}
+        ${row('Maks. uczestników', cfgMaxPart.value)}
+        ${row('Rozbijanie remisów', cfgTiebreak.options[cfgTiebreak.selectedIndex].text)}
+      </div>
+      <div class="sum-group">
+        <div class="sum-group-label">Punkty za mecz</div>
+        ${row('Wygrana', `+${cfgPtsWin.value} pkt`)}
+        ${row('Przegrana', `+${cfgPtsLoss.value} pkt`)}
+        ${row('Wygrany set', `+${cfgPtsSetWin.value} pkt`)}
+        ${row('Przegrany set', `${cfgPtsSetLos.value} pkt`)}
+      </div>`;
+  } else if (typeEl.value === 'SGL') {
+    const seedLabel = sglSeeding.options[sglSeeding.selectedIndex]?.text ?? sglSeeding.value;
+    html += `
+      <div class="sum-group">
+        <div class="sum-group-label">Eliminacja pojedyncza</div>
+        ${row('Rozstawienie', seedLabel)}
+        ${row('Mecz o 3. miejsce', sglThird.checked ? 'Tak' : 'Nie')}
+      </div>`;
+  } else if (typeEl.value === 'AMR') {
+    html += `
+      <div class="sum-group">
+        <div class="sum-group-label">Americano</div>
+        ${row('Liczba rund', amrRounds.value)}
+        ${row('Punkty na mecz', amrPpm.value)}
+        ${row('Tryb', 'Americano (stały harmonogram)')}
+      </div>`;
+  }
+
+  html += `</div>`;
+  summaryEl.innerHTML = html;
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('pl-PL', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+  } catch { return iso; }
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Tworzenie turnieju ────────────────────────────────────────────────────────
+document.getElementById('wiz-create')!.addEventListener('click', async () => {
+  clearErr();
+  const createBtn = document.getElementById('wiz-create') as HTMLButtonElement;
+  const savingEl  = document.getElementById('wiz-saving') as HTMLElement;
+
+  createBtn.disabled = true;
+  savingEl.style.display = '';
+
+  try {
+    // 0. Odśwież CSRF token — gwarantuje aktualny csrftoken cookie przed POST
+    await fetch(`${API}/api/auth/csrf/`, { credentials: 'include' });
+
+    // 1. POST /api/tournaments/create/
+    const body: Record<string, string | number> = {
+      name:            nameEl.value.trim(),
+      tournament_type: typeEl.value,
+      match_format:    formatEl.value,
+      rank:            Number(rankEl.value),
+      description:     descEl.value.trim(),
+    };
+    if (startEl.value) body.start_date = startEl.value;
+    if (endEl.value)   body.end_date   = endEl.value;
+
+    const createRes = await fetch(`${API}/api/tournaments/create/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+      body: JSON.stringify(body),
+    });
+
+    const createData = await createRes.json().catch(() => ({}));
+
+    if (!createRes.ok) {
+      showErr(createData.detail ?? `Błąd tworzenia turnieju (${createRes.status}).`);
+      createBtn.disabled = false;
+      savingEl.style.display = 'none';
+      return;
+    }
+
+    const tournamentId: number = createData.id;
+
+    // 2a. POST EliminationConfig — tylko dla SGL
+    if (typeEl.value === 'SGL') {
+      const sglBody = {
+        initial_seeding:    sglSeeding.value,
+        third_place_match:  sglThird.checked,
+      };
+      try {
+        await fetch(`${API}/api/tournaments/${tournamentId}/config/sgl/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify(sglBody),
+        });
+        // Nie krytyczne — backend ma wartości domyślne
+      } catch { /* ignoruj */ }
+    }
+
+    // 2b. POST AmericanoConfig — tylko dla AMR
+    if (typeEl.value === 'AMR') {
+      try {
+        await fetch(`${API}/api/tournaments/${tournamentId}/config/amr/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({
+            points_per_match: Number(amrPpm.value),
+            number_of_rounds: Number(amrRounds.value),
+          }),
+        });
+        // Nie krytyczne — backend ma wartości domyślne
+      } catch { /* ignoruj */ }
+    }
+
+    // 2c. PATCH /api/tournaments/{id}/config/ — tylko dla RND
+    if (typeEl.value === 'RND') {
+      const configBody: Record<string, number | string> = {
+        sets_to_win:           Number(cfgSetsWin.value),
+        games_per_set:         Number(cfgGamesSet.value),
+        max_participants:      Number(cfgMaxPart.value),
+        points_for_win:        Number(cfgPtsWin.value),
+        points_for_loss:       Number(cfgPtsLoss.value),
+        points_for_set_win:    Number(cfgPtsSetWin.value),
+        points_for_set_loss:   Number(cfgPtsSetLos.value),
+        tie_breaker_priority:  cfgTiebreak.value,
+      };
+
+      const cfgRes = await fetch(`${API}/api/tournaments/${tournamentId}/config/`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify(configBody),
+      });
+
+      if (!cfgRes.ok) {
+        // Config nie krytyczny — logujemy, ale kontynuujemy
+        console.warn('[wizard] config patch failed:', await cfgRes.text());
+      }
+    }
+
+    // 3. Redirect do detail z bannerem
+    const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+    window.location.href = `${base}/tournaments/${tournamentId}?created=1#org-panel`;
+
+  } catch {
+    showErr('Błąd połączenia z API. Sprawdź połączenie i spróbuj ponownie.');
+    createBtn.disabled = false;
+    savingEl.style.display = 'none';
+  }
+});
+
+// ── Przełącz zawartość pane2 w zależności od typu ───────────────────────────
+const rrConfigDiv  = document.getElementById('wiz-rr-config')  as HTMLElement;
+const sglConfigDiv = document.getElementById('wiz-sgl-config') as HTMLElement;
+const amrConfigDiv = document.getElementById('wiz-amr-config') as HTMLElement;
+const pane2Title   = document.getElementById('wiz-pane2-title') as HTMLElement;
+const pane2Sub     = document.getElementById('wiz-pane2-sub')   as HTMLElement;
+const sglSeeding   = document.getElementById('sgl-seeding')    as HTMLSelectElement;
+const sglThird     = document.getElementById('sgl-third-place') as HTMLInputElement;
+const amrRounds    = document.getElementById('amr-rounds')     as HTMLInputElement;
+const amrPpm       = document.getElementById('amr-ppm')        as HTMLInputElement;
+
+function updatePane2ForType(type: string) {
+  rrConfigDiv.style.display  = type === 'RND' ? '' : 'none';
+  sglConfigDiv.style.display = type === 'SGL' ? '' : 'none';
+  amrConfigDiv.style.display = type === 'AMR' ? '' : 'none';
+  if (type === 'SGL') {
+    pane2Title.textContent = 'Konfiguracja drabinki';
+    pane2Sub.textContent   = 'Opcje eliminacji pojedynczej. Możesz je zmienić też po utworzeniu.';
+  } else if (type === 'AMR') {
+    pane2Title.textContent = 'Konfiguracja Americano';
+    pane2Sub.textContent   = 'Ustaw liczbę rund i pulę punktów na mecz. Harmonogram generowany automatycznie.';
+  } else {
+    pane2Title.textContent = 'Konfiguracja punktacji';
+    pane2Sub.textContent   = 'Wartości domyślne działają dla większości lig. Możesz je zmienić też po utworzeniu.';
+  }
+}
+
+// ── type select hint ──────────────────────────────────────────────────────────
+typeEl.addEventListener('change', () => {
+  if (typeEl.value === 'RND') {
+    typeNote.textContent = 'Panel zarządzania meczami i tabela ligowa dostępne dla Round Robin.';
+  } else if (typeEl.value === 'SGL') {
+    typeNote.textContent = 'Eliminacja pojedyncza — drabinka z awansem zwycięzców.';
+  } else if (typeEl.value === 'AMR') {
+    typeNote.textContent = 'Americano — stały harmonogram, każdy zagra z każdym w wybranej liczbie rund.';
+  } else {
+    typeNote.textContent = 'Uwaga: panel zarządzania meczami dostępny tylko dla Round Robin i Single Elimination.';
+  }
+});
+</script>
+
+<style>
+  .tc-breadcrumb {
+    font-size: 0.8rem; color: var(--text-dim);
+    margin-bottom: 20px;
+  }
+  .tc-breadcrumb a { color: var(--text-muted); text-decoration: none; }
+  .tc-breadcrumb a:hover { color: var(--primary); }
+
+  .wiz-wrap {
+    padding: 0 var(--page-px, 28px) 48px;
+    max-width: 680px;
+  }
+
+  /* ── Progress bar ────────────────────────────────────────────────── */
+  .wiz-progress {
+    margin-bottom: 28px;
+  }
+  .wiz-steps {
+    display: flex; align-items: center;
+  }
+  .wiz-step {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    flex-shrink: 0;
+  }
+  .wiz-step__dot {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text-dim);
+    font-size: 0.8rem; font-weight: 700;
+    display: grid; place-items: center;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .wiz-step__label {
+    font-size: 0.72rem; font-weight: 600;
+    color: var(--text-dim);
+    transition: color 0.15s;
+  }
+  .wiz-step--active .wiz-step__dot {
+    background: var(--primary); border-color: var(--primary);
+    color: #fff;
+  }
+  .wiz-step--active .wiz-step__label { color: var(--primary); }
+  .wiz-step--done .wiz-step__dot {
+    background: color-mix(in srgb, var(--primary) 15%, var(--surface-2));
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .wiz-step--done .wiz-step__label { color: var(--text-muted); }
+  .wiz-step-connector {
+    flex: 1; height: 2px;
+    background: var(--border);
+    margin: 0 6px; margin-bottom: 24px;
+  }
+
+  /* ── Card ────────────────────────────────────────────────────────── */
+  .wiz-card { padding: 28px; }
+
+  /* ── Pane headers ────────────────────────────────────────────────── */
+  .wiz-pane__title {
+    font-size: 1rem; font-weight: 700; color: var(--text);
+    margin: 0 0 4px;
+  }
+  .wiz-pane__sub {
+    font-size: 0.82rem; color: var(--text-dim);
+    margin: 0 0 22px;
+  }
+  .wiz-section-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-dim);
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── Alerts ──────────────────────────────────────────────────────── */
+  .wiz-alert {
+    padding: 10px 14px; border-radius: 7px;
+    font-size: 0.84rem; margin-bottom: 20px;
+  }
+  .wiz-alert--err {
+    background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
+    color: var(--danger, #ef4444);
+  }
+
+  /* ── Form fields (shared w/ old create.astro) ────────────────────── */
+  .cr-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; }
+  .cr-field--sm { max-width: 120px; }
+  .cr-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+  .cr-required { color: var(--danger, #ef4444); }
+
+  .cr-input {
+    padding: 8px 12px; border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text);
+    font-size: 0.88rem; font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%; box-sizing: border-box;
+  }
+  .cr-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-subtle);
+  }
+  .cr-select { cursor: pointer; }
+  .cr-textarea { resize: vertical; min-height: 60px; }
+
+  .cr-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 0; }
+  .cr-row .cr-field { flex: 1; min-width: 120px; }
+
+  .cr-hint { font-size: 0.74rem; color: var(--text-dim); }
+
+  /* ── Actions ─────────────────────────────────────────────────────── */
+  .wiz-actions {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 28px; flex-wrap: wrap;
+  }
+  .wiz-saving { font-size: 0.8rem; color: var(--text-muted); }
+
+  /* ── Config krok 2 — nagłówki sekcji ────────────────────────────── */
+  .cfg-group-label {
+    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  /* Rząd spinnerów: label nad spinnerem, kilka obok siebie */
+  .cfg-spinners-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .cfg-spinner-col {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .cfg-spinner-label {
+    font-size: 0.72rem; color: var(--text-dim); text-align: center;
+    white-space: nowrap;
+  }
+  .cfg-hint { font-size: 0.7rem; color: var(--text-dim); text-align: center; }
+
+  /* Pionowy spinner: ▲ / input / ▼ — identyczny jak org-score-spinner */
+  .cfg-spinner {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  .cfg-spin-btn {
+    width: 44px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; line-height: 1;
+    background: var(--surface-2);
+    border: 1px solid var(--border-light, var(--border));
+    border-radius: var(--radius-sm, 5px);
+    color: var(--text-muted);
+    cursor: pointer; user-select: none;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .cfg-spin-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .cfg-spin-btn:active { transform: scale(0.94); }
+
+  .cfg-spin-input {
+    width: 44px; height: 36px; text-align: center;
+    font-size: 1rem; font-weight: 700;
+    border: 1px solid var(--border-light, var(--border));
+    border-radius: var(--radius-sm, 5px);
+    background: var(--surface-2); color: var(--text);
+    font-family: var(--font-sans);
+    outline: none;
+    -moz-appearance: textfield; appearance: textfield;
+  }
+  .cfg-spin-input::-webkit-outer-spin-button,
+  .cfg-spin-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .cfg-spin-input:focus {
+    outline: none; border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
+  }
+
+  /* ── Buttons ─────────────────────────────────────────────────────── */
+  .tc-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 0 18px; height: 38px;
+    font-size: 0.88rem; font-weight: 600;
+    border-radius: 8px; cursor: pointer;
+    border: none; text-decoration: none;
+    font-family: var(--font-sans);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .tc-btn-primary { background: var(--primary); color: #fff; }
+  .tc-btn-primary:hover:not(:disabled) { background: var(--primary-btn-hover, #16a34a); }
+  .tc-btn-primary:disabled { opacity: 0.55; cursor: default; }
+  .tc-btn-ghost {
+    background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .tc-btn-ghost:hover { background: var(--surface-hover); }
+
+  /* ── SGL checkbox field ───────────────────────────────────────────── */
+  .cr-field--checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    margin-bottom: 4px;
+  }
+  .cr-field--checkbox input[type="checkbox"] {
+    width: 16px; height: 16px; flex-shrink: 0;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+  .cr-field--checkbox span {
+    font-size: 0.9rem; color: var(--text);
+  }
+</style>
+
+<!-- Klasy wstrzykiwane przez innerHTML (buildSummary) muszą być globalne -->
+<style is:global>
+  .sum-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    margin-bottom: 4px;
+  }
+  @media (max-width: 520px) { .sum-grid { grid-template-columns: 1fr; } }
+
+  .sum-group {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .sum-group-label {
+    padding: 7px 14px;
+    font-size: 0.69rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--text-muted);
+    background: color-mix(in srgb, var(--border) 35%, transparent);
+    border-bottom: 1px solid var(--border);
+  }
+  .sum-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 14px;
+    font-size: 0.82rem; color: var(--text-muted);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+  }
+  .sum-row:last-child { border-bottom: none; }
+  .sum-row strong { color: var(--text); font-weight: 600; }
+</style>

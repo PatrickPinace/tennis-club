@@ -20,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Zakładamy, że na serwerze produkcyjnym istnieje plik .env.prod w głównym katalogu projektu.
 load_dotenv(dotenv_path=os.path.join(BASE_DIR, '.env'))
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+# Force core.settings for legacy deployment (override any .env settings)
+os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
 
 application = get_wsgi_application()

@@ -1,0 +1,82 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Aktualności{% endblock %}
+{% block topbar_title %}Aktualności{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Aktualności</h1>
+    <p class="page-header__subtitle">Newsy, artykuły i informacje tenisowe.</p>
+  </div>
+  <div class="page-header__actions">
+    {% if user.is_authenticated %}
+    <a href="{% url 'news:article_create' %}" class="btn btn-primary">+ Napisz artykuł</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 960px; margin: 0 auto;">
+
+  <!-- Moje szkice -->
+  {% if my_drafts %}
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header">
+      <span class="card-title">Moje szkice</span>
+      <span class="badge badge-neutral">{{ my_drafts|length }}</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% for draft in my_drafts %}
+      <a href="{% url 'news:article_edit' draft.slug %}" style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); text-decoration:none; transition:background .1s;" onmouseover="this.style.background='var(--surface-hover)'" onmouseout="this.style.background=''">
+        <div>
+          <span style="font-weight:600; color:var(--text);">{{ draft.title }}</span>
+          <span style="display:block; font-size:.75rem; color:var(--text-muted); margin-top:2px;">Utworzono: {{ draft.created_at|date:"d.m.Y H:i" }}</span>
+        </div>
+        <span class="badge badge-neutral">Szkic</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Wyszukiwarka -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-body">
+      <div style="position:relative;">
+        <svg style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted);" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input type="text" id="article-search" class="tc-input" style="padding-left:36px;" placeholder="Szukaj artykułu..." autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <!-- Artykuły -->
+  <div id="articles-wrapper">
+    {% include 'news/partials/article_list_content.html' %}
+  </div>
+
+</div>
+
+<script>
+let searchTimeout;
+const searchInput = document.getElementById('article-search');
+const articlesWrapper = document.getElementById('articles-wrapper');
+if (searchInput) {
+  searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const query = this.value;
+    searchTimeout = setTimeout(() => {
+      fetch(`{% url 'news:article_list' %}?q=${encodeURIComponent(query)}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      })
+      .then(r => r.text())
+      .then(html => { articlesWrapper.innerHTML = html; })
+      .catch(err => console.error(err));
+    }, 300);
+  });
+}
+</script>
+{% endblock %}

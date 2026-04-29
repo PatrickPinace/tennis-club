@@ -1,0 +1,54 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Potwierdź rezerwację{% endblock %}
+{% block topbar_title %}Korty{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Potwierdź rezerwację</h1>
+    <p class="page-header__subtitle">{{ reservation_date|date:"d.m.Y" }} — {{ facility.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'courts:facility-detail' pk=facility.pk %}?date={{ reservation_date|date:'Y-m-d' }}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Wybrane terminy</span></div>
+    <div class="card-body">
+      <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-4);">
+        Po kliknięciu "Potwierdź i wyślij", rezerwacje zostaną wysłane do właściciela obiektu w celu akceptacji.
+      </p>
+      <form action="{% url 'courts:create-reservation' %}" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="confirm_reservations" value="true">
+        <input type="hidden" name="reservation_date" value="{{ reservation_date|date:'Y-m-d' }}">
+        <input type="hidden" name="facility_id" value="{{ facility.pk }}">
+
+        <div style="display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-5);">
+          {% for res in reservations_to_create %}
+          <div style="display:flex; align-items:center; gap:var(--space-3); padding:12px; background:var(--surface-2); border-radius:var(--radius-sm); border:1px solid var(--border);">
+            <span class="badge badge-success">Kort {{ res.court.court_number }}</span>
+            <span style="font-weight:600; font-size:.875rem;">{{ res.start_time|time:"H:i" }} – {{ res.end_time|time:"H:i" }}</span>
+            <input type="hidden" name="court_id" value="{{ res.court.pk }}">
+            <input type="hidden" name="start_time" value="{{ res.start_time|time:'H:i:s' }}">
+            <input type="hidden" name="end_time" value="{{ res.end_time|time:'H:i:s' }}">
+          </div>
+          {% empty %}
+          <p style="color:var(--text-muted); font-size:.875rem;">Nie wybrano żadnych terminów.</p>
+          {% endfor %}
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-3);">
+          <a href="{% url 'courts:facility-detail' pk=facility.pk %}?date={{ reservation_date|date:'Y-m-d' }}" class="btn btn-secondary">Anuluj</a>
+          <button type="submit" class="btn btn-primary" {% if not reservations_to_create %}disabled{% endif %}>Potwierdź i wyślij</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

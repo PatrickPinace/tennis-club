@@ -1,0 +1,55 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Rezerwacje kortów{% endblock %}
+{% block topbar_title %}Rezerwacje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Rezerwuj kort</h1>
+    <p class="page-header__subtitle">Wybierz obiekt i zarezerwuj czas na korcie online.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto;">
+
+  {% if facilities %}
+  <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:var(--space-5);">
+    {% for facility in facilities %}
+    <a href="{% url 'courts:facility-detail' facility.pk %}" style="text-decoration:none;">
+      <div class="card" style="height:100%; transition:box-shadow .15s, transform .15s;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.12)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        {% if facility.image %}
+        <img src="{{ facility.image.url }}" alt="{{ facility.name }}" style="width:100%; height:160px; object-fit:cover; border-radius:var(--radius-md) var(--radius-md) 0 0;">
+        {% else %}
+        <div style="width:100%; height:160px; background:var(--primary-subtle); border-radius:var(--radius-md) var(--radius-md) 0 0; display:grid; place-items:center; font-size:3rem;">🎾</div>
+        {% endif %}
+        <div class="card-body">
+          <div style="font-weight:700; font-size:1rem; color:var(--text); margin-bottom:var(--space-2);">{{ facility.name }}</div>
+          <div style="font-size:.8rem; color:var(--text-muted); margin-bottom:var(--space-3);">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="margin-right:4px; opacity:.6;"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+            {{ facility.address }}
+          </div>
+          <div style="display:flex; gap:var(--space-2); flex-wrap:wrap;">
+            <span class="badge badge-success">Rezerwacje online</span>
+            <span class="badge" style="background:var(--surface-2); color:var(--text-muted);">{{ facility.get_surface_display }}</span>
+            {% if facility.courts.count %}<span class="badge" style="background:var(--surface-2); color:var(--text-muted);">{{ facility.courts.count }} kort{% if facility.courts.count > 1 %}y{% endif %}</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state__icon">📅</div>
+    <p class="empty-state__title">Brak obiektów z rezerwacją online</p>
+    <p class="empty-state__text">Żaden z obiektów nie ma jeszcze włączonego systemu rezerwacji online.</p>
+    <a href="{% url 'courts:facility-list' %}" class="btn btn-secondary" style="margin-top:var(--space-4);">Zobacz wszystkie obiekty</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

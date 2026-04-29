@@ -1,0 +1,340 @@
+---
+// login.astro — strona logowania
+// Flow: GET /api/auth/csrf/ → POST /api/auth/login/ → redirect ?next lub /dashboard
+// Redirect zalogowanego obsługuje middleware.ts — tu nie duplikujemy logiki.
+export const prerender = false;
+
+import '@/styles/global.css';
+import { url } from '@/lib/url';
+
+// W dev bez PUBLIC_API_BASE_URL: pusty string → relative URL → Vite proxy → Django :8000
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
+
+// URL do klasycznej wersji Django — ten sam pattern co Topbar.astro
+const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
+const classicBase = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
+  ? _djangoApiUrl.replace(/\/$/, '')
+  : '';
+const registerUrl  = classicBase + '/users/register/';
+const classicLoginUrl = classicBase + '/users/login/';
+
+// Odczytaj ?next= żeby po zalogowaniu wrócić do żądanej strony
+const nextUrl = Astro.url.searchParams.get('next') ?? url('/dashboard');
+// Walidacja: akceptuj tylko ścieżki zaczynające się od / (zapobieganie open redirect)
+const safeNext = nextUrl.startsWith('/') ? nextUrl : url('/dashboard');
+---
+
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logowanie — Tennis Club</title>
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+  <meta name="api-base" content={apiBase} />
+  <meta name="next-url" content={safeNext} />
+  <script is:inline>
+    (function () {
+      var t = localStorage.getItem('tc-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+
+<body class="login-body">
+
+  <div class="login-wrap">
+
+    <!-- Logo / branding -->
+    <div class="login-brand">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+        <circle cx="18" cy="18" r="18" fill="#22c55e"/>
+        <circle cx="18" cy="18" r="9" stroke="white" stroke-width="2" fill="none"/>
+        <path d="M9 18 Q18 6 27 18" stroke="white" stroke-width="2" fill="none"/>
+        <path d="M9 18 Q18 30 27 18" stroke="white" stroke-width="2" fill="none"/>
+      </svg>
+      <span class="login-brand__name">Tennis Club</span>
+    </div>
+
+    <!-- Karta logowania -->
+    <div class="login-card">
+      <h1 class="login-title">Zaloguj się</h1>
+      <p class="login-subtitle">Wpisz swoje dane aby wejść do aplikacji</p>
+
+      <!-- Alert błędu -->
+      <div id="login-error" class="login-error" role="alert" aria-live="polite" style="display:none;"></div>
+
+      <form id="login-form" novalidate>
+        <div class="login-field">
+          <label class="login-label" for="username">Login lub e-mail</label>
+          <input
+            class="login-input"
+            type="text"
+            id="username"
+            name="username"
+            autocomplete="username"
+            placeholder="np. jan.kowalski"
+            required
+          />
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="password">Hasło</label>
+          <input
+            class="login-input"
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            placeholder="••••••••"
+            required
+          />
+        </div>
+
+        <button type="submit" class="login-submit tc-btn tc-btn-primary tc-btn-lg" id="login-btn">
+          Zaloguj
+        </button>
+      </form>
+
+    </div>
+
+    <p class="login-register">
+      Nie masz konta?
+      <a href={url('/register')}>Zarejestruj się →</a>
+    </p>
+
+    <p class="login-back">
+      <a href={classicLoginUrl}>
+        Wróć do starej wersji aplikacji →
+      </a>
+    </p>
+
+  </div>
+
+</body>
+</html>
+
+<script>
+  const API     = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
+                  ?? 'http://localhost:8000';
+  const BASE    = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const NEXT    = (document.querySelector('meta[name="next-url"]') as HTMLMetaElement)?.content
+                  || (BASE + '/dashboard');
+
+  const form    = document.getElementById('login-form') as HTMLFormElement;
+  const btn     = document.getElementById('login-btn') as HTMLButtonElement;
+  const errorEl = document.getElementById('login-error') as HTMLDivElement;
+
+  function showError(msg: string) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+
+  function clearError() {
+    errorEl.textContent = '';
+    errorEl.style.display = 'none';
+  }
+
+  function setLoading(loading: boolean) {
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Logowanie…' : 'Zaloguj';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+
+    const username = (document.getElementById('username') as HTMLInputElement).value.trim();
+    const password = (document.getElementById('password') as HTMLInputElement).value;
+
+    if (!username || !password) {
+      showError('Wypełnij login i hasło.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Krok 1: pobierz CSRF token (ustawi cookie csrftoken)
+      await fetch(`${API}/api/auth/csrf/`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      // Krok 2: odczytaj csrftoken z cookie
+      const csrfToken = document.cookie
+        .split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))
+        ?.split('=')[1] ?? '';
+
+      // Krok 3: wyślij login
+      const res = await fetch(`${API}/api/auth/login/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Krok 4: redirect — na ?next jeśli podany, inaczej /dashboard
+        window.location.href = NEXT;
+      } else {
+        showError(data.error ?? 'Błąd logowania. Sprawdź dane i spróbuj ponownie.');
+      }
+    } catch {
+      showError('Nie można połączyć się z serwerem. Sprawdź połączenie.');
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+
+<style>
+  .login-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 20px;
+  }
+
+  .login-wrap {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* ── Brand ────────────────────────────────────────────────────────────── */
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .login-brand__name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Card ─────────────────────────────────────────────────────────────── */
+  .login-card {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .login-title {
+    font-size: 1.375rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .login-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0 0 24px;
+  }
+
+  /* ── Error ────────────────────────────────────────────────────────────── */
+  .login-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-sm);
+    color: var(--danger);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Form ─────────────────────────────────────────────────────────────── */
+  .login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .login-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .login-input {
+    width: 100%;
+    height: 42px;
+    padding: 0 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.9375rem;
+    font-family: var(--font-sans);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+
+  .login-input::placeholder {
+    color: var(--text-dim);
+  }
+
+  .login-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  }
+
+  .login-submit {
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  /* ── Register link ───────────────────────────────────────────────────────── */
+  .login-register {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .login-register a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .login-register a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ── Back link ────────────────────────────────────────────────────────── */
+  .login-back {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin: 0;
+  }
+  .login-back a {
+    color: var(--text-dim);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .login-back a:hover {
+    color: var(--text-muted);
+  }
+</style>

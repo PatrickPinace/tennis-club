@@ -1,0 +1,87 @@
+{% extends 'layouts/base_app.html' %}
+{% load tournaments %}
+{% load widget_tweaks %}
+
+{% block title %}Edytuj wynik meczu Americano{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Wprowadź wynik meczu</h1>
+    <p class="page-header__subtitle">{{ tournament.name }} — Runda {{ match.round_number }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 520px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div style="background:var(--danger-subtle); border:1px solid var(--danger); border-radius:var(--radius-sm); padding:var(--space-3); margin-bottom:var(--space-4); font-size:.875rem; color:var(--danger);">
+          {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+        </div>
+        {% endif %}
+
+        <div style="margin-bottom:var(--space-5);">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:var(--space-4); background:var(--surface-2); border-radius:var(--radius-sm); border:1px solid var(--border); margin-bottom:var(--space-3);">
+            <div style="font-weight:600; font-size:1rem;">
+              {{ match.participant1.display_name }} / {{ match.participant2.display_name }}
+            </div>
+            <div>
+              {{ form.set1_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
+              {% for error in form.set1_p1_score.errors %}<div style="color:var(--danger); font-size:.75rem;">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div style="text-align:center; color:var(--text-muted); font-weight:600; font-size:.875rem; margin-bottom:var(--space-3);">vs</div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:var(--space-4); background:var(--surface-2); border-radius:var(--radius-sm); border:1px solid var(--border);">
+            <div style="font-weight:600; font-size:1rem;">
+              {{ match.participant3.display_name }} / {{ match.participant4.display_name }}
+            </div>
+            <div>
+              {{ form.set1_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
+              {% for error in form.set1_p2_score.errors %}<div style="color:var(--danger); font-size:.75rem;">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-3);">
+          <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+          <button type="submit" class="btn btn-primary">Zapisz wynik</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const totalPoints = {{ tournament.americano_config.points_per_match|default:0 }};
+    const score1Input = document.getElementById('{{ form.set1_p1_score.id_for_label }}');
+    const score2Input = document.getElementById('{{ form.set1_p2_score.id_for_label }}');
+
+    function calculateRemaining(sourceInput, targetInput) {
+        const sourceValue = parseInt(sourceInput.value, 10);
+        if (!isNaN(sourceValue) && sourceValue >= 0 && sourceValue <= totalPoints) {
+            targetInput.value = totalPoints - sourceValue;
+        } else if (sourceInput.value === '') {
+            targetInput.value = '';
+        }
+    }
+
+    score1Input.addEventListener('input', function() { calculateRemaining(score1Input, score2Input); });
+    score2Input.addEventListener('input', function() { calculateRemaining(score2Input, score1Input); });
+});
+</script>
+{% endblock %}

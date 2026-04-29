@@ -1,0 +1,172 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Podsumowanie meczów{% endblock %}
+{% block topbar_title %}Mecze{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Podsumowanie</h1>
+    <p class="page-header__subtitle">Statystyki spotkań — wygrane mecze, sety i gemy.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'matches:matches_results' %}" class="btn btn-secondary">Wyniki</a>
+    <a href="{% url 'matches:matches_add_match' %}" class="btn btn-primary">+ Dodaj mecz</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .bar-wrap { display:flex; align-items:center; gap:8px; }
+  .bar-track { flex:1; height:8px; border-radius:99px; background:var(--surface-2); overflow:hidden; min-width:80px; }
+  .bar-fill  { height:100%; border-radius:99px; background:var(--primary); }
+  .bar-label { font-size:.75rem; font-weight:600; color:var(--text-muted); white-space:nowrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+
+<!-- Wybór gracza + filtry -->
+<div class="card" style="margin-bottom:var(--space-6);">
+  <div class="card-body">
+    <form method="get" style="margin-bottom:var(--space-5);">
+      <div class="tc-field">
+        <label class="tc-label">Przeglądasz wyniki gracza</label>
+        <div class="tc-select-wrap">
+        <select name="user_id" onchange="this.form.submit()" class="tc-select">
+          <option value="{{ request.user.id }}" {% if target_user.id == request.user.id %}selected{% endif %}>
+            {{ request.user.get_full_name|default:request.user.username }} (Ty)
+          </option>
+          {% for player in all_players %}
+          {% if player.id != request.user.id %}
+          <option value="{{ player.id }}" {% if target_user.id == player.id %}selected{% endif %}>
+            {{ player.get_full_name|default:player.username }}
+          </option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        </div>
+      </div>
+    </form>
+
+    <div style="height:1px; background:var(--border); margin-bottom:var(--space-5);"></div>
+
+    <form method="get">
+      {% if target_user %}<input type="hidden" name="user_id" value="{{ target_user.id }}">{% endif %}
+      <div style="display:flex; flex-wrap:wrap; gap:var(--space-4); align-items:flex-end;">
+        <div class="tc-field">
+          <label class="tc-label">Tryb gry</label>
+          <div class="tc-select-wrap">
+            <select name="match_double" class="tc-select">
+              <option value="0" {% if request.GET.match_double == "0" or not request.GET.match_double %}selected{% endif %}>Singiel</option>
+              <option value="1" {% if request.GET.match_double == "1" %}selected{% endif %}>Debel</option>
+            </select>
+          </div>
+        </div>
+        <div class="tc-field">
+          <label class="tc-label">Przeciwnik</label>
+          <div class="tc-select-wrap">
+            <select name="opponent_id" class="tc-select">
+              <option value="">Wszyscy</option>
+              {% for opponent in all_played_opponents %}
+              <option value="{{ opponent.id }}" {% if request.GET.opponent_id == opponent.id|stringformat:"s" %}selected{% endif %}>
+                {{ opponent.get_full_name|default:opponent.username }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="tc-field">
+          <label class="tc-label">Zakres</label>
+          <div class="tc-select-wrap">
+            <select name="date_range" class="tc-select">
+              <option value="last_15" {% if request.GET.date_range == "last_15" or not request.GET.date_range %}selected{% endif %}>Ostatnie 15</option>
+              {% for year in years %}<option value="{{ year }}" {% if request.GET.date_range == year %}selected{% endif %}>Rok {{ year }}</option>{% endfor %}
+              <option value="all" {% if request.GET.date_range == "all" %}selected{% endif %}>Wszystko</option>
+            </select>
+          </div>
+        </div>
+        <div style="padding-bottom:1px;">
+          <button type="submit" class="btn btn-primary" style="width:100%;">Filtruj</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tabela podsumowania -->
+{% if matches %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Statystyki — {{ target_user.get_full_name|default:target_user.username }}</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Przeciwnik</th>
+          <th>Mecze</th>
+          <th>Sety</th>
+          <th>Gemy</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if summary.all.stats and summary.opponents|length > 1 %}
+        <tr style="background:var(--primary-subtle);">
+          <td style="font-weight:700; color:var(--primary);">Łącznie</td>
+          <td>{% with s=summary.all.stats.match %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}W / {{ s.lose }}L</span></div>{% endwith %}</td>
+          <td>{% with s=summary.all.stats.set %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}W / {{ s.lose }}L</span></div>{% endwith %}</td>
+          <td>{% with s=summary.all.stats.gem %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}:{{ s.lose }}</span></div>{% endwith %}</td>
+        </tr>
+        {% endif %}
+        {% for opponent_name, data in summary.opponents.items %}
+        <tr>
+          <td style="font-weight:600;">
+            {% for player_name in data.team.opponent %}{{ player_name }}{% if not forloop.last %} / {% endif %}{% endfor %}
+          </td>
+          <td>{% with s=data.stats.match %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}W / {{ s.lose }}L</span></div>{% endwith %}</td>
+          <td>{% with s=data.stats.set %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}W / {{ s.lose }}L</span></div>{% endwith %}</td>
+          <td>{% with s=data.stats.gem %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}:{{ s.lose }}</span></div>{% endwith %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if yearly_summary %}
+<div class="card" style="margin-top:var(--space-6);">
+  <div class="card-header"><span class="card-title">Podsumowanie roczne</span></div>
+  <div class="card-body" style="padding:0;">
+    <table class="data-table">
+      <thead>
+        <tr><th>Rok</th><th>Mecze</th><th>Sety</th><th>Gemy</th></tr>
+      </thead>
+      <tbody>
+        {% for year, data in yearly_summary.items %}
+        <tr>
+          <td style="font-weight:700;">{{ year }}</td>
+          <td>{% with s=data.match %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}W / {{ s.lose }}L</span></div>{% endwith %}</td>
+          <td>{% with s=data.set %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}W / {{ s.lose }}L</span></div>{% endwith %}</td>
+          <td>{% with s=data.gem %}<div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:{{ s.per|default:0 }}%;"></div></div><span class="bar-label">{{ s.win }}:{{ s.lose }}</span></div>{% endwith %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state__icon">📈</div>
+  <p class="empty-state__title">Brak danych</p>
+  <p class="empty-state__text">Nie znaleziono meczów dla wybranych filtrów.</p>
+  <a href="{% url 'matches:matches_add_match' %}" class="btn btn-primary" style="margin-top:var(--space-4);">+ Dodaj mecz</a>
+</div>
+{% endif %}
+
+</div>{# /max-width wrapper #}
+{% endblock %}

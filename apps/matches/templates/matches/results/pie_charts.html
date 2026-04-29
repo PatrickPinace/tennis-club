@@ -1,0 +1,223 @@
+<div class="pie-charts row justify-content-between">
+  <div class="col-12 col-xl-4 mb-3">
+    <div class="card shadow-sm">
+      <div class="card-header font-2 bg-dark text-white text-center">
+        <h5 class="mb-0"><i class="fa-solid fa-trophy me-2 text-warning"></i> Spotkania</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="pieChartMatch"></canvas>
+        <div class="custom-legend" id="legend-match"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4 mb-3">
+    <div class="card shadow-sm">
+      <div class="card-header font-2 bg-dark text-white text-center">
+        <h5 class="mb-0">Sety</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="pieChartSet"></canvas>
+        <div class="custom-legend" id="legend-set"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-xl-4 mb-3">
+    <div class="card shadow-sm">
+      <div class="card-header font-2 bg-dark text-white text-center">
+        <h5 class="mb-0">Gemy</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="pieChartGem"></canvas>
+        <div class="custom-legend" id="legend-gem"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  Chart.register(ChartDataLabels);
+  
+  const customLegendStyle = `
+    .custom-legend {
+      display: none;
+      text-align: center;
+      margin-top: 10px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .legend-color-box {
+      width: 20px;
+      height: 12px;
+      margin-right: 8px;
+      border: 1px solid #ccc;
+    }
+    @media (min-width: 769px) {
+      .custom-legend {
+        display: block;
+      }
+    }
+  `;
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = customLegendStyle;
+  document.head.appendChild(styleSheet);
+
+  const isMobile = window.innerWidth <= 600;
+  const charts = [];
+
+  function createDoughnutChart(ctx, data, labels, legendContainerId) {
+    const total = data.reduce((a, b) => a + b, 0);
+    const chart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: ['#28a31a', '#fa5252'],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        plugins: {
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              color: '#333',
+              font: { weight: 'bold' },
+              boxWidth: 20,
+              padding: 20,
+              // Wyświetla etykietę i wartość
+              generateLabels: function(chart) {
+                  const data = chart.data;
+                  if (!data.labels || !data.labels.length || !data.datasets.length) {
+                      return [];
+                  }
+
+                  const originalLabels = data.labels.map((label, i) => {
+                      const meta = chart.getDatasetMeta(0);
+                      const style = meta.controller.getStyle(i);
+                      return {
+                          text: `${label}: ${data.datasets[0].data[i]}`,
+                          fillStyle: style.backgroundColor,
+                          strokeStyle: style.borderColor,
+                          lineWidth: style.borderWidth,
+                          hidden: isNaN(data.datasets[0].data[i]) || meta.data[i].hidden,
+                          index: i
+                      };
+                  });
+
+                  const isDesktop = window.innerWidth > 768;
+                  return isDesktop ? [] : originalLabels;
+              }
+            }
+          },
+          datalabels: {
+            display: !isMobile,
+            color: '#fff',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            borderRadius: 4,
+            font: { weight: 'bold' },
+            formatter: (value) => {
+              const percent = total ? Math.round((value / total) * 100) : 0;
+              return percent > 5 ? percent + '%' : ''; // Pokaż procent tylko jeśli jest znaczący
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed;
+                const percent = total ? Math.round((value / total) * 100) : 0;
+                return `${label}: ${value} (${percent}%)`;
+              }
+            }
+          }
+        },
+        animation: { duration: 400 }
+      }
+    });
+    charts.push(chart);
+    updateCustomLegend(legendContainerId, chart);
+    return chart;
+  }
+
+  // --- Inicjalizacja wykresów ---
+  const summaryData = {
+    match: { win: {{ summary.match.win }}, lose: {{ summary.match.lose }} },
+    set: { win: {{ summary.set.win }}, lose: {{ summary.set.lose }} },
+    gem: { win: {{ summary.gem.win }}, lose: {{ summary.gem.lose }} }
+  };
+
+  const labels = ['Wygrane', 'Przegrane'];
+
+  createDoughnutChart(
+    document.getElementById('pieChartMatch').getContext('2d'),
+    [summaryData.match.win, summaryData.match.lose],
+    labels,
+    'legend-match'
+  );
+
+  createDoughnutChart(
+    document.getElementById('pieChartSet').getContext('2d'),
+    [summaryData.set.win, summaryData.set.lose],
+    labels,
+    'legend-set'
+  );
+
+  createDoughnutChart(
+    document.getElementById('pieChartGem').getContext('2d'),
+    [summaryData.gem.win, summaryData.gem.lose],
+    labels,
+    'legend-gem'
+  );
+
+  function updateCustomLegend(containerId, chart) {
+    const legendContainer = document.getElementById(containerId);
+    const data = chart.data;
+    if (!legendContainer || !data.labels || !data.datasets.length) return;
+
+    const items = data.labels.map((label, i) => {
+        const value = data.datasets[0].data[i];
+        const color = data.datasets[0].backgroundColor[i];
+        return `
+            <div class="legend-item">
+                <div class="legend-color-box" style="background-color:${color};"></div>
+                <span>${label}: ${value}</span>
+            </div>
+        `;
+    }).join('');
+
+    legendContainer.innerHTML = items;
+  }
+
+  // --- Responsywność czcionek ---
+  function updateChartFonts() {
+    const newFontSize = Math.max(10, Math.min(window.innerWidth / 70, 14));
+    charts.forEach(chart => {
+        if (chart.options.plugins.legend.labels.font) {
+            chart.options.plugins.legend.labels.font.size = newFontSize;
+        }
+        chart.update();
+    });
+  }
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+        updateChartFonts();
+    }, 250);
+  });
+
+  // Ustaw początkowy rozmiar czcionki
+  updateChartFonts();
+</script>

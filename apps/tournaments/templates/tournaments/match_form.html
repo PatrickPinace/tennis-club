@@ -1,0 +1,131 @@
+{% extends 'layouts/base_app.html' %}
+{% load widget_tweaks %}
+
+{% block title %}{% if is_editing %}Edytuj Mecz{% else %}Dodaj Mecz{% endif %}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{% if is_editing %}Edytuj Mecz{% else %}Dodaj Nowy Mecz{% endif %}</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 720px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-4);">
+          <div class="tc-field">
+            <label class="tc-label">{{ form.round_number.label }}</label>
+            {{ form.round_number }}
+            {% if form.round_number.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.round_number.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">{{ form.match_index.label }}</label>
+            {{ form.match_index }}
+            {% if form.match_index.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.match_index.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-4);">
+          <div class="tc-field">
+            <label class="tc-label">{{ form.participant1.label }}</label>
+            {{ form.participant1 }}
+            {% if form.participant1.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.participant1.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">{{ form.participant2.label }}</label>
+            {{ form.participant2 }}
+            {% if form.participant2.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.participant2.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        {% if has_full_permissions or not is_editing %}
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-4);">
+          <div class="tc-field">
+            <label class="tc-label">{{ form.scheduled_time.label }}</label>
+            {{ form.scheduled_time }}
+            {% if form.scheduled_time.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.scheduled_time.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">{{ form.status.label }}</label>
+            {{ form.status }}
+            {% if form.status.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.status.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div style="margin-bottom:var(--space-5);">
+          <p style="font-weight:600; font-size:.875rem; margin-bottom:var(--space-3);">Wyniki Setów</p>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Uczestnik</th>
+                  <th style="text-align:center;">Set 1</th>
+                  <th style="text-align:center;">Set 2</th>
+                  <th style="text-align:center;">Set 3</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{{ form.participant1.label }}</td>
+                  <td style="text-align:center;">
+                    {{ form.set1_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
+                    {% if form.set1_p1_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set1_p1_score.errors|join:", " }}</p>{% endif %}
+                  </td>
+                  <td style="text-align:center;">
+                    {{ form.set2_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
+                    {% if form.set2_p1_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set2_p1_score.errors|join:", " }}</p>{% endif %}
+                  </td>
+                  <td style="text-align:center;">
+                    {{ form.set3_p1_score|attr:"min:0"|add_class:"num-stepper-target" }}
+                    {% if form.set3_p1_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set3_p1_score.errors|join:", " }}</p>{% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td>{{ form.participant2.label }}</td>
+                  <td style="text-align:center;">
+                    {{ form.set1_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
+                    {% if form.set1_p2_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set1_p2_score.errors|join:", " }}</p>{% endif %}
+                  </td>
+                  <td style="text-align:center;">
+                    {{ form.set2_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
+                    {% if form.set2_p2_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set2_p2_score.errors|join:", " }}</p>{% endif %}
+                  </td>
+                  <td style="text-align:center;">
+                    {{ form.set3_p2_score|attr:"min:0"|add_class:"num-stepper-target" }}
+                    {% if form.set3_p2_score.errors %}<p style="color:var(--danger); font-size:.75rem;">{{ form.set3_p2_score.errors|join:", " }}</p>{% endif %}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {% if has_full_permissions or not is_editing %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ form.winner.label }}</label>
+          {{ form.winner }}
+          {% if form.winner.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ form.winner.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:var(--space-3);">
+          <button type="submit" class="btn btn-primary">Zapisz Mecz</button>
+          <a href="{{ next_url }}" class="btn btn-secondary">Anuluj</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

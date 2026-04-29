@@ -1,0 +1,97 @@
+{% load tournaments %}
+<div id="match-{{ match.pk }}" style="display:flex; align-items:center; padding:10px 16px; border-top:1px solid var(--border); gap:var(--space-3);">
+
+  <!-- Przeciwnik -->
+  <div style="flex:1; min-width:0;">
+    {% if match.participant1 == current_participant %}
+      {% with opponent=match.participant2 %}
+      <span style="font-size:.875rem; font-weight:600; {% if match.winner == opponent %}color:var(--danger);{% endif %}">
+        {{ opponent.display_name|default:"TBA" }}
+      </span>
+      {% endwith %}
+    {% else %}
+      {% with opponent=match.participant1 %}
+      <span style="font-size:.875rem; font-weight:600; {% if match.winner == opponent %}color:var(--danger);{% endif %}">
+        {{ opponent.display_name|default:"TBA" }}
+      </span>
+      {% endwith %}
+    {% endif %}
+  </div>
+
+  <!-- Wyniki setów -->
+  <div style="display:flex; gap:var(--space-4); flex-shrink:0; text-align:center;">
+    {% if match.status == 'CMP' %}
+      {% if match.participant1 == current_participant %}
+        <div>
+          <div style="font-size:.95rem; font-weight:700; line-height:1.2;">{{ match.set1_p1_score }}-{{ match.set1_p2_score }}</div>
+          <div style="font-size:.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Set 1</div>
+        </div>
+        {% if match.set2_p1_score is not None %}
+        <div>
+          <div style="font-size:.95rem; font-weight:700; line-height:1.2;">{{ match.set2_p1_score }}-{{ match.set2_p2_score }}</div>
+          <div style="font-size:.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Set 2</div>
+        </div>
+        {% endif %}
+        {% if match.set3_p1_score is not None %}
+        <div>
+          <div style="font-size:.95rem; font-weight:700; line-height:1.2;">{{ match.set3_p1_score }}-{{ match.set3_p2_score }}</div>
+          <div style="font-size:.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Set 3</div>
+        </div>
+        {% endif %}
+      {% else %}
+        <div>
+          <div style="font-size:.95rem; font-weight:700; line-height:1.2;">{{ match.set1_p2_score }}-{{ match.set1_p1_score }}</div>
+          <div style="font-size:.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Set 1</div>
+        </div>
+        {% if match.set2_p1_score is not None %}
+        <div>
+          <div style="font-size:.95rem; font-weight:700; line-height:1.2;">{{ match.set2_p2_score }}-{{ match.set2_p1_score }}</div>
+          <div style="font-size:.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Set 2</div>
+        </div>
+        {% endif %}
+        {% if match.set3_p1_score is not None %}
+        <div>
+          <div style="font-size:.95rem; font-weight:700; line-height:1.2;">{{ match.set3_p2_score }}-{{ match.set3_p1_score }}</div>
+          <div style="font-size:.65rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em;">Set 3</div>
+        </div>
+        {% endif %}
+      {% endif %}
+    {% else %}
+      <span style="font-size:.8rem; color:var(--text-muted);">
+        {% if match.scheduled_time %}{{ match.scheduled_time|date:"d.m H:i" }}{% else %}—{% endif %}
+      </span>
+    {% endif %}
+  </div>
+
+  <!-- Prawa strona: badge + reakcja + oko -->
+  <div style="flex-shrink:0; display:flex; align-items:center; gap:var(--space-2);">
+    {% if match.status == 'CMP' and match.winner %}
+      {% if match.winner == current_participant %}
+        <span class="badge badge-success">Wygrana</span>
+      {% else %}
+        <span class="badge badge-danger">Przegrana</span>
+      {% endif %}
+    {% elif match.status == 'INP' %}
+      <span class="badge badge-warning">W trakcie</span>
+    {% elif match.status == 'SCH' %}
+      <span class="badge badge-info">Zaplanowany</span>
+    {% else %}
+      <span class="badge">{{ match.get_status_display }}</span>
+    {% endif %}
+
+    <!-- Oko / podgląd -->
+    <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}"
+       style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text-muted); text-decoration:none; font-size:.85rem;"
+       title="Szczegóły">👁</a>
+
+    <!-- Reakcja 👍 -->
+    {% if match.status == 'CMP' and request.user.is_authenticated %}
+    <button class="reaction-btn{% if match.user_reaction == '👍' %} active{% endif %}"
+      data-match-id="{{ match.pk }}" data-emoji="👍"
+      style="display:inline-flex; align-items:center; gap:3px; height:28px; padding:0 8px; background:none; border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; font-size:.8rem; color:var(--text-muted);">
+      👍 <span class="reaction-count">{{ match.reactions.all|filter_by_emoji:'👍'|length }}</span>
+    </button>
+    {% endif %}
+  </div>
+
+</div>

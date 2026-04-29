@@ -1,0 +1,94 @@
+{% extends 'layouts/base_app.html' %}
+{% load humanize %}
+{% load tournaments %}
+{% load matches %}
+
+{% block title %}Szczegóły meczu{% endblock %}
+{% block topbar_title %}Mecze{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Szczegóły meczu</h1>
+    <p class="page-header__subtitle">{{ match.match_date|date:"d F Y" }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'matches:matches_results' %}" class="btn btn-secondary">← Powrót</a>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<!-- Tablica wyników -->
+<div class="card" style="margin-bottom: var(--space-6); max-width: 640px; margin-left: auto; margin-right: auto;">
+  <div class="card-body" style="padding: var(--space-8);">
+
+    {% if is_tournament_match %}
+    <div style="text-align:center; margin-bottom: var(--space-4);">
+      <span class="badge badge-warning">Mecz turniejowy</span>
+    </div>
+    {% endif %}
+
+    <!-- Desktop -->
+    <div style="display:grid; grid-template-columns: 1fr auto 1fr; gap: var(--space-4); align-items:center; text-align:center;">
+
+      <!-- Gracz 1 -->
+      <div>
+        <div class="avatar avatar-lg" style="margin: 0 auto var(--space-3);">
+          {% if match.match_double %}{{ match.p1|short_name|slice:":1"|upper }}{% else %}{{ match.p1.get_full_name|slice:":1"|upper }}{% endif %}
+        </div>
+        <div style="font-weight:700; font-size:1rem; {% if match.win == 'p1' %}color:var(--primary);{% endif %}">
+          {% if match.match_double %}{{ match.p1|short_name }} / {{ match.p3|short_name }}{% else %}{{ match.p1.get_full_name }}{% endif %}
+        </div>
+        {% if match.win == 'p1' %}<div style="margin-top:4px;"><span class="badge badge-success">Zwycięzca</span></div>{% endif %}
+      </div>
+
+      <!-- Wyniki setów -->
+      <div style="display:flex; flex-direction:column; gap: var(--space-3); align-items:center;">
+        <div style="display:flex; gap: var(--space-4);">
+          <!-- Set 1 -->
+          <div style="text-align:center;">
+            <div style="font-size:.65rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">S1</div>
+            <div style="font-size:2rem; font-weight:800; line-height:1; {% if match.p1_set1 > match.p2_set1 %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{{ match.p1_set1|default:"0" }}</div>
+            <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+            <div style="font-size:2rem; font-weight:800; line-height:1; {% if match.p2_set1 > match.p1_set1 %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{{ match.p2_set1|default:"0" }}</div>
+          </div>
+          <!-- Set 2 -->
+          {% if match.p1_set2 or match.p2_set2 %}
+          <div style="text-align:center;">
+            <div style="font-size:.65rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">S2</div>
+            <div style="font-size:2rem; font-weight:800; line-height:1; {% if match.p1_set2 > match.p2_set2 %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{{ match.p1_set2|default:"0" }}</div>
+            <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+            <div style="font-size:2rem; font-weight:800; line-height:1; {% if match.p2_set2 > match.p1_set2 %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{{ match.p2_set2|default:"0" }}</div>
+          </div>
+          {% endif %}
+          <!-- Set 3 -->
+          {% if match.p1_set3 or match.p2_set3 %}
+          <div style="text-align:center;">
+            <div style="font-size:.65rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px;">S3</div>
+            <div style="font-size:2rem; font-weight:800; line-height:1; {% if match.p1_set3 > match.p2_set3 %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{{ match.p1_set3|default:"0" }}</div>
+            <div style="height:1px; background:var(--border); margin:4px 0;"></div>
+            <div style="font-size:2rem; font-weight:800; line-height:1; {% if match.p2_set3 > match.p1_set3 %}color:var(--primary);{% else %}color:var(--text-muted);{% endif %}">{{ match.p2_set3|default:"0" }}</div>
+          </div>
+          {% endif %}
+        </div>
+        <div style="font-size:.75rem; color:var(--text-dim);">VS</div>
+      </div>
+
+      <!-- Gracz 2 -->
+      <div>
+        <div class="avatar avatar-lg" style="margin: 0 auto var(--space-3);">
+          {% if match.match_double %}{{ match.p2|short_name|slice:":1"|upper }}{% else %}{{ match.p2.get_full_name|slice:":1"|upper }}{% endif %}
+        </div>
+        <div style="font-weight:700; font-size:1rem; {% if match.win == 'p2' %}color:var(--primary);{% endif %}">
+          {% if match.match_double %}{{ match.p2|short_name }} / {{ match.p4|short_name }}{% else %}{{ match.p2.get_full_name }}{% endif %}
+        </div>
+        {% if match.win == 'p2' %}<div style="margin-top:4px;"><span class="badge badge-success">Zwycięzca</span></div>{% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}

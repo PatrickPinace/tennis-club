@@ -1,0 +1,103 @@
+{% extends 'layouts/base_app.html' %}
+{% load static %}
+
+{% block title %}Turnieje{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Turnieje</h1>
+    <p class="page-header__subtitle">Zarządzaj turniejami — twórz, konfiguruj i śledź wyniki.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'tournaments:create_tournament' %}" class="btn btn-primary">+ Utwórz nowy</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+
+  <!-- Wyszukiwarka -->
+  <div class="card" style="margin-bottom: var(--space-5);">
+    <div class="card-body">
+      <form method="get">
+        <div style="display:flex; gap:var(--space-3); align-items:center;">
+          <div style="flex:1; position:relative;">
+            <svg style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted);" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+            </svg>
+            <input type="search" name="q" value="{{ search_query|default:'' }}" placeholder="Szukaj turnieju..."
+              class="tc-input" style="padding-left: 36px;">
+          </div>
+          <button type="submit" class="btn btn-secondary">Szukaj</button>
+          {% if search_query %}
+          <a href="{% url 'tournaments:manage' %}" class="btn btn-ghost">Wyczyść</a>
+          {% endif %}
+        </div>
+      </form>
+      {% if search_query %}
+      <p style="margin-top:var(--space-3); font-size:.875rem; color:var(--text-muted);">
+        Wyniki dla: <strong style="color:var(--text);">{{ search_query }}</strong>
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Lista turniejów -->
+  <div id="tournaments-list-container">
+    {% include 'tournaments/partials/manage_list.html' %}
+  </div>
+
+</div>
+
+<script>
+function initDropdowns() {
+  document.querySelectorAll('.tc-dropdown').forEach(function(wrap) {
+    if (wrap._dropdownInit) return; // nie inicjalizuj dwa razy
+    wrap._dropdownInit = true;
+    const toggle = wrap.querySelector('.tc-dropdown-toggle');
+    const menu   = wrap.querySelector('.tc-dropdown-menu');
+    if (!toggle || !menu) return;
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const isOpen = menu.style.display === 'block';
+      document.querySelectorAll('.tc-dropdown-menu').forEach(m => m.style.display = 'none');
+      menu.style.display = isOpen ? 'none' : 'block';
+    });
+  });
+}
+
+document.addEventListener('click', function() {
+  document.querySelectorAll('.tc-dropdown-menu').forEach(m => m.style.display = 'none');
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+  initDropdowns();
+
+  const searchInput = document.querySelector('input[name="q"]');
+  const listContainer = document.getElementById('tournaments-list-container');
+  let timeout = null;
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function(e) {
+      clearTimeout(timeout);
+      const query = e.target.value;
+      timeout = setTimeout(function() {
+        const url = new URL(window.location.href);
+        url.searchParams.set('q', query);
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+          .then(r => r.text())
+          .then(html => {
+            listContainer.innerHTML = html;
+            window.history.pushState({}, '', url);
+            initDropdowns(); // reinicjalizuj po AJAX
+          })
+          .catch(err => console.error(err));
+      }, 300);
+    });
+  }
+});
+</script>
+{% endblock %}

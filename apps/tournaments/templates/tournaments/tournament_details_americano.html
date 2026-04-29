@@ -1,0 +1,137 @@
+{% extends 'layouts/base_app.html' %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}{{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ tournament.name }}</h1>
+    <div style="display:flex; gap:var(--space-2); align-items:center; margin-top:var(--space-2);">
+      <span class="badge badge-primary">{{ tournament.get_tournament_type_display }}</span>
+      {% if tournament.status == 'ACT' %}<span class="badge badge-success">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'FIN' %}<span class="badge" style="background:var(--surface-2);color:var(--text-muted);">{{ tournament.get_status_display }}</span>
+      {% else %}<span class="badge badge-warning">{{ tournament.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <button onclick="history.back()" class="btn btn-secondary">← Powrót</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+
+  {% if tournament.description %}
+  <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-5);">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+  <!-- Zasady -->
+  {% if tournament.americano_config %}
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header" style="cursor:pointer;" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none'">
+      <span class="card-title">Zasady i ustawienia</span>
+      <span style="color:var(--text-muted); font-size:.8rem;">▾ rozwiń</span>
+    </div>
+    <div style="display:none;">
+      <div class="card-body">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); font-size:.875rem;">
+          <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+            <p><strong>System kojarzenia:</strong> {{ tournament.americano_config.get_scheduling_type_display }}</p>
+            <p><strong>Liczba rund:</strong> {{ tournament.americano_config.number_of_rounds }}</p>
+            <p><strong>Punkty na mecz:</strong> {{ tournament.americano_config.points_per_match }}</p>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+            {% if tournament.start_date %}<p><strong>Rozpoczęcie:</strong> {{ tournament.start_date|date:"d.m.Y H:i" }}</p>{% endif %}
+            {% if tournament.end_date %}<p><strong>Zakończenie:</strong> {{ tournament.end_date|date:"d.m.Y H:i" }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tabela + mecze obok siebie -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); margin-bottom:var(--space-5);">
+
+    <!-- Tabela wyników -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Aktualna tabela</span></div>
+      <div class="card-body" style="padding:0;">
+        {% if standings %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width:40px; text-align:center;">#</th>
+              <th>Uczestnik</th>
+              <th style="text-align:center;">Pkt</th>
+              <th style="text-align:center;">M</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in standings %}
+            <tr {% if item.participant.user == request.user %}style="background:var(--primary-subtle);"{% endif %}>
+              <td style="text-align:center; font-weight:700;">{{ forloop.counter }}</td>
+              <td style="font-weight:600;">{{ item.participant.display_name }}</td>
+              <td style="text-align:center; font-weight:800; color:var(--primary);">{{ item.points }}</td>
+              <td style="text-align:center; color:var(--text-muted);">{{ item.matches_played }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-8);">
+          <div class="empty-state__icon">📊</div>
+          <p class="empty-state__text">Brak uczestników.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Mecze według rund -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Wyniki spotkań</span></div>
+      <div class="card-body" style="padding:0;">
+        {% if rounds %}
+        {% for round_number, round_matches in rounds.items %}
+        <div style="border-bottom:1px solid var(--border);">
+          <button onclick="var c=this.nextElementSibling;c.style.display=c.style.display==='none'?'block':'none'"
+            style="width:100%; border:none; padding:10px 16px; text-align:left; cursor:pointer; font-weight:600; font-size:.85rem; background:{% if round_number == current_round_number %}var(--primary-subtle){% else %}transparent{% endif %}; color:{% if round_number == current_round_number %}var(--primary){% else %}var(--text){% endif %};">
+            Runda {{ round_number }}
+            {% if round_number == current_round_number %}<span class="badge badge-success" style="margin-left:var(--space-2); font-size:.65rem;">aktualna</span>{% endif %}
+          </button>
+          <div {% if round_number != current_round_number %}style="display:none;"{% endif %}>
+            {% for match in round_matches %}
+            <div style="padding:var(--space-3) var(--space-4); border-top:1px solid var(--border);">
+              {% include "tournaments/partials/americano_match_item.html" with match=match user=request.user %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-8);">
+          <div class="empty-state__icon">🎾</div>
+          <p class="empty-state__text">Brak meczów.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/reactions.js' %}"></script>
+<script>
+document.addEventListener('click', function() {
+  document.querySelectorAll('.match-actions-menu').forEach(function(el) { el.style.display = 'none'; });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% if tournaments %}
+
+{% regroup tournaments by end_date.year as tournaments_by_year %}
+
+{% for group in tournaments_by_year %}
+<div style="margin-bottom: var(--space-6);">
+  <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-4);">
+    <span style="font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted);">
+      {% if group.grouper %}{{ group.grouper }}{% else %}Inne{% endif %}
+    </span>
+    <div style="flex:1; height:1px; background:var(--border);"></div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:var(--space-3);">
+  {% for t in group.list %}
+  <div class="card">
+    <div class="card-body" style="padding: var(--space-5);">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:var(--space-4);">
+
+        <!-- Icon + info -->
+        <div style="display:flex; align-items:flex-start; gap:var(--space-4); flex:1; min-width:0;">
+          <div style="width:42px; height:42px; border-radius:var(--radius-sm); background:var(--primary-subtle); color:var(--primary); display:grid; place-items:center; flex-shrink:0; font-size:1.1rem;">
+            {% if t.tournament_type == 'RND' %}⬡
+            {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}⬡
+            {% elif t.tournament_type == 'LDR' %}↑
+            {% elif t.tournament_type == 'AMR' %}⇄
+            {% elif t.tournament_type == 'SWS' %}≡
+            {% else %}🏆{% endif %}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-2);">
+              {% if t.tournament_type == 'RND' %}
+                <a href="{% url 'tournaments:details_round_robin' t.pk %}" style="font-weight:700; font-size:.95rem; color:var(--text); text-decoration:none;">{{ t.name }}</a>
+              {% elif t.tournament_type == 'SGL' %}
+                <a href="{% url 'tournaments:details_elimination' t.pk %}" style="font-weight:700; font-size:.95rem; color:var(--text); text-decoration:none;">{{ t.name }}</a>
+              {% elif t.tournament_type == 'DBE' %}
+                <a href="{% url 'tournaments:details_double_elimination' t.pk %}" style="font-weight:700; font-size:.95rem; color:var(--text); text-decoration:none;">{{ t.name }}</a>
+              {% elif t.tournament_type == 'LDR' %}
+                <a href="{% url 'tournaments:details_ladder' t.pk %}" style="font-weight:700; font-size:.95rem; color:var(--text); text-decoration:none;">{{ t.name }}</a>
+              {% elif t.tournament_type == 'AMR' %}
+                <a href="{% url 'tournaments:details_americano' t.pk %}" style="font-weight:700; font-size:.95rem; color:var(--text); text-decoration:none;">{{ t.name }}</a>
+              {% elif t.tournament_type == 'SWS' %}
+                <a href="{% url 'tournaments:details_swiss' t.pk %}" style="font-weight:700; font-size:.95rem; color:var(--text); text-decoration:none;">{{ t.name }}</a>
+              {% else %}
+                <span style="font-weight:700; font-size:.95rem; color:var(--text);">{{ t.name }}</span>
+              {% endif %}
+
+              {% if t.status == 'DRF' %}<span class="badge badge-neutral">Szkic</span>
+              {% elif t.status == 'REG' %}<span class="badge badge-info">Rejestracja</span>
+              {% elif t.status == 'SCH' %}<span class="badge badge-warning">Zaplanowany</span>
+              {% elif t.status == 'ACT' %}<span class="badge badge-success">Trwa</span>
+              {% elif t.status == 'FIN' %}<span class="badge badge-neutral">Zakończony</span>
+              {% elif t.status == 'CNC' %}<span class="badge badge-danger">Anulowany</span>
+              {% endif %}
+            </div>
+            <div style="font-size:.8rem; color:var(--text-muted);">
+              {% if t.tournament_type == 'SGL' %}Puchar{% else %}{{ t.get_tournament_type_display }}{% endif %}
+              — {{ t.get_match_format_display }}
+              {% if t.start_date %} · od {{ t.start_date|date:"d.m.Y" }}{% endif %}
+              {% if t.end_date %} do {{ t.end_date|date:"d.m.Y" }}{% endif %}
+            </div>
+            {% if t.status == 'FIN' and t.winner %}
+            <div style="margin-top:var(--space-2);">
+              <span class="badge badge-warning">🏆 {{ t.winner.display_name }}</span>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex; align-items:center; gap:var(--space-2); flex-shrink:0;">
+          {% if t.can_request_join %}
+          <a href="{% url 'tournaments:request_join' t.pk %}" class="btn btn-primary btn-sm">Dołącz</a>
+          {% endif %}
+
+          {% if t.user_is_organizer and t.status != 'FIN' %}
+          <div style="position:relative;" class="tc-dropdown">
+            <button class="btn btn-secondary btn-sm tc-dropdown-toggle" type="button">
+              Zarządzaj ▾
+            </button>
+            <div class="tc-dropdown-menu" style="display:none; position:absolute; right:0; top:calc(100% + 6px); min-width:210px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:0 8px 32px rgba(0,0,0,.18); z-index:100;">
+              <div class="tc-dropdown-menu-inner">
+              <a class="tc-dropdown-item" href="{% url 'tournaments:edit_tournament' t.pk %}">Edytuj turniej</a>
+              <div class="tc-dropdown-divider"></div>
+              <a class="tc-dropdown-item" href="{% url 'tournaments:manage_matches' t.pk %}">Zarządzaj meczami</a>
+              <a class="tc-dropdown-item" href="{% url 'tournaments:list_participants' t.pk %}">Zarządzaj uczestnikami</a>
+              {% if t.tournament_type == 'RND' %}
+                <a class="tc-dropdown-item" href="{% url 'tournaments:edit_roundrobin_config' t.pk %}">Ustawienia</a>
+              {% elif t.tournament_type == 'SGL' or t.tournament_type == 'DBE' %}
+                <a class="tc-dropdown-item" href="{% url 'tournaments:edit_elimination_config' t.pk %}">Ustawienia</a>
+              {% elif t.tournament_type == 'LDR' %}
+                <a class="tc-dropdown-item" href="{% url 'tournaments:edit_ladder_config' t.pk %}">Ustawienia</a>
+              {% elif t.tournament_type == 'AMR' %}
+                <a class="tc-dropdown-item" href="{% url 'tournaments:edit_americano_config' t.pk %}">Ustawienia</a>
+              {% elif t.tournament_type == 'SWS' %}
+                <a class="tc-dropdown-item" href="{% url 'tournaments:edit_swiss_config' t.pk %}">Ustawienia</a>
+              {% endif %}
+
+              {% if t.is_draft %}
+              <div class="tc-dropdown-divider"></div>
+              <form method="post" action="{% url 'tournaments:open_registration' t.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="tc-dropdown-item tc-dropdown-item--success" onclick="return confirm('Otworzyć rejestrację?')">Otwórz rejestrację</button>
+              </form>
+              {% endif %}
+
+              {% if t.status == 'REG' %}
+              <div class="tc-dropdown-divider"></div>
+              <form method="post" action="{% url 'tournaments:close_registration' t.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="tc-dropdown-item tc-dropdown-item--success" onclick="return confirm('Zamknąć rejestrację?')">Zamknij rejestrację</button>
+              </form>
+              {% elif t.status == 'SCH' %}
+              <div class="tc-dropdown-divider"></div>
+              <form method="post" action="{% url 'tournaments:start_tournament' t.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="tc-dropdown-item tc-dropdown-item--success" onclick="return confirm('Rozpocząć turniej?')">Rozpocznij turniej</button>
+              </form>
+              <form method="post" action="{% url 'tournaments:revert_to_draft' t.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="tc-dropdown-item tc-dropdown-item--warning" onclick="return confirm('Cofnąć do szkicu?')">Wróć do szkicu</button>
+              </form>
+              {% endif %}
+
+              {% if t.status == 'ACT' %}
+              <div class="tc-dropdown-divider"></div>
+              <form method="post" action="{% url 'tournaments:finish_tournament' t.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="tc-dropdown-item tc-dropdown-item--danger" onclick="return confirm('Zakończyć turniej?')">Zakończ turniej</button>
+              </form>
+              {% endif %}
+
+              {% if t.is_deletable %}
+              <div class="tc-dropdown-divider"></div>
+              <form method="post" action="{% url 'tournaments:delete_tournament' t.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="tc-dropdown-item tc-dropdown-item--danger" onclick="return confirm('Usunąć turniej {{ t.name }}?')">Usuń turniej</button>
+              </form>
+              {% endif %}
+              </div><!-- tc-dropdown-menu-inner -->
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state__icon">🏆</div>
+  <p class="empty-state__title">Brak turniejów</p>
+  <p class="empty-state__text">Nie znaleziono żadnych turniejów. Utwórz pierwszy!</p>
+  <a href="{% url 'tournaments:create_tournament' %}" class="btn btn-primary" style="margin-top:var(--space-4);">+ Utwórz turniej</a>
+</div>
+{% endif %}
+
+<style>
+.tc-dropdown-menu-inner { padding:4px 0; }
+.tc-dropdown-item {
+  display:block; width:100%; padding:9px 16px; font-size:.875rem; font-weight:500;
+  color:var(--text); background:none; border:none; text-align:left; cursor:pointer;
+  text-decoration:none; transition:background .15s;
+}
+.tc-dropdown-item:first-child { border-radius:var(--radius-md) var(--radius-md) 0 0; }
+.tc-dropdown-item:last-child  { border-radius:0 0 var(--radius-md) var(--radius-md); }
+.tc-dropdown-item:hover { background:var(--surface-hover); }
+.tc-dropdown-item--success { color:var(--success); }
+.tc-dropdown-item--warning { color:var(--warning); }
+.tc-dropdown-item--danger  { color:var(--danger);  }
+.tc-dropdown-divider { height:1px; background:var(--border); margin:4px 0; }
+</style>
+

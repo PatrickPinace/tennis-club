@@ -1,0 +1,425 @@
+---
+// rankings.astro — tabela rankingowa połączona z Django API
+// GET /api/rankings/list/?type=SNG  (IsAuthenticatedOrReadOnly — publiczny)
+// Trend nie jest dostępny w API — wyświetlamy '—' dla live danych
+// Karta "Moja pozycja" wypełniana client-side z /api/dashboard/summary/
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getRankings, type PlayerRankingEntry } from '@/lib/api';
+
+// ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
+let players: PlayerRankingEntry[] = [];
+let isLive = false;
+
+try {
+  const data = await getRankings('SNG');
+  if (data && data.length > 0) {
+    players = data;
+    isLive = true;
+  }
+} catch (e) {
+  console.warn('[rankings] API error, using fallback demo data:', e);
+}
+
+// ── Fallback demo — gdy API niedostępne lub baza pusta ─────────────────────────
+if (players.length === 0) {
+  players = [
+    { position: 1, display_name: 'Tomasz Bąk',      points: 2840, matches_played: 62, matches_won: 51, matches_lost: 11, sets_won: 112, sets_lost: 44, win_rate: 82, match_type: 'SNG', season: 2026 },
+    { position: 2, display_name: 'Piotr Wiśniewski', points: 2710, matches_played: 58, matches_won: 46, matches_lost: 12, sets_won: 100, sets_lost: 40, win_rate: 79, match_type: 'SNG', season: 2026 },
+    { position: 3, display_name: 'Adam Kowalczyk',   points: 2590, matches_played: 55, matches_won: 43, matches_lost: 12, sets_won: 94,  sets_lost: 38, win_rate: 78, match_type: 'SNG', season: 2026 },
+    { position: 4, display_name: 'Marcin Kowalski',  points: 2440, matches_played: 48, matches_won: 34, matches_lost: 14, sets_won: 80,  sets_lost: 42, win_rate: 71, match_type: 'SNG', season: 2026 },
+    { position: 5, display_name: 'Rafał Nowak',      points: 2380, matches_played: 52, matches_won: 35, matches_lost: 17, sets_won: 78,  sets_lost: 48, win_rate: 67, match_type: 'SNG', season: 2026 },
+    { position: 6, display_name: 'Paweł Zając',      points: 2250, matches_played: 44, matches_won: 28, matches_lost: 16, sets_won: 64,  sets_lost: 44, win_rate: 64, match_type: 'SNG', season: 2026 },
+    { position: 7, display_name: 'Łukasz Dąbrowski', points: 2180, matches_played: 41, matches_won: 26, matches_lost: 15, sets_won: 60,  sets_lost: 40, win_rate: 63, match_type: 'SNG', season: 2026 },
+    { position: 8, display_name: 'Marek Wróbel',     points: 2050, matches_played: 38, matches_won: 23, matches_lost: 15, sets_won: 54,  sets_lost: 42, win_rate: 61, match_type: 'SNG', season: 2026 },
+  ];
+}
+
+// ── Helper: inicjały z display_name ───────────────────────────────────────────
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0].toUpperCase())
+    .join('');
+}
+
+// ── Helper: klasa win-rate ─────────────────────────────────────────────────────
+function winRateClass(wr: number): string {
+  if (wr >= 70) return 'win-rate win-rate--high';
+  if (wr >= 50) return 'win-rate win-rate--mid';
+  return 'win-rate win-rate--low';
+}
+---
+
+<AppLayout
+  title="Ranking"
+  greeting="Ranking klubowy"
+  showCta={false}
+  showSearch={false}
+>
+
+  <PageHeader
+    eyebrow="Statystyki"
+    title="Ranking klubowy"
+    subtitle="Klasyfikacja singlowa — sezon 2026. Punkty naliczane po zakończeniu turniejów."
+  />
+
+  <!-- Moja pozycja — wypełniana client-side; ukryta domyślnie -->
+  <div class="my-rank-card" id="my-rank-card" style="display:none;" aria-live="polite">
+    <div class="my-rank-card__left">
+      <div class="my-rank-card__pos">
+        <span class="my-rank-card__pos-num" id="my-rank-pos">—</span>
+        <span class="my-rank-card__pos-label">miejsce</span>
+      </div>
+      <div class="my-rank-card__divider" aria-hidden="true"></div>
+      <div>
+        <div class="my-rank-card__name">Twoja pozycja</div>
+        <div class="my-rank-card__sub" id="my-rank-sub">Ranking singlowy 2026</div>
+      </div>
+    </div>
+    <div class="my-rank-card__stats">
+      <div class="my-rank-card__stat">
+        <span class="my-rank-card__stat-val" id="my-rank-pts">—</span>
+        <span class="my-rank-card__stat-lbl">Punkty</span>
+      </div>
+      <div class="my-rank-card__stat">
+        <span class="my-rank-card__stat-val" id="my-rank-record">—</span>
+        <span class="my-rank-card__stat-lbl">Wygrane</span>
+      </div>
+      <div class="my-rank-card__stat">
+        <span class="my-rank-card__stat-val" id="my-rank-wr">—</span>
+        <span class="my-rank-card__stat-lbl">Win Rate</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Główna tabela rankingowa -->
+  <div class="tc-card">
+    <div class="tc-card-header">
+      <span class="tc-card-title">Top graczy — Singiel 2026</span>
+      <div class="rank-filters">
+        <button class="rank-filter rank-filter--active" data-type="SNG">Singiel</button>
+        <button class="rank-filter" data-type="DBL">Debel</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="tc-table rank-table" id="rank-table">
+        <thead>
+          <tr>
+            <th style="width:52px;">#</th>
+            <th>Gracz</th>
+            <th class="col-num">Punkty</th>
+            <th class="col-num">Mecze</th>
+            <th class="col-num">Wygrane</th>
+            <th class="col-num">Win %</th>
+            <th class="col-num">Trend</th>
+          </tr>
+        </thead>
+        <tbody id="rank-tbody">
+          {players.map(p => (
+            <tr data-pos={p.position}>
+              <td>
+                <span class={`rank-pos${p.position <= 3 ? ` rank-pos--${p.position}` : ''}`}>
+                  {p.position}
+                </span>
+              </td>
+              <td>
+                <div class="rank-player">
+                  <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+                    {getInitials(p.display_name)}
+                  </div>
+                  <div>
+                    <div class="rank-player__name">
+                      {p.display_name}
+                    </div>
+                  </div>
+                </div>
+              </td>
+              <td class="col-num rank-points">{Math.round(Number(p.points)).toLocaleString('pl-PL')}</td>
+              <td class="col-num col-muted">{p.matches_played}</td>
+              <td class="col-num col-muted">{p.matches_won}</td>
+              <td class="col-num">
+                <span class={winRateClass(p.win_rate)}>
+                  {Math.round(p.win_rate)}%
+                </span>
+              </td>
+              <td class="col-num">
+                <span class="trend trend--flat">—</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tc-card-footer" style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:0.78rem; color:var(--text-dim);" id="rank-footer-info">
+        {isLive
+          ? `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
+          : 'Ostatnia aktualizacja: 8 kwi 2026 · Dane demonstracyjne'
+        }
+      </span>
+      <a href="#" class="tc-btn tc-btn-ghost tc-btn-sm">Pełna tabela →</a>
+    </div>
+  </div>
+
+</AppLayout>
+
+<!-- ── Client-side: karta "Moja pozycja" + podświetlenie wiersza ─────────────── -->
+<script>
+  (async () => {
+    const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
+      ?? 'http://localhost:8000';
+
+    try {
+      const res = await fetch(`${apiBase}/api/dashboard/summary/`, {
+        credentials: 'include',
+        redirect: 'manual',
+      });
+      if (!res.ok || res.type === 'opaqueredirect') return;
+
+      const data = await res.json();
+      const ranking = data?.ranking;
+      if (!ranking || ranking.position == null) return;
+
+      const pos     = ranking.position;
+      const pts     = ranking.points ?? '—';
+      const won     = ranking.matches_won ?? '—';
+      const played  = ranking.matches_played ?? '—';
+      const wr      = ranking.win_rate != null ? `${Math.round(ranking.win_rate)}%` : '—';
+
+      // Wypełnij kartę
+      const card = document.getElementById('my-rank-card');
+      if (card) {
+        (document.getElementById('my-rank-pos') as HTMLElement).textContent = String(pos);
+        (document.getElementById('my-rank-pts') as HTMLElement).textContent =
+          pts != null && pts !== '—' ? Math.round(Number(pts)).toLocaleString('pl-PL') : '—';
+        (document.getElementById('my-rank-record') as HTMLElement).textContent = `${won}/${played}`;
+        (document.getElementById('my-rank-wr') as HTMLElement).textContent = wr;
+        card.style.display = '';
+      }
+
+      // Podświetl wiersz w tabeli + dodaj badge "Ty"
+      const row = document.querySelector<HTMLTableRowElement>(`#rank-tbody tr[data-pos="${pos}"]`);
+      if (row) {
+        row.classList.add('rank-row--me');
+        const avatarEl = row.querySelector<HTMLElement>('.tc-avatar');
+        if (avatarEl) avatarEl.classList.add('tc-avatar--me');
+        const nameEl = row.querySelector<HTMLElement>('.rank-player__name');
+        if (nameEl && !nameEl.querySelector('.rank-me-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'rank-me-badge';
+          badge.textContent = 'Ty';
+          nameEl.appendChild(badge);
+        }
+      }
+    } catch {
+      // Cicha degradacja — użytkownik niezalogowany
+    }
+  })();
+
+  // ── Przełącznik Singiel / Debel ─────────────────────────────────────────────
+  document.querySelectorAll<HTMLButtonElement>('.rank-filter').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.rank-filter').forEach(b => b.classList.remove('rank-filter--active'));
+      btn.classList.add('rank-filter--active');
+
+      const type = btn.dataset.type as 'SNG' | 'DBL';
+      const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
+        ?? 'http://localhost:8000';
+
+      const tbody = document.getElementById('rank-tbody');
+      const footer = document.getElementById('rank-footer-info');
+      if (!tbody) return;
+
+      try {
+        const res = await fetch(`${apiBase}/api/rankings/list/?type=${type}`, {
+          credentials: 'include',
+          redirect: 'manual',
+        });
+        if (!res.ok || res.type === 'opaqueredirect') return;
+        const rows: Array<{
+          position: number; display_name: string; points: number;
+          matches_played: number; matches_won: number; win_rate: number;
+        }> = await res.json();
+
+        if (!rows || rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted);">Brak danych dla wybranej kategorii.</td></tr>`;
+          return;
+        }
+
+        function initials(name: string) {
+          return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('');
+        }
+        function wrClass(wr: number) {
+          return wr >= 70 ? 'win-rate win-rate--high' : wr >= 50 ? 'win-rate win-rate--mid' : 'win-rate win-rate--low';
+        }
+
+        tbody.innerHTML = rows.map(p => `
+          <tr data-pos="${p.position}">
+            <td><span class="rank-pos${p.position <= 3 ? ` rank-pos--${p.position}` : ''}">${p.position}</span></td>
+            <td>
+              <div class="rank-player">
+                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">${initials(p.display_name)}</div>
+                <div><div class="rank-player__name">${p.display_name}</div></div>
+              </div>
+            </td>
+            <td class="col-num rank-points">${Math.round(Number(p.points)).toLocaleString('pl-PL')}</td>
+            <td class="col-num col-muted">${p.matches_played}</td>
+            <td class="col-num col-muted">${p.matches_won}</td>
+            <td class="col-num"><span class="${wrClass(p.win_rate)}">${Math.round(p.win_rate)}%</span></td>
+            <td class="col-num"><span class="trend trend--flat">—</span></td>
+          </tr>
+        `).join('');
+
+        if (footer) {
+          const label = type === 'SNG' ? 'Singiel' : 'Debel';
+          footer.textContent = `Dane live · ${label} · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        }
+      } catch {
+        // Cicha degradacja
+      }
+    });
+  });
+</script>
+
+<style>
+  /* ── My rank highlight ─────────────────────────────────────────────────── */
+  .my-rank-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    flex-wrap: wrap;
+    background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.04) 100%);
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: var(--radius-md);
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 12px rgba(34,197,94,0.08);
+  }
+
+  .my-rank-card__left {
+    display: flex; align-items: center; gap: 18px;
+  }
+
+  .my-rank-card__pos {
+    text-align: center;
+  }
+  .my-rank-card__pos-num {
+    display: block; font-size: 2.5rem; font-weight: 900; color: #22c55e;
+    line-height: 1; letter-spacing: -0.04em;
+  }
+  .my-rank-card__pos-label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  .my-rank-card__divider {
+    width: 1px; height: 40px; background: rgba(34,197,94,0.2);
+  }
+
+  .my-rank-card__name {
+    font-weight: 700; font-size: 0.95rem; color: var(--text);
+  }
+  .my-rank-card__sub {
+    font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;
+  }
+
+  .my-rank-card__stats {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  }
+
+  .my-rank-card__stat { text-align: center; }
+  .my-rank-card__stat-val {
+    display: block; font-size: 1.35rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.03em; line-height: 1.1;
+  }
+  .my-rank-card__stat-lbl {
+    font-size: 0.72rem; color: var(--text-muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .my-rank-card__trend {
+    font-size: 0.82rem; font-weight: 600; color: #22c55e;
+    background: rgba(34,197,94,0.12);
+    padding: 4px 10px; border-radius: 99px;
+    white-space: nowrap;
+  }
+
+  /* ── Rank filters ──────────────────────────────────────────────────────── */
+  .rank-filters {
+    display: flex; gap: 4px;
+  }
+
+  .rank-filter {
+    padding: 5px 12px; border-radius: 6px;
+    font-size: 0.8rem; font-weight: 600;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    cursor: pointer; transition: background 0.12s, color 0.12s;
+  }
+  .rank-filter:hover { background: var(--surface-hover); color: var(--text); }
+  .rank-filter--active {
+    background: var(--primary-subtle); color: var(--primary);
+    border-color: rgba(34,197,94,0.3);
+  }
+
+  /* ── Rank table ────────────────────────────────────────────────────────── */
+  .rank-table { min-width: 600px; }
+
+  .rank-row--me td { background: rgba(34,197,94,0.04); }
+  .rank-row--me:hover td { background: rgba(34,197,94,0.08) !important; }
+
+  .rank-player {
+    display: flex; align-items: center; gap: 11px;
+  }
+  .rank-player__name {
+    font-weight: 600; font-size: 0.875rem; color: var(--text);
+    display: flex; align-items: center; gap: 7px;
+  }
+
+  .rank-me-badge {
+    font-size: 0.65rem; font-weight: 700;
+    background: rgba(34,197,94,0.15); color: #22c55e;
+    padding: 1px 6px; border-radius: 99px; vertical-align: middle;
+  }
+
+  .tc-avatar--me {
+    border-color: #22c55e;
+    background: rgba(34,197,94,0.15);
+    color: #22c55e;
+  }
+
+  .col-num { text-align: right; }
+  .col-muted { color: var(--text-muted); }
+
+  .rank-points {
+    font-weight: 700; color: var(--text);
+  }
+
+  .win-rate { font-weight: 700; font-size: 0.875rem; }
+  .win-rate--high { color: #22c55e; }
+  .win-rate--mid  { color: var(--warning); }
+  .win-rate--low  { color: var(--danger); }
+
+  .trend {
+    font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+  }
+  .trend--up   { color: #22c55e; }
+  .trend--down { color: var(--danger); }
+  .trend--flat { color: var(--text-dim); }
+
+  /* ── Reuse global rank-pos ─────────────────────────────────────────────── */
+  .rank-pos {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 6px;
+    font-size: 0.82rem; font-weight: 700;
+    background: var(--surface-2); color: var(--text-muted);
+  }
+  .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
+  .rank-pos--2 { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .rank-pos--3 { background: rgba(180,108,64,0.15);  color: #b47a40; }
+</style>

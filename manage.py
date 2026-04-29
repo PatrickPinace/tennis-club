@@ -9,7 +9,8 @@ def main():
     """Run administrative tasks."""
     load_dotenv()  # Wczytaj zmienne środowiskowe z pliku .env
 
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings_v2')
+    # Force core.settings for legacy deployment (override any .env settings)
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'core.settings'
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:

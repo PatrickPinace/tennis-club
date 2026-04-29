@@ -1,0 +1,351 @@
+---
+// profile/edit.astro — edycja danych profilu
+// SSR wymagane — chronione przez middleware.ts (/profile/edit → PRIVATE_PATHS)
+// Flow: wczytaj aktualne dane → PATCH /api/auth/profile/update/ → redirect /profile?saved=1
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import { getUserProfile } from '@/lib/api';
+import { url } from '@/lib/url';
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const profileData   = await getUserProfile(sessionCookie);
+const user          = profileData?.user ?? null;
+
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
+---
+
+<AppLayout
+  title="Edycja profilu"
+  greeting="Edycja profilu"
+  showCta={false}
+  currentUser={user}
+>
+  <div class="edit-wrap">
+
+    <div class="edit-header">
+      <a href={url('/profile')} class="edit-back">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd"/>
+        </svg>
+        Wróć do profilu
+      </a>
+    </div>
+
+    <div class="edit-card tc-card">
+
+      <h1 class="edit-title">Dane osobowe</h1>
+      <p class="edit-subtitle">Zaktualizuj swoje podstawowe informacje</p>
+
+      <!-- Alert sukcesu -->
+      <div id="edit-success" class="edit-alert edit-alert--ok" role="status" aria-live="polite" style="display:none;">
+        Zmiany zostały zapisane.
+      </div>
+
+      <!-- Alert błędu ogólnego -->
+      <div id="edit-error" class="edit-alert edit-alert--err" role="alert" aria-live="polite" style="display:none;"></div>
+
+      <form id="edit-form" novalidate>
+        <meta name="api-base" content={apiBase} />
+
+        <div class="edit-row">
+          <div class="edit-field">
+            <label class="edit-label" for="first_name">Imię</label>
+            <input class="edit-input" type="text" id="first_name" name="first_name"
+              autocomplete="given-name"
+              value={user?.first_name ?? ''}
+            />
+            <span class="field-error" id="err-first_name"></span>
+          </div>
+          <div class="edit-field">
+            <label class="edit-label" for="last_name">Nazwisko</label>
+            <input class="edit-input" type="text" id="last_name" name="last_name"
+              autocomplete="family-name"
+              value={user?.last_name ?? ''}
+            />
+            <span class="field-error" id="err-last_name"></span>
+          </div>
+        </div>
+
+        <div class="edit-field">
+          <label class="edit-label" for="email">
+            E-mail <span class="label-optional">(opcjonalnie)</span>
+          </label>
+          <input class="edit-input" type="email" id="email" name="email"
+            autocomplete="email"
+            value={user?.email ?? ''}
+          />
+          <span class="field-error" id="err-email"></span>
+        </div>
+
+        <div class="edit-field">
+          <label class="edit-label" for="city">
+            Miasto <span class="label-optional">(opcjonalnie)</span>
+          </label>
+          <input class="edit-input" type="text" id="city" name="city"
+            autocomplete="address-level2"
+            placeholder="np. Warszawa"
+            value={user?.city ?? ''}
+          />
+          <span class="field-error" id="err-city"></span>
+        </div>
+
+        <div class="edit-field">
+          <label class="edit-label" for="birth_date">
+            Data urodzenia <span class="label-optional">(opcjonalnie)</span>
+          </label>
+          <input class="edit-input" type="date" id="birth_date" name="birth_date"
+            value={user?.birth_date ?? ''}
+          />
+          <span class="field-error" id="err-birth_date"></span>
+        </div>
+
+        <div class="edit-field edit-field--readonly">
+          <label class="edit-label">Login</label>
+          <span class="edit-readonly">{user?.username ?? '—'}</span>
+        </div>
+
+        <div class="edit-actions">
+          <button type="submit" class="tc-btn tc-btn-primary" id="edit-btn">
+            Zapisz zmiany
+          </button>
+          <a href={url('/profile')} class="tc-btn tc-btn-ghost">
+            Anuluj
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</AppLayout>
+
+<script>
+  const API  = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+  const form      = document.getElementById('edit-form')    as HTMLFormElement;
+  const btn       = document.getElementById('edit-btn')     as HTMLButtonElement;
+  const successEl = document.getElementById('edit-success') as HTMLDivElement;
+  const errorEl   = document.getElementById('edit-error')   as HTMLDivElement;
+
+  const FIELDS = ['first_name', 'last_name', 'email', 'city', 'birth_date'];
+
+  function clearMessages() {
+    successEl.style.display = 'none';
+    errorEl.style.display   = 'none';
+    errorEl.textContent     = '';
+    FIELDS.forEach(f => {
+      const el = document.getElementById(`err-${f}`);
+      if (el) { el.textContent = ''; el.style.display = 'none'; }
+      const inp = document.getElementById(f) as HTMLInputElement | null;
+      if (inp) inp.classList.remove('input-error');
+    });
+  }
+
+  function showFieldErrors(errors: Record<string, string[]>) {
+    for (const [field, msgs] of Object.entries(errors)) {
+      if (field === '__all__') {
+        errorEl.textContent  = msgs[0] ?? 'Błąd zapisu.';
+        errorEl.style.display = 'block';
+        continue;
+      }
+      const errEl = document.getElementById(`err-${field}`);
+      const inp   = document.getElementById(field) as HTMLInputElement | null;
+      if (errEl) { errEl.textContent = msgs[0] ?? ''; errEl.style.display = msgs[0] ? 'block' : 'none'; }
+      if (inp)   inp.classList.add('input-error');
+    }
+  }
+
+  function setLoading(loading: boolean) {
+    btn.disabled    = loading;
+    btn.textContent = loading ? 'Zapisywanie…' : 'Zapisz zmiany';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearMessages();
+
+    const get = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value ?? '';
+
+    const payload: Record<string, string> = {
+      first_name:  get('first_name').trim(),
+      last_name:   get('last_name').trim(),
+      email:       get('email').trim(),
+      city:        get('city').trim(),
+      birth_date:  get('birth_date'),
+    };
+
+    setLoading(true);
+
+    try {
+      // CSRF
+      await fetch(`${API}/api/auth/csrf/`, { method: 'GET', credentials: 'include' });
+      const csrfToken = document.cookie
+        .split(';').map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))
+        ?.split('=')[1] ?? '';
+
+      const res = await fetch(`${API}/api/auth/profile/update/`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Redirect do /profile z flagą sukcesu w query string
+        window.location.href = BASE + '/profile?saved=1';
+      } else {
+        if (data.errors) {
+          showFieldErrors(data.errors);
+        } else {
+          errorEl.textContent  = data.error ?? 'Błąd zapisu. Spróbuj ponownie.';
+          errorEl.style.display = 'block';
+        }
+      }
+    } catch {
+      errorEl.textContent  = 'Nie można połączyć się z serwerem. Sprawdź połączenie.';
+      errorEl.style.display = 'block';
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+
+<style>
+.edit-wrap {
+  max-width: 580px;
+}
+
+.edit-header {
+  margin-bottom: 20px;
+}
+
+.edit-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+.edit-back:hover { color: var(--text); }
+
+.edit-card {
+  padding: 32px;
+}
+
+.edit-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.edit-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0 0 28px;
+}
+
+/* ── Alerts ── */
+.edit-alert {
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+}
+.edit-alert--ok {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #15803d;
+}
+.edit-alert--err {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: var(--danger);
+}
+
+/* ── Form ── */
+.edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.edit-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.label-optional {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+.edit-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-family: var(--font-sans);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+.edit-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+.edit-input.input-error {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+}
+
+/* ── Field errors ── */
+.field-error {
+  display: none;
+  font-size: 0.78rem;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* ── Read-only field (login) ── */
+.edit-field--readonly {
+  margin-bottom: 24px;
+}
+.edit-readonly {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  padding: 0 2px;
+  font-style: italic;
+}
+
+/* ── Actions ── */
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+</style>

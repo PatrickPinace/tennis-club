@@ -1,0 +1,150 @@
+---
+// AppLayout.astro — bazowy app shell
+// Sidebar (zawsze ciemny) + Topbar + content area
+import Sidebar from '@/components/Sidebar.astro';
+import Topbar from '@/components/Topbar.astro';
+import '@/styles/global.css';
+import { url } from '@/lib/url';
+import type { CurrentUser } from '@/lib/api';
+
+interface Props {
+  title?: string;
+  greeting?: string;
+  showSearch?: boolean;
+  showCta?: boolean;
+  ctaLabel?: string;
+  ctaHref?: string;
+  /** Liczba nieprzeczytanych powiadomień z Django API (null = niezalogowany) */
+  unreadCount?: number | null;
+  /** Dane zalogowanego użytkownika — opcjonalne, przekazywane do sidebar footer */
+  currentUser?: CurrentUser | null;
+}
+
+const {
+  title = 'Tennis Club',
+  greeting,
+  showSearch = true,
+  showCta = true,
+  ctaLabel,
+  ctaHref,
+  unreadCount = null,
+  currentUser = null,
+} = Astro.props;
+
+const currentPath = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} — Tennis Club</title>
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+  <!-- Adres Django API — używany przez client-side JS do fetchów -->
+  <!-- W dev bez PUBLIC_API_BASE_URL: pusty string = relative URL → Vite proxy /api/* → :8000 -->
+  <!-- W produkcji: ustaw PUBLIC_API_BASE_URL na adres Django, np. https://api.example.com -->
+  <meta name="api-base" content={import.meta.env.PUBLIC_API_BASE_URL ?? ''} />
+  <!-- Referrer-Policy: same-origin — wymagane przez Django CSRF Referer check dla HTTPS -->
+  <meta name="referrer" content="same-origin" />
+
+  <!-- Zapobiegaj FOIT: ustaw motyw PRZED renderowaniem -->
+  <script is:inline>
+    (function () {
+      var t = localStorage.getItem('tc-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+
+<body>
+  <a href="#main-content" class="skip-link">Przejdź do treści</a>
+
+  <Sidebar currentPath={currentPath} currentUser={currentUser} />
+
+  <div class="app-main">
+    <Topbar
+      greeting={greeting}
+      showSearch={showSearch}
+      showCta={showCta}
+      ctaLabel={ctaLabel}
+      ctaHref={ctaHref}
+      unreadCount={unreadCount}
+    />
+
+    <main id="main-content" class="app-content">
+      <slot />
+    </main>
+  </div>
+
+  <!-- Global JS: theme toggle, sidebar toggle, notifications -->
+  <script is:inline>
+    /* ── Theme ── */
+    function toggleTheme() {
+      var current = document.documentElement.getAttribute('data-theme') || 'light';
+      var next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('tc-theme', next);
+      _updateThemeIcon(next);
+    }
+
+    function _updateThemeIcon(theme) {
+      var d = document.getElementById('theme-icon-dark');
+      var l = document.getElementById('theme-icon-light');
+      if (!d || !l) return;
+      d.style.display = theme === 'dark'  ? 'block' : 'none';
+      l.style.display = theme === 'light' ? 'block' : 'none';
+    }
+
+    (function () { _updateThemeIcon(localStorage.getItem('tc-theme') || 'light'); })();
+
+    /* ── Mobile sidebar ── */
+    function toggleSidebar() {
+      var s = document.getElementById('app-sidebar');
+      var o = document.getElementById('sidebar-overlay');
+      if (s) s.classList.toggle('is-open');
+      if (o) o.classList.toggle('is-visible');
+    }
+
+    if (window.innerWidth <= 1024) {
+      var tog = document.getElementById('sidebar-toggle');
+      if (tog) tog.style.display = 'flex';
+    }
+
+    /* ── Notifications — pełna implementacja w Topbar.astro <script> ── */
+    /* Stuby tylko jako fallback zanim moduł Topbar się załaduje */
+    if (typeof window.toggleNotifPanel === 'undefined') {
+      window.toggleNotifPanel = function() {};
+    }
+    if (typeof window.readAllNotif === 'undefined') {
+      window.readAllNotif = function() {};
+    }
+  </script>
+</body>
+</html>
+
+<style>
+  /* ── App main area ─────────────────────────────────────────────────────── */
+  .app-main {
+    margin-left: var(--sidebar-width);
+    min-width: 0;
+    display: flex; flex-direction: column;
+    min-height: 100vh;
+    background: var(--content-bg);
+  }
+
+  .app-content {
+    flex: 1;
+    padding: 28px 32px;
+    max-width: var(--content-max);
+    width: 100%;
+  }
+
+  @media (max-width: 1024px) {
+    .app-main { margin-left: 0; }
+  }
+
+  @media (max-width: 768px) {
+    .app-content { padding: 20px 16px; }
+  }
+</style>

@@ -1,0 +1,49 @@
+{% load static %}
+<div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:var(--space-4);">
+  {% for article in articles %}
+  <a href="{{ article.get_absolute_url }}" style="text-decoration:none; display:flex; flex-direction:column; border-radius:var(--radius-md); overflow:hidden; background:var(--surface); border:1px solid var(--border); transition:border-color .15s, box-shadow .15s;" onmouseover="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 4px 16px rgba(0,0,0,.1)'" onmouseout="this.style.borderColor='var(--border)'; this.style.boxShadow=''">
+    {% if article.image %}
+    <img src="{{ article.image.url }}" alt="{{ article.title }}" style="width:100%; height:180px; object-fit:cover;">
+    {% else %}
+    <div style="width:100%; height:180px; background:var(--primary-subtle); display:grid; place-items:center; color:var(--primary); font-size:2rem;">📰</div>
+    {% endif %}
+    <div style="padding:var(--space-4); flex:1; display:flex; flex-direction:column;">
+      <div style="display:flex; flex-wrap:wrap; gap:var(--space-1); margin-bottom:var(--space-2);">
+        {% for category in article.categories.all %}
+        <span class="badge badge-primary" style="font-size:.65rem;">{{ category.name }}</span>
+        {% endfor %}
+      </div>
+      <h3 style="font-size:.95rem; font-weight:700; color:var(--text); margin:0 0 var(--space-2); line-height:1.4;">{{ article.title }}</h3>
+      <p style="font-size:.8rem; color:var(--text-muted); flex:1; margin:0;">{{ article.lead|default:article.content|striptags|truncatewords:20 }}</p>
+      <div style="margin-top:var(--space-3); font-size:.75rem; color:var(--text-dim); display:flex; align-items:center; gap:var(--space-3);">
+        <span>{{ article.published_at|date:"d.m.Y" }}</span>
+        {% if article.author %}<span>{{ article.author.get_full_name|default:article.author.username }}</span>{% endif %}
+      </div>
+    </div>
+  </a>
+  {% empty %}
+  <div style="grid-column:1/-1;">
+    <div class="empty-state">
+      <div class="empty-state__icon">📰</div>
+      <p class="empty-state__title">Brak artykułów</p>
+      <p class="empty-state__text">
+        {% if request.GET.q %}Brak wyników dla "{{ request.GET.q }}".{% else %}Brak opublikowanych artykułów.{% endif %}
+      </p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if is_paginated and not request.GET.q %}
+<div style="display:flex; justify-content:center; gap:var(--space-2); margin-top:var(--space-6);">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary btn-sm">← Poprzednia</a>
+  {% endif %}
+  <span style="display:flex; align-items:center; font-size:.875rem; color:var(--text-muted);">
+    Strona {{ page_obj.number }} z {{ paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary btn-sm">Następna →</a>
+  {% endif %}
+</div>
+{% endif %}

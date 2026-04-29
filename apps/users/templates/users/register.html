@@ -1,0 +1,44 @@
+{% extends 'layouts/base_auth.html' %}
+
+{% block title %}Rejestracja{% endblock %}
+
+{% block content %}
+<div style="width:100%; max-width:440px;">
+  <div style="text-align:center; margin-bottom:var(--space-6);">
+    <a href="/" style="text-decoration:none; color:var(--primary); font-size:1.5rem; font-weight:800; letter-spacing:-.02em;">🎾 Tennis Club</a>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="text-align:center;">
+      <span class="card-title">Rejestracja</span>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% for field in form %}
+        <div class="tc-field" style="margin-bottom:var(--space-4);">
+          {% if field.name == 'data_processing_consent' %}
+            <div style="display:flex; align-items:flex-start; gap:var(--space-2);">
+              {{ field }}
+              <label for="{{ field.id_for_label }}" style="font-size:.875rem; color:var(--text); cursor:pointer; line-height:1.4;">
+                {{ field.label }}
+              </label>
+            </div>
+          {% else %}
+            <label class="tc-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+            {{ field }}
+          {% endif %}
+          {% if field.errors %}
+            <p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ field.errors.as_text }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:var(--space-2);">Zarejestruj się</button>
+      </form>
+      <div style="margin-top:var(--space-4); text-align:center; font-size:.875rem; color:var(--text-muted);">
+        <a href="{% url 'login' %}" style="color:var(--primary);">Masz już konto? Zaloguj się</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

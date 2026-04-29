@@ -1,0 +1,421 @@
+---
+// register.astro — strona rejestracji
+// Flow: GET /api/auth/csrf/ → POST /api/auth/register/ → auto-login → /dashboard
+// Redirect zalogowanego obsługuje middleware.ts
+export const prerender = false;
+
+import '@/styles/global.css';
+import { url } from '@/lib/url';
+
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
+---
+
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rejestracja — Tennis Club</title>
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+  <meta name="api-base" content={apiBase} />
+  <script is:inline>
+    (function () {
+      var t = localStorage.getItem('tc-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+
+<body class="login-body">
+
+  <div class="login-wrap">
+
+    <!-- Logo / branding -->
+    <div class="login-brand">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+        <circle cx="18" cy="18" r="18" fill="#22c55e"/>
+        <circle cx="18" cy="18" r="9" stroke="white" stroke-width="2" fill="none"/>
+        <path d="M9 18 Q18 6 27 18" stroke="white" stroke-width="2" fill="none"/>
+        <path d="M9 18 Q18 30 27 18" stroke="white" stroke-width="2" fill="none"/>
+      </svg>
+      <span class="login-brand__name">Tennis Club</span>
+    </div>
+
+    <!-- Karta rejestracji -->
+    <div class="login-card">
+      <h1 class="login-title">Utwórz konto</h1>
+      <p class="login-subtitle">Wypełnij formularz, aby dołączyć do klubu</p>
+
+      <!-- Alert błędu ogólnego -->
+      <div id="reg-error" class="login-error" role="alert" aria-live="polite" style="display:none;"></div>
+
+      <form id="reg-form" novalidate>
+
+        <div class="reg-row">
+          <div class="login-field">
+            <label class="login-label" for="first_name">Imię</label>
+            <input class="login-input" type="text" id="first_name" name="first_name"
+              autocomplete="given-name" placeholder="Jan" required />
+            <span class="field-error" id="err-first_name"></span>
+          </div>
+          <div class="login-field">
+            <label class="login-label" for="last_name">Nazwisko</label>
+            <input class="login-input" type="text" id="last_name" name="last_name"
+              autocomplete="family-name" placeholder="Kowalski" required />
+            <span class="field-error" id="err-last_name"></span>
+          </div>
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="login">Login</label>
+          <input class="login-input" type="text" id="login" name="login"
+            autocomplete="username" placeholder="np. jan.kowalski" required />
+          <span class="field-error" id="err-login"></span>
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="email">E-mail <span class="label-optional">(opcjonalnie)</span></label>
+          <input class="login-input" type="email" id="email" name="email"
+            autocomplete="email" placeholder="jan@example.com" />
+          <span class="field-error" id="err-email"></span>
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="password_1">Hasło</label>
+          <input class="login-input" type="password" id="password_1" name="password_1"
+            autocomplete="new-password" placeholder="min. 8 znaków" required />
+          <span class="field-error" id="err-password_1"></span>
+        </div>
+
+        <div class="login-field">
+          <label class="login-label" for="password_2">Powtórz hasło</label>
+          <input class="login-input" type="password" id="password_2" name="password_2"
+            autocomplete="new-password" placeholder="••••••••" required />
+          <span class="field-error" id="err-password_2"></span>
+        </div>
+
+        <div class="login-field consent-field">
+          <label class="consent-label">
+            <input type="checkbox" id="data_processing_consent" name="data_processing_consent" required />
+            <span>Wyrażam zgodę na przetwarzanie moich danych osobowych w ramach funkcjonalności portalu.</span>
+          </label>
+          <span class="field-error" id="err-data_processing_consent"></span>
+        </div>
+
+        <button type="submit" class="login-submit tc-btn tc-btn-primary tc-btn-lg" id="reg-btn">
+          Zarejestruj się
+        </button>
+
+      </form>
+    </div>
+
+    <p class="login-register">
+      Masz już konto?
+      <a href={url('/login')}>Zaloguj się →</a>
+    </p>
+
+  </div>
+
+</body>
+</html>
+
+<script>
+  const API  = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+  const form    = document.getElementById('reg-form') as HTMLFormElement;
+  const btn     = document.getElementById('reg-btn') as HTMLButtonElement;
+  const errorEl = document.getElementById('reg-error') as HTMLDivElement;
+
+  // Pola z odpowiadającymi im divami błędów
+  const FIELDS = ['first_name', 'last_name', 'login', 'email', 'password_1', 'password_2', 'data_processing_consent'];
+
+  function clearErrors() {
+    errorEl.style.display = 'none';
+    errorEl.textContent = '';
+    FIELDS.forEach(f => {
+      const el = document.getElementById(`err-${f}`);
+      if (el) { el.textContent = ''; el.style.display = 'none'; }
+      const input = document.getElementById(f) as HTMLInputElement | null;
+      if (input) input.classList.remove('input-error');
+    });
+  }
+
+  function showGlobalError(msg: string) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+
+  function showFieldErrors(errors: Record<string, string[]>) {
+    for (const [field, msgs] of Object.entries(errors)) {
+      if (field === '__all__') {
+        showGlobalError(msgs[0] ?? 'Błąd rejestracji.');
+        continue;
+      }
+      const errEl = document.getElementById(`err-${field}`);
+      const inputEl = document.getElementById(field) as HTMLInputElement | null;
+      if (errEl) {
+        errEl.textContent = msgs[0] ?? '';
+        errEl.style.display = msgs[0] ? 'block' : 'none';
+      }
+      if (inputEl) inputEl.classList.add('input-error');
+    }
+  }
+
+  function setLoading(loading: boolean) {
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Rejestrowanie…' : 'Zarejestruj się';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearErrors();
+
+    const getValue = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value ?? '';
+    const getChecked = (id: string) => (document.getElementById(id) as HTMLInputElement)?.checked ?? false;
+
+    const payload = {
+      login:                   getValue('login').trim(),
+      first_name:              getValue('first_name').trim(),
+      last_name:               getValue('last_name').trim(),
+      email:                   getValue('email').trim(),
+      password_1:              getValue('password_1'),
+      password_2:              getValue('password_2'),
+      data_processing_consent: getChecked('data_processing_consent'),
+    };
+
+    // Minimalna walidacja client-side (pola wymagane)
+    if (!payload.login || !payload.first_name || !payload.last_name || !payload.password_1 || !payload.password_2) {
+      showGlobalError('Wypełnij wszystkie wymagane pola.');
+      return;
+    }
+    if (!payload.data_processing_consent) {
+      showFieldErrors({ data_processing_consent: ['Zgoda na przetwarzanie danych jest wymagana.'] });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Krok 1: pobierz CSRF token
+      await fetch(`${API}/api/auth/csrf/`, { method: 'GET', credentials: 'include' });
+
+      const csrfToken = document.cookie
+        .split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))
+        ?.split('=')[1] ?? '';
+
+      // Krok 2: wyślij rejestrację
+      const res = await fetch(`${API}/api/auth/register/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // Auto-login gotowy (sesja ustawiona przez backend) → redirect
+        window.location.href = BASE + '/dashboard';
+      } else {
+        if (data.errors) {
+          showFieldErrors(data.errors);
+        } else {
+          showGlobalError('Błąd rejestracji. Spróbuj ponownie.');
+        }
+      }
+    } catch {
+      showGlobalError('Nie można połączyć się z serwerem. Sprawdź połączenie.');
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+
+<style>
+  /* Dziedziczymy większość styli z login.astro (global.css + tc-btn) */
+
+  .login-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    padding: 20px;
+  }
+
+  .login-wrap {
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* ── Brand ── */
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .login-brand__name {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Card ── */
+  .login-card {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+
+  .login-title {
+    font-size: 1.375rem;
+    font-weight: 800;
+    color: var(--text);
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .login-subtitle {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0 0 24px;
+  }
+
+  /* ── Error ── */
+  .login-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: var(--radius-sm);
+    color: var(--danger);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  /* ── Form ── */
+  .reg-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .login-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .login-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .label-optional {
+    font-weight: 400;
+    text-transform: none;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    letter-spacing: 0;
+  }
+
+  .login-input {
+    width: 100%;
+    height: 42px;
+    padding: 0 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 0.9375rem;
+    font-family: var(--font-sans);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+
+  .login-input::placeholder { color: var(--text-dim); }
+
+  .login-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+  }
+
+  .login-input.input-error {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
+
+  /* ── Field errors ── */
+  .field-error {
+    display: none;
+    font-size: 0.78rem;
+    color: var(--danger);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  /* ── Consent ── */
+  .consent-field {
+    margin-bottom: 20px;
+  }
+
+  .consent-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+  }
+
+  .consent-label input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+  }
+
+  .consent-label span {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  .login-submit {
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  /* ── Bottom link ── */
+  .login-register {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+  .login-register a {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .login-register a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

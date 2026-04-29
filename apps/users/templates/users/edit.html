@@ -1,0 +1,112 @@
+{% extends 'layouts/base_app.html' %}
+
+{% block title %}Edycja profilu{% endblock %}
+{% block topbar_title %}Profil{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Edycja profilu</h1>
+    <p class="page-header__subtitle">Zaktualizuj swoje dane i ustawienia konta.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'change_password' %}" class="btn btn-secondary">Zmień hasło</a>
+    <a href="{% url 'logout' %}" class="btn btn-ghost">Wyloguj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.profile-img-preview {
+  width: 96px; height: 96px; border-radius: 50%;
+  object-fit: cover; cursor: pointer;
+  border: 3px solid var(--primary);
+  transition: opacity .15s;
+}
+.profile-img-preview:hover { opacity: .8; }
+#id_image { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 640px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- Avatar -->
+        <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:var(--space-6);">
+          {% if request.user.profile.image and request.user.profile.image.url != '/media/default.png' %}
+          <img id="profile_image_display" src="{{ request.user.profile.image.url }}" class="profile-img-preview" alt="Zdjęcie profilowe">
+          {% else %}
+          <img id="profile_image_display" src="/static/img/default.png" class="profile-img-preview" alt="Zdjęcie profilowe">
+          {% endif %}
+          {{ profile_form.image }}
+          <p style="font-size:.78rem; color:var(--text-muted); margin-top:var(--space-2); text-align:center;">Kliknij w zdjęcie, aby je zmienić.</p>
+          {% if profile_form.image.errors %}<p style="color:var(--danger); font-size:.8rem; text-align:center;">{{ profile_form.image.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <!-- Dane podstawowe -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="tc-field">
+            <label class="tc-label">Imię</label>
+            {{ user_form.first_name }}
+            {% if user_form.first_name.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ user_form.first_name.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Nazwisko</label>
+            {{ user_form.last_name }}
+            {% if user_form.last_name.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ user_form.last_name.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">Email</label>
+          {{ user_form.email }}
+          {% if user_form.email.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ user_form.email.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <div style="height:1px; background:var(--border); margin:var(--space-5) 0;"></div>
+
+        <!-- Dane profilowe -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-4); margin-bottom:var(--space-5);">
+          <div class="tc-field">
+            <label class="tc-label">Data urodzenia</label>
+            {{ profile_form.birth_date }}
+            {% if profile_form.birth_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.birth_date.errors|join:", " }}</p>{% endif %}
+          </div>
+          <div class="tc-field">
+            <label class="tc-label">Miasto</label>
+            {{ profile_form.city }}
+            {% if profile_form.city.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.city.errors|join:", " }}</p>{% endif %}
+          </div>
+        </div>
+
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">Rozpoczęcie przygody z tenisem</label>
+          {{ profile_form.start_date }}
+          {% if profile_form.start_date.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ profile_form.start_date.errors|join:", " }}</p>{% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;">Zapisz zmiany</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('profile_image_display').addEventListener('click', function() {
+  const inp = document.getElementById('id_image');
+  if (inp) inp.click();
+});
+const imageInput = document.getElementById('id_image');
+if (imageInput) {
+  imageInput.addEventListener('change', function(e) {
+    const [file] = e.target.files;
+    if (file) document.getElementById('profile_image_display').src = URL.createObjectURL(file);
+  });
+}
+</script>
+{% endblock %}

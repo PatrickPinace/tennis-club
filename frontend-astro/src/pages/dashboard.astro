@@ -1,0 +1,917 @@
+---
+// dashboard.astro — realistyczny UI dashboardu wg projektu grafika
+// Turnieje i powiadomienia: prawdziwe dane z Django API (server-side fetch)
+// SSR wymagane (prerender = false) — dashboard/summary potrzebuje cookie sesji
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import {
+  getDashboardTournaments,
+  getUnreadCount,
+  getCurrentUser,
+  getMatchHistory,
+  getUserProfile,
+  TOURNAMENT_STATUS_LABEL,
+  TOURNAMENT_TYPE_LABEL,
+  type TournamentListEntry,
+  type MatchHistoryEntry,
+} from '../lib/api';
+import { url } from '@/lib/url';
+
+// ── Dane z Django API (server-side) ──────────────────────────────────────────
+
+// Bieżący użytkownik — SSR z cookie sesji
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const [currentUser, apiTournaments, matchHistoryRaw, profileData] = await Promise.all([
+  getCurrentUser(sessionCookie),
+  getDashboardTournaments(5),
+  getMatchHistory(sessionCookie),
+  getUserProfile(sessionCookie),
+]);
+
+const tStats = profileData?.tournament_stats ?? null;
+
+/// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
+// Liczba powiadomień ładowana jest client-side przez JS (patrz script na końcu)
+// Gdy backend niedostępny lub niezalogowany — graceful degradation (brak odznaki)
+const unreadCount = null; // null = nie renderuj odznaki SSR
+
+// Greeting: imię z profilu lub fallback
+const firstName = currentUser?.first_name?.trim() || currentUser?.username || null;
+
+// Mapuj turnieje z API na format UI dashboardu
+function formatDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
+  name: t.name,
+  type: TOURNAMENT_TYPE_LABEL[t.tournament_type] ?? t.tournament_type,
+  date: t.start_date ? formatDate(t.start_date) : '—',
+  status: t.status === 'REG' ? 'open' : t.status === 'SCH' ? 'scheduled' : 'active',
+  statusLabel: TOURNAMENT_STATUS_LABEL[t.status] ?? t.status,
+  participants: t.participant_count,
+}));
+
+const tournaments = liveTournaments;
+const isLiveData = liveTournaments.length > 0;
+
+// ── Statyczne dane (fallback) ─────────────────────────────────────────────
+// Stat-cards renderowane SSR z fallbackiem; prawdziwe dane ładowane
+// client-side przez JS po załadowaniu strony (patrz script niżej).
+// Domyślne wartości zostaną zastąpione przez JS gdy użytkownik jest zalogowany.
+const stats = [
+  {
+    id: 'reservation',
+    label: 'Najbliższa Rezerwacja',
+    value: '—',
+    detail: 'Brak nadchodzących rezerwacji',
+    action: { label: 'Rezerwuj', href: url('/courts/reservations') },
+    accent: 'primary',
+  },
+  {
+    id: 'last-match',
+    label: 'Ostatni Mecz',
+    value: '—',
+    detail: 'Brak rozegranych meczów',
+    icon: 'trophy',
+    accent: 'success',
+  },
+  {
+    id: 'ranking',
+    label: 'Ranking Klubowy',
+    value: '—',
+    detail: 'Brak danych rankingowych',
+    accent: 'neutral',
+  },
+  {
+    id: 'tournaments',
+    label: isLiveData ? `${tournaments.length} turniejów` : 'Nadchodzący Turniej',
+    value: isLiveData ? tournaments[0]?.name ?? '—' : '—',
+    detail: isLiveData
+      ? `${tournaments[0]?.date ?? ''} · ${tournaments[0]?.statusLabel ?? ''}`
+      : 'Brak nadchodzących turniejów',
+    icon: 'trophy',
+    accent: 'neutral',
+  },
+];
+
+// ── Ostatnia aktywność — z historii meczów (ostatnie 3) ──────────────────────
+
+function activityDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
+    if (diffDays === 0) return 'dzisiaj';
+    if (diffDays === 1) return 'wczoraj';
+    if (diffDays < 7)  return `${diffDays} dni temu`;
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  } catch { return iso; }
+}
+
+function matchScore(m: MatchHistoryEntry): string {
+  const parts: string[] = [];
+  if (m.p1_set1 !== null && m.p2_set1 !== null) parts.push(`${m.p1_set1}:${m.p2_set1}`);
+  if (m.p1_set2 !== null && m.p2_set2 !== null) parts.push(`${m.p1_set2}:${m.p2_set2}`);
+  if (m.p1_set3 !== null && m.p2_set3 !== null) parts.push(`${m.p1_set3}:${m.p2_set3}`);
+  return parts.join(', ') || '—';
+}
+
+function matchOpponent(m: MatchHistoryEntry): string {
+  const isP1Side =
+    (m.user === 'user-win'  && m.win === 'p1') ||
+    (m.user === 'user-loss' && m.win === 'p2');
+  const opp = isP1Side ? m.p2 : m.p1;
+  if (!opp) return 'Nieznany';
+  return [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
+}
+
+const recentActivity = matchHistoryRaw.slice(0, 3).map(m => {
+  const isWin  = m.user === 'user-win';
+  const isDraw = m.user === 'user-draw';
+  const result = isWin ? 'win' : isDraw ? 'neutral' : 'loss';
+  const label  = isWin ? 'Wygrana' : isDraw ? 'Remis' : 'Porażka';
+  const fmt    = m.match_double ? 'Debel' : 'Singiel';
+  return {
+    type:   'match',
+    title:  `${label} vs ${matchOpponent(m)}`,
+    desc:   `${fmt} · ${matchScore(m)}`,
+    time:   activityDate(m.match_date),
+    result,
+  };
+});
+
+// ── Moje mecze — statystyki z historii meczów (spójne z "Ostatnią aktywnością") ─
+const matchesPlayed = matchHistoryRaw.length;
+const matchesWon    = matchHistoryRaw.filter(m => m.user === 'user-win').length;
+const matchesLost   = matchHistoryRaw.filter(m => m.user === 'user-loss').length;
+const winRate       = matchesPlayed > 0 ? Math.round(matchesWon / matchesPlayed * 100) : 0;
+
+// Greeting: "Witaj" dla nowego usera (brak meczów i turniejów), "Witaj z powrotem" dla aktywnych
+const greeting = firstName
+  ? (matchesPlayed === 0 && tStats === null ? `Witaj, ${firstName}!` : `Witaj z powrotem, ${firstName}!`)
+  : undefined;
+
+const quickActions = [
+  { label: 'Nowa Rezerwacja', href: url('/courts/reservations'), icon: 'calendar', primary: true },
+  { label: 'Dodaj Mecz',      href: url('/matches'),             icon: 'vs',       primary: false },
+  { label: 'Turnieje',         href: url('/tournaments'),         icon: 'trophy',   primary: false },
+  { label: 'Ranking',          href: url('/rankings'),            icon: 'chart',    primary: false },
+];
+---
+
+<AppLayout
+  title="Dashboard"
+  greeting={greeting}
+  showSearch={true}
+  showCta={true}
+  unreadCount={unreadCount}
+  currentUser={currentUser}
+>
+
+  <!-- ── Stat cards ── -->
+  <section class="stat-grid" aria-label="Statystyki">
+    {stats.map(stat => (
+      <div class={`stat-card stat-card--${stat.accent}`} data-card-id={(stat as any).id}>
+        <div class="stat-card__header">
+          <span class="stat-card__label">{stat.label}</span>
+          {stat.icon === 'trophy' && (
+            <svg class="stat-card__icon-trophy" width="22" height="22" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+          )}
+        </div>
+
+        <div class={`stat-card__value${stat.accent === 'success' ? ' stat-card__value--success' : ''}`}>
+          {stat.value}
+        </div>
+
+        <div class="stat-card__footer">
+          <span class="stat-card__detail">{stat.detail}</span>
+          {stat.trend && (
+            <span class={`stat-card__trend${stat.trendUp ? ' stat-card__trend--up' : ' stat-card__trend--down'}`}>
+              {stat.trendUp ? '↗' : '↘'} {stat.trend}
+            </span>
+          )}
+        </div>
+
+        {stat.action && (
+          <div class="stat-card__action">
+            <a href={stat.action.href} class="stat-card__btn">{stat.action.label}</a>
+          </div>
+        )}
+      </div>
+    ))}
+  </section>
+
+  <!-- ── Main grid: turnieje + aktywność + statystyki ── -->
+  <div class="dashboard-grid">
+
+    <!-- LEFT: turnieje + quick actions -->
+    <div class="dashboard-col-main">
+
+      <!-- Quick actions -->
+      <section class="quick-actions" aria-label="Szybkie akcje">
+        {quickActions.map(a => (
+          <a href={a.href} class={`qa-btn${a.primary ? ' qa-btn--primary' : ''}`}>
+            <span class="qa-btn__icon" aria-hidden="true">
+              {a.icon === 'calendar' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                </svg>
+              )}
+              {a.icon === 'vs' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                </svg>
+              )}
+              {a.icon === 'trophy' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                </svg>
+              )}
+              {a.icon === 'chart' && (
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                </svg>
+              )}
+            </span>
+            {a.label}
+          </a>
+        ))}
+      </section>
+
+      <!-- Nadchodzące turnieje -->
+      <section class="tc-card" aria-labelledby="tournaments-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="tournaments-heading">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--primary);">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+            </svg>
+            Nadchodzące turnieje
+          </h2>
+          <a href={url('/tournaments')} class="tc-btn tc-btn-ghost tc-btn-sm">Wszystkie →</a>
+        </div>
+
+        {isLiveData ? (
+          <>
+            <div class="tournament-list">
+              {tournaments.map(t => (
+                <div class="tournament-item">
+                  <div class="tournament-item__left">
+                    <div class="tournament-item__name">{t.name}</div>
+                    <div class="tournament-item__meta">
+                      <span class="tournament-item__type">{t.type}</span>
+                      <span class="tournament-item__sep">·</span>
+                      <span>{t.date}</span>
+                    </div>
+                  </div>
+                  <div class="tournament-item__right">
+                    <div class="tournament-item__participants">
+                      <span class="participants-bar__label">{t.participants} uczestników</span>
+                    </div>
+                    <span class={`tc-badge ${t.status === 'active' ? 'tc-badge-success' : t.status === 'scheduled' ? 'tc-badge-info' : 'tc-badge-success'}`}>
+                      {t.statusLabel}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div class="tc-card-footer">
+              <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
+                Zapisz się do turnieju
+              </a>
+            </div>
+          </>
+        ) : (
+          <div class="dash-empty-tournaments">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.25 9.71 2 12 2c2.291 0 4.545.25 6.75.721v1.515M18.75 4.236c.983.143 1.955.317 2.917.52A6.003 6.003 0 0016.27 9.728M18.75 4.236V4.5a9.023 9.023 0 01-2.48 5.228" />
+            </svg>
+            <p>Brak nadchodzących turniejów.</p>
+            <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
+              Przeglądaj turnieje →
+            </a>
+          </div>
+        )}
+      </section>
+
+    </div>
+
+    <!-- RIGHT: statystyki + aktywność -->
+    <div class="dashboard-col-side">
+
+      <!-- Moje statystyki -->
+      <section class="tc-card" aria-labelledby="my-stats-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="my-stats-heading">Moje Mecze</h2>
+        </div>
+        <div class="tc-card-body">
+          {matchesPlayed === 0 ? (
+            <div class="dash-empty-inline">
+              <p class="dash-empty-inline__text">Nie rozegrałeś jeszcze żadnego meczu.</p>
+              <div class="dash-empty-inline__actions">
+                <a href={url('/matches')} class="tc-btn tc-btn-primary tc-btn-sm">Dodaj pierwszy mecz →</a>
+                <a href={url('/tournaments')} class="tc-btn tc-btn-ghost tc-btn-sm">Dołącz do turnieju</a>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div class="my-stats-grid" id="my-stats-grid">
+                <div class="my-stat">
+                  <div class="my-stat__value" id="stat-matches">{matchesPlayed}</div>
+                  <div class="my-stat__label">Mecze</div>
+                </div>
+                <div class="my-stat">
+                  <div class="my-stat__value" id="stat-wins">{matchesWon}</div>
+                  <div class="my-stat__label">Wygrane</div>
+                </div>
+                <div class="my-stat">
+                  <div class="my-stat__value my-stat__value--highlight" id="stat-winrate">{`${winRate}%`}</div>
+                  <div class="my-stat__label">Win Rate</div>
+                </div>
+              </div>
+
+              <!-- Mini sparkline — SVG statyczny -->
+              <div class="sparkline-wrap" aria-hidden="true">
+                <svg viewBox="0 0 200 60" class="sparkline">
+                  <defs>
+                    <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#22c55e" stop-opacity="0.25"/>
+                      <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M0,45 L25,38 L50,42 L75,30 L100,34 L125,22 L150,18 L175,10 L200,8 L200,60 L0,60 Z" fill="url(#sparkGrad)"/>
+                  <polyline points="0,45 25,38 50,42 75,30 100,34 125,22 150,18 175,10 200,8" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="200" cy="8" r="4" fill="#22c55e"/>
+                </svg>
+              </div>
+
+              <div class="my-stats-sub">
+                <span class="my-stats-sub__item" id="stat-sets-label">
+                  <span class="my-stats-sub__dot" style="background:#22c55e"></span>
+                  Wygrane: {matchesWon} / Przegrane: {matchesLost}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      <!-- Turnieje — teaser lub onboarding CTA -->
+      <section class="tc-card" aria-labelledby="tourn-teaser-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="tourn-teaser-heading">Turnieje</h2>
+        </div>
+        {tStats !== null ? (
+          <>
+            <div class="tc-card-body">
+              <div class="my-stats-grid">
+                <div class="my-stat">
+                  <div class="my-stat__value">{tStats.tournaments_played}</div>
+                  <div class="my-stat__label">Łącznie</div>
+                </div>
+                <div class="my-stat">
+                  <div class="my-stat__value">{tStats.tournaments_active}</div>
+                  <div class="my-stat__label">Aktywne</div>
+                </div>
+                <div class="my-stat">
+                  <div class="my-stat__value my-stat__value--highlight">
+                    {tStats.win_rate !== null ? `${tStats.win_rate}%` : '—'}
+                  </div>
+                  <div class="my-stat__label">Win rate</div>
+                </div>
+              </div>
+              <div class="my-stats-sub" style="margin-top:4px;">
+                <span class="my-stats-sub__item">
+                  <span class="my-stats-sub__dot" style="background:#22c55e"></span>
+                  Mecze: {tStats.matches_won} wygranych / {tStats.matches_played} rozegranych
+                </span>
+              </div>
+            </div>
+            <div class="tc-card-footer">
+              <a href={url('/profile')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+                Pełne statystyki w profilu →
+              </a>
+            </div>
+          </>
+        ) : (
+          <div class="dash-empty-inline">
+            <p class="dash-empty-inline__text">Nie uczestniczysz jeszcze w żadnym turnieju.</p>
+            <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
+              Przeglądaj turnieje →
+            </a>
+          </div>
+        )}
+      </section>
+
+      <!-- Ostatnia aktywność -->
+      <section class="tc-card" aria-labelledby="activity-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="activity-heading">Ostatnia Aktywność</h2>
+        </div>
+
+        {recentActivity.length === 0 ? (
+          <div class="activity-empty-state">
+            <p class="activity-empty-state__text">Brak aktywności — zacznij od jednego z kroków:</p>
+            <ul class="activity-empty-state__list">
+              <li>
+                <a href={url('/tournaments')} class="activity-empty-state__link">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                  Dołącz do turnieju
+                </a>
+              </li>
+              <li>
+                <a href={url('/rankings')} class="activity-empty-state__link">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                  Zobacz ranking graczy
+                </a>
+              </li>
+              <li>
+                <a href={url('/profile')} class="activity-empty-state__link">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+                  Uzupełnij swój profil
+                </a>
+              </li>
+            </ul>
+          </div>
+        ) : (
+          <ul class="activity-list" role="list">
+            {recentActivity.map(item => (
+              <li class="activity-item">
+                <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
+                  {item.type === 'match' && (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                    </svg>
+                  )}
+                  {item.type === 'reservation' && (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                    </svg>
+                  )}
+                  {item.type === 'tournament' && (
+                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                    </svg>
+                  )}
+                </div>
+                <div class="activity-item__body">
+                  <div class="activity-item__title">{item.title}</div>
+                  <div class="activity-item__desc">{item.desc}</div>
+                </div>
+                <div class="activity-item__time">{item.time}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div class="tc-card-footer">
+          <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+            Pełna historia →
+          </a>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+</AppLayout>
+
+<!--
+  Client-side: odśwież licznik powiadomień z Django API.
+  Wymaga sesji Django w przegladarce (cookies).
+  Graceful degradation: jeśli brak sesji lub backend niedostępny — nic nie robi.
+-->
+<!-- Powiadomienia obsługiwane przez Topbar.astro -->
+
+<!--
+  Client-side: ładuje dane dashboard summary z /api/dashboard/summary/.
+  Wymaga sesji Django (cookies). Graceful degradation — fallback z HTML.
+-->
+<script>
+  (async function initDashboardSummary() {
+    const API_BASE =
+      (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ??
+      'http://localhost:8000';
+
+    function setCard(id: string, value: string, detail: string) {
+      const card = document.querySelector(`[data-card-id="${id}"]`);
+      if (!card) return;
+      const valEl = card.querySelector('.stat-card__value');
+      const detEl = card.querySelector('.stat-card__detail');
+      if (valEl) valEl.textContent = value;
+      if (detEl) detEl.textContent = detail;
+    }
+
+    function setTrend(id: string, trend: string, up: boolean) {
+      const card = document.querySelector(`[data-card-id="${id}"]`);
+      if (!card) return;
+      const footer = card.querySelector('.stat-card__footer');
+      if (!footer) return;
+      let trendEl = footer.querySelector('.stat-card__trend') as HTMLElement | null;
+      if (!trendEl) {
+        trendEl = document.createElement('span');
+        footer.appendChild(trendEl);
+      }
+      trendEl.className = `stat-card__trend stat-card__trend--${up ? 'up' : 'down'}`;
+      trendEl.textContent = `${up ? '\u2197' : '\u2198'} ${trend}`;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/dashboard/summary/`, {
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+        redirect: 'manual',
+      });
+
+      if (res.type === 'opaqueredirect' || !res.ok) return; // niezalogowany
+
+      const d = await res.json();
+
+      // ── Rezerwacja ─────────────────────────────────────────────
+      if (d.next_reservation) {
+        const r = d.next_reservation;
+        setCard('reservation',
+          `${r.date}–${r.end_time}`,
+          r.court ?? 'Kort nieokreślony'
+        );
+      } else {
+        setCard('reservation', 'Brak', 'Brak nadchodzących rezerwacji');
+      }
+
+      // ── Ostatni mecz ──────────────────────────────────────────
+      if (d.last_match) {
+        const m = d.last_match;
+        const result = m.won ? 'Wygrana!' : 'Porażka';
+        setCard('last-match',
+          `${result} ${m.score}`,
+          `vs ${m.opponent} · ${m.date}`
+        );
+        // Kolor wartości: zielony=wygrana, czerwony=porażka
+        const valEl = document.querySelector('[data-card-id="last-match"] .stat-card__value') as HTMLElement | null;
+        if (valEl) {
+          valEl.style.color = m.won ? '#22c55e' : '#ef4444';
+        }
+      }
+
+      // ── Ranking ───────────────────────────────────────────────
+      if (d.ranking && d.ranking.position !== null) {
+        const rk = d.ranking;
+        setCard('ranking',
+          `${rk.position}. miejsce`,
+          `${rk.points !== null ? Math.round(rk.points) + ' pkt' : ''} · Win rate: ${rk.win_rate ?? '?'}%`
+        );
+      }
+
+      // Moje Mecze — renderowane SSR z matchHistoryRaw, nie nadpisujemy client-side
+
+      // ── Turnieje (jeśli nie mamy z build-time) ───────────────────
+      if (d.upcoming_tournaments_count !== null) {
+        const card = document.querySelector('[data-card-id="tournaments"]');
+        const valEl = card?.querySelector('.stat-card__value');
+        // aktualizuj tylko jeśli karta ma nadal wartość — (tzn. nie nadpisała jej inna sekcja)
+        if (valEl && (valEl.textContent?.trim() === '—' || valEl.textContent?.trim() === '')) {
+          valEl.textContent = `${d.upcoming_tournaments_count} aktywnych`;
+          const detEl = card?.querySelector('.stat-card__detail');
+          if (detEl) detEl.textContent = 'turniejów w toku lub rekrutacji';
+        }
+      }
+
+    } catch {
+      // backend niedostępny — pozostają fallbacki z HTML
+    }
+  })();
+</script>
+
+<style>
+  /* ── Stat cards grid ─────────────────────────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: var(--shadow-card);
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .stat-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .stat-card__header {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  }
+
+  .stat-card__label {
+    font-size: 0.78rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-muted);
+    line-height: 1.3;
+  }
+
+  .stat-card__icon-trophy {
+    color: var(--text-dim);
+    flex-shrink: 0;
+    opacity: 0.5;
+  }
+
+  .stat-card__value {
+    font-size: 1.25rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.025em; line-height: 1.2;
+  }
+  .stat-card__value--success { color: #22c55e; }
+
+  .stat-card__footer {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin-top: 2px;
+  }
+
+  .stat-card__detail {
+    font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; flex: 1;
+  }
+
+  .stat-card__trend {
+    font-size: 0.75rem; font-weight: 600; white-space: nowrap;
+  }
+  .stat-card__trend--up   { color: #22c55e; }
+  .stat-card__trend--down { color: #ef4444; }
+
+  .stat-card__action { margin-top: 4px; }
+
+  .stat-card__btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 7px 16px; border-radius: 8px;
+    background: #22c55e; color: #000;
+    font-size: 0.82rem; font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s;
+    box-shadow: 0 1px 6px rgba(34,197,94,0.25);
+  }
+  .stat-card__btn:hover { background: #16a34a; }
+
+  /* ── Dashboard grid ──────────────────────────────────────────────────────── */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .dashboard-col-main,
+  .dashboard-col-side {
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* ── Quick actions ───────────────────────────────────────────────────────── */
+  .quick-actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+
+  .qa-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 16px; border-radius: 8px;
+    font-size: 0.85rem; font-weight: 600;
+    text-decoration: none;
+    background: var(--surface); color: var(--text-muted);
+    border: 1px solid var(--border);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .qa-btn:hover {
+    background: var(--surface-hover); color: var(--text);
+    border-color: var(--border-light);
+  }
+  .qa-btn--primary {
+    background: #22c55e; color: #000; border-color: #22c55e;
+    box-shadow: 0 2px 8px rgba(34,197,94,0.25);
+  }
+  .qa-btn--primary:hover { background: #16a34a; border-color: #16a34a; color: #000; }
+
+  .qa-btn__icon {
+    display: flex; align-items: center;
+    opacity: 0.7;
+  }
+  .qa-btn--primary .qa-btn__icon { opacity: 1; }
+
+  /* ── Tournament list ─────────────────────────────────────────────────────── */
+  .tournament-list {
+    display: flex; flex-direction: column;
+  }
+
+  .tournament-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .tournament-item:last-child { border-bottom: none; }
+  .tournament-item:hover { background: var(--surface-hover); }
+
+  .tournament-item__name {
+    font-weight: 600; font-size: 0.9rem; color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .tournament-item__meta {
+    font-size: 0.78rem; color: var(--text-muted);
+    display: flex; align-items: center; gap: 5px;
+  }
+
+  .tournament-item__type {
+    display: inline-block;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 1px 6px;
+    font-size: 0.7rem; font-weight: 600; color: var(--text-dim);
+  }
+
+  .tournament-item__sep { color: var(--text-dim); }
+
+  .tournament-item__right {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .tournament-item__participants {
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .participants-bar {
+    width: 64px; height: 4px; border-radius: 99px;
+    background: var(--surface-2); overflow: hidden;
+  }
+  .participants-bar__fill {
+    height: 100%; background: #22c55e; border-radius: 99px;
+  }
+  .participants-bar__label {
+    font-size: 0.72rem; color: var(--text-dim); font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* ── Tournament empty state ──────────────────────────────────────────────── */
+  .dash-empty-tournaments {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 36px 24px;
+    color: var(--text-dim); text-align: center;
+  }
+  .dash-empty-tournaments p {
+    font-size: 0.875rem; color: var(--text-muted); margin: 0;
+  }
+
+  /* ── My stats ────────────────────────────────────────────────────────────── */
+  .my-stats-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 4px; margin-bottom: 16px;
+  }
+
+  .my-stat {
+    text-align: center; padding: 8px 4px;
+  }
+
+  .my-stat__value {
+    font-size: 1.75rem; font-weight: 900; color: var(--text);
+    letter-spacing: -0.04em; line-height: 1;
+    margin-bottom: 4px;
+  }
+  .my-stat__value--highlight { color: #22c55e; }
+
+  .my-stat__label {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* Sparkline */
+  .sparkline-wrap {
+    border-radius: 8px; overflow: hidden;
+    background: var(--surface-2);
+    margin-bottom: 12px;
+  }
+  .sparkline { width: 100%; height: 60px; display: block; }
+
+  .my-stats-sub {
+    display: flex; flex-wrap: wrap; gap: 10px;
+  }
+
+  .my-stats-sub__item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+
+  .my-stats-sub__dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+
+  /* ── Inline empty states (Moje Mecze, Turnieje) ─────────────────────────── */
+  .dash-empty-inline {
+    padding: 20px 20px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .dash-empty-inline__text {
+    font-size: 0.875rem; color: var(--text-muted); margin: 0;
+  }
+  .dash-empty-inline__actions {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+
+  /* ── Activity empty state ────────────────────────────────────────────────── */
+  .activity-empty-state {
+    padding: 16px 20px 20px;
+  }
+  .activity-empty-state__text {
+    font-size: 0.82rem; color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+  .activity-empty-state__list {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .activity-empty-state__link {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 0.875rem; font-weight: 600;
+    color: var(--primary); text-decoration: none;
+    transition: opacity 0.12s;
+  }
+  .activity-empty-state__link:hover { opacity: 0.75; }
+
+  /* ── Activity list ───────────────────────────────────────────────────────── */
+  .activity-empty {
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-align: center;
+    margin: 0;
+  }
+
+  .activity-list {
+    list-style: none; padding: 0; margin: 0;
+  }
+
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item:hover { background: var(--surface-hover); }
+
+  .activity-item__icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .activity-item__icon--win     { background: rgba(34,197,94,0.12);  color: #22c55e; }
+  .activity-item__icon--loss    { background: rgba(239,68,68,0.12);  color: #ef4444; }
+  .activity-item__icon--neutral { background: var(--surface-2); color: var(--text-muted); }
+
+  .activity-item__body { flex: 1; min-width: 0; }
+
+  .activity-item__title {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  .activity-item__desc {
+    font-size: 0.78rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .activity-item__time {
+    font-size: 0.72rem; color: var(--text-dim);
+    white-space: nowrap; flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── Responsive ──────────────────────────────────────────────────────────── */
+  @media (max-width: 1280px) {
+    .dashboard-grid { grid-template-columns: 1fr 300px; }
+  }
+
+  @media (max-width: 1024px) {
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .dashboard-col-side { order: -1; }
+    .my-stats-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  @media (max-width: 640px) {
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+    .stat-card__value { font-size: 1.05rem; }
+    .quick-actions { gap: 8px; }
+    .qa-btn { padding: 8px 12px; font-size: 0.8rem; }
+  }
+
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+  }
+</style>

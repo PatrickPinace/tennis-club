@@ -1,0 +1,158 @@
+{% extends 'layouts/base_app.html' %}
+{% load static %}
+
+{% block title %}{{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ tournament.name }}</h1>
+    <div style="display:flex; gap:var(--space-2); align-items:center; margin-top:var(--space-2);">
+      <span class="badge badge-primary">{{ tournament.get_tournament_type_display }}</span>
+      {% if tournament.status == 'ACT' %}<span class="badge badge-success">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'FIN' %}<span class="badge badge-neutral">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'REG' %}<span class="badge badge-info">{{ tournament.get_status_display }}</span>
+      {% else %}<span class="badge badge-warning">{{ tournament.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <button onclick="history.back()" class="btn btn-secondary">← Powrót</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+
+  {% if tournament.description %}
+  <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-5);">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+  <!-- Zasady -->
+  {% if tournament.round_robin_config %}
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header" style="cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+      <span class="card-title">Zasady i punktacja</span>
+      <span style="color:var(--text-muted); font-size:.8rem;">▾ rozwiń</span>
+    </div>
+    <div style="display:none;">
+      <div class="card-body">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); font-size:.875rem;">
+          <div>
+            <p><strong>Format meczu:</strong> Do {{ tournament.round_robin_config.sets_to_win }} wygranych setów</p>
+            <p><strong>Format seta:</strong> Do {{ tournament.round_robin_config.games_per_set }} gemów</p>
+            <p><strong>Kolejność:</strong> {{ tournament.round_robin_config.get_tie_breaker_priority_display }}</p>
+            {% if tournament.start_date %}<p><strong>Rozpoczęcie:</strong> {{ tournament.start_date|date:"d.m.Y" }}</p>{% endif %}
+            {% if tournament.end_date %}<p><strong>Zakończenie:</strong> {{ tournament.end_date|date:"d.m.Y" }}</p>{% endif %}
+          </div>
+          <div>
+            <p><strong>Wygrana mecz:</strong> {{ tournament.round_robin_config.points_for_win }} pkt</p>
+            <p><strong>Przegrana mecz:</strong> {{ tournament.round_robin_config.points_for_loss }} pkt</p>
+            <p><strong>Bonus wygr. set:</strong> {{ tournament.round_robin_config.points_for_set_win }} pkt</p>
+            <p><strong>Kara przegr. set:</strong> {{ tournament.round_robin_config.points_for_set_loss }} pkt</p>
+            <p><strong>Bonus wygr. gem:</strong> {{ tournament.round_robin_config.points_for_gem_win }} pkt</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Tabela wyników -->
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header"><span class="card-title">Aktualna tabela</span></div>
+    <div class="card-body" style="padding:0;">
+      {% if standings %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">#</th>
+            <th>Uczestnik</th>
+            <th style="text-align:center;" title="Punkty">Pkt</th>
+            <th style="text-align:center;" title="Mecze">M</th>
+            <th style="text-align:center;" title="Wygrane">W</th>
+            <th style="text-align:center;" title="Porażki">P</th>
+            <th style="text-align:center;">Sety</th>
+            <th style="text-align:center;">Gemy</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in standings %}
+          <tr {% if item.participant.user == request.user %}style="background:var(--primary-subtle);"{% endif %}>
+            <td style="text-align:center; font-weight:700;">{{ forloop.counter }}</td>
+            <td style="font-weight:600;">{{ item.participant.display_name }}</td>
+            <td style="text-align:center; font-weight:800; color:var(--primary);">{{ item.points }}</td>
+            <td style="text-align:center; color:var(--text-muted);">{{ item.matches_played }}</td>
+            <td style="text-align:center; color:var(--success);">{{ item.wins }}</td>
+            <td style="text-align:center; color:var(--danger);">{{ item.losses }}</td>
+            <td style="text-align:center; color:var(--text-muted); font-size:.85rem;">{{ item.sets_won }}–{{ item.sets_lost }}</td>
+            <td style="text-align:center; color:var(--text-muted); font-size:.85rem;">{{ item.games_won }}–{{ item.games_lost }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state" style="padding:var(--space-8);">
+        <div class="empty-state__icon">📊</div>
+        <p class="empty-state__text">Brak uczestników w tabeli.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Mecze -->
+  {% if standings %}
+  <div class="card">
+    <div class="card-header"><span class="card-title">Wyniki spotkań</span></div>
+    <div class="card-body" style="padding:0;">
+      <!-- Moje mecze najpierw -->
+      {% for standing_item in standings %}
+      {% if standing_item.participant.user == request.user %}
+      <div style="border-bottom:1px solid var(--border);">
+        <button onclick="var c=this.nextElementSibling;var open=c.style.display!=='none';c.style.display=open?'none':'block';this.querySelector('.acc-arrow').textContent=open?'∨':'∧';"
+          style="width:100%; background:var(--primary-subtle); border:none; padding:12px 16px; text-align:left; cursor:pointer; font-weight:700; color:var(--primary); font-size:.875rem; display:flex; justify-content:space-between; align-items:center;">
+          <span>👤 Moje mecze ({{ standing_item.participant.display_name }})</span>
+          <span class="acc-arrow" style="font-size:.8rem; color:var(--primary);">∧</span>
+        </button>
+        <div>
+          {% for match in matches %}
+          {% if match.participant1 == standing_item.participant or match.participant2 == standing_item.participant %}
+          {% include "tournaments/partials/round_robin_match_item.html" with match=match current_participant=standing_item.participant %}
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+      <!-- Pozostali -->
+      {% for standing_item in standings %}
+      {% if standing_item.participant.user != request.user %}
+      <div style="border-bottom:1px solid var(--border);">
+        <button onclick="var c=this.nextElementSibling;var open=c.style.display!=='none';c.style.display=open?'none':'block';this.querySelector('.acc-arrow').textContent=open?'∨':'∧';"
+          style="width:100%; background:none; border:none; padding:12px 16px; text-align:left; cursor:pointer; font-weight:600; color:var(--text); font-size:.875rem; display:flex; justify-content:space-between; align-items:center;">
+          <span>{{ standing_item.participant.display_name }}</span>
+          <span class="acc-arrow" style="font-size:.8rem; color:var(--text-muted);">∨</span>
+        </button>
+        <div style="display:none;">
+          {% for match in matches %}
+          {% if match.participant1 == standing_item.participant or match.participant2 == standing_item.participant %}
+          {% include "tournaments/partials/round_robin_match_item.html" with match=match current_participant=standing_item.participant %}
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/reactions.js' %}"></script>
+{% endblock %}

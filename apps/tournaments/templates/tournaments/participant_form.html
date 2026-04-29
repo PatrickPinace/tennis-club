@@ -1,0 +1,170 @@
+{% extends 'layouts/base_app.html' %}
+{% load static %}
+
+{% block title %}{% if participant %}Edycja zgłoszenia{% else %}Rejestracja uczestnika{% endif %}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{% if participant %}Edycja zgłoszenia{% else %}Rejestracja uczestnika{% endif %}</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}{% if is_doubles %} — Debel{% endif %}</p>
+  </div>
+  <div class="page-header__actions">
+    <button type="button" onclick="history.back()" class="btn btn-secondary">Anuluj</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+.select2-container--default .select2-selection--single {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); height: 38px; color: var(--text);
+}
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  color: var(--text); line-height: 36px; padding-left: 12px;
+}
+.select2-container--default .select2-selection--single .select2-selection__arrow { height: 36px; }
+.select2-dropdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.select2-results__option { color: var(--text); padding: 8px 12px; }
+.select2-container--default .select2-results__option--highlighted { background: var(--primary-subtle); color: var(--primary); }
+.select2-search--dropdown .select2-search__field {
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 580px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" id="participant-form">
+        {% csrf_token %}
+
+        {% for field in form.visible_fields %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p style="font-size:.78rem; color:var(--text-muted); margin-top:4px;">{{ field.help_text }}</p>{% endif %}
+          {% if field.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ field.errors|join:", " }}</p>{% endif %}
+        </div>
+        {% endfor %}
+
+        {% if is_doubles %}
+        <!-- Sekcja partnera debla -->
+        <div style="border-top:1px solid var(--border); padding-top:var(--space-5); margin-top:var(--space-2);">
+          <div style="font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); margin-bottom:var(--space-4);">
+            Partner debla
+          </div>
+
+          {% if current_partner %}
+          <div style="display:flex; align-items:center; gap:var(--space-3); padding:12px; background:var(--primary-subtle); border:1px solid var(--primary); border-radius:var(--radius-sm); margin-bottom:var(--space-4);">
+            <div class="avatar avatar-sm" style="border-color:var(--primary);">{{ current_partner.user.first_name|default:current_partner.user.username|slice:":1"|upper }}</div>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:var(--primary);">{{ current_partner.user.get_full_name|default:current_partner.user.username }}</div>
+              <div style="font-size:.75rem; color:var(--text-muted);">Aktualny partner</div>
+            </div>
+            <button type="button" id="clear-partner" style="font-size:.75rem; color:var(--danger); background:none; border:none; cursor:pointer;">✕ Usuń</button>
+          </div>
+          {% endif %}
+
+          <div class="tc-field" style="margin-bottom:var(--space-5);">
+            <label class="tc-label">{% if current_partner %}Zmień partnera{% else %}Wybierz partnera{% endif %}</label>
+            <select id="partner-select" name="partner_user_id" class="form-select">
+              <option value="">— brak / bez partnera —</option>
+              {% for u in all_users %}
+              <option value="{{ u.pk }}"
+                data-name="{{ u.get_full_name|default:u.username }}"
+                {% if current_partner and current_partner.user.pk == u.pk %}selected{% endif %}>
+                {{ u.get_full_name|default:u.username }}
+              </option>
+              {% endfor %}
+            </select>
+            <p style="font-size:.78rem; color:var(--text-muted); margin-top:4px;">Partner może zostać dodany lub zmieniony później.</p>
+          </div>
+
+          <!-- Podgląd nazwy pary -->
+          <div id="pair-name-preview" style="display:none; padding:10px 14px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); margin-bottom:var(--space-4);">
+            <div style="font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); margin-bottom:4px;">Nazwa pary (zostanie ustawiona automatycznie)</div>
+            <div id="pair-name-text" style="font-weight:700; font-size:.95rem; color:var(--text);"></div>
+          </div>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:var(--space-3); margin-top:var(--space-4);">
+          <button type="submit" class="btn btn-primary">Zapisz</button>
+          <button type="button" onclick="history.back()" class="btn btn-secondary">Anuluj</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function() {
+  const userSelect = $('#id_user').select2({ placeholder: 'Wyszukaj i wybierz użytkownika' });
+  const displayNameInput = document.getElementById('id_display_name');
+  const partnerSelect = document.getElementById('partner-select');
+  const pairPreview = document.getElementById('pair-name-preview');
+  const pairText = document.getElementById('pair-name-text');
+  const clearBtn = document.getElementById('clear-partner');
+
+  {% if is_doubles %}
+  $('#partner-select').select2({ placeholder: 'Wyszukaj partnera...' });
+
+  function updatePairName() {
+    const playerOption = $('#id_user option:selected');
+    const partnerOption = $('#partner-select option:selected');
+    const playerName = playerOption.attr('data-full-name') || playerOption.text() || '';
+    const partnerName = partnerOption.val() ? (partnerOption.attr('data-name') || partnerOption.text()) : '';
+
+    if (playerName && partnerName) {
+      const pairName = playerName + ' / ' + partnerName;
+      if (pairText) pairText.textContent = pairName;
+      if (pairPreview) pairPreview.style.display = '';
+      // Auto-fill display_name only if it's empty or was auto-generated (contains ' / ')
+      if (displayNameInput && (!displayNameInput.value || displayNameInput.value.includes(' / '))) {
+        displayNameInput.value = pairName;
+      }
+    } else {
+      if (pairPreview) pairPreview.style.display = 'none';
+    }
+  }
+
+  userSelect.on('select2:select', function(e) {
+    const fullName = e.params.data.element.getAttribute('data-full-name');
+    if (fullName && displayNameInput && !$('#partner-select').val()) {
+      displayNameInput.value = fullName;
+    }
+    updatePairName();
+  });
+
+  $('#partner-select').on('select2:select select2:unselect change', updatePairName);
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      $('#partner-select').val('').trigger('change');
+      this.closest('[style*="primary-subtle"]').style.display = 'none';
+    });
+  }
+
+  // Wywołaj przy ładowaniu jeśli partner jest wybrany
+  updatePairName();
+
+  {% else %}
+  userSelect.on('select2:select', function(e) {
+    const fullName = e.params.data.element.getAttribute('data-full-name');
+    if (fullName && displayNameInput) displayNameInput.value = fullName;
+  });
+  userSelect.on('select2:unselect', function() {
+    if (displayNameInput) displayNameInput.value = '';
+  });
+  {% endif %}
+});
+</script>
+{% endblock %}

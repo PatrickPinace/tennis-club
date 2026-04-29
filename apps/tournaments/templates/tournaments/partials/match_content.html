@@ -1,0 +1,77 @@
+{% load tournaments %}
+{% with p1_wins=match.winner == match.participant1 p2_wins=match.winner == match.participant2 %}
+<div style="display:flex; flex-direction:column; height:100%; padding:10px 12px; gap:6px;">
+
+  <!-- Uczestnik 1 -->
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-radius:var(--radius-sm); background:{% if p1_wins %}var(--primary-subtle){% else %}transparent{% endif %};">
+    <span style="font-size:.82rem; font-weight:{% if p1_wins %}700{% else %}500{% endif %}; color:{% if p1_wins %}var(--primary){% elif match.winner %}var(--text-dim){% else %}var(--text){% endif %}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="{{ match.participant1.display_name|default:'BYE' }}">
+      {% if p1_wins %}🏆 {% endif %}{{ match.participant1.display_name|default:"BYE" }}
+    </span>
+    {% if match.set_scores %}
+    <span style="display:flex; gap:4px; flex-shrink:0;">
+      {% for p1_score, p2_score in match.set_scores %}
+      <span style="font-size:.8rem; font-weight:{% if p1_score > p2_score %}700{% else %}400{% endif %}; color:{% if p1_score > p2_score %}var(--primary){% else %}var(--text-dim){% endif %}; min-width:18px; text-align:center; border-right:1px solid var(--border); padding-right:4px;">{{ p1_score }}</span>
+      {% endfor %}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Uczestnik 2 -->
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 8px; border-radius:var(--radius-sm); background:{% if p2_wins %}var(--primary-subtle){% else %}transparent{% endif %};">
+    <span style="font-size:.82rem; font-weight:{% if p2_wins %}700{% else %}500{% endif %}; color:{% if p2_wins %}var(--primary){% elif match.winner %}var(--text-dim){% else %}var(--text){% endif %}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="{{ match.participant2.display_name|default:'BYE' }}">
+      {% if p2_wins %}🏆 {% endif %}{{ match.participant2.display_name|default:"BYE" }}
+    </span>
+    {% if match.set_scores %}
+    <span style="display:flex; gap:4px; flex-shrink:0;">
+      {% for p1_score, p2_score in match.set_scores %}
+      <span style="font-size:.8rem; font-weight:{% if p2_score > p1_score %}700{% else %}400{% endif %}; color:{% if p2_score > p1_score %}var(--primary){% else %}var(--text-dim){% endif %}; min-width:18px; text-align:center; border-right:1px solid var(--border); padding-right:4px;">{{ p2_score }}</span>
+      {% endfor %}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Meta: status + akcje -->
+  <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:6px; margin-top:auto;">
+    <span style="font-size:.7rem; color:var(--text-dim);">
+      {% if match.status == 'CMP' %}<span style="color:var(--success);">✓ Zakończony</span>
+      {% elif match.status == 'INP' %}<span style="color:var(--primary);">▶ W trakcie</span>
+      {% elif match.scheduled_time %}{{ match.scheduled_time|date:"d.m H:i" }}
+      {% else %}Runda {{ match.round_number }}{% endif %}
+    </span>
+    <div style="display:flex; gap:4px; align-items:center;">
+
+      <!-- Reakcja -->
+      {% if match.status == 'CMP' and request.user.is_authenticated %}
+      {% with reactions=match.reactions.all %}
+      <button class="reaction-btn {% if match.user_reaction == '👍' %}reaction-btn--active{% endif %}" data-match-id="{{ match.pk }}" data-emoji="👍"
+        style="font-size:.7rem; padding:2px 7px; border:1px solid var(--border); border-radius:var(--radius-sm); background:{% if match.user_reaction == '👍' %}var(--primary-subtle){% else %}transparent{% endif %}; cursor:pointer;">
+        👍 <span class="reaction-count" style="color:var(--text-dim);">{{ reactions|filter_by_emoji:'👍'|length }}</span>
+      </button>
+      {% endwith %}
+      {% endif %}
+
+      <!-- Dropdown ⋮ -->
+      <div style="position:relative; display:inline-block;">
+        <button onclick="var m=this.nextElementSibling;m.style.display=m.style.display==='none'?'block':'none';event.stopPropagation();"
+          style="background:none; border:1px solid var(--border); border-radius:var(--radius-sm); padding:1px 7px; cursor:pointer; font-size:.9rem; color:var(--text-muted); line-height:1.4;">⋮</button>
+        <div class="match-actions-menu" style="display:none; position:absolute; right:0; bottom:100%; margin-bottom:4px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:0 4px 12px rgba(0,0,0,.12); z-index:200; min-width:150px; overflow:hidden;">
+          <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}"
+             style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border);"
+             onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+            👁 Szczegóły
+          </a>
+          {% if match.can_edit %}
+          <a href="{% url 'tournaments:edit_match' pk=tournament.pk match_pk=match.pk %}"
+             style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none;"
+             onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+            ✎ Edytuj wynik
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endwith %}

@@ -1,0 +1,20 @@
+{% load widget_tweaks %}
+
+<div class="d-flex justify-content-center align-items-center flex-wrap mt-2">
+  <!-- Grupa dla pól Data i Debel -->
+  <div class="d-flex flex-column flex-md-row align-items-center">
+    <div class="input-group input-group-date mx-2 mb-2 mb-md-0">
+      <span class="input-group-text">Data: </span>
+      {{ form.match_date }}
+    </div>
+    <div class="form-check form-switch mx-3 mb-2 mb-md-0">
+      {{ form.match_double|attr:"id:match_double" }}
+      {# W trybie edycji, pole jest 'disabled', więc jego wartość nie jest wysyłana. #}
+      {# Dodajemy ukryte pole, aby przesłać oryginalną wartość. #}
+      {% if is_edit_match and match.match_double %}
+        <input type="hidden" name="match_double" value="True">
+      {% endif %}
+      <label class="form-check-label" for="match_double">Debel</label>
+    </div>
+  </div>
+</div>

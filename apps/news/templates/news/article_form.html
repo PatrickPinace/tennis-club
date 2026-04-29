@@ -1,0 +1,88 @@
+{% extends 'layouts/base_app.html' %}
+{% load widget_tweaks %}
+
+{% block title %}{% if object %}Edytuj artykuł{% else %}Nowy artykuł{% endif %}{% endblock %}
+{% block topbar_title %}Aktualności{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{% if object %}Edytuj artykuł{% else %}Nowy artykuł{% endif %}</h1>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'news:article_list' %}" class="btn btn-secondary">Anuluj</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 860px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div style="background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2); color:var(--danger); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:var(--space-5); font-size:.875rem;">
+          {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        {% for field in form %}
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+          {% if field.errors %}{{ field|add_class:"is-invalid" }}{% else %}{{ field }}{% endif %}
+          {% if field.help_text %}<p style="font-size:.78rem; color:var(--text-muted); margin-top:4px;">{{ field.help_text }}</p>{% endif %}
+          {% for error in field.errors %}<p style="color:var(--danger); font-size:.8rem; margin-top:4px;">{{ error }}</p>{% endfor %}
+        </div>
+        {% endfor %}
+
+        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:var(--space-5); border-top:1px solid var(--border); flex-wrap:wrap; gap:var(--space-3);">
+          <a href="{% url 'news:article_list' %}" class="btn btn-secondary">Anuluj</a>
+          <div style="display:flex; gap:var(--space-2);">
+            <button type="submit" name="action" value="draft" class="btn btn-secondary">Zapisz szkic</button>
+            <button type="submit" name="action" value="publish" class="btn btn-primary">Opublikuj</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+<script>
+tinymce.init({
+  selector: '#id_content',
+  plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount',
+  toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright | image | bullist numlist outdent indent | removeformat | help',
+  menubar: false,
+  height: 500,
+  language: 'pl',
+  language_url: 'https://cdnjs.cloudflare.com/ajax/libs/tinymce-i18n/23.10.9/langs/pl.min.js',
+  relative_urls: false,
+  remove_script_host: false,
+  convert_urls: true,
+  images_upload_url: '{% url "news:upload_image" %}',
+  automatic_uploads: true,
+  file_picker_types: 'image',
+  images_upload_handler: (blobInfo, progress) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '{% url "news:upload_image" %}');
+    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token }}');
+    xhr.upload.onprogress = (e) => progress(e.loaded / e.total * 100);
+    xhr.onload = () => {
+      if (xhr.status < 200 || xhr.status >= 300) { reject('HTTP Error: ' + xhr.status); return; }
+      const json = JSON.parse(xhr.responseText);
+      if (!json || typeof json.location !== 'string') { reject('Invalid JSON'); return; }
+      resolve(json.location);
+    };
+    xhr.onerror = () => reject('XHR error: ' + xhr.status);
+    const fd = new FormData();
+    fd.append('file', blobInfo.blob(), blobInfo.filename());
+    xhr.send(fd);
+  }),
+  content_style: `body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 1rem; line-height: 1.8; } img { max-width: 100% !important; height: auto !important; }`,
+  setup: function(editor) { editor.on('change', function() { editor.save(); }); }
+});
+</script>
+{% endblock %}

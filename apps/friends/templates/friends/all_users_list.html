@@ -1,0 +1,39 @@
+{% load friends %}
+
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Wszyscy gracze</span>
+    <span style="font-size:.8rem; color:var(--text-muted);">{{ users|length }}</span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    {% if users %}
+    {% for user in users %}
+    <div class="user-card {% if user.id in recent_user_ids %}user-card--new{% endif %}" data-name="{{ user.get_full_name|lower }}"
+      style="display:flex; align-items:center; gap:var(--space-3); padding:12px 16px; border-bottom:1px solid var(--border);">
+      <div class="avatar avatar-sm"
+        style="{% if user.id in recent_user_ids %}border-color:var(--primary); background:var(--primary-subtle);{% endif %}">
+        {{ user.first_name|default:user.username|slice:":1"|upper }}
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-weight:600; font-size:.875rem; display:flex; align-items:center; gap:var(--space-2);">
+          {{ user.get_full_name|default:user.username }}
+          {% if user.id in recent_user_ids %}<span class="badge badge-primary" style="font-size:.65rem;">Nowy</span>{% endif %}
+        </div>
+        <div style="font-size:.75rem; color:var(--text-muted);">Dołączył: {{ user.date_joined|date:"d.m.Y" }}</div>
+      </div>
+      <form method="POST">
+        {% csrf_token %}
+        <input type="hidden" name="friend_id" value="{{ user.id }}">
+        <input type="hidden" name="action" value="send_friend_request">
+        <button type="submit" class="btn btn-primary btn-sm" title="Dodaj do znajomych">+ Dodaj</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state" style="padding:var(--space-8);">
+      <div class="empty-state__icon">👤</div>
+      <p class="empty-state__text">Brak graczy do wyświetlenia.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>

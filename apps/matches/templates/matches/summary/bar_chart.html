@@ -1,0 +1,16 @@
+{% load matches %}
+<link rel="stylesheet" href="/static/css/bar_chart.css" type="text/css">
+
+<div class="bar-chart px-1">
+    <h3 class="progress-title text-center"><span class="text-success">{{ win }}</span> / <span class="text-danger">{{ lose }}</span> / {{ all }}</h3>
+  <div class="progress-bar-wrapper">
+    <div class="progress-bar-container">
+      <div class="progress-bar">
+      <div class="progress-bar-fill {{ win_per|bar_class }}" data-progress="{{ win_per }}"></div>
+      </div>
+      <div class="progress-value">
+        <span class="progress-bar-text">{{ win_per }}%</span>
+      </div>
+    </div>
+  </div>
+</div>

@@ -32,7 +32,7 @@ FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
 # Ustawienia zależne od środowiska
 if DJANGO_ENV == 'development':
     DEBUG = True
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.171']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.129']
     # Ustawienia SSL/Security wyłączone dla developmentu
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
@@ -42,19 +42,25 @@ if DJANGO_ENV == 'development':
     SECURE_HSTS_PRELOAD = False
     # Ustawienia dla Django Debug Toolbar
     INTERNAL_IPS = ['127.0.0.1']
+    # CSRF — zaufane origins dla Astro dev-servera (fetch z innego portu)
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost:4321',
+        'http://127.0.0.1:4321',
+    ]
 else: # Ustawienia produkcyjne
     DEBUG = False
-    ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", '89.78.213.129']
-    # Zabezpieczenie SSL
-    SECURE_HSTS_SECONDS = 31536000
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_SSL_REDIRECT = True
+    ALLOWED_HOSTS = ["tennisclub.ovh", "www.tennisclub.ovh", "tennis-club.fun", "www.tennis-club.fun", "tennis.mediprima.pl", "portal.raketon.pl", "www.portal.raketon.pl", '89.78.213.129', 'tennis-web']
+    # Zabezpieczenie SSL - obsługiwane przez reverse proxy (nginx/traefik)
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # Reverse proxy handles HTTPS redirect
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_PRELOAD = True
     CSRF_TRUSTED_ORIGINS = [
     "https://tennisclub.ovh",
     "https://www.tennisclub.ovh",
+    "https://tennis.mediprima.pl",
+    "https://portal.raketon.pl",
+    "https://www.portal.raketon.pl",
     ]
 
 # Application definition
@@ -69,7 +75,6 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'django.contrib.sitemaps',
     'django.contrib.humanize',
-    'django_q',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
@@ -86,11 +91,11 @@ INSTALLED_APPS = [
     'apps.matches',
     'apps.rankings',
     'apps.tournaments',
-    'apps.activities',
     'apps.feedback',
     'apps.news',
     'rest_framework',
-    # 'apps.api',
+    'apps.api',
+    'corsheaders',
 ]
 
 SITE_ID = 2
@@ -125,6 +130,7 @@ SOCIALACCOUNT_AUTO_SIGNUP = False
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS — musi być przed CommonMiddleware
     'apps.home.middleware.BlockBotsMiddleware', # Blokowanie botów na początku
     'django.contrib.sessions.middleware.SessionMiddleware',
     'allauth.account.middleware.AccountMiddleware',
@@ -169,28 +175,24 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DB_PASS = os.getenv('DB_PASS')
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'tennis_club',
-        'USER': 'superuser',
-        'PASSWORD': DB_PASS, # Pobierane ze zmiennej środowiskowej
-        "OPTIONS": {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_notes=0",  # sql_notes = 1, aby pokazywało ostrzeżenia po wysłaniu zapytania do bazy
+if os.getenv('USE_SQLITE') == 'true':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-}
-
-# Ustawienia bazy danych w zależności od środowiska
-if DJANGO_ENV == 'development':
-    DATABASES['default']['HOST'] = '127.0.0.1' # lub inny host lokalny
-    DATABASES['default']['PORT'] = '3306'
-else: # Produkcja
-    DATABASES['default']['HOST'] = '192.168.0.148'
-    DATABASES['default']['PORT'] = '3306'
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'tennis_club'),
+            'USER': os.getenv('DB_USER', 'tennis_user'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    }
 
 
 # Password validation
@@ -260,7 +262,7 @@ if not os.path.exists(LOG_DIR):
 
 # List of apps to log separately
 LOGGED_APPS = [
-    'activities', 'api', 'courts', 'feedback', 'friends', 
+    'api', 'courts', 'feedback', 'friends', 
     'home', 'matches', 'news', 'rankings', 'tournaments', 'users'
 ]
 
@@ -354,26 +356,21 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
-# settings.py (na końcu pliku)
-Q_CLUSTER = {
-    # Podstawowe ustawienia
-    'name': 'TennisClubCluster',
-    'label': 'Django Q',
-    'orm': 'default',
+# ── CORS — pozwala Astro dev-serwerowi odpytać Django API ————————————
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:4321",   # Astro dev
+    "http://127.0.0.1:4321",
+    "http://localhost:3000",   # alternatywny port Astro
+]
+# Pozwól przeglądarce wysyłać cookies sesji (potrzebne do endpointów @login_required)
+CORS_ALLOW_CREDENTIALS = True
+# Nagrówek wymagany przez DRF browsable API
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
-    # Ustawienia Workerów (Kluczowe dla wydajności)
-    'workers': 4,  # Utrzymane: Dobra wartość startowa, jeśli masz 4 rdzenie CPU lub więcej.
-    'recycle': 200,  # Zmienione: Mniejsza wartość dla lepszego zarządzania pamięcią.
-    'timeout': 360,  # Zmienione: Zwiększono timeout, aby uniknąć przedwczesnego przerywania dłuższych zadań.
-    'retry': 420,  # Dodane: Czas ponowienia zadania (timeout + 60s) dla zapewnienia stabilności.
 
-    # Ustawienia Kolejkowania i Optymalizacji
-    'compress': True,  # Utrzymane: Dobra praktyka, zmniejsza rozmiar danych w kolejce.
-    'save_limit': 0,   # Zmienione: Zmieniono na 0, aby zapisywać wszystkie wyniki (ważne dla debugowania).
-    'queue_limit': 1000, # Zmienione: Zwiększono limit na wypadek nagłego wzrostu liczby zadań.
-    'cpu_affinity': 1, # Utrzymane: Użycie 1 rdzenia na proces roboczy.
-
-    # Nowe/Zmienione Ustawienia dla Stabilności
-    'catch_up': True, # Dodane: Zapewnia, że workerzy wznowią pracę nad nieukończonymi zadaniami po awarii.
-    'log_level': 'INFO', # Dodane: Ułatwia monitorowanie w logach.
-}

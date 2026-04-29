@@ -1,0 +1,618 @@
+---
+// tournaments.astro — lista turniejów połączona z Django API
+// GET /api/tournaments/list/  (IsAuthenticatedOrReadOnly — publiczny)
+// Pola: id, name, status, tournament_type, match_format, rank,
+//       participant_count, start_date, end_date, facility_name
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getTournamentsList, type TournamentListEntry } from '@/lib/api';
+import { url } from '@/lib/url';
+
+// ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
+let tournaments: TournamentListEntry[] = [];
+let isLive = false;
+
+try {
+  const data = await getTournamentsList();
+  if (data && data.length > 0) {
+    tournaments = data;
+    isLive = true;
+  }
+} catch (e) {
+  console.warn('[tournaments] API error, using fallback demo data:', e);
+}
+
+// ── Fallback demo — gdy API niedostępne lub baza pusta ─────────────────────────
+if (tournaments.length === 0) {
+  tournaments = [
+    {
+      id: 1,
+      name: 'Puchar Jesieni 2026',
+      description: '',
+      tournament_type: 'SGL',
+      match_format: 'SNG',
+      start_date: '2026-10-28T09:00:00',
+      end_date:   '2026-10-29T18:00:00',
+      status: 'REG',
+      rank: 1,
+      participant_count: 16,
+      created_by_name: 'Admin',
+      facility_name: 'Korty Otwock',
+    },
+    {
+      id: 2,
+      name: 'Liga Zimowa — Runda 3',
+      description: '',
+      tournament_type: 'RND',
+      match_format: 'SNG',
+      start_date: '2026-11-15T10:00:00',
+      end_date:   '2026-11-15T20:00:00',
+      status: 'REG',
+      rank: 2,
+      participant_count: 9,
+      created_by_name: 'Admin',
+      facility_name: 'Hala Praga',
+    },
+    {
+      id: 3,
+      name: 'Americano Sobotni #8',
+      description: '',
+      tournament_type: 'AMR',
+      match_format: 'DBL',
+      start_date: '2026-11-05T10:00:00',
+      end_date:   '2026-11-05T16:00:00',
+      status: 'REG',
+      rank: 3,
+      participant_count: 6,
+      created_by_name: 'Admin',
+      facility_name: 'Korty Otwock',
+    },
+    {
+      id: 5,
+      name: 'Liga Letnia — Finał',
+      description: '',
+      tournament_type: 'RND',
+      match_format: 'SNG',
+      start_date: '2026-09-10T09:00:00',
+      end_date:   '2026-09-11T18:00:00',
+      status: 'FIN',
+      rank: 1,
+      participant_count: 12,
+      created_by_name: 'Admin',
+      facility_name: 'Korty Otwock',
+    },
+  ] as TournamentListEntry[];
+}
+
+// ── Stałe mapy ────────────────────────────────────────────────────────────────
+
+const STATUS_LABEL: Record<string, string> = {
+  DRF: 'Szkic',
+  REG: 'Otwarte zapisy',
+  SCH: 'Nadchodzący',
+  ACT: 'Trwa',
+  FIN: 'Zakończony',
+  CNC: 'Odwołany',
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  SGL: 'Single Elimination',
+  DBE: 'Podwójna Eliminacja',
+  RND: 'Round Robin',
+  LDR: 'Drabinka',
+  AMR: 'Americano',
+  SWS: 'System Szwajcarski',
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  SNG: 'Singiel',
+  DBL: 'Debel',
+};
+
+const statusBadge: Record<string, string> = {
+  DRF: 'tc-badge-neutral',
+  REG: 'tc-badge-success',
+  SCH: 'tc-badge-info',
+  ACT: 'tc-badge-warning',
+  FIN: 'tc-badge-neutral',
+  CNC: 'tc-badge-neutral',
+};
+
+const typeBadge: Record<string, string> = {
+  SGL: 'tc-badge-info',
+  RND: 'tc-badge-primary',
+  AMR: 'tc-badge-warning',
+  SWS: 'tc-badge-neutral',
+  DBE: 'tc-badge-neutral',
+  LDR: 'tc-badge-neutral',
+};
+
+const typeColor: Record<string, string> = {
+  SGL: '#3b82f6',
+  RND: '#22c55e',
+  AMR: '#f59e0b',
+  SWS: '#8b5cf6',
+  DBE: '#6b7280',
+  LDR: '#6b7280',
+};
+
+// ── Helper: format daty z ISO string ─────────────────────────────────────────
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleDateString('pl-PL', {
+      day: 'numeric', month: 'short', year: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
+
+// ── Segmentacja turniejów ─────────────────────────────────────────────────────
+// DRF (szkice) są wykluczone z publicznej listy — backend już je filtruje,
+// ale filtrujemy też lokalnie (ochrona przed demo data i edge cases).
+const registration = tournaments.filter(t => t.status === 'REG');
+const running      = tournaments.filter(t => t.status === 'ACT');
+const scheduled    = tournaments.filter(t => t.status === 'SCH');
+const finished     = tournaments.filter(t => t.status === 'FIN' || t.status === 'CNC');
+const publicTotal  = registration.length + running.length + scheduled.length + finished.length;
+---
+
+<AppLayout
+  title="Turnieje"
+  greeting="Turnieje"
+  showSearch={false}
+  showCta={true}
+  ctaLabel="+ Nowy turniej"
+  ctaHref={url('/tournaments/create')}
+>
+
+  <PageHeader
+    eyebrow="Rozgrywki"
+    title="Turnieje"
+    subtitle="Lista aktywnych i nadchodzących turniejów. Zarejestruj się lub śledź wyniki."
+  />
+
+  <!-- Stats row -->
+  <div class="t-stats-row">
+    <div class="t-stat">
+      <span class="t-stat__val">{running.length}</span>
+      <span class="t-stat__lbl">Trwa</span>
+    </div>
+    <div class="t-stat">
+      <span class="t-stat__val">{registration.length}</span>
+      <span class="t-stat__lbl">Otwarte zapisy</span>
+    </div>
+    <div class="t-stat">
+      <span class="t-stat__val">{scheduled.length}</span>
+      <span class="t-stat__lbl">Nadchodzące</span>
+    </div>
+    <div class="t-stat">
+      <span class="t-stat__val">{finished.length}</span>
+      <span class="t-stat__lbl">Zakończone</span>
+    </div>
+  </div>
+
+  <!-- Trwa (ACT) -->
+  {running.length > 0 && (
+    <section aria-labelledby="running-heading">
+      <h2 class="section-label" id="running-heading">Trwa</h2>
+      <div class="t-grid">
+        {running.map(t => (
+          <article class="t-card" aria-label={t.name}>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}`} aria-hidden="true"></div>
+            <div class="t-card__body">
+              <div class="t-card__top">
+                <div class="t-card__badges">
+                  <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                    {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                  </span>
+                  <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </div>
+                {t.rank === 1 && (
+                  <span class="t-card__rank" title="Turniej rangi 1">★ Ranga {t.rank}</span>
+                )}
+              </div>
+              <h3 class="t-card__name">{t.name}</h3>
+              <div class="t-card__meta">
+                <div class="t-card__meta-item">
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                  </svg>
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
+                </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
+              </div>
+              {t.matches_progress && t.matches_progress.total > 0 ? (
+                <div class="t-card__match-progress">
+                  <div class="t-match-bar">
+                    <div
+                      class="t-match-bar__fill"
+                      style={`width:${Math.round(t.matches_progress.done / t.matches_progress.total * 100)}%`}
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <span class="t-match-bar__label">
+                    {t.matches_progress.done}/{t.matches_progress.total} meczów · {t.participant_count} uczestników
+                  </span>
+                </div>
+              ) : (
+                <div class="t-card__participants">
+                  <div class="t-part-bar">
+                    <div
+                      class="t-part-bar__fill"
+                      style={`width:${t.participant_count > 0 ? Math.min(Math.round(t.participant_count / 16 * 100), 100) : 0}%; background:${typeColor[t.tournament_type] ?? '#6b7280'}`}
+                      aria-hidden="true"
+                    ></div>
+                  </div>
+                  <span class="t-part-bar__label">{t.participant_count} uczestników</span>
+                </div>
+              )}
+            </div>
+            <div class="t-card__footer">
+              <span class="tc-badge tc-badge-warning">{STATUS_LABEL[t.status]}</span>
+              <a href={url(`/tournaments/${t.id}`)} class="tc-btn tc-btn-secondary tc-btn-sm">Wyniki →</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- Otwarte zapisy (REG) -->
+  {registration.length > 0 && (
+    <section aria-labelledby="reg-heading" style={running.length > 0 ? 'margin-top:28px;' : ''}>
+      <h2 class="section-label" id="reg-heading">Otwarte zapisy</h2>
+      <div class="t-grid">
+        {registration.map(t => (
+          <article class="t-card" aria-label={t.name}>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}`} aria-hidden="true"></div>
+            <div class="t-card__body">
+              <div class="t-card__top">
+                <div class="t-card__badges">
+                  <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                    {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                  </span>
+                  <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </div>
+                {t.rank === 1 && (
+                  <span class="t-card__rank" title="Turniej rangi 1">★ Ranga {t.rank}</span>
+                )}
+              </div>
+              <h3 class="t-card__name">{t.name}</h3>
+              <div class="t-card__meta">
+                <div class="t-card__meta-item">
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                  </svg>
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
+                </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
+              </div>
+              <div class="t-card__participants">
+                <div class="t-part-bar">
+                  <div
+                    class="t-part-bar__fill"
+                    style={`width:${t.participant_count > 0 ? Math.min(Math.round(t.participant_count / 16 * 100), 100) : 0}%; background:${typeColor[t.tournament_type] ?? '#6b7280'}`}
+                    aria-hidden="true"
+                  ></div>
+                </div>
+                <span class="t-part-bar__label">{t.participant_count} uczestników</span>
+              </div>
+            </div>
+            <div class="t-card__footer">
+              <span class="tc-badge tc-badge-success">{STATUS_LABEL[t.status]}</span>
+              <a href={url(`/tournaments/${t.id}`)} class="tc-btn tc-btn-secondary tc-btn-sm">Szczegóły</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- Nadchodzące (SCH) -->
+  {scheduled.length > 0 && (
+    <section aria-labelledby="scheduled-heading" style="margin-top:28px;">
+      <h2 class="section-label" id="scheduled-heading">Nadchodzące</h2>
+      <div class="t-grid">
+        {scheduled.map(t => (
+          <article class="t-card t-card--dim" aria-label={t.name}>
+            <div class="t-card__stripe" style={`background:${typeColor[t.tournament_type] ?? '#6b7280'}; opacity:0.5`} aria-hidden="true"></div>
+            <div class="t-card__body">
+              <div class="t-card__top">
+                <div class="t-card__badges">
+                  <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                    {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                  </span>
+                  <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
+                </div>
+              </div>
+              <h3 class="t-card__name">{t.name}</h3>
+              <div class="t-card__meta">
+                <div class="t-card__meta-item">
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                  </svg>
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
+                </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
+              </div>
+              <div class="t-card__participants">
+                <span class="t-part-bar__label">{t.participant_count} uczestników</span>
+              </div>
+            </div>
+            <div class="t-card__footer">
+              <span class="tc-badge tc-badge-info">{STATUS_LABEL[t.status]}</span>
+              <a href={url(`/tournaments/${t.id}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- Zakończone (FIN + CNC) -->
+  {finished.length > 0 && (
+    <section aria-labelledby="finished-heading" style="margin-top:28px;">
+      <h2 class="section-label" id="finished-heading">Zakończone</h2>
+      <div class="t-grid">
+        {finished.map(t => (
+          <article class="t-card t-card--dim" aria-label={t.name}>
+            <div class="t-card__stripe" style="background:var(--border);" aria-hidden="true"></div>
+            <div class="t-card__body">
+              <div class="t-card__top">
+                <span class={`tc-badge ${typeBadge[t.tournament_type] ?? 'tc-badge-neutral'}`}>
+                  {TYPE_LABEL[t.tournament_type] ?? t.tournament_type}
+                </span>
+              </div>
+              <h3 class="t-card__name">{t.name}</h3>
+              <div class="t-card__meta">
+                <div class="t-card__meta-item">
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                  </svg>
+                  {fmtDate(t.start_date)}{t.end_date && t.end_date !== t.start_date ? ` – ${fmtDate(t.end_date)}` : ''}
+                </div>
+                {t.facility_name && (
+                  <div class="t-card__meta-item">
+                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                    </svg>
+                    {t.facility_name}
+                  </div>
+                )}
+              </div>
+              <div class="t-card__winner">
+                {t.participant_count} uczestników
+              </div>
+            </div>
+            <div class="t-card__footer">
+              <span class="tc-badge tc-badge-neutral">{STATUS_LABEL[t.status]}</span>
+              <a href={url(`/tournaments/${t.id}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Wyniki →</a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <!-- Stan pusty — brak turniejów -->
+  {publicTotal === 0 && (
+    <div class="t-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4M12 16h.01"/>
+      </svg>
+      <p>Brak turniejów do wyświetlenia.</p>
+      <span>Sprawdź ponownie później lub skontaktuj się z administratorem.</span>
+    </div>
+  )}
+
+  <!-- Footer z informacją o źródle danych -->
+  <div class="t-footer-meta">
+    {isLive
+      ? `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      : 'Dane demonstracyjne — brak połączenia z bazą'
+    }
+  </div>
+
+</AppLayout>
+
+<style>
+  /* ── Stats row ─────────────────────────────────────────────────────────── */
+  .t-stats-row {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+
+  .t-stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 20px;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 120px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .t-stat__val {
+    font-size: 1.6rem; font-weight: 900; color: var(--text);
+    letter-spacing: -0.04em; line-height: 1;
+  }
+  .t-stat__lbl {
+    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  /* ── Section labels ────────────────────────────────────────────────────── */
+  .section-label {
+    font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    padding-left: 2px;
+  }
+
+  /* ── Tournament grid ───────────────────────────────────────────────────── */
+  .t-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  /* ── Tournament card ───────────────────────────────────────────────────── */
+  .t-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    display: flex; flex-direction: column;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+    transition: box-shadow 0.15s, transform 0.15s;
+  }
+  .t-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+
+  .t-card--dim { opacity: 0.8; }
+  .t-card--dim:hover { opacity: 1; }
+
+  .t-card__stripe { height: 3px; flex-shrink: 0; }
+
+  .t-card__body { padding: 18px 20px; flex: 1; }
+
+  .t-card__top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; gap: 8px; flex-wrap: wrap;
+  }
+
+  .t-card__badges { display: flex; gap: 5px; flex-wrap: wrap; }
+
+  .t-card__rank {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.72rem; font-weight: 600;
+    color: #f59e0b;
+    background: rgba(245,158,11,0.1);
+    padding: 2px 8px; border-radius: 99px;
+    white-space: nowrap;
+  }
+
+  .t-card__registered {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.72rem; font-weight: 600;
+    color: #22c55e;
+    background: rgba(34,197,94,0.1);
+    padding: 2px 8px; border-radius: 99px;
+    white-space: nowrap;
+  }
+
+  .t-card__name {
+    font-size: 1rem; font-weight: 700; color: var(--text);
+    margin-bottom: 10px; line-height: 1.3;
+  }
+
+  .t-card__meta {
+    display: flex; flex-direction: column; gap: 5px;
+    margin-bottom: 14px;
+  }
+
+  .t-card__meta-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--text-muted);
+  }
+  .t-card__meta-item svg { flex-shrink: 0; color: var(--text-dim); }
+
+  /* Participants progress bar */
+  .t-card__participants { display: flex; flex-direction: column; gap: 5px; }
+
+  .t-part-bar {
+    height: 5px; border-radius: 99px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .t-part-bar__fill {
+    height: 100%; border-radius: 99px;
+    transition: width 0.3s;
+  }
+  .t-part-bar__label {
+    font-size: 0.75rem; color: var(--text-muted);
+  }
+
+  /* ── Match progress bar (ACT cards) ────────────────────────────── */
+  .t-card__match-progress { display: flex; flex-direction: column; gap: 5px; }
+  .t-match-bar {
+    height: 5px; border-radius: 99px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .t-match-bar__fill {
+    height: 100%; border-radius: 99px;
+    background: var(--primary);
+    transition: width 0.3s;
+  }
+  .t-match-bar__label {
+    font-size: 0.75rem; color: var(--text-muted);
+  }
+
+  .t-card__footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .t-card__winner {
+    margin-top: 8px;
+    font-size: 0.82rem; color: var(--text-muted);
+  }
+  .t-card__winner strong { color: var(--text); }
+
+  /* ── Stan pusty ─────────────────────────────────────────────────────────── */
+  .t-empty {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 12px; padding: 64px 24px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+  .t-empty svg { color: var(--text-dim); }
+  .t-empty p { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
+  .t-empty span { font-size: 0.85rem; }
+
+  /* ── Footer meta ────────────────────────────────────────────────────────── */
+  .t-footer-meta {
+    margin-top: 24px;
+    font-size: 0.78rem; color: var(--text-dim);
+    text-align: right;
+  }
+
+  /* ── Responsive ────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .t-grid { grid-template-columns: 1fr; }
+    .t-stats-row { gap: 10px; }
+    .t-stat { padding: 12px 16px; min-width: 90px; }
+  }
+</style>

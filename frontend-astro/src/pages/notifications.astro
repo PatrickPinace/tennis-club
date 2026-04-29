@@ -1,0 +1,341 @@
+---
+// notifications.astro — strona z listą powiadomień użytkownika
+// Prywatna strona: wymagane zalogowanie (middleware + SSR guard)
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import { getAllNotifications, getCurrentUser, type Notification } from '@/lib/api';
+import { url } from '@/lib/url';
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+
+const [currentUser, notifications] = await Promise.all([
+  getCurrentUser(sessionCookie),
+  getAllNotifications(sessionCookie),
+]);
+
+if (!currentUser) {
+  return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/notifications')));
+}
+
+function fmtTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'przed chwilą';
+    if (diffMin < 60) return `${diffMin} min temu`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH} godz. temu`;
+    const diffD = Math.floor(diffH / 24);
+    if (diffD < 7) return `${diffD} dni temu`;
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
+const unreadCount = notifications.filter(n => !n.is_read).length;
+---
+
+<AppLayout title="Powiadomienia" currentUser={currentUser}>
+  <PageHeader
+    title="Powiadomienia"
+    subtitle={unreadCount > 0
+      ? `Masz ${unreadCount} nieprzeczytane${unreadCount === 1 ? '' : unreadCount < 5 ? '' : 'ch'} powiadomień`
+      : 'Wszystkie powiadomienia przeczytane'}
+  />
+
+  <div class="notif-wrap">
+
+    {notifications.length === 0 ? (
+      <div class="notif-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-dim);margin-bottom:12px;">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+        </svg>
+        <p class="notif-empty__title">Brak powiadomień</p>
+        <p class="notif-empty__sub">Gdy coś się wydarzy, pojawi się tutaj.</p>
+      </div>
+    ) : (
+      <div class="tc-card notif-card">
+        <div class="notif-toolbar">
+          <span class="notif-toolbar__count">
+            {notifications.length} powiadomień{unreadCount > 0 ? `, ${unreadCount} nieprzeczytanych` : ''}
+          </span>
+          {unreadCount > 0 && (
+            <button id="read-all-btn" class="notif-read-all-btn" type="button">
+              Oznacz wszystkie jako przeczytane
+            </button>
+          )}
+        </div>
+
+        <ul class="notif-list" id="notif-list">
+          {notifications.map((n: Notification) => (
+            <li
+              class={`notif-item${n.is_read ? '' : ' notif-item--unread'}`}
+              data-id={n.id}
+              data-read={n.is_read ? 'true' : 'false'}
+            >
+              <div class="notif-item__dot" aria-hidden="true"></div>
+              <div class="notif-item__body">
+                <p class="notif-item__msg">{n.message}</p>
+                <time class="notif-item__time" datetime={n.created_at}>
+                  {fmtTime(n.created_at)}
+                </time>
+              </div>
+              {!n.is_read && (
+                <button
+                  class="notif-item__mark-btn"
+                  type="button"
+                  data-mark-id={n.id}
+                  title="Oznacz jako przeczytane"
+                  aria-label="Oznacz jako przeczytane"
+                >
+                  ✓
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+  </div>
+</AppLayout>
+
+<script>
+  const API = (window as any)._API ?? '';
+
+  async function getCsrf(): Promise<string> {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    if (m) return m[1];
+    try {
+      const r = await fetch(`${API}/api/auth/me/`, { credentials: 'include' });
+      const m2 = document.cookie.match(/csrftoken=([^;]+)/);
+      return m2 ? m2[1] : '';
+    } catch { return ''; }
+  }
+
+  // Oznacz pojedyncze powiadomienie jako przeczytane
+  async function markRead(id: number, li: HTMLElement) {
+    const csrf = await getCsrf();
+    try {
+      const r = await fetch(`${API}/api/notifications/${id}/read/`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) return;
+
+      li.classList.remove('notif-item--unread');
+      li.dataset.read = 'true';
+
+      // Ukryj przycisk ✓
+      const btn = li.querySelector('.notif-item__mark-btn');
+      if (btn) btn.remove();
+
+      updateUnreadBadge();
+    } catch (e) {
+      console.error('[notif] markRead error', e);
+    }
+  }
+
+  // Oznacz wszystkie jako przeczytane
+  async function readAll() {
+    const csrf = await getCsrf();
+    try {
+      const r = await fetch(`${API}/api/notifications/read-all/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+      });
+      if (!r.ok) return;
+
+      // Zaktualizuj UI
+      document.querySelectorAll('.notif-item--unread').forEach(el => {
+        el.classList.remove('notif-item--unread');
+        (el as HTMLElement).dataset.read = 'true';
+        el.querySelector('.notif-item__mark-btn')?.remove();
+      });
+
+      const btn = document.getElementById('read-all-btn');
+      if (btn) btn.remove();
+
+      updateUnreadBadge();
+    } catch (e) {
+      console.error('[notif] readAll error', e);
+    }
+  }
+
+  function updateUnreadBadge() {
+    const remaining = document.querySelectorAll('.notif-item--unread').length;
+
+    // Aktualizuj badge w topbarze jeśli istnieje
+    const badge = document.getElementById('notif-count');
+    if (badge) {
+      if (remaining > 0) {
+        badge.textContent = String(remaining > 99 ? '99+' : remaining);
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Aktualizuj subtitle na stronie
+    const subtitle = document.querySelector('.page-header__subtitle');
+    if (subtitle) {
+      subtitle.textContent = remaining > 0
+        ? `Masz ${remaining} nieprzeczytanych powiadomień`
+        : 'Wszystkie powiadomienia przeczytane';
+    }
+
+    // Usuń przycisk read-all jeśli już nie ma unread
+    if (remaining === 0) {
+      document.getElementById('read-all-btn')?.remove();
+    }
+  }
+
+  // Event listeners
+  document.getElementById('read-all-btn')?.addEventListener('click', readAll);
+
+  document.getElementById('notif-list')?.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest('[data-mark-id]');
+    if (!btn) return;
+    const id = Number((btn as HTMLElement).dataset.markId);
+    const li = (btn as HTMLElement).closest('.notif-item') as HTMLElement;
+    if (id && li) markRead(id, li);
+  });
+</script>
+
+<style>
+  .notif-wrap {
+    padding: 0 var(--page-px, 28px) 40px;
+  }
+
+  /* Empty state */
+  .notif-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 64px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+  .notif-empty__title {
+    font-size: 1rem; font-weight: 700; color: var(--text);
+    margin: 0 0 8px;
+  }
+  .notif-empty__sub {
+    font-size: 0.85rem; color: var(--text-muted);
+    max-width: 320px; line-height: 1.5; margin: 0;
+  }
+
+  /* Card */
+  .notif-card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Toolbar */
+  .notif-toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .notif-toolbar__count {
+    font-size: 0.82rem; color: var(--text-muted);
+  }
+  .notif-read-all-btn {
+    padding: 5px 14px; height: 30px;
+    font-size: 0.78rem; font-weight: 600;
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .notif-read-all-btn:hover {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  /* List */
+  .notif-list {
+    list-style: none;
+    margin: 0; padding: 0;
+  }
+
+  .notif-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    position: relative;
+  }
+  .notif-item:last-child { border-bottom: none; }
+  .notif-item:hover { background: var(--surface-hover); }
+
+  /* Unread indicator dot */
+  .notif-item__dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+    background: transparent;
+  }
+  .notif-item--unread {
+    background: color-mix(in srgb, var(--primary) 4%, transparent);
+    border-left: 3px solid var(--primary);
+    padding-left: 17px;
+  }
+  .notif-item--unread .notif-item__dot {
+    background: var(--primary);
+  }
+
+  .notif-item__body {
+    flex: 1; min-width: 0;
+  }
+  .notif-item__msg {
+    margin: 0 0 4px;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .notif-item--unread .notif-item__msg {
+    font-weight: 600;
+  }
+  .notif-item__time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* Mark read button */
+  .notif-item__mark-btn {
+    flex-shrink: 0;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.12s, color 0.12s, background 0.12s;
+  }
+  .notif-item__mark-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+
+  @media (max-width: 480px) {
+    .notif-item { padding: 12px 16px; }
+    .notif-item--unread { padding-left: 13px; }
+  }
+</style>

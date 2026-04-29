@@ -1,0 +1,50 @@
+{% extends 'layouts/base_auth.html' %}
+
+{% block title %}Logowanie{% endblock %}
+
+{% block content %}
+<div style="width:100%; max-width:400px;">
+  <div style="text-align:center; margin-bottom:var(--space-6);">
+    <a href="/" style="text-decoration:none; color:var(--primary); font-size:1.5rem; font-weight:800; letter-spacing:-.02em;">🎾 Tennis Club</a>
+  </div>
+
+  <div class="card">
+    <div class="card-header" style="text-align:center;">
+      <span class="card-title">Logowanie</span>
+    </div>
+    <div class="card-body">
+      <form method="post" id="login-form">
+        {% csrf_token %}
+        <div class="tc-field" style="margin-bottom:var(--space-4);">
+          <label class="tc-label" for="login">Login lub e-mail</label>
+          <input type="text" class="tc-input" id="login" name="login" required value="{{ login_name_value|default_if_none:'' }}">
+        </div>
+        <div class="tc-field" style="margin-bottom:var(--space-5);">
+          <label class="tc-label" for="password">Hasło</label>
+          <input type="password" class="tc-input" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;" id="login-button">Zaloguj się</button>
+      </form>
+      <div style="margin-top:var(--space-4); text-align:center; font-size:.875rem; color:var(--text-muted);">
+        <a href="{% url 'register' %}" style="color:var(--primary);">Nie masz konta? Zarejestruj się</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('login-form').addEventListener('submit', function(e) {
+    const button = document.getElementById('login-button');
+    button.disabled = true;
+    button.textContent = 'Logowanie…';
+    setTimeout(function() {
+        if (button.disabled) {
+            button.disabled = false;
+            button.textContent = 'Zaloguj się';
+        }
+    }, 10000);
+});
+</script>
+{% endblock %}

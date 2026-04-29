@@ -1,0 +1,152 @@
+{% extends 'layouts/base_app.html' %}
+{% load matches %}
+{% load widget_tweaks %}
+
+{% block title %}Edytuj mecz{% endblock %}
+{% block topbar_title %}Mecze{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Edytuj mecz</h1>
+    <p class="page-header__subtitle">Zmień wynik lub dane meczu.</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{% url 'matches:matches_results' %}" class="btn btn-secondary">← Powrót</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-body">
+      <form method="post" id="form_add_match" onsubmit="return validateForm()">
+        {% csrf_token %}
+
+        <!-- Data i tryb gry -->
+        <div style="display:flex; gap:var(--space-4); align-items:center; flex-wrap:wrap; margin-bottom:var(--space-6);">
+          <div>
+            <label style="display:block; font-size:.75rem; font-weight:600; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:.05em;">Data meczu</label>
+            {{ form.match_date|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;" }}
+          </div>
+          <div style="display:flex; align-items:center; gap:var(--space-2); padding-top:20px;">
+            {{ form.match_double|attr:"id:match_double"|attr:"style:width:18px;height:18px;accent-color:var(--primary);cursor:pointer;" }}
+            {% if match.match_double %}
+              <input type="hidden" name="match_double" value="True">
+            {% endif %}
+            <label for="match_double" style="font-size:.875rem; font-weight:600; cursor:pointer;">Debel</label>
+          </div>
+        </div>
+
+        <!-- Gracze i wyniki -->
+        <div style="display:flex; flex-direction:column; gap:var(--space-4); align-items:center;">
+
+          <!-- Drużyna 1 -->
+          <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; justify-content:center;">
+            <div>
+              {% with field=form.p1 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+            <span id="doubles-separator-p3" style="font-size:1.2rem; color:var(--text-dim); {% if not match.match_double %}display:none;{% endif %}">/</span>
+            <div id="player-p3-col" style="{% if not match.match_double %}display:none;{% endif %}">
+              {% with field=form.p3 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+          </div>
+
+          <!-- Siatka wyników -->
+          <div style="display:grid; grid-template-columns: repeat(3, 80px); gap:var(--space-3); text-align:center;">
+            <div style="font-size:.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 1</div>
+            <div style="font-size:.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 2</div>
+            <div style="font-size:.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em;">Set 3</div>
+
+            {{ form.p1_set1|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p1_set2|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p1_set3|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+
+            <div style="color:var(--text-dim); font-weight:700; display:flex; align-items:center; justify-content:center;">—</div>
+            <div style="color:var(--text-dim); font-weight:700; display:flex; align-items:center; justify-content:center;">—</div>
+            <div style="color:var(--text-dim); font-weight:700; display:flex; align-items:center; justify-content:center;">—</div>
+
+            {{ form.p2_set1|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p2_set2|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+            {{ form.p2_set3|attr:"class:form-control-score"|attr:"style:width:100%;text-align:center;background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px;font-size:1.2rem;font-weight:700;" }}
+          </div>
+
+          <!-- Drużyna 2 -->
+          <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap; justify-content:center;">
+            <div>
+              {% with field=form.p2 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+            <span id="doubles-separator-p4" style="font-size:1.2rem; color:var(--text-dim); {% if not match.match_double %}display:none;{% endif %}">/</span>
+            <div id="player-p4-col" style="{% if not match.match_double %}display:none;{% endif %}">
+              {% with field=form.p4 %}
+                {{ field|attr:"style:background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-sm);padding:8px 12px;font-size:.875rem;min-width:160px;" }}
+                {% if field.field.widget.attrs.disabled %}<input type="hidden" name="{{ field.name }}" value="{{ field.value }}">{% endif %}
+              {% endwith %}
+            </div>
+          </div>
+
+        </div>
+
+        <div style="margin-top:var(--space-8); display:flex; gap:var(--space-3); justify-content:center;">
+          <button type="submit" class="btn btn-primary" style="min-width:140px;">Zapisz zmiany</button>
+          <a href="{% url 'matches:matches_results' %}" class="btn btn-secondary">Anuluj</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const matchDouble = document.getElementById("match_double");
+    const p3col = document.getElementById("player-p3-col");
+    const p4col = document.getElementById("player-p4-col");
+    const sep3 = document.getElementById("doubles-separator-p3");
+    const sep4 = document.getElementById("doubles-separator-p4");
+
+    function toggle() {
+      const on = matchDouble?.checked;
+      [p3col, p4col, sep3, sep4].forEach(el => { if(el) el.style.display = on ? '' : 'none'; });
+    }
+
+    matchDouble?.addEventListener('change', toggle);
+  });
+
+  function validateForm() {
+    const p1 = document.querySelector('input[name="p1"]') || document.querySelector('select[name="p1"]');
+    const p2 = document.querySelector('select[name="p2"]');
+    if (!p1?.value || !p2?.value) { alert("Proszę wybrać graczy."); return false; }
+
+    const matchDouble = document.getElementById("match_double");
+    let players = [p1.value, p2.value];
+    if (matchDouble?.checked) {
+      const p3 = document.querySelector('select[name="p3"]');
+      const p4 = document.querySelector('select[name="p4"]');
+      if (!p3?.value || !p4?.value) { alert("Proszę wybrać graczy debla."); return false; }
+      players.push(p3.value, p4.value);
+    }
+
+    if (new Set(players).size !== players.length) { alert("Gracze muszą być unikalni."); return false; }
+
+    const scores = document.getElementsByClassName('form-control-score');
+    let filled = 0;
+    for (let s of scores) {
+      if (s.value !== '' && s.value !== '0') filled++;
+      else if (s.value === '') s.value = 0;
+    }
+    if (filled === 0) { alert("Wpisz wyniki przynajmniej 1 seta."); return false; }
+    return true;
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,373 @@
+{% extends 'layouts/base_app.html' %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}Relacja na żywo{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">Relacja na żywo</h1>
+    <p class="page-header__subtitle">{{ tournament.name }}</p>
+  </div>
+  <div class="page-header__actions">
+    <a href="{{ next_url }}" class="btn btn-secondary">Powrót</a>
+    {% if match.status != 'CMP' and match.status != 'WDR' and match.status != 'CNC' and tournament.tournament_type != 'AMR' %}
+    <a href="{% url 'tournaments:edit_match' pk=match.tournament.pk match_pk=match.pk %}?next={{ request.path|urlencode }}" class="btn btn-danger">Zaktualizuj wynik</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/chat.css' %}" type="text/css">
+<style>
+.score-board {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-6);
+    font-family: 'Courier New', Courier, monospace;
+}
+.score-board .player-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    word-break: break-word;
+}
+.score-board .set-score {
+    font-size: 2rem;
+    font-weight: 700;
+    min-width: 48px;
+    text-align: center;
+}
+.score-board .set-header {
+    font-size: .75rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.live-indicator {
+    color: #e74c3c;
+    font-weight: 700;
+    animation: blink 1.5s linear infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.match-chat-messages {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 380px;
+    max-height: 450px;
+    padding: var(--space-4);
+    background: var(--surface);
+}
+.history-log {
+    height: 400px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto;">
+
+  <!-- Tablica wyników -->
+  <div class="score-board" style="margin-bottom:var(--space-5);">
+    <div style="display:flex; justify-content:center; align-items:center; gap:var(--space-3); margin-bottom:var(--space-4);">
+      {% if match.status == 'INP' %}<span class="live-indicator">● LIVE</span>{% endif %}
+      <h4 style="margin:0; font-size:1rem; font-weight:700;">Aktualny Wynik</h4>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr auto; gap:var(--space-4); align-items:center;">
+      <!-- Gracz 1 -->
+      <div class="player-name">
+        {% if tournament.match_format == 'DBL' and match.participant1 and match.participant2 %}
+          {{ match.participant1.user|short_name }} / {{ match.participant2.user|short_name }}
+        {% else %}
+          {{ match.participant1.display_name|default:"Gracz 1" }}
+        {% endif %}
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-4); text-align:center;">
+        <div>
+          <div class="set-header">SET 1</div>
+          <div class="set-score">{{ match.set1_p1_score|default:"0" }}</div>
+        </div>
+        <div>
+          <div class="set-header">SET 2</div>
+          <div class="set-score">{{ match.set2_p1_score|default:"0" }}</div>
+        </div>
+        <div>
+          <div class="set-header">SET 3</div>
+          <div class="set-score">{{ match.set3_p1_score|default:"0" }}</div>
+        </div>
+      </div>
+
+      <!-- Gracz 2 -->
+      <div class="player-name">
+        {% if tournament.match_format == 'DBL' and match.participant3 and match.participant4 %}
+          {{ match.participant3.user|short_name }} / {{ match.participant4.user|short_name }}
+        {% elif tournament.match_format != 'DBL' %}
+          {{ match.participant2.display_name|default:"Gracz 2" }}
+        {% else %}
+          TBA
+        {% endif %}
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:var(--space-4); text-align:center;">
+        <div>
+          <div class="set-header" style="visibility:hidden;">SET 1</div>
+          <div class="set-score">{{ match.set1_p2_score|default:"0" }}</div>
+        </div>
+        <div>
+          <div class="set-header" style="visibility:hidden;">SET 2</div>
+          <div class="set-score">{{ match.set2_p2_score|default:"0" }}</div>
+        </div>
+        <div>
+          <div class="set-header" style="visibility:hidden;">SET 3</div>
+          <div class="set-score">{{ match.set3_p2_score|default:"0" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Czat i Historia -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5);">
+
+    <!-- Czat meczowy -->
+    <div class="card" style="display:flex; flex-direction:column;">
+      <div class="card-header"><span class="card-title">Czat meczowy</span></div>
+      <div class="card-body" style="padding:0; display:flex; flex-direction:column; flex:1;">
+        <div class="match-chat-messages" id="chat-messages">
+          {% if not chat_messages %}
+            <p style="color:var(--text-muted); text-align:center; margin-top:var(--space-4); font-size:.875rem;">Rozpocznij dyskusję!</p>
+          {% endif %}
+          {% for message in chat_messages %}
+            <div id="message-{{ message.id }}" class="message {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+              <div class="message-bubble">
+                {% if message.sender != request.user %}
+                  <div class="message-sender"><strong>{{ message.sender.get_full_name|default:message.sender.username }}</strong></div>
+                {% endif %}
+                {% if message.content %}
+                  <div class="message-content">{{ message.content|linebreaksbr }}</div>
+                {% endif %}
+                <div class="message-images">
+                  {% for image in message.images.all %}
+                  <a href="{{ image.image.url }}" target="_blank">
+                    <img src="{{ image.image.url }}" alt="Zdjęcie w wiadomości" class="img-thumbnail">
+                  </a>
+                  {% endfor %}
+                </div>
+                <div class="message-meta" data-timestamp="{{ message.timestamp.isoformat }}">
+                  {{ message.timestamp|date:"d M Y, H:i" }}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="chat-form">
+          {% if user.is_authenticated %}
+            <form id="match-chat-form" method="post" enctype="multipart/form-data">
+              {% csrf_token %}
+              <div id="image-preview-container" style="margin-bottom:var(--space-2);"></div>
+              <div style="display:flex; gap:var(--space-2);">
+                <div style="flex:1;">{{ form.content }}</div>
+                <div style="display:flex; align-items:center; gap:var(--space-2);">
+                  <label for="id_images" class="btn btn-secondary" style="cursor:pointer;">📎</label>
+                  {{ form.images }}
+                  <button type="submit" class="btn btn-primary">➤</button>
+                </div>
+              </div>
+              <div id="form-errors" style="display:none; background:var(--danger-subtle); border:1px solid var(--danger); border-radius:var(--radius-sm); padding:var(--space-2); margin-top:var(--space-2); font-size:.875rem; color:var(--danger);"></div>
+            </form>
+          {% else %}
+            <p style="text-align:center; color:var(--text-muted); font-size:.875rem; padding:var(--space-3);">
+              <a href="{% url 'login' %}?next={{ request.path }}">Zaloguj się</a>, aby dołączyć do dyskusji.
+            </p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Historia wyniku -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Historia wyniku</span></div>
+      <div class="card-body">
+        <div class="history-log">
+          {% if not score_history %}
+            <p style="color:var(--text-muted); text-align:center; font-size:.875rem;">Brak historii zmian wyniku.</p>
+          {% endif %}
+          {% for entry in score_history %}
+          {% if entry.set1_p1_score is not None or entry.set2_p1_score is not None or entry.set3_p1_score is not None %}
+          <div style="padding:var(--space-3) 0; border-bottom:1px solid var(--border); font-size:.875rem;">
+            <div style="color:var(--text-muted); margin-bottom:var(--space-1);">
+              {% if entry.is_recent %}{{ entry.updated_at|timesince }} temu
+              {% else %}{{ entry.updated_at|date:"d M Y, H:i" }}{% endif %}
+            </div>
+            <div>
+              {% if entry.set1_p1_score is not None %}<div><strong>Set 1:</strong> {{ entry.set1_p1_score }}-{{ entry.set1_p2_score }}</div>{% endif %}
+              {% if entry.set2_p1_score is not None %}<div><strong>Set 2:</strong> {{ entry.set2_p1_score }}-{{ entry.set2_p2_score }}</div>{% endif %}
+              {% if entry.set3_p1_score is not None %}<div><strong>Set 3:</strong> {{ entry.set3_p1_score }}-{{ entry.set3_p2_score }}</div>{% endif %}
+            </div>
+            <div style="color:var(--text-muted); font-size:.8rem; margin-top:var(--space-1);">
+              Zaktualizowano przez: {{ entry.updated_by.get_full_name|default:entry.updated_by.username }}
+            </div>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const matchId = {{ match.pk }};
+    const chatMessages = document.getElementById('chat-messages');
+    if (chatMessages) {
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    const imageInput = document.getElementById('id_images');
+    if (imageInput) {
+        const previewContainer = document.getElementById('image-preview-container');
+        imageInput.style.display = 'none';
+        const dataTransfer = new DataTransfer();
+
+        function updateFileInput() { imageInput.files = dataTransfer.files; }
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                dataTransfer.items.add(file);
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const previewWrapper = document.createElement('div');
+                    previewWrapper.className = 'image-preview-wrapper';
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    previewWrapper.appendChild(img);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn-close';
+                    removeBtn.onclick = function() {
+                        previewWrapper.remove();
+                        const newFiles = new DataTransfer();
+                        Array.from(dataTransfer.files).forEach(f => {
+                            if (f !== file) newFiles.items.add(f);
+                        });
+                        dataTransfer.items.clear();
+                        Array.from(newFiles.files).forEach(f => dataTransfer.items.add(f));
+                        updateFileInput();
+                    };
+                    previewWrapper.appendChild(removeBtn);
+                    previewContainer.appendChild(previewWrapper);
+                };
+                reader.readAsDataURL(file);
+            });
+            updateFileInput();
+        }
+        imageInput.addEventListener('change', () => handleFiles(imageInput.files));
+    }
+
+    function formatTimestamp(isoString) {
+        const date = new Date(isoString);
+        const options = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+        return date.toLocaleDateString('pl-PL', options).replace(',', '');
+    }
+
+    function createMessageElement(msg) {
+        const messageClass = msg.is_sent_by_user ? 'sent' : 'received';
+        let imagesHTML = '';
+        msg.images.forEach(img => {
+            imagesHTML += `<a href="${img.url}" target="_blank"><img src="${img.url}" alt="Zdjęcie w wiadomości" class="img-thumbnail"></a>`;
+        });
+        let senderHTML = '';
+        if (!msg.is_sent_by_user) {
+            senderHTML = `<div class="message-sender"><strong>${msg.sender_name}</strong></div>`;
+        }
+        return `
+            <div id="message-${msg.id}" class="message ${messageClass}">
+                <div class="message-bubble">
+                    ${senderHTML}
+                    ${msg.content ? `<div class="message-content">${msg.content.replace(/\n/g, '<br>')}</div>` : ''}
+                    <div class="message-images">${imagesHTML}</div>
+                    <div class="message-meta" data-timestamp="${msg.timestamp}">${formatTimestamp(msg.timestamp)}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    async function fetchNewMessages() {
+        const lastMessageMeta = chatMessages.querySelector('.message-meta:last-of-type');
+        let lastTimestamp = new Date(0).toISOString();
+        if (lastMessageMeta) { lastTimestamp = lastMessageMeta.dataset.timestamp; }
+
+        const url = `/chat/api/match-check-new/${matchId}/?last_timestamp=${lastTimestamp}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return;
+            const data = await response.json();
+            if (data.messages && data.messages.length > 0) {
+                const isScrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + 5;
+                data.messages.forEach(msg => {
+                    if (!document.getElementById(`message-${msg.id}`)) {
+                        chatMessages.insertAdjacentHTML('beforeend', createMessageElement(msg));
+                    }
+                });
+                if (isScrolledToBottom) { chatMessages.scrollTop = chatMessages.scrollHeight; }
+            }
+        } catch (error) { console.error("Błąd podczas sprawdzania nowych wiadomości:", error); }
+    }
+
+    setInterval(fetchNewMessages, 3000);
+
+    const chatForm = document.getElementById('match-chat-form');
+    if (chatForm) {
+        const formErrorsContainer = document.getElementById('form-errors');
+        chatForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(chatForm);
+            const submitButton = chatForm.querySelector('button[type="submit"]');
+            const originalContent = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '…';
+            formErrorsContainer.style.display = 'none';
+            formErrorsContainer.innerHTML = '';
+            try {
+                const response = await fetch(chatForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                    },
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    chatMessages.insertAdjacentHTML('beforeend', createMessageElement(data.message));
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                    chatForm.reset();
+                    document.getElementById('image-preview-container').innerHTML = '';
+                    document.getElementById('id_images').files = new DataTransfer().files;
+                } else {
+                    let errorHtml = '<ul>';
+                    for (const field in data.errors) {
+                        data.errors[field].forEach(error => { errorHtml += `<li>${error}</li>`; });
+                    }
+                    errorHtml += '</ul>';
+                    formErrorsContainer.innerHTML = errorHtml;
+                    formErrorsContainer.style.display = 'block';
+                }
+            } catch (error) { console.error("Błąd podczas wysyłania wiadomości:", error); }
+            finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalContent;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

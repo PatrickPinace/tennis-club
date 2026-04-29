@@ -1,0 +1,166 @@
+{% extends 'layouts/base_app.html' %}
+{% load tournaments %}
+{% load static %}
+
+{% block title %}{{ tournament.name }}{% endblock %}
+{% block topbar_title %}Turnieje{% endblock %}
+
+{% block page_header %}
+<div class="page-header">
+  <div>
+    <h1 class="page-header__title">{{ tournament.name }}</h1>
+    <div style="display:flex; gap:var(--space-2); align-items:center; margin-top:var(--space-2);">
+      <span class="badge badge-primary">{{ tournament.get_tournament_type_display }}</span>
+      {% if tournament.status == 'ACT' %}<span class="badge badge-success">{{ tournament.get_status_display }}</span>
+      {% elif tournament.status == 'FIN' %}<span class="badge badge-neutral">{{ tournament.get_status_display }}</span>
+      {% else %}<span class="badge badge-warning">{{ tournament.get_status_display }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="page-header__actions">
+    <button onclick="history.back()" class="btn btn-secondary">← Powrót</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 960px; margin: 0 auto;">
+
+  {% if tournament.description %}
+  <p style="font-size:.875rem; color:var(--text-muted); margin-bottom:var(--space-5);">{{ tournament.description }}</p>
+  {% endif %}
+
+  {% include "tournaments/partials/tournament_winner.html" %}
+
+  <!-- Zasady -->
+  {% if tournament.ladder_config %}
+  <div class="card" style="margin-bottom:var(--space-5);">
+    <div class="card-header" style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+      <span class="card-title">Zasady turnieju</span>
+      <span style="color:var(--text-muted); font-size:.8rem;">▾ rozwiń</span>
+    </div>
+    <div style="display:none;">
+      <div class="card-body" style="font-size:.875rem; color:var(--text-muted); line-height:1.7;">
+        <p><strong>Zasięg wyzwania:</strong> {{ tournament.ladder_config.challenge_range }} pozycje w górę</p>
+        <p><strong>Format meczu:</strong> Do {{ tournament.ladder_config.sets_to_win }} wygranych setów, do {{ tournament.ladder_config.games_per_set }} gemów</p>
+        <p><strong>Zasada przejęcia miejsca:</strong> Zwycięzca przejmuje pozycję przegranego.</p>
+        {% if tournament.start_date %}<p><strong>Rozpoczęcie:</strong> {{ tournament.start_date|date:"d.m.Y" }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Ranking + mecze -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-5); align-items:start;">
+
+    <!-- Ranking -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Ranking graczy</span></div>
+      <div class="card-body" style="padding:0;">
+        {% if participants %}
+        {% for p in participants %}
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border);">
+          <div style="display:flex; align-items:center; gap:var(--space-3);">
+            <span class="rank-pos">{{ p.seed_number }}</span>
+            <div>
+              <span style="font-weight:600; font-size:.875rem;">{{ p.display_name }}</span>
+              {% if p.user == request.user %}<span class="badge badge-primary" style="margin-left:4px;">Ty</span>{% endif %}
+              {% if p.is_being_challenged %}<span class="badge badge-warning" style="margin-left:4px;">Wyzwany</span>{% endif %}
+            </div>
+          </div>
+          {% if can_challenge and user_participant and p in challengeable_participants %}
+          <form method="post" action="{% url 'tournaments:create_challenge' tournament.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="challenger_id" value="{{ user_participant.id }}">
+            <input type="hidden" name="challenged_id" value="{{ p.id }}">
+            <button type="submit" class="btn btn-primary btn-sm"
+              {% if p.is_in_active_match or p.has_recent_match or p.has_rejected_us %}disabled{% endif %}>Wyzwij</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-8);">
+          <p class="empty-state__text">Brak uczestników.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Mecze -->
+    <div class="card">
+      <div class="card-header"><span class="card-title">Mecze</span></div>
+      <div class="card-body" style="padding:0;">
+        {% if matches %}
+        {% for match in matches %}
+        <div style="padding:var(--space-4); border-bottom:1px solid var(--border);">
+          <div style="margin-bottom:var(--space-2);">
+            {% if match.status == 'WAI' %}<span class="badge badge-neutral">{{ match.get_status_display }}</span>
+            {% elif match.status == 'SCH' %}<span class="badge badge-info">{{ match.get_status_display }}</span>
+            {% elif match.status == 'INP' %}<span class="badge badge-warning">{{ match.get_status_display }}</span>
+            {% elif match.status == 'CMP' %}<span class="badge badge-success">{{ match.get_status_display }}</span>
+            {% else %}<span class="badge badge-neutral">{{ match.get_status_display }}</span>{% endif %}
+          </div>
+          <div style="text-align:center; font-size:.875rem; margin-bottom:var(--space-3);">
+            <span style="font-weight:700;">{{ match.participant1.display_name|default:"TBA" }}</span>
+            <span style="color:var(--text-muted); margin:0 var(--space-2);">vs</span>
+            <span style="font-weight:700;">{{ match.participant2.display_name|default:"TBA" }}</span>
+          </div>
+          {% if match.status == 'CMP' and match.winner %}
+          <div style="font-size:.8rem; color:var(--text-muted); text-align:center; margin-bottom:var(--space-2);">
+            Zwycięzca: <strong style="color:var(--success);">{{ match.winner.display_name }}</strong>
+            {% if match.set1_p1_score is not None %} · {{ match.set1_p1_score }}:{{ match.set1_p2_score }}{% endif %}
+            {% if match.set2_p1_score is not None %} {{ match.set2_p1_score }}:{{ match.set2_p2_score }}{% endif %}
+          </div>
+          {% elif match.scheduled_time %}
+          <div style="font-size:.8rem; color:var(--text-muted); text-align:center;">{{ match.scheduled_time|date:"d.m.Y H:i" }}</div>
+          {% endif %}
+          <div style="display:flex; justify-content:flex-end; gap:var(--space-2); margin-top:var(--space-2); align-items:center;">
+            {% if request.user.is_authenticated and match.can_start %}
+            <form method="post" action="{% url 'tournaments:start_match' tournament.pk match.pk %}">{% csrf_token %}<button type="submit" class="btn btn-primary btn-sm">Rozpocznij</button></form>
+            {% endif %}
+            {% if match.participant1.user == request.user and match.status in 'WAI,SCH' %}
+            <form method="post" action="{% url 'tournaments:cancel_challenge' tournament.pk match.pk %}" onsubmit="return confirm('Anulować wyzwanie?');">{% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">Anuluj</button></form>
+            {% elif match.participant2.user == request.user and match.status in 'WAI,SCH' %}
+            <form method="post" action="{% url 'tournaments:cancel_challenge' tournament.pk match.pk %}" onsubmit="return confirm('Odrzucić wyzwanie?');">{% csrf_token %}<button type="submit" class="btn btn-danger btn-sm">Odrzuć</button></form>
+            {% endif %}
+            <div style="position:relative; display:inline-block;">
+              <button onclick="var m=this.nextElementSibling;m.style.display=m.style.display==='none'?'block':'none';event.stopPropagation();"
+                style="background:none; border:1px solid var(--border); border-radius:var(--radius-sm); padding:2px 9px; cursor:pointer; font-size:1rem; color:var(--text-muted); line-height:1.4;">⋮</button>
+              <div class="match-actions-menu" style="display:none; position:absolute; right:0; bottom:100%; margin-bottom:4px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); box-shadow:0 4px 12px rgba(0,0,0,.12); z-index:200; min-width:150px; overflow:hidden;">
+                <a href="{% url 'tournaments:live_match' pk=tournament.pk match_pk=match.pk %}"
+                   style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border);"
+                   onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                  👁 Szczegóły
+                </a>
+                {% if match.can_edit %}
+                <a href="{% url 'tournaments:edit_match' tournament.pk match.pk %}"
+                   style="display:block; padding:9px 14px; font-size:.85rem; color:var(--text); text-decoration:none;"
+                   onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background=''">
+                  ✎ Edytuj wynik
+                </a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding:var(--space-8);">
+          <p class="empty-state__text">Brak meczów.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{% block extra_js %}
+<script src="{% static 'js/reactions.js' %}"></script>
+<script>
+document.addEventListener('click', function() {
+  document.querySelectorAll('.match-actions-menu').forEach(function(el) { el.style.display = 'none'; });
+});
+</script>
+{% endblock %}
+{% endblock %}

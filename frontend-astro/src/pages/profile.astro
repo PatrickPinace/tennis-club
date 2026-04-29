@@ -1,0 +1,597 @@
+---
+// profile.astro — Profil gracza — prawdziwe dane z /api/auth/profile/ + /api/matches/history/
+// SSR wymagane — middleware chroni tę stronę przed niezalogowanymi
+export const prerender = false;
+
+import AppLayout from '../layouts/AppLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { getUserProfile, getMatchHistory, type MatchHistoryEntry } from '../lib/api';
+import { url } from '@/lib/url';
+
+// ── Dane z Django API (server-side, z cookie sesji) ──────────────────────────
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const [profileData, matchHistory] = await Promise.all([
+  getUserProfile(sessionCookie),
+  getMatchHistory(sessionCookie),
+]);
+
+// ── Dane użytkownika ──────────────────────────────────────────────────────────
+
+const user    = profileData?.user ?? null;
+const rSng    = profileData?.ranking_sng ?? null;
+const rDbl    = profileData?.ranking_dbl ?? null;
+const tStats  = profileData?.tournament_stats ?? null;
+
+// Dane wyświetlane
+const displayName = user
+  ? [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username
+  : '—';
+
+const initials = user
+  ? ((user.first_name?.[0] ?? '') + (user.last_name?.[0] ?? '')).toUpperCase() || user.username.slice(0, 2).toUpperCase()
+  : '?';
+
+const roleLabel = user?.is_staff ? 'Personel' : 'Członek';
+
+// Member since — sformatuj datę PL
+function formatDatePL(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+  } catch {
+    return iso;
+  }
+}
+
+const memberSince = formatDatePL(user?.member_since);
+
+// Banner sukcesu po powrocie z /profile/edit
+const saved = Astro.url.searchParams.get('saved') === '1';
+
+// ── Statystyki z rankingu SNG ─────────────────────────────────────────────────
+
+const ranking     = rSng?.position   ?? null;
+const points      = rSng?.points     ?? null;
+const winRate     = rSng?.win_rate   ?? null;
+const matchesPlayed = rSng?.matches_played ?? null;
+const matchesWon  = rSng?.matches_won  ?? null;
+const matchesLost = rSng?.matches_lost ?? null;
+const setsWon     = rSng?.sets_won   ?? null;
+const setsLost    = rSng?.sets_lost  ?? null;
+
+// ── Ostatnie mecze (max 5) ────────────────────────────────────────────────────
+
+function formatMatchDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  } catch {
+    return iso;
+  }
+}
+
+function getOpponentName(m: MatchHistoryEntry): string {
+  // user: 'user-win' | 'user-loss' | 'user-draw'
+  // win: 'p1' | 'p2' — kto wygrał
+  // zalogowany jest po stronie p1 gdy: wygrał i win=p1, LUB przegrał i win=p2
+  const isP1Side =
+    (m.user === 'user-win'  && m.win === 'p1') ||
+    (m.user === 'user-loss' && m.win === 'p2');
+  const opp = isP1Side ? m.p2 : m.p1;
+  if (!opp) return 'Nieznany';
+  const name = [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
+  return name;
+}
+
+const recentMatches = matchHistory.slice(0, 5).map(m => ({
+  opponent: getOpponentName(m),
+  result: m.user === 'user-win' ? 'W' : m.user === 'user-loss' ? 'L' : 'R',
+  score: (() => {
+    const parts: string[] = [];
+    if (m.p1_set1 !== null && m.p2_set1 !== null) parts.push(`${m.p1_set1}:${m.p2_set1}`);
+    if (m.p1_set2 !== null && m.p2_set2 !== null) parts.push(`${m.p1_set2}:${m.p2_set2}`);
+    if (m.p1_set3 !== null && m.p2_set3 !== null) parts.push(`${m.p1_set3}:${m.p2_set3}`);
+    return parts.join(' ') || '—';
+  })(),
+  date: formatMatchDate(m.match_date),
+  type: m.match_double ? 'Debel' : 'Singiel',
+}));
+
+// ── Pomocnik n/d ──────────────────────────────────────────────────────────────
+
+function nd(val: number | string | null | undefined, suffix = ''): string {
+  if (val === null || val === undefined) return '—';
+  return `${val}${suffix}`;
+}
+---
+
+<AppLayout
+  title="Profil"
+  greeting={user ? `Twój profil` : 'Profil'}
+  showCta={false}
+  currentUser={user}
+>
+  <PageHeader
+    title={displayName}
+    subtitle={user
+      ? `Członek od ${memberSince} · ${ranking !== null ? `Ranking SNG #${ranking}` : 'Brak danych rankingowych'}`
+      : 'Ładowanie danych…'}
+  />
+
+  {saved && (
+    <div class="profile-saved-banner" role="status">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+      </svg>
+      Profil został zaktualizowany.
+    </div>
+  )}
+
+  <div class="profile-grid">
+
+    <!-- ── Lewa kolumna: karta gracza ── -->
+    <aside class="player-card tc-card">
+      <div class="player-avatar" aria-hidden="true">{initials}</div>
+      <h2 class="player-name">{displayName}</h2>
+      <span class="player-role">{roleLabel}</span>
+
+      {points !== null && (
+        <div class="player-level">
+          <span class="level-badge">{Math.round(Number(points)).toLocaleString('pl-PL')} pkt SNG</span>
+        </div>
+      )}
+
+      <ul class="player-meta" role="list">
+        {user?.city && (
+          <li>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+            </svg>
+            {user.city}
+          </li>
+        )}
+        {user?.email && (
+          <li>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+              <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+            </svg>
+            {user.email}
+          </li>
+        )}
+        <li>
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+          </svg>
+          Członek od {memberSince}
+        </li>
+        {user?.username && (
+          <li>
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+            @{user.username}
+          </li>
+        )}
+      </ul>
+
+      <a href={url('/profile/edit')} class="tc-btn tc-btn-ghost tc-btn-sm" style="margin-top:4px;">
+        Edytuj profil →
+      </a>
+    </aside>
+
+    <!-- ── Prawa kolumna ── -->
+    <div class="profile-main">
+
+      <!-- Statystyki SNG -->
+      <section>
+        <h3 class="section-title">Statystyki singiel (SNG)</h3>
+
+        {rSng === null ? (
+          <div class="no-data-box tc-card">
+            Brak danych rankingowych — rozegraj swój pierwszy mecz singlowy.
+          </div>
+        ) : (
+          <>
+            <div class="stats-grid">
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {ranking !== null ? ranking : '—'}
+                </div>
+                <div class="stat-tile__label">Pozycja rankingowa</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {points !== null ? Math.round(Number(points)).toLocaleString('pl-PL') : '—'}
+                </div>
+                <div class="stat-tile__label">Punkty rankingowe</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {winRate !== null ? winRate : '—'}
+                  {winRate !== null && <span class="stat-tile__unit">%</span>}
+                </div>
+                <div class="stat-tile__label">Win rate</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{nd(matchesPlayed)}</div>
+                <div class="stat-tile__label">Mecze</div>
+              </div>
+            </div>
+
+            <!-- Win/loss bar -->
+            {matchesPlayed !== null && matchesPlayed > 0 && (
+              <div class="wl-bar-wrap tc-card">
+                <div class="wl-bar-header">
+                  <span class="wl-wins">{nd(matchesWon)} zwycięstw</span>
+                  <span class="wl-played">{nd(matchesPlayed)} meczów</span>
+                  <span class="wl-losses">{nd(matchesLost)} porażek</span>
+                </div>
+                <div class="wl-bar"
+                  role="progressbar"
+                  aria-valuenow={winRate ?? 0}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <div class="wl-bar__fill wl-bar__fill--win"  style={`width:${winRate ?? 0}%`}></div>
+                  <div class="wl-bar__fill wl-bar__fill--loss" style={`width:${100 - (winRate ?? 0)}%`}></div>
+                </div>
+                {(setsWon !== null || setsLost !== null) && (
+                  <div class="wl-bar-sub">
+                    <span>Sety wygrane: {nd(setsWon)}</span>
+                    <span>Sety przegrane: {nd(setsLost)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      <!-- Statystyki DBL (jeśli są) -->
+      {rDbl !== null && (
+        <section>
+          <h3 class="section-title">Statystyki debel (DBL)</h3>
+          <div class="stats-grid stats-grid--3">
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">{nd(rDbl.position)}</div>
+              <div class="stat-tile__label">Pozycja rankingowa</div>
+            </div>
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">{rDbl.points !== null ? Math.round(Number(rDbl.points)).toLocaleString('pl-PL') : '—'}</div>
+              <div class="stat-tile__label">Punkty</div>
+            </div>
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">
+                {nd(rDbl.win_rate)}{rDbl.win_rate !== null && <span class="stat-tile__unit">%</span>}
+              </div>
+              <div class="stat-tile__label">Win rate</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <!-- Statystyki turniejowe -->
+      <section>
+        <h3 class="section-title">Statystyki turniejowe</h3>
+
+        {tStats === null || tStats.tournaments_played === 0 ? (
+          <div class="no-data-box tc-card">
+            Brak udziału w turniejach — <a href={url('/tournaments')} class="no-data-link">sprawdź dostępne turnieje →</a>
+          </div>
+        ) : (
+          <>
+            <div class="stats-grid stats-grid--3">
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.tournaments_played}</div>
+                <div class="stat-tile__label">Turnieje (łącznie)</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.tournaments_finished}</div>
+                <div class="stat-tile__label">Ukończone</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.tournaments_active}</div>
+                <div class="stat-tile__label">Aktywne</div>
+              </div>
+            </div>
+            <div class="stats-grid stats-grid--3">
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.matches_played}</div>
+                <div class="stat-tile__label">Mecze turniejowe</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">{tStats.matches_won}</div>
+                <div class="stat-tile__label">Wygrane mecze</div>
+              </div>
+              <div class="stat-tile tc-card">
+                <div class="stat-tile__value">
+                  {tStats.win_rate !== null ? tStats.win_rate : '—'}
+                  {tStats.win_rate !== null && <span class="stat-tile__unit">%</span>}
+                </div>
+                <div class="stat-tile__label">Win rate (turnieje)</div>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
+      <!-- Ostatnie mecze -->
+      <section>
+        <h3 class="section-title">Ostatnie mecze</h3>
+
+        {recentMatches.length === 0 ? (
+          <div class="no-data-box tc-card">
+            Brak rozegranych meczów.
+            <a href={url('/matches')} class="no-data-link">Dodaj swój pierwszy mecz →</a>
+          </div>
+        ) : (
+          <div class="tc-card" style="padding:0;overflow:hidden">
+            <table class="tc-table">
+              <thead>
+                <tr>
+                  <th>Przeciwnik</th>
+                  <th>Wynik</th>
+                  <th>Zapis</th>
+                  <th>Data</th>
+                  <th>Typ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentMatches.map(m => (
+                  <tr>
+                    <td class="match-opp">{m.opponent}</td>
+                    <td>
+                      <span class={`tc-badge ${m.result === 'W' ? 'tc-badge-success' : m.result === 'L' ? 'tc-badge-danger' : 'tc-badge-neutral'}`}>
+                        {m.result === 'W' ? 'Wygrana' : m.result === 'L' ? 'Porażka' : 'Remis'}
+                      </span>
+                    </td>
+                    <td class="text-muted">{m.score}</td>
+                    <td class="text-muted">{m.date}</td>
+                    <td class="text-muted">{m.type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {recentMatches.length > 0 && (
+          <div style="margin-top:10px;">
+            <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm">
+              Pełna historia meczów →
+            </a>
+          </div>
+        )}
+      </section>
+
+      <!-- Informacje o koncie -->
+      <section>
+        <h3 class="section-title">Informacje o koncie</h3>
+        <div class="tc-card account-info">
+          <div class="account-row">
+            <span class="account-label">Login</span>
+            <span class="account-value">{user?.username ?? '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">E-mail</span>
+            <span class="account-value">{user?.email || '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Imię i nazwisko</span>
+            <span class="account-value">{displayName}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Miasto</span>
+            <span class="account-value">{user?.city || '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Data urodzenia</span>
+            <span class="account-value">{user?.birth_date ? formatDatePL(user.birth_date) : '—'}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Członek od</span>
+            <span class="account-value">{memberSince}</span>
+          </div>
+          <div class="account-row">
+            <span class="account-label">Rola</span>
+            <span class="account-value">{roleLabel}</span>
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /profile-main -->
+  </div><!-- /profile-grid -->
+</AppLayout>
+
+<style>
+/* ── Saved banner ────────────────────────────────────────────── */
+.profile-saved-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: var(--radius-sm);
+  color: #15803d;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+}
+
+/* ── Layout ──────────────────────────────────────────────────── */
+.profile-grid {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .profile-grid { grid-template-columns: 1fr; }
+}
+
+.profile-main { display: flex; flex-direction: column; gap: 28px; }
+
+/* ── Player card ─────────────────────────────────────────────── */
+.player-card {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; text-align: center; padding: 28px 20px;
+  position: sticky; top: 24px;
+}
+
+.player-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: rgba(34,197,94,0.12);
+  border: 2.5px solid #22c55e;
+  color: #22c55e;
+  font-size: 1.4rem; font-weight: 800;
+  display: grid; place-items: center;
+}
+
+.player-name {
+  font-size: 1.05rem; font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+
+.player-role {
+  font-size: 0.75rem;
+  background: rgba(34,197,94,0.1); color: #16a34a;
+  padding: 2px 10px; border-radius: 999px; font-weight: 600;
+}
+
+.player-level { margin: 4px 0; }
+.level-badge {
+  font-size: 0.72rem; font-weight: 700;
+  background: #f0fdf4; color: #15803d;
+  border: 1px solid #bbf7d0;
+  padding: 2px 10px; border-radius: 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.player-meta {
+  list-style: none; margin: 6px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 7px;
+  text-align: left; width: 100%;
+}
+.player-meta li {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.78rem; color: var(--text-muted);
+}
+.player-meta svg { flex-shrink: 0; color: #94a3b8; }
+
+.player-readonly-note {
+  font-size: 0.7rem; color: var(--text-dim);
+  margin: 4px 0 0;
+  font-style: italic;
+}
+
+/* ── Section title ───────────────────────────────────────────── */
+.section-title {
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 0 0 12px;
+}
+
+/* ── Stats grid ──────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.stats-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stats-grid--3 { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stat-tile {
+  text-align: center;
+  padding: 18px 12px;
+}
+.stat-tile__value {
+  font-size: 1.7rem; font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+  display: flex; align-items: baseline; justify-content: center; gap: 4px;
+}
+.stat-tile__unit {
+  font-size: 1rem; font-weight: 600; color: var(--text-muted);
+}
+.stat-tile__label {
+  font-size: 0.72rem; color: var(--text-muted);
+  margin-top: 4px; font-weight: 500;
+}
+
+/* ── Win/loss bar ────────────────────────────────────────────── */
+.wl-bar-wrap { padding: 18px 20px; }
+
+.wl-bar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 0.8rem; font-weight: 600; margin-bottom: 10px;
+}
+.wl-wins   { color: #15803d; }
+.wl-losses { color: #b91c1c; }
+.wl-played { color: var(--text-muted); font-weight: 500; }
+
+.wl-bar {
+  height: 10px; border-radius: 999px;
+  overflow: hidden; display: flex;
+  background: #f1f5f9;
+}
+.wl-bar__fill { height: 100%; transition: width 0.3s ease; }
+.wl-bar__fill--win  { background: #22c55e; }
+.wl-bar__fill--loss { background: #f87171; }
+
+.wl-bar-sub {
+  display: flex; justify-content: space-between;
+  font-size: 0.72rem; color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* ── No data ─────────────────────────────────────────────────── */
+.no-data-box {
+  padding: 20px 24px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.no-data-link {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Table extras ────────────────────────────────────────────── */
+.match-opp { font-weight: 600; color: var(--text); }
+.text-muted { color: var(--text-muted); }
+
+/* ── Account info ────────────────────────────────────────────── */
+.account-info { padding: 0; }
+
+.account-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+.account-row:last-child { border-bottom: none; }
+
+.account-label {
+  width: 160px; flex-shrink: 0;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.account-value {
+  color: var(--text);
+  font-weight: 500;
+}
+</style>

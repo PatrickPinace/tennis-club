@@ -1,0 +1,135 @@
+<!-- Widok tabeli dla dużych ekranów (desktop) -->
+<div class="d-none d-lg-block">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Przeciwnik</th>
+                            <th class="text-center">Mecze</th>
+                            <th class="text-center">Sety</th>
+                            <th class="text-center">Gemy</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if summary.all.stats and summary.opponents|length > 1 %}
+                        <tr class="table-primary fw-bold">
+                            <td>Podsumowanie</td>
+                            <td style="min-width: 200px;">
+                                {% with s=summary.all.stats.match %}
+                                    {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                {% endwith %}
+                            </td>
+                            <td style="min-width: 200px;">
+                                {% with s=summary.all.stats.set %}
+                                    {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                {% endwith %}
+                            </td>
+                            <td style="min-width: 200px;">
+                                {% with s=summary.all.stats.gem %}
+                                    {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                {% endwith %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% for opponent_name, data in summary.opponents.items %}
+                        <tr>
+                            <td>
+                                <div class="fw-bold">
+                                    {% for player_name in data.team.opponent %}
+                                        {{ player_name }}{% if not forloop.last %} / {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td style="min-width: 200px;">
+                                {% with s=data.stats.match %}
+                                    {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                {% endwith %}
+                            </td>
+                            <td style="min-width: 200px;">
+                                {% with s=data.stats.set %}
+                                    {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                {% endwith %}
+                            </td>
+                            <td style="min-width: 200px;">
+                                {% with s=data.stats.gem %}
+                                    {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                                {% endwith %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Widok kart dla małych ekranów (mobile) -->
+<div class="d-lg-none">
+    <div class="row row-cols-1 g-3">
+        {% if summary.all.stats and summary.opponents|length > 1 %}
+        <div class="col">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h5 class="mb-0">Podsumowanie</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-center text-muted">Mecze</h6>
+                        {% with s=summary.all.stats.match %}
+                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                        {% endwith %}
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="text-center text-muted">Sety</h6>
+                        {% with s=summary.all.stats.set %}
+                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                        {% endwith %}
+                    </div>
+                    <div>
+                        <h6 class="text-center text-muted">Gemy</h6>
+                        {% with s=summary.all.stats.gem %}
+                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% for opponent_name, data in summary.opponents.items %}
+        <div class="col">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white text-center">
+                    <h5 class="mb-0">
+                        {% for player_name in data.team.opponent %}
+                            {{ player_name }}{% if not forloop.last %} / {% endif %}
+                        {% endfor %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-center text-muted">Mecze</h6>
+                        {% with s=data.stats.match %}
+                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                        {% endwith %}
+                    </div>
+                    <div class="mb-3">
+                        <h6 class="text-center text-muted">Sety</h6>
+                        {% with s=data.stats.set %}
+                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                        {% endwith %}
+                    </div>
+                    <div>
+                        <h6 class="text-center text-muted">Gemy</h6>
+                        {% with s=data.stats.gem %}
+                            {% include 'matches/summary/bar_chart.html' with win=s.win lose=s.lose all=s.all win_per=s.per %}
+                        {% endwith %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
