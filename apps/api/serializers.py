@@ -335,14 +335,6 @@ class RoundRobinConfigUpdateSerializer(serializers.ModelSerializer):
                         field: f'Nie można zmieniać „{field}" po rozpoczęciu turnieju (status: {tournament.status}).'
                     })
 
-        # points_for_win >= points_for_loss
-        win = attrs.get('points_for_win', self.instance.points_for_win)
-        loss = attrs.get('points_for_loss', self.instance.points_for_loss)
-        if win < loss:
-            raise serializers.ValidationError({
-                'points_for_win': 'points_for_win musi być >= points_for_loss.'
-            })
-
         # Limity dla pól liczbowych
         if 'max_participants' in attrs and attrs['max_participants'] < 2:
             raise serializers.ValidationError({'max_participants': 'Minimalna liczba uczestników to 2.'})
