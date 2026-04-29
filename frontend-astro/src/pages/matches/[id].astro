@@ -78,10 +78,6 @@ const formatLabel = match.match_double ? 'Debel' : 'Singiel';
 const team1 = [match.p1, match.p3].filter(Boolean) as NonNullable<MatchHistoryEntry['p1']>[];
 const team2 = [match.p2, match.p4].filter(Boolean) as NonNullable<MatchHistoryEntry['p1']>[];
 
-// Link do edycji meczu w Django — widoczny tylko gdy can_edit (uczestnik lub is_staff)
-// Lokalnie DJANGO_API_URL = http://localhost:8000, produkcja = ten sam origin → relative URL
-const djangoBase = (process.env.DJANGO_API_URL ?? '').replace(/\/$/, '');
-const editHref = djangoBase ? `${djangoBase}/matches/edit/match/${matchId}/` : `/matches/edit/match/${matchId}/`;
 const canEdit = match.can_edit ?? false;
 ---
 
@@ -100,9 +96,9 @@ const canEdit = match.can_edit ?? false;
       <span class="breadcrumb__current">Mecz #{matchId}</span>
     </nav>
     {canEdit && (
-      <a href={editHref} class="tc-btn tc-btn-secondary tc-btn-sm">
+      <button id="edit-toggle-btn" class="tc-btn tc-btn-secondary tc-btn-sm" type="button">
         ✏ Edytuj wynik
-      </a>
+      </button>
     )}
   </div>
 
@@ -216,6 +212,40 @@ const canEdit = match.can_edit ?? false;
           </tr>
         </tbody>
       </table>
+    </div>
+  )}
+
+  <!-- Formularz edycji wyniku (widoczny tylko gdy can_edit, toggle) -->
+  {canEdit && (
+    <div id="edit-form-card" class="tc-card" style="margin-top:16px; display:none;">
+      <div class="tc-card-header">
+        <span class="tc-card-title">Edytuj wynik</span>
+      </div>
+      <form id="edit-score-form" style="padding:16px 20px 20px;" novalidate>
+        <div class="edit-sets-row">
+          {[1, 2, 3].map(s => (
+            <div class="edit-set-group">
+              <div class="edit-set-label">Set {s}{s === 1 ? ' *' : ''}</div>
+              <div class="edit-set-inputs">
+                <input class="edit-set-input" type="number" min="0" max="99"
+                  name={`p1_set${s}`}
+                  value={s === 1 ? String(match.p1_set1 ?? '') : s === 2 ? String(match.p1_set2 ?? '') : String(match.p1_set3 ?? '')}
+                  placeholder="—">
+                <span class="edit-set-sep">:</span>
+                <input class="edit-set-input" type="number" min="0" max="99"
+                  name={`p2_set${s}`}
+                  value={s === 1 ? String(match.p2_set1 ?? '') : s === 2 ? String(match.p2_set2 ?? '') : String(match.p2_set3 ?? '')}
+                  placeholder="—">
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style="margin-top:14px; display:flex; align-items:center; gap:10px;">
+          <button type="submit" class="tc-btn tc-btn-primary tc-btn-sm">Zapisz</button>
+          <button type="button" id="edit-cancel-btn" class="tc-btn tc-btn-ghost tc-btn-sm">Anuluj</button>
+          <span id="edit-form-msg" style="font-size:0.82rem;"></span>
+        </div>
+      </form>
     </div>
   )}
 
@@ -357,4 +387,94 @@ const canEdit = match.can_edit ?? false;
     width: 40px; height: 40px;
     font-size: 0.85rem;
   }
+
+  /* ── Edit form ───────────────────────────────────────────────────────── */
+  .edit-sets-row {
+    display: flex; gap: 20px; flex-wrap: wrap;
+  }
+  .edit-set-group {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .edit-set-label {
+    font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .edit-set-inputs {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .edit-set-input {
+    width: 56px; padding: 6px 8px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--surface-2); color: var(--text);
+    font-size: 0.95rem; text-align: center;
+  }
+  .edit-set-input:focus { outline: none; border-color: var(--primary); }
+  .edit-set-sep { color: var(--text-dim); font-weight: 700; }
 </style>
+
+<script define:vars={{ matchId, canEdit }}>
+if (canEdit) {
+  const toggleBtn  = document.getElementById('edit-toggle-btn');
+  const cancelBtn  = document.getElementById('edit-cancel-btn');
+  const formCard   = document.getElementById('edit-form-card');
+  const form       = document.getElementById('edit-score-form');
+  const msgEl      = document.getElementById('edit-form-msg');
+
+  toggleBtn?.addEventListener('click', () => {
+    formCard.style.display = formCard.style.display === 'none' ? '' : 'none';
+  });
+  cancelBtn?.addEventListener('click', () => {
+    formCard.style.display = 'none';
+  });
+
+  function getCsrfToken() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    msgEl.textContent = '';
+    msgEl.style.color = '';
+
+    const getVal = (name) => {
+      const v = form.elements[name]?.value;
+      return v !== '' && v != null ? parseInt(v, 10) : null;
+    };
+
+    const body = {};
+    for (const f of ['p1_set1','p2_set1','p1_set2','p2_set2','p1_set3','p2_set3']) {
+      const el = form.elements[f];
+      if (el) body[f] = getVal(f);
+    }
+
+    try {
+      const res = await fetch(`/api/matches/${matchId}/`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        msgEl.textContent = 'Zapisano!';
+        msgEl.style.color = '#22c55e';
+        // Odśwież stronę po chwili, żeby score-display się zaktualizował
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        msgEl.textContent = err.detail || Object.values(err)[0] || `Błąd ${res.status}`;
+        msgEl.style.color = 'var(--danger)';
+        if (btn) btn.disabled = false;
+      }
+    } catch {
+      msgEl.textContent = 'Błąd sieci.';
+      msgEl.style.color = 'var(--danger)';
+      if (btn) btn.disabled = false;
+    }
+  });
+}
+</script>
