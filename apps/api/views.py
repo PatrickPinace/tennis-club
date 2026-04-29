@@ -127,10 +127,73 @@ class MatchDetailView(generics.RetrieveAPIView):
             instance.match_date = parsed
             update_fields.append('match_date')
 
+        # score_status: staff → CONFIRMED od razu; uczestnik → PENDING (czeka na potwierdzenie)
         if update_fields:
+            if request.user.is_staff:
+                instance.score_status = 'CONFIRMED'
+                instance.reported_by = request.user
+                instance.confirmed_by = request.user
+            else:
+                instance.score_status = 'PENDING'
+                instance.reported_by = request.user
+                instance.confirmed_by = None
+            update_fields += ['score_status', 'reported_by', 'confirmed_by']
             instance.save(update_fields=update_fields)
 
         serializer = self.get_serializer(instance)
+        data = serializer.data
+        data['can_edit'] = True
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class MatchConfirmView(APIView):
+    """
+    POST /api/matches/<id>/confirm/
+
+    Drugi uczestnik meczu potwierdza wynik.
+    Reguły:
+    - tylko uczestnik meczu (p1/p2/p3/p4) może potwierdzić
+    - nie można potwierdzić własnego zgłoszenia (reported_by != request.user)
+    - mecz musi być w statusie PENDING
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            instance = Match.objects.select_related('p1', 'p2', 'p3', 'p4').get(pk=pk)
+        except Match.DoesNotExist:
+            return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        player_ids = [instance.p1_id, instance.p2_id]
+        if instance.p3_id:
+            player_ids.append(instance.p3_id)
+        if instance.p4_id:
+            player_ids.append(instance.p4_id)
+
+        if request.user.pk not in player_ids:
+            return Response(
+                {'detail': 'Brak uprawnień. Tylko uczestnik meczu może potwierdzić wynik.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if instance.score_status != 'PENDING':
+            return Response(
+                {'detail': 'Wynik nie czeka na potwierdzenie.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if instance.reported_by_id == request.user.pk:
+            return Response(
+                {'detail': 'Nie możesz potwierdzić własnego zgłoszenia.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        instance.score_status = 'CONFIRMED'
+        instance.confirmed_by = request.user
+        instance.save(update_fields=['score_status', 'confirmed_by'])
+
+        from .serializers import MatchHistorySerializer
+        serializer = MatchHistorySerializer(instance, context={'request': request})
         data = serializer.data
         data['can_edit'] = True
         return Response(data, status=status.HTTP_200_OK)

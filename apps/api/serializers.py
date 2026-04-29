@@ -170,6 +170,9 @@ class MatchHistorySerializer(serializers.ModelSerializer):
     p1_win_gem = serializers.SerializerMethodField()
     p2_win_gem = serializers.SerializerMethodField()
 
+    reported_by = UserDetailsSerializer(read_only=True)
+    confirmed_by = UserDetailsSerializer(read_only=True)
+
     class Meta:
         model = Match
         fields = [
@@ -177,6 +180,7 @@ class MatchHistorySerializer(serializers.ModelSerializer):
             'p1_set1', 'p1_set2', 'p1_set3',
             'p2_set1', 'p2_set2', 'p2_set3',
             'match_double', 'description', 'match_date',
+            'score_status', 'reported_by', 'confirmed_by',
             # Pola z wynikami
             'win', 'user',
             'p1_win_set', 'p2_win_set',
