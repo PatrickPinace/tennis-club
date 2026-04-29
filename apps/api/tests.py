@@ -433,3 +433,216 @@ class TournamentJoinViewTest(TestCase):
         res = self.client.post(_join_url(t.pk))
         # AMR nie sprawdza round_robin_config → brak 409 z tytułu limitu
         self.assertEqual(res.status_code, 201)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Testy PATCH /api/tournaments/{pk}/matches/{match_pk}/score/
+# — uprawnienia uczestnika meczu RR
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_act_tournament(org, t_type='RND'):
+    """Turniej w statusie ACT z config (RND lub SGL lub AMR)."""
+    t = Tournament.objects.create(
+        name=f'Score Perm {t_type}',
+        tournament_type=t_type,
+        match_format='SNG',
+        status='ACT',
+        rank=1,
+        created_by=org,
+        start_date=datetime.date(2026, 7, 1),
+        end_date=datetime.date(2026, 7, 31),
+    )
+    if t_type == 'RND':
+        RoundRobinConfig.objects.create(
+            tournament=t,
+            max_participants=8, sets_to_win=2, games_per_set=6,
+            points_for_win=Decimal('2.00'), points_for_loss=Decimal('1.00'),
+            points_for_set_win=Decimal('0.50'), points_for_set_loss=Decimal('0.00'),
+            points_for_gem_win=Decimal('0.10'), points_for_gem_loss=Decimal('-0.10'),
+            points_for_supertiebreak_win=Decimal('0.05'),
+            points_for_supertiebreak_loss=Decimal('-0.05'),
+            tie_breaker_priority='SETS',
+        )
+    elif t_type == 'AMR':
+        AmericanoConfig.objects.create(
+            tournament=t, max_participants=8, points_per_match=32, number_of_rounds=7,
+        )
+    return t
+
+
+def _make_match(tournament, p1, p2, status='WAI'):
+    """Tworzy TournamentsMatch między dwoma Participant. match_index unikalne per turniej."""
+    idx = TournamentsMatch.objects.filter(tournament=tournament).count() + 1
+    return TournamentsMatch.objects.create(
+        tournament=tournament,
+        participant1=p1,
+        participant2=p2,
+        round_number=1,
+        match_index=idx,
+        status=status,
+    )
+
+
+def _score_url(t_pk, m_pk):
+    return f'/api/tournaments/{t_pk}/matches/{m_pk}/score/'
+
+
+VALID_SCORE = {'set1_p1': 6, 'set1_p2': 3, 'set2_p1': 6, 'set2_p2': 2}
+
+
+class RRMatchScoreParticipantPermissionTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.org = User.objects.create_user(username='score_org', password='pass')
+        self.staff = User.objects.create_user(username='score_staff', password='pass', is_staff=True)
+        self.p1_user = User.objects.create_user(username='score_p1', password='pass')
+        self.p2_user = User.objects.create_user(username='score_p2', password='pass')
+        self.outsider = User.objects.create_user(username='score_out', password='pass')
+
+        # RR turniej ACT
+        self.rnd_t = _make_act_tournament(self.org, t_type='RND')
+        self.p1 = Participant.objects.create(
+            tournament=self.rnd_t, user=self.p1_user, display_name='P1 RND', status='ACT',
+        )
+        self.p2 = Participant.objects.create(
+            tournament=self.rnd_t, user=self.p2_user, display_name='P2 RND', status='ACT',
+        )
+        self.rnd_match = _make_match(self.rnd_t, self.p1, self.p2)
+
+    # ── Organizer i staff — nadal działają ───────────────────────────────────
+
+    def test_200_organizer_rnd(self):
+        self.client.force_authenticate(user=self.org)
+        res = self.client.patch(_score_url(self.rnd_t.pk, self.rnd_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_200_staff_rnd(self):
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.patch(_score_url(self.rnd_t.pk, self.rnd_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    # ── Uczestnik meczu RR — sukces ───────────────────────────────────────────
+
+    def test_200_participant1_rnd(self):
+        """Uczestnik 1 meczu RR może wpisać wynik."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(_score_url(self.rnd_t.pk, self.rnd_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_200_participant2_rnd(self):
+        """Uczestnik 2 meczu RR może wpisać wynik."""
+        self.client.force_authenticate(user=self.p2_user)
+        res = self.client.patch(_score_url(self.rnd_t.pk, self.rnd_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_response_shape_participant(self):
+        """Odpowiedź zawiera match_id, status, winner_id, winner_name, score."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(_score_url(self.rnd_t.pk, self.rnd_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn('match_id', data)
+        self.assertIn('status', data)
+        self.assertIn('winner_id', data)
+
+    # ── Nie-uczestnik RR — 403 ────────────────────────────────────────────────
+
+    def test_403_outsider_rnd(self):
+        """User niebędący uczestnikiem meczu RR nie może wpisać wyniku."""
+        self.client.force_authenticate(user=self.outsider)
+        res = self.client.patch(_score_url(self.rnd_t.pk, self.rnd_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 403)
+
+    def test_403_participant_other_match(self):
+        """User będący uczestnikiem INNEGO meczu w tym samym turnieju nie może."""
+        other_user = User.objects.create_user(username='score_other_p', password='pass')
+        other_p = Participant.objects.create(
+            tournament=self.rnd_t, user=other_user, display_name='OtherP', status='ACT',
+        )
+        # Drugi mecz z innym uczestnikiem
+        yet_another = User.objects.create_user(username='score_yet_another', password='pass')
+        yet_p = Participant.objects.create(
+            tournament=self.rnd_t, user=yet_another, display_name='YetP', status='ACT',
+        )
+        other_match = _make_match(self.rnd_t, other_p, yet_p)
+        # p1_user jest uczestnikiem self.rnd_match, ale nie other_match
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(_score_url(self.rnd_t.pk, other_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 403)
+
+    # ── Walkover i cancel — tylko organizer/staff ─────────────────────────────
+
+    def test_403_participant_cannot_walkover(self):
+        """Uczestnik meczu RR nie może ustawić walkover."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(
+            _score_url(self.rnd_t.pk, self.rnd_match.pk),
+            {'walkover': True, 'winner_participant_id': self.p1.pk},
+            format='json',
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_403_participant_cannot_cancel(self):
+        """Uczestnik meczu RR nie może anulować meczu."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(
+            _score_url(self.rnd_t.pk, self.rnd_match.pk),
+            {'cancel': True},
+            format='json',
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_200_organizer_can_walkover(self):
+        """Organizer może ustawić walkover."""
+        self.client.force_authenticate(user=self.org)
+        res = self.client.patch(
+            _score_url(self.rnd_t.pk, self.rnd_match.pk),
+            {'walkover': True, 'winner_participant_id': self.p1.pk},
+            format='json',
+        )
+        self.assertEqual(res.status_code, 200)
+
+    # ── SGL — uczestnik nie ma dostępu ───────────────────────────────────────
+
+    def test_403_participant_sgl(self):
+        """Uczestnik meczu SGL nie może wpisać wyniku — tylko organizer/staff."""
+        from apps.tournaments.models import EliminationConfig
+        sgl_t = _make_act_tournament(self.org, t_type='SGL')
+        EliminationConfig.objects.get_or_create(tournament=sgl_t, defaults={'sets_to_win': 2})
+        # Używamy tej samej konfiguracji RR jako fallback (SGL używa round_robin_config do walidacji)
+        RoundRobinConfig.objects.create(
+            tournament=sgl_t,
+            max_participants=8, sets_to_win=2, games_per_set=6,
+            points_for_win=Decimal('2.00'), points_for_loss=Decimal('1.00'),
+            points_for_set_win=Decimal('0.50'), points_for_set_loss=Decimal('0.00'),
+            points_for_gem_win=Decimal('0.10'), points_for_gem_loss=Decimal('-0.10'),
+            points_for_supertiebreak_win=Decimal('0.05'),
+            points_for_supertiebreak_loss=Decimal('-0.05'),
+            tie_breaker_priority='SETS',
+        )
+        sgl_p1 = Participant.objects.create(
+            tournament=sgl_t, user=self.p1_user, display_name='SGL P1', status='ACT',
+        )
+        sgl_p2 = Participant.objects.create(
+            tournament=sgl_t, user=self.p2_user, display_name='SGL P2', status='ACT',
+        )
+        sgl_match = _make_match(sgl_t, sgl_p1, sgl_p2)
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(_score_url(sgl_t.pk, sgl_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 403)
+
+    # ── AMR — uczestnik nie ma dostępu ───────────────────────────────────────
+
+    def test_403_participant_amr(self):
+        """Uczestnik meczu AMR nie może wpisać wyniku — tylko organizer/staff."""
+        amr_t = _make_act_tournament(self.org, t_type='AMR')
+        amr_p1 = Participant.objects.create(
+            tournament=amr_t, user=self.p1_user, display_name='AMR P1', status='ACT',
+        )
+        amr_p2 = Participant.objects.create(
+            tournament=amr_t, user=self.p2_user, display_name='AMR P2', status='ACT',
+        )
+        amr_match = _make_match(amr_t, amr_p1, amr_p2)
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(_score_url(amr_t.pk, amr_match.pk), VALID_SCORE, format='json')
+        self.assertEqual(res.status_code, 403)
