@@ -1030,13 +1030,25 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   <div class="org-config-group">
                     <div class="org-config-group-label">Ogólne</div>
                     <label class="org-field-label">Maks. uczestników
-                      <input class="org-field-input" type="number" name="max_participants" min="2" max="128" step="1">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="max_participants" min="2" max="128" step="1">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label" id="lbl-sets-to-win">Sety do wygrania meczu
-                      <input class="org-field-input" type="number" name="sets_to_win" min="1" max="5" step="1">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="sets_to_win" min="1" max="5" step="1">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label" id="lbl-games-per-set">Gemy do wygrania seta
-                      <input class="org-field-input" type="number" name="games_per_set" min="1" max="21" step="1">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="games_per_set" min="1" max="21" step="1">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label">Tie-breaker (remis punktowy)
                       <select class="org-field-input org-field-select" name="tie_breaker_priority">
@@ -1050,40 +1062,72 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   <div class="org-config-group">
                     <div class="org-config-group-label">Punkty za mecz</div>
                     <label class="org-field-label">Za wygraną
-                      <input class="org-field-input" type="number" name="points_for_win" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_win" min="-100" max="100" step="0.5">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label">Za przegraną
-                      <input class="org-field-input" type="number" name="points_for_loss" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_loss" min="-100" max="100" step="0.5">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                   </div>
 
                   <div class="org-config-group">
                     <div class="org-config-group-label">Punkty za sety</div>
                     <label class="org-field-label">Za wygrany set
-                      <input class="org-field-input" type="number" name="points_for_set_win" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_set_win" min="-100" max="100" step="0.5">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label">Za przegrany set
-                      <input class="org-field-input" type="number" name="points_for_set_loss" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_set_loss" min="-100" max="100" step="0.5">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                   </div>
 
                   <div class="org-config-group">
                     <div class="org-config-group-label">Punkty za gemy</div>
                     <label class="org-field-label">Za wygrany gem
-                      <input class="org-field-input" type="number" name="points_for_gem_win" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_gem_win" min="-100" max="100" step="0.1">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label">Za przegrany gem
-                      <input class="org-field-input" type="number" name="points_for_gem_loss" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_gem_loss" min="-100" max="100" step="0.1">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                   </div>
 
                   <div class="org-config-group">
                     <div class="org-config-group-label">Super tie-break</div>
                     <label class="org-field-label">Za wygrany punkt (STB)
-                      <input class="org-field-input" type="number" name="points_for_supertiebreak_win" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_win" min="-100" max="100" step="0.5">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                     <label class="org-field-label">Za przegrany punkt (STB)
-                      <input class="org-field-input" type="number" name="points_for_supertiebreak_loss" min="-100" max="100" step="0.01">
+                      <div class="org-score-spinner">
+                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                        <input class="org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_loss" min="-100" max="100" step="0.5">
+                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                      </div>
                     </label>
                   </div>
 
@@ -2839,6 +2883,23 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     }
 
     form.addEventListener('submit', handleConfigSubmit);
+
+    // Spinnery ▲/▼ dla pól numerycznych w konfiguracji
+    form.querySelectorAll<HTMLButtonElement>('.org-cfg-spin').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = btn.closest('.org-score-spinner')?.querySelector<HTMLInputElement>('.org-cfg-input');
+        if (!input) return;
+        const step = parseFloat(input.step || '1');
+        const cur  = input.value === '' ? 0 : parseFloat(input.value);
+        const max  = parseFloat(input.max || '100');
+        const min  = parseFloat(input.min || '-100');
+        const next = btn.classList.contains('org-spin-up')
+          ? Math.min(parseFloat((cur + step).toFixed(10)), max)
+          : Math.max(parseFloat((cur - step).toFixed(10)), min);
+        input.value = String(next);
+        input.dispatchEvent(new Event('input'));
+      });
+    });
   }
 
   async function handleConfigSubmit(e: Event) {
@@ -2850,14 +2911,6 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     if (btn) btn.disabled = true;
     if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
 
-    // Walidacja frontendowa: points_for_win >= points_for_loss
-    const win  = parseFloat((form.elements.namedItem('points_for_win') as HTMLInputElement)?.value ?? '0');
-    const loss = parseFloat((form.elements.namedItem('points_for_loss') as HTMLInputElement)?.value ?? '0');
-    if (!isNaN(win) && !isNaN(loss) && win < loss) {
-      if (msgEl) { msgEl.textContent = 'Błąd: punkty za wygraną muszą być ≥ punkty za przegraną.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
-      if (btn) btn.disabled = false;
-      return;
-    }
 
     // Zbierz tylko pola, które nie są disabled
     const body: Record<string, string | number> = {};
