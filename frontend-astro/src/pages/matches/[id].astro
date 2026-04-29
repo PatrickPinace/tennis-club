@@ -79,6 +79,15 @@ const team1 = [match.p1, match.p3].filter(Boolean) as NonNullable<MatchHistoryEn
 const team2 = [match.p2, match.p4].filter(Boolean) as NonNullable<MatchHistoryEntry['p1']>[];
 
 const canEdit = match.can_edit ?? false;
+
+// ── Confirm flow ───────────────────────────────────────────────────────────
+const isPending    = match.score_status === 'PENDING';
+const iAmReporter  = myId !== null && myId === match.reported_by?.id;
+const iAmParticipant = iAmP1 || iAmP2;
+// Może potwierdzić: uczestnik meczu, nie ten kto zgłosił, mecz PENDING
+const canConfirm   = isPending && iAmParticipant && !iAmReporter;
+// Czekamy na potwierdzenie (my zgłosiliśmy)
+const awaitingConfirm = isPending && iAmReporter;
 ---
 
 <AppLayout
@@ -169,6 +178,36 @@ const canEdit = match.can_edit ?? false;
 
     <div class="match-header__date">{fmtDate(match.match_date)}</div>
   </div>
+
+  <!-- Confirm flow — status bar -->
+  {(isPending) && (
+    <div id="confirm-bar" class={`confirm-bar ${canConfirm ? 'confirm-bar--action' : 'confirm-bar--waiting'}`} style="margin-top:16px;">
+      <div class="confirm-bar__content">
+        {canConfirm && (
+          <>
+            <div class="confirm-bar__text">
+              <span class="confirm-bar__icon">⚠</span>
+              <span>
+                Wynik zgłoszony przez{' '}
+                <strong>{match.reported_by ? `${match.reported_by.first_name} ${match.reported_by.last_name}`.trim() || match.reported_by.username : '—'}</strong>.
+                Potwierdź, jeśli się zgadzasz.
+              </span>
+            </div>
+            <button id="confirm-btn" class="tc-btn tc-btn-primary tc-btn-sm" type="button">
+              Potwierdź wynik
+            </button>
+          </>
+        )}
+        {awaitingConfirm && (
+          <div class="confirm-bar__text">
+            <span class="confirm-bar__icon">⏳</span>
+            <span>Zgłoszono — czeka na potwierdzenie przez drugiego uczestnika.</span>
+          </div>
+        )}
+      </div>
+      <div id="confirm-msg" class="confirm-bar__msg" style="display:none;"></div>
+    </div>
+  )}
 
   <!-- Szczegółowa tabela setów -->
   {sets.length > 0 && (
@@ -408,9 +447,80 @@ const canEdit = match.can_edit ?? false;
   }
   .edit-set-input:focus { outline: none; border-color: var(--primary); }
   .edit-set-sep { color: var(--text-dim); font-weight: 700; }
+
+  /* ── Confirm bar ─────────────────────────────────────────────────────── */
+  .confirm-bar {
+    border-radius: 10px; padding: 14px 18px;
+    border: 1px solid transparent;
+  }
+  .confirm-bar--action {
+    background: rgba(234,179,8,0.08); border-color: rgba(234,179,8,0.3);
+  }
+  .confirm-bar--waiting {
+    background: rgba(99,102,241,0.06); border-color: rgba(99,102,241,0.2);
+  }
+  .confirm-bar__content {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap;
+  }
+  .confirm-bar__text {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.875rem; color: var(--text-muted);
+  }
+  .confirm-bar__icon { font-size: 1rem; flex-shrink: 0; }
+  .confirm-bar__msg {
+    margin-top: 8px; font-size: 0.82rem; font-weight: 600;
+  }
 </style>
 
-<script define:vars={{ matchId, canEdit }}>
+<script define:vars={{ matchId, canEdit, canConfirm }}>
+// ── Confirm flow ──────────────────────────────────────────────────────────
+if (canConfirm) {
+  const confirmBtn = document.getElementById('confirm-btn');
+  const confirmMsg = document.getElementById('confirm-msg');
+
+  function getCsrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  confirmBtn?.addEventListener('click', async () => {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Potwierdzanie…';
+    confirmMsg.style.display = 'none';
+    confirmMsg.textContent = '';
+
+    try {
+      const res = await fetch(`/api/matches/${matchId}/confirm/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+      });
+
+      if (res.ok) {
+        confirmMsg.textContent = 'Wynik potwierdzony!';
+        confirmMsg.style.color = '#22c55e';
+        confirmMsg.style.display = '';
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        confirmMsg.textContent = err.detail || `Błąd ${res.status}`;
+        confirmMsg.style.color = 'var(--danger)';
+        confirmMsg.style.display = '';
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Potwierdź wynik';
+      }
+    } catch {
+      confirmMsg.textContent = 'Błąd sieci.';
+      confirmMsg.style.color = 'var(--danger)';
+      confirmMsg.style.display = '';
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Potwierdź wynik';
+    }
+  });
+}
+
+// ── Edit form ──────────────────────────────────────────────────────────────
 if (canEdit) {
   const toggleBtn  = document.getElementById('edit-toggle-btn');
   const cancelBtn  = document.getElementById('edit-cancel-btn');

@@ -93,6 +93,9 @@ export interface MatchHistoryEntry {
   p1_win_gem: number;
   p2_win_gem: number;
   can_edit?: boolean;  // tylko w /api/matches/<id>/ — true gdy uczestnik lub is_staff
+  score_status?: 'PENDING' | 'CONFIRMED';
+  reported_by?: MatchUser | null;
+  confirmed_by?: MatchUser | null;
 }
 
 export interface RankingData {
