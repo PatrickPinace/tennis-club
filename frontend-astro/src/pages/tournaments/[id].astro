@@ -2924,6 +2924,15 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     const wrap = document.getElementById('rr-matrix-inner');
     if (!wrap) return;
 
+    // Jeśli allMatches nie zostało wypełnione przez renderMatches() (user nie jest organizatorem
+    // — org-matches-list nie istnieje i renderMatches() wraca wcześnie), wczytaj dane z SSR tu.
+    if (allMatches.length === 0) {
+      const matchesEl = document.getElementById('ssr-matches-data');
+      if (matchesEl) {
+        try { allMatches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { /* brak danych */ }
+      }
+    }
+
     // Pobierz uczestników z SSR JSON
     const partEl = document.getElementById('ssr-participants-data');
     if (!partEl) return;
