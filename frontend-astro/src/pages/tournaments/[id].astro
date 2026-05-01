@@ -1872,6 +1872,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     border: 1px solid var(--border-light);
     padding: 0;
   }
+  .rr-matrix td.rr-matrix__row-head,
+  .rr-matrix th.rr-matrix__row-head {
+    padding: 0 20px 0 16px;
+  }
   /* Nagłówek kolumny (skrót inicjałów) */
   .rr-matrix__col-head {
     position: sticky; top: 0;
@@ -1887,10 +1891,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   .rr-matrix__row-head {
     position: sticky; left: 0;
     background: var(--surface-2);
-    padding: 0 16px;
+    padding: 0 20px 0 16px;
     font-weight: 600; color: var(--text);
     white-space: nowrap; text-align: left;
-    max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+    min-width: 140px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
     vertical-align: middle;
     height: 44px;
     z-index: 1;
@@ -1946,7 +1950,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
   /* ── Finish tournament ─────────────────────────────────────────────── */
   .org-finish-btn {
-    display: inline-flex; align-items: center; gap: 7px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
     padding: 7px 16px; height: 34px;
     font-size: 0.82rem; font-weight: 600;
     border-radius: 7px; cursor: pointer;
@@ -2016,7 +2020,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
   /* ── Status buttons ─────────────────────────────────────────────── */
   .org-status-btn {
-    display: inline-flex; align-items: center;
+    display: inline-flex; align-items: center; justify-content: center;
     padding: 5px 12px; height: 30px;
     font-size: 0.78rem; font-weight: 600;
     border: 1px solid var(--primary); color: var(--primary);
@@ -2057,7 +2061,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
   /* ── "Moje turnieje" link w nagłówku panelu org ─────────────────── */
   .org-manage-link {
-    display: inline-flex; align-items: center; gap: 4px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
     font-size: 0.76rem; font-weight: 600; color: var(--text-muted);
     text-decoration: none; padding: 3px 8px; border-radius: 5px;
     border: 1px solid var(--border);
@@ -2113,7 +2117,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
   /* ── Close registration button ───────────────────────────────────── */
   .org-close-reg-btn {
-    display: inline-flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
     height: 34px; padding: 0 14px;
     font-size: 0.82rem; font-weight: 600; font-family: var(--font-sans);
     background: var(--primary); color: #fff; border: none;
