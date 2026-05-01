@@ -19,6 +19,7 @@ urlpatterns = [
     path('tournaments/<int:pk>/config/sgl/', views.EliminationConfigUpdateView.as_view(), name='tournament-sgl-config'),
     path('tournaments/<int:pk>/config/amr/', views.AmericanoConfigUpdateView.as_view(), name='tournament-amr-config'),
     path('tournaments/<int:pk>/config/', views.RoundRobinConfigUpdateView.as_view(), name='tournament-rr-config'),
+    path('tournaments/<int:pk>/amr/next-round/', views.AmrNextRoundView.as_view(), name='tournament-amr-next-round'),
     path('tournaments/<int:pk>/finish/', views.TournamentFinishView.as_view(), name='tournament-finish'),
     path('tournaments/<int:pk>/status/', views.TournamentStatusView.as_view(), name='tournament-status'),
     path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),

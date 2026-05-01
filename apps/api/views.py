@@ -1491,6 +1491,69 @@ class RebuildRankingsView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class AmrNextRoundView(APIView):
+    """
+    Manualny fallback generowania następnej rundy Mexicano.
+    POST /api/tournaments/{pk}/amr/next-round/
+
+    Guardy:
+    - Turniej musi być AMR + DYNAMIC + ACT
+    - Bieżąca runda musi być kompletna (wszystkie mecze CMP)
+    - Nie przekroczono number_of_rounds
+    Uprawnienia: organizator lub is_staff.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament, TournamentsMatch, AmericanoConfig
+        from apps.tournaments.views import generate_next_mexicano_round, calculate_americano_standings
+
+        try:
+            tournament = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not (request.user == tournament.created_by or request.user.is_staff):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if tournament.tournament_type != Tournament.TournamentType.AMERICANO:
+            return Response({'detail': 'Endpoint tylko dla turnieju AMR.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        config = getattr(tournament, 'americano_config', None)
+        if not config or config.scheduling_type != 'DYNAMIC':
+            return Response({'detail': 'Endpoint tylko dla trybu DYNAMIC (Mexicano).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if tournament.status != Tournament.Status.ACTIVE:
+            return Response({'detail': 'Turniej musi być aktywny (ACT).'}, status=status.HTTP_409_CONFLICT)
+
+        from django.db.models import Max as _Max
+        current_max_round = tournament.matches.aggregate(
+            max_round=_Max('round_number')
+        ).get('max_round') or 0
+
+        if current_max_round == 0:
+            return Response({'detail': 'Brak meczów — wygeneruj pierwszą rundę przez zmianę statusu.'}, status=status.HTTP_409_CONFLICT)
+
+        pending = TournamentsMatch.objects.filter(
+            tournament=tournament,
+            round_number=current_max_round,
+        ).exclude(status=TournamentsMatch.Status.COMPLETED.value).exists()
+
+        if pending:
+            return Response(
+                {'detail': f'Runda {current_max_round} nie jest jeszcze kompletna — nie wszystkie mecze mają status CMP.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        standings_list = calculate_americano_standings(tournament)
+        count, message = generate_next_mexicano_round(tournament, config, standings_list)
+
+        if count == 0:
+            return Response({'detail': message}, status=status.HTTP_409_CONFLICT)
+
+        return Response({'generated': count, 'message': message}, status=status.HTTP_200_OK)
+
+
 class TournamentFinishView(APIView):
     """
     Zakończenie turnieju — ustawia status na FIN.
