@@ -684,7 +684,6 @@ class RoundRobinMatchScoreView(APIView):
                 amr_cfg = AmericanoConfig.objects.filter(tournament=tournament).first()
             is_amr_participant = (
                 amr_cfg is not None
-                and amr_cfg.scheduling_type == 'STATIC'
                 and match.participant1 is not None
                 and match.participant2 is not None
                 and request.user in (
@@ -694,7 +693,7 @@ class RoundRobinMatchScoreView(APIView):
             )
         if not is_organizer and not is_rnd_participant and not is_amr_participant:
             return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR STATIC).'},
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR).'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
