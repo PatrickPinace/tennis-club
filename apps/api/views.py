@@ -665,7 +665,8 @@ class RoundRobinMatchScoreView(APIView):
         # ── Uprawnienia ───────────────────────────────────────────────────────
         # Organizator / staff — pełny dostęp do wszystkich typów turniejów.
         # Uczestnik meczu RR — może wpisać wynik setów oraz WDR (bez CNC).
-        # SGL i AMR: tylko organizer/staff.
+        # Uczestnik meczu AMR STATIC — może wpisać zwykły wynik (bez WDR/CNC).
+        # SGL: tylko organizer/staff.
         is_rnd_participant = (
             tournament.tournament_type == Tournament.TournamentType.ROUND_ROBIN
             and match.participant1 is not None
@@ -675,9 +676,25 @@ class RoundRobinMatchScoreView(APIView):
                 match.participant2.user,
             )
         )
-        if not is_organizer and not is_rnd_participant:
+        is_amr_participant = False
+        if tournament.tournament_type == Tournament.TournamentType.AMERICANO:
+            from apps.tournaments.models import AmericanoConfig
+            amr_cfg = getattr(tournament, '_amr_cfg_cache', None)
+            if amr_cfg is None:
+                amr_cfg = AmericanoConfig.objects.filter(tournament=tournament).first()
+            is_amr_participant = (
+                amr_cfg is not None
+                and amr_cfg.scheduling_type == 'STATIC'
+                and match.participant1 is not None
+                and match.participant2 is not None
+                and request.user in (
+                    match.participant1.user,
+                    match.participant2.user,
+                )
+            )
+        if not is_organizer and not is_rnd_participant and not is_amr_participant:
             return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (tylko RR).'},
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR STATIC).'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
