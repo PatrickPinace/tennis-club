@@ -652,19 +652,51 @@ class RoundRobinMatchScoreView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # ── Uprawnienia: only organizer or is_staff ───────────────────────────
-        if not (request.user == tournament.created_by or request.user.is_staff):
-            return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju lub is_staff.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+        is_organizer = request.user == tournament.created_by or request.user.is_staff
 
+        # ── Pobierz mecz ─────────────────────────────────────────────────────
         try:
             match = TournamentsMatch.objects.select_related(
-                'participant1', 'participant2'
+                'participant1__user', 'participant2__user'
             ).get(pk=match_pk, tournament=tournament)
         except TournamentsMatch.DoesNotExist:
             return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # ── Uprawnienia ───────────────────────────────────────────────────────
+        # Organizator / staff — pełny dostęp do wszystkich typów turniejów.
+        # Uczestnik meczu RR — może wpisać wynik setów oraz WDR (bez CNC).
+        # Uczestnik meczu AMR STATIC — może wpisać zwykły wynik (bez WDR/CNC).
+        # SGL: tylko organizer/staff.
+        is_rnd_participant = (
+            tournament.tournament_type == Tournament.TournamentType.ROUND_ROBIN
+            and match.participant1 is not None
+            and match.participant2 is not None
+            and request.user in (
+                match.participant1.user,
+                match.participant2.user,
+            )
+        )
+        is_amr_participant = False
+        if tournament.tournament_type == Tournament.TournamentType.AMERICANO:
+            from apps.tournaments.models import AmericanoConfig
+            amr_cfg = getattr(tournament, '_amr_cfg_cache', None)
+            if amr_cfg is None:
+                amr_cfg = AmericanoConfig.objects.filter(tournament=tournament).first()
+            is_amr_participant = (
+                amr_cfg is not None
+                and amr_cfg.scheduling_type == 'STATIC'
+                and match.participant1 is not None
+                and match.participant2 is not None
+                and request.user in (
+                    match.participant1.user,
+                    match.participant2.user,
+                )
+            )
+        if not is_organizer and not is_rnd_participant and not is_amr_participant:
+            return Response(
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR STATIC).'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # ── Turniej musi być ACT lub FIN — wyniki można edytować tylko w trakcie lub po zakończeniu
         # SCH/DRF/REG: turniej nie wystartował — zapis wyników niedozwolony
@@ -689,6 +721,19 @@ class RoundRobinMatchScoreView(APIView):
         data = request.data
         cancel = bool(data.get('cancel', False))
         walkover = bool(data.get('walkover', False))
+
+        # Cancel — tylko organizer/staff
+        if cancel and not is_organizer:
+            return Response(
+                {'detail': 'Anulowanie meczu jest dostępne wyłącznie dla organizatora i staff.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        # Walkover — organizer/staff lub uczestnik meczu RR
+        if walkover and not is_organizer and not is_rnd_participant:
+            return Response(
+                {'detail': 'Walkover jest dostępny wyłącznie dla organizatora, staff lub uczestnika meczu (tylko RR).'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         # ── Ścieżka anulowania meczu (CNC) ───────────────────────────────────
         if cancel:
@@ -2118,3 +2163,96 @@ class TournamentParticipantView(APIView):
             'status': 'WDN',
             'display_name': participant.display_name,
         }, status=status.HTTP_200_OK)
+
+
+class TournamentJoinView(APIView):
+    """
+    POST /api/tournaments/{pk}/join/
+
+    Zalogowany użytkownik zapisuje siebie do turnieju.
+    Reuse logiki z TournamentParticipantView (duplikat, WDN reaktywacja, limit miejsc).
+
+    Warunki:
+    - turniej musi być w statusie REG
+    - user nie może być już aktywnym uczestnikiem (Participant lub TeamMember)
+    - jeśli był WDN → reaktywacja rekordu
+    - jeśli osiągnięto max_participants (RND) → 409
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament, Participant, TeamMember
+
+        try:
+            tournament = Tournament.objects.select_related(
+                'created_by', 'round_robin_config'
+            ).get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.status != 'REG':
+            return Response(
+                {'detail': f'Zapisy są zamknięte. Turniej ma status „{tournament.get_status_display()}".'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        user = request.user
+
+        # Sprawdź duplikat
+        as_captain = Participant.objects.filter(
+            tournament=tournament, user=user,
+        ).exclude(status='WDN').exists()
+        as_partner = TeamMember.objects.filter(
+            participant__tournament=tournament, user=user,
+        ).exclude(participant__status='WDN').exists()
+
+        if as_captain or as_partner:
+            return Response(
+                {'detail': 'Jesteś już zapisany do tego turnieju.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Sprawdź limit (RND)
+        if tournament.tournament_type == 'RND':
+            cfg = getattr(tournament, 'round_robin_config', None)
+            if cfg:
+                active_count = tournament.participants.exclude(status='WDN').count()
+                if active_count >= cfg.max_participants:
+                    return Response(
+                        {'detail': f'Osiągnięto limit uczestników ({cfg.max_participants}).'},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
+        full = user.get_full_name().strip()
+        display_name = full if full else user.username
+
+        # Reaktywuj WDN lub utwórz nowy rekord
+        existing_wdn = Participant.objects.filter(
+            tournament=tournament, user=user, status='WDN',
+        ).first()
+
+        if existing_wdn:
+            existing_wdn.display_name = display_name
+            existing_wdn.status = 'REG'
+            existing_wdn.save(update_fields=['display_name', 'status'])
+            participant = existing_wdn
+            TeamMember.objects.get_or_create(participant=participant, user=user)
+        else:
+            participant = Participant.objects.create(
+                tournament=tournament,
+                user=user,
+                display_name=display_name,
+                status='REG',
+            )
+            TeamMember.objects.create(participant=participant, user=user)
+
+        logger.info(
+            '[join] Użytkownik %s zapisał się do turnieju "%s" (id=%d).',
+            user.username, tournament.name, tournament.pk,
+        )
+
+        return Response({
+            'id': participant.pk,
+            'display_name': participant.display_name,
+            'status': participant.status,
+        }, status=status.HTTP_201_CREATED)
