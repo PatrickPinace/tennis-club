@@ -1872,6 +1872,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     border: 1px solid var(--border-light);
     padding: 0;
   }
+  .rr-matrix td.rr-matrix__row-head,
+  .rr-matrix th.rr-matrix__row-head {
+    padding: 0 20px 0 16px;
+  }
   /* Nagłówek kolumny (skrót inicjałów) */
   .rr-matrix__col-head {
     position: sticky; top: 0;
