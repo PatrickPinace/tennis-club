@@ -135,9 +135,13 @@ const currentPath = Astro.url.pathname;
 
   .app-content {
     flex: 1;
-    padding: 28px 32px;
+    padding: 28px var(--content-px);
     max-width: var(--content-max);
     width: 100%;
+    /* Centrowanie content area w obrębie app-main na szerokich ekranach */
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
   }
 
   @media (max-width: 1024px) {

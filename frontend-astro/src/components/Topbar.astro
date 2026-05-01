@@ -35,6 +35,7 @@ const {
 ---
 
 <header class="topbar">
+  <div class="topbar__inner">
   <!-- Left: greeting text lub tytuł -->
   <div class="topbar__left">
     <button
@@ -179,18 +180,26 @@ const {
       </svg>
     </button>
   </div>
+  </div><!-- /topbar__inner -->
 </header>
 
 <style>
   .topbar {
     height: var(--topbar-height);
-    padding: 0 28px;
-    display: flex; align-items: center; justify-content: space-between; gap: 16px;
     background: var(--topbar-bg);
     border-bottom: 1px solid var(--border);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     position: sticky; top: 0; z-index: 50;
+  }
+
+  /* Wyrównanie zawartości topbara z content area */
+  .topbar__inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: 0 var(--content-px);
+    height: 100%;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
   }
 
   .topbar__left {
@@ -475,7 +484,7 @@ const {
   }
 
   @media (max-width: 640px) {
-    .topbar { padding: 0 16px; }
+    .topbar__inner { padding: 0 16px; }
     .topbar__greeting { font-size: 1.1rem; }
     .topbar__search { display: none; }
     .topbar__user-info { display: none; }
