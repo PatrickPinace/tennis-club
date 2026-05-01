@@ -936,8 +936,22 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             </div>
 
             <!-- Widok macierzy (ukryty domyślnie, wypełniany przez JS) -->
-            <div id="rr-matrix-wrap" style="display:none; overflow-x:auto; padding:0 0 16px;">
-              <div id="rr-matrix-inner" style="padding:0 16px;"></div>
+            <div id="rr-matrix-wrap" class="tc-card rr-matrix-card" style="display:none; margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Tabela ligowa</span>
+                <div class="rr-matrix-legend">
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--win">W wygrana</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--loss">P przegrana</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--draw">R remis</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--pending">— brak</span>
+                  <span class="rr-matrix-legend__sep">·</span>
+                  <span class="rr-matrix-legend__note">wynik z perspektywy gracza w wierszu →</span>
+                </div>
+              </div>
+              <div class="rr-matrix-scroll-hint">← przewiń →</div>
+              <div class="rr-matrix-scroll-wrap">
+                <div id="rr-matrix-inner"></div>
+              </div>
             </div>
 
             </div>
@@ -1927,89 +1941,161 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   }
 
   /* ── RR Matrix ──────────────────────────────────────────────────────────── */
+  .rr-matrix-card { margin-bottom: 24px; }
+
+  /* Separator pod headerem */
+  .rr-matrix-card > .tc-card-header {
+    border-bottom: 1px solid var(--border-light);
+    flex-wrap: wrap; gap: 8px;
+  }
+
+  /* Legenda + notka o perspektywie */
+  .rr-matrix-legend {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .rr-matrix-legend__item {
+    font-size: 0.68rem; font-weight: 600;
+    padding: 2px 7px; border-radius: 99px;
+    white-space: nowrap;
+  }
+  .rr-matrix-legend__item--win     { background: rgba(34,197,94,0.12);  color: #15803d; }
+  .rr-matrix-legend__item--loss    { background: rgba(239,68,68,0.10);  color: #b91c1c; }
+  .rr-matrix-legend__item--draw    { background: rgba(99,102,241,0.10); color: #4338ca; }
+  .rr-matrix-legend__item--pending { background: var(--surface-3,#f0f0f0); color: var(--text-dim); }
+  .rr-matrix-legend__sep { color: var(--border); font-size: 0.7rem; }
+  .rr-matrix-legend__note {
+    font-size: 0.65rem; color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* Scroll hint */
+  .rr-matrix-scroll-hint {
+    display: none; font-size: 0.7rem; color: var(--text-dim);
+    text-align: center; padding: 6px 0 2px; letter-spacing: 0.04em;
+  }
+  @media (max-width: 768px) { .rr-matrix-scroll-hint { display: block; } }
+
+  /* Wrapper scrollujący */
+  .rr-matrix-scroll-wrap { overflow-x: auto; padding-bottom: 8px; }
+
+  /* Tabela */
   .rr-matrix {
     border-collapse: collapse;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     min-width: max-content;
   }
   .rr-matrix th, .rr-matrix td {
     border: 1px solid var(--border-light);
     padding: 0;
   }
-  .rr-matrix td.rr-matrix__row-head,
-  .rr-matrix th.rr-matrix__row-head {
-    padding: 0 20px 0 16px;
+
+  /* Róg sticky */
+  .rr-matrix__corner {
+    position: sticky; left: 0; top: 0;
+    background: var(--surface-2); z-index: 3;
   }
-  /* Nagłówek kolumny (skrót inicjałów) */
+
+  /* Nagłówek kolumny */
   .rr-matrix__col-head {
     position: sticky; top: 0;
     background: var(--surface-2);
-    padding: 7px 6px;
+    padding: 7px 4px;
     font-weight: 700; color: var(--text-muted);
     text-align: center; white-space: nowrap;
-    font-size: 0.70rem; letter-spacing: 0.02em;
-    z-index: 2;
-    min-width: 48px;
+    font-size: 0.68rem; letter-spacing: 0.03em;
+    z-index: 2; min-width: 56px;
   }
-  /* Nagłówek wiersza (pełna nazwa, skrócona) */
+
+  /* Nagłówek wiersza */
   .rr-matrix__row-head {
     position: sticky; left: 0;
     background: var(--surface-2);
     padding: 0 20px 0 16px;
     font-weight: 600; color: var(--text);
     white-space: nowrap; text-align: left;
-    min-width: 140px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
-    vertical-align: middle;
-    height: 44px;
+    min-width: 140px; max-width: 200px;
+    overflow: hidden; text-overflow: ellipsis;
+    vertical-align: middle; height: 42px;
     z-index: 1;
     border-right: 2px solid var(--border);
   }
+
   /* Przekątna */
   .rr-matrix__diag {
-    background: var(--surface-3, #f0f0f0);
-    width: 48px; height: 44px;
+    background: var(--surface-3, #ebebeb);
+    width: 56px; height: 42px;
   }
+
   /* Komórka meczu */
   .rr-matrix__cell {
-    width: 64px; height: 44px;
+    width: 56px; height: 42px;
     text-align: center; vertical-align: middle;
-    cursor: pointer; transition: background 0.1s;
-    position: relative;
+    cursor: pointer; transition: filter 0.1s;
+    padding: 3px 4px;
   }
-  /* Flexbox na td: wyśrodkuj zawartość pionowo i poziomo */
-  .rr-matrix__cell > span {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; height: 100%;
+  .rr-matrix__cell:hover { filter: brightness(0.91); }
+
+  /* Badge (W/P/R) + wynik */
+  .rr-matrix__badge {
+    display: block;
+    font-size: 0.68rem; font-weight: 800;
+    line-height: 1.2; letter-spacing: 0.02em;
   }
-  .rr-matrix__cell:hover { filter: brightness(0.93); }
+  .rr-matrix__score {
+    display: block;
+    font-size: 0.56rem; font-weight: 500;
+    color: inherit; opacity: 0.72;
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    max-width: 52px;
+  }
+  .rr-matrix__cell-dash { font-size: 0.8rem; color: inherit; opacity: 0.4; }
+  .rr-matrix__live-dot  { font-size: 0.6rem; color: inherit; }
+
+  /* Stany */
+  .rr-matrix__cell--win  { background: rgba(34,197,94,0.11);  color: #15803d; }
+  .rr-matrix__cell--loss {
+    background: rgba(239,68,68,0.08);
+    color: #b91c1c;
+  }
+  .rr-matrix__cell--draw {
+    background: rgba(99,102,241,0.09);
+    color: #4338ca;
+  }
+  .rr-matrix__cell--wdr {
+    background: rgba(148,163,184,0.15);
+    color: var(--text-dim);
+  }
+  .rr-matrix__cell--live {
+    background: rgba(234,179,8,0.13);
+    color: #a16207;
+  }
+  .rr-matrix__cell--empty {
+    background: var(--surface-2);
+    color: var(--text-dim);
+  }
   .rr-matrix__cell--pending {
     background: var(--surface-2);
     color: var(--text-dim);
   }
-  .rr-matrix__cell--inprogress {
-    background: rgba(234,179,8,0.15);
-    color: #a16207;
-  }
-  .rr-matrix__cell--done {
-    background: rgba(34,197,94,0.12);
-    color: #15803d;
-  }
-  .rr-matrix__cell--wdr {
-    background: rgba(148,163,184,0.18);
-    color: var(--text-dim);
-  }
-  .rr-matrix__cell-score {
-    font-weight: 700; font-size: 0.75rem;
-    line-height: 1;
-  }
-  .rr-matrix__cell-status {
-    font-size: 0.64rem; color: inherit; opacity: 0.75;
-  }
+
   /* Highlight kliknięcia */
   .rr-matrix__cell--highlight {
     outline: 2px solid var(--primary);
     outline-offset: -2px;
     z-index: 1;
+  }
+
+  @media (max-width: 480px) {
+    .rr-matrix { font-size: 0.72rem; }
+    .rr-matrix__row-head { min-width: 110px; padding: 0 12px 0 12px; }
+    .rr-matrix__col-head { min-width: 44px; }
+    .rr-matrix__cell { width: 52px; height: 40px; }
+    .rr-matrix__diag { width: 44px; height: 40px; }
+    .rr-matrix__row-head { height: 40px; }
+    .rr-matrix-legend { gap: 6px; }
+    .rr-matrix-legend__item { font-size: 0.65rem; padding: 1px 6px; }
   }
 
   /* ── Finish tournament ─────────────────────────────────────────────── */
@@ -3196,7 +3282,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     let html = '<table class="rr-matrix" role="grid">';
 
     // Nagłówek kolumn
-    html += '<thead><tr><th class="rr-matrix__row-head" style="background:var(--surface-2);z-index:3;position:sticky;left:0;top:0;"></th>';
+    html += '<thead><tr><th class="rr-matrix__row-head rr-matrix__corner"></th>';
     for (const p of participants) {
       html += `<th class="rr-matrix__col-head" title="${escHtml(p.display_name)}">${escHtml(abbrev(p.display_name))}</th>`;
     }
@@ -3214,36 +3300,42 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         const m = matchMap.get(key);
 
         if (!m) {
-          // Brak meczu w danych — pusta komórka
-          html += '<td class="rr-matrix__cell rr-matrix__cell--pending" aria-label="brak meczu"><span class="rr-matrix__cell-status">—</span></td>';
+          html += '<td class="rr-matrix__cell rr-matrix__cell--empty" aria-label="brak meczu"><span class="rr-matrix__cell-dash">—</span></td>';
           continue;
         }
 
-        let cellCls = 'rr-matrix__cell ';
+        const rowName = row.id === m.participant1_id ? m.participant1_name : m.participant2_name;
+        const colName = row.id === m.participant1_id ? m.participant2_name : m.participant1_name;
+        let cellCls = 'rr-matrix__cell';
+        let label = '';
         let inner = '';
 
         if (m.status === 'CMP') {
-          cellCls += 'rr-matrix__cell--done';
-          // Wynik z perspektywy wiersza (row)
-          const rowWon = m.winner_name === (row.id === m.participant1_id ? m.participant1_name : m.participant2_name);
-          inner = m.score
-            ? `<span class="rr-matrix__cell-score">${escHtml(m.score)}</span>`
-            : `<span class="rr-matrix__cell-score">${rowWon ? 'W' : 'P'}</span>`;
+          const rowWon  = m.winner_name !== null && m.winner_name === rowName;
+          const colWon  = m.winner_name !== null && m.winner_name === colName;
+          const isDraw  = m.winner_name === null;
+          cellCls += isDraw ? ' rr-matrix__cell--draw' : rowWon ? ' rr-matrix__cell--win' : ' rr-matrix__cell--loss';
+          label = isDraw ? 'remis' : rowWon ? 'wygrana' : 'przegrana';
+          const badge = isDraw ? 'R' : rowWon ? 'W' : 'P';
+          inner = `<span class="rr-matrix__badge">${badge}</span>`
+                + (m.score ? `<span class="rr-matrix__score">${escHtml(m.score).replace(/ /g,' ')}</span>` : '');
         } else if (m.status === 'WDR') {
-          cellCls += 'rr-matrix__cell--wdr';
-          inner = '<span class="rr-matrix__cell-score">WO</span>';
+          cellCls += ' rr-matrix__cell--wdr';
+          const rowWon = m.winner_name === rowName;
+          label = rowWon ? 'walkover — wygrana' : 'walkover — przegrana';
+          inner = `<span class="rr-matrix__badge">WO</span>`;
         } else if (m.status === 'INP') {
-          cellCls += 'rr-matrix__cell--inprogress';
-          inner = '<span class="rr-matrix__cell-status">● live</span>';
+          cellCls += ' rr-matrix__cell--live';
+          label = 'w trakcie';
+          inner = '<span class="rr-matrix__live-dot">●</span>';
         } else {
-          // WAI, SCH, CNC
-          cellCls += 'rr-matrix__cell--pending';
-          inner = `<span class="rr-matrix__cell-status">${m.status === 'SCH' ? 'SCH' : '·'}</span>`;
+          cellCls += ' rr-matrix__cell--pending';
+          label = m.status === 'SCH' ? 'zaplanowany' : 'oczekuje';
+          inner = `<span class="rr-matrix__cell-dash">${m.status === 'SCH' ? '·' : '·'}</span>`;
         }
 
-        html += `<td class="${cellCls}" data-match-id="${m.id}" role="button" tabindex="0"
-          title="${escHtml(m.participant1_name ?? '')} vs ${escHtml(m.participant2_name ?? '')}: ${m.score ?? m.status}"
-          >${inner}</td>`;
+        const tooltip = `${escHtml(rowName ?? '')} vs ${escHtml(colName ?? '')}${m.score ? ': ' + m.score : ''}`;
+        html += `<td class="${cellCls}" data-match-id="${m.id}" role="button" tabindex="0" title="${tooltip}" aria-label="${label}">${inner}</td>`;
       }
       html += '</tr>';
     }
@@ -4140,7 +4232,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     const wrap = document.getElementById('rr-matrix-inner');
     if (!wrap) return;
     if (pubParticipants.length < 2) {
-      wrap.innerHTML = '<p style="padding:12px;font-size:0.82rem;color:var(--text-dim);">Za mało uczestników do macierzy.</p>';
+      wrap.innerHTML = '<p style="padding:16px;font-size:0.82rem;color:var(--text-dim);">Za mało uczestników do macierzy.</p>';
       return;
     }
     const matchMap = new Map<string, PubMatchData>();
@@ -4150,7 +4242,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       matchMap.set(key, m);
     }
     let html = '<table class="rr-matrix" role="grid">';
-    html += '<thead><tr><th class="rr-matrix__row-head" style="background:var(--surface-2);z-index:3;position:sticky;left:0;top:0;"></th>';
+    html += '<thead><tr><th class="rr-matrix__row-head rr-matrix__corner"></th>';
     for (const p of pubParticipants) {
       html += `<th class="rr-matrix__col-head" title="${escH(p.display_name)}">${escH(abbrev(p.display_name))}</th>`;
     }
@@ -4162,28 +4254,38 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         const key = `${Math.min(row.id, col.id)}_${Math.max(row.id, col.id)}`;
         const m = matchMap.get(key);
         if (!m) {
-          html += '<td class="rr-matrix__cell rr-matrix__cell--pending" aria-label="brak meczu"><span class="rr-matrix__cell-status">—</span></td>';
+          html += '<td class="rr-matrix__cell rr-matrix__cell--empty" aria-label="brak meczu"><span class="rr-matrix__cell-dash">—</span></td>';
           continue;
         }
-        let cls = 'rr-matrix__cell ';
+        const rowName = row.id === m.participant1_id ? m.participant1_name : m.participant2_name;
+        const colName = row.id === m.participant1_id ? m.participant2_name : m.participant1_name;
+        let cls = 'rr-matrix__cell';
         let inner = '';
+        let label = '';
         if (m.status === 'CMP') {
-          cls += 'rr-matrix__cell--done';
-          const rowWon = m.winner_name === (row.id === m.participant1_id ? m.participant1_name : m.participant2_name);
-          inner = m.score
-            ? `<span class="rr-matrix__cell-score">${escH(m.score)}</span>`
-            : `<span class="rr-matrix__cell-score">${rowWon ? 'W' : 'P'}</span>`;
+          const rowWon = m.winner_name !== null && m.winner_name === rowName;
+          const isDraw = m.winner_name === null;
+          cls += isDraw ? ' rr-matrix__cell--draw' : rowWon ? ' rr-matrix__cell--win' : ' rr-matrix__cell--loss';
+          label = isDraw ? 'remis' : rowWon ? 'wygrana' : 'przegrana';
+          const badge = isDraw ? 'R' : rowWon ? 'W' : 'P';
+          inner = `<span class="rr-matrix__badge">${badge}</span>`
+                + (m.score ? `<span class="rr-matrix__score">${escH(m.score).replace(/ /g,' ')}</span>` : '');
         } else if (m.status === 'WDR') {
-          cls += 'rr-matrix__cell--wdr';
-          inner = '<span class="rr-matrix__cell-score">WO</span>';
+          const rowWon = m.winner_name === rowName;
+          cls += ' rr-matrix__cell--wdr';
+          label = rowWon ? 'walkover — wygrana' : 'walkover — przegrana';
+          inner = '<span class="rr-matrix__badge">WO</span>';
         } else if (m.status === 'INP') {
-          cls += 'rr-matrix__cell--inprogress';
-          inner = '<span class="rr-matrix__cell-status">● live</span>';
+          cls += ' rr-matrix__cell--live';
+          label = 'w trakcie';
+          inner = '<span class="rr-matrix__live-dot">●</span>';
         } else {
-          cls += 'rr-matrix__cell--pending';
-          inner = `<span class="rr-matrix__cell-status">${m.status === 'SCH' ? 'SCH' : '·'}</span>`;
+          cls += ' rr-matrix__cell--pending';
+          label = 'oczekuje';
+          inner = '<span class="rr-matrix__cell-dash">·</span>';
         }
-        html += `<td class="${cls}" title="${escH(m.participant1_name ?? '')} vs ${escH(m.participant2_name ?? '')}: ${m.score ?? m.status}"><span>${inner}</span></td>`;
+        const tooltip = `${escH(rowName ?? '')} vs ${escH(colName ?? '')}${m.score ? ': ' + m.score : ''}`;
+        html += `<td class="${cls}" title="${tooltip}" aria-label="${label}">${inner}</td>`;
       }
       html += '</tr>';
     }
