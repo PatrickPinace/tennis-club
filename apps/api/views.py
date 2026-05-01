@@ -1257,8 +1257,8 @@ class AmericanoConfigUpdateView(APIView):
     Tworzenie/edycja konfiguracji Americano przez organizatora.
     POST/PATCH /api/tournaments/{pk}/config/amr/
 
-    Pola: points_per_match (int >= 1), number_of_rounds (int >= 1).
-    scheduling_type zablokowane na STATIC w tym slice'u (DYNAMIC = Mexicano — później).
+    Pola: points_per_match (int >= 1), number_of_rounds (int >= 1),
+    scheduling_type ('STATIC' = Americano, 'DYNAMIC' = Mexicano).
     Tworzy AmericanoConfig jeśli nie istnieje.
     """
     permission_classes = [IsAuthenticated]
@@ -1313,13 +1313,14 @@ class AmericanoConfigUpdateView(APIView):
                 return Response({'detail': 'number_of_rounds musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
             config.number_of_rounds = nor
 
-        # scheduling_type zablokowane — obsługujemy tylko STATIC w tym slice'u
-        if 'scheduling_type' in data and data['scheduling_type'] != 'STATIC':
-            return Response(
-                {'detail': 'scheduling_type DYNAMIC (Mexicano) nie jest jeszcze obsługiwany. Zostaw STATIC.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        config.scheduling_type = 'STATIC'
+        if 'scheduling_type' in data:
+            valid = [c[0] for c in AmericanoConfig.SCHEDULING_CHOICES]
+            if data['scheduling_type'] not in valid:
+                return Response(
+                    {'detail': f'scheduling_type musi być jednym z: {valid}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            config.scheduling_type = data['scheduling_type']
 
         config.save()
         return Response({
@@ -1846,8 +1847,6 @@ class TournamentStatusView(APIView):
                                 'scheduling_type': 'STATIC',
                             },
                         )
-                        if config.scheduling_type != 'STATIC':
-                            raise ValueError('Tylko tryb STATIC (Americano) jest obsługiwany w tym etapie.')
                         match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
