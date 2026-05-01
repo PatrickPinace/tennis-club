@@ -2006,7 +2006,11 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     z-index: 2; min-width: 56px;
   }
 
-  /* Nagłówek wiersza */
+  /* Nagłówek wiersza — wyższa specyficzność by przeić padding:0 z .rr-matrix td */
+  .rr-matrix td.rr-matrix__row-head,
+  .rr-matrix th.rr-matrix__row-head {
+    padding: 0 20px 0 16px;
+  }
   .rr-matrix__row-head {
     position: sticky; left: 0;
     background: var(--surface-2);
