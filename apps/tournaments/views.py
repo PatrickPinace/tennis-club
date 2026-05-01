@@ -1607,6 +1607,12 @@ def generate_next_mexicano_round(tournament, config, standings_list):
 
     participants = [s['participant'] for s in standings_list]
     num_participants = len(participants)
+
+    if num_participants < 4:
+        return 0, f"Za mało uczestników ({num_participants}) — potrzeba co najmniej 4."
+    if num_participants % 4 != 0:
+        return 0, f"Liczba uczestników ({num_participants}) musi być wielokrotnością 4 — reszta {num_participants % 4} graczy nie może być przypisana do meczu."
+
     num_courts = num_participants // 4
     matches_to_create = []
 
