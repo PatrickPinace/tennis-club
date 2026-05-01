@@ -131,6 +131,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         eyebrow="Rozgrywki"
         title={tournament.name}
         subtitle={tournament.description || `${FORMAT_LABEL[tournament.match_format] ?? tournament.match_format} · ${isRoundRobin ? 'Liga (każdy z każdym)' : isSingleElimination ? 'Eliminacja pojedyncza' : isAmericano ? 'Americano' : tournament.tournament_type}`}
+        centered={true}
       />
 
       <!-- Header info row -->
