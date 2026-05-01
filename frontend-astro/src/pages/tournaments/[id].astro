@@ -1514,11 +1514,31 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   .td-error-card span, .td-unsupported span { font-size: 0.85rem; }
 
   /* ── Responsive ─────────────────────────────────────────────────────────── */
+
   @media (max-width: 640px) {
+    /* Stats boxy — mniejszy padding, wrapping */
     .td-stats { gap: 8px; }
-    .td-stat { padding: 10px 14px; min-width: 80px; }
-    .td-info-row { flex-direction: column; }
+    .td-stat { padding: 10px 14px; min-width: 72px; }
+    .td-stat__val { font-size: 1.25rem; }
+
+    /* Info row — pionowo */
+    .td-info-row { flex-direction: column; gap: 8px; }
+    .td-info-meta { gap: 10px; }
+
+    /* Match cards */
     .td-match__name { font-size: 0.8rem; }
+
+    /* Breadcrumb — mniejszy margin */
+    .td-breadcrumb { margin-bottom: 10px; }
+
+    /* PageHeader — mniejszy margin-bottom */
+    .td-created-banner { margin-left: 0; margin-right: 0; }
+  }
+
+  @media (max-width: 480px) {
+    /* Stat boxy — 2 kolumny zamiast rzędu */
+    .td-stats { display: grid; grid-template-columns: 1fr 1fr; }
+    .td-stat { min-width: 0; }
   }
 
   /* ── Organizer panel ─────────────────────────────────────────────────────── */

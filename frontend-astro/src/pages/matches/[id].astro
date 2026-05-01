@@ -215,6 +215,7 @@ const awaitingConfirm = isPending && iAmReporter;
       <div class="tc-card-header">
         <span class="tc-card-title">Wynik setów</span>
       </div>
+      <div class="sets-table-wrap">
       <table class="tc-table sets-table">
         <thead>
           <tr>
@@ -251,6 +252,7 @@ const awaitingConfirm = isPending && iAmReporter;
           </tr>
         </tbody>
       </table>
+      </div><!-- /sets-table-wrap -->
     </div>
   )}
 
@@ -412,6 +414,7 @@ const awaitingConfirm = isPending && iAmReporter;
   }
 
   /* ── Sets table ──────────────────────────────────────────────────────── */
+  .sets-table-wrap { overflow-x: auto; }
   .sets-table { min-width: 400px; }
   .col-num { text-align: right; }
   .font-bold { font-weight: 700; color: var(--text); }
@@ -472,6 +475,58 @@ const awaitingConfirm = isPending && iAmReporter;
   .confirm-bar__icon { font-size: 1rem; flex-shrink: 0; }
   .confirm-bar__msg {
     margin-top: 8px; font-size: 0.82rem; font-weight: 600;
+  }
+
+  /* ── Mobile ──────────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    /* Topbar: breadcrumb i przycisk "Edytuj" jeden pod drugim */
+    .match-topbar {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    /* Karta meczu — mniejszy padding */
+    .match-header { padding: 16px; }
+
+    /* Scoreboard: zamiast 1fr auto 1fr → pionowo: gracz1 / wynik / gracz2 */
+    .match-scoreboard {
+      grid-template-columns: 1fr;
+      gap: 12px;
+      padding: 4px 0 14px;
+    }
+
+    /* Prawa drużyna: na mobilu wyrównana do lewej jak lewa */
+    .match-team--right {
+      align-items: flex-start;
+      text-align: left;
+    }
+    .match-team--right .match-team__player {
+      flex-direction: row;
+    }
+
+    /* Wynik setów — wyśrodkowany separator między drużynami */
+    .match-score {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 0;
+    }
+    .match-score__set { font-size: 1.3rem; }
+    .match-score__empty { font-size: 1.3rem; }
+
+    /* Avatar nieco mniejszy */
+    .tc-avatar-md { width: 34px; height: 34px; font-size: 0.78rem; }
+
+    /* Tabela setów — scroll poziomy */
+    .sets-table { min-width: 360px; }
+
+    /* Formularz edycji — sety obok siebie ale mniejszy gap */
+    .edit-sets-row { gap: 12px; }
+
+    /* Confirm bar — stack pionowo */
+    .confirm-bar { padding: 12px 14px; }
+    .confirm-bar__content { flex-direction: column; align-items: flex-start; gap: 10px; }
   }
 </style>
 
