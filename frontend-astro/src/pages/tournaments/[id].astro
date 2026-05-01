@@ -1063,7 +1063,18 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                     <div id="org-user-suggestions" class="org-sug-dropdown" style="display:none;"></div>
                   </div>
 
-                  <!-- Debel: dwa pola + nazwa pary (widoczne gdy match_format=DBL) -->
+                  <!-- AMR debel: hint + reuse singiel-wyszukiwarki (widoczny gdy AMR+DBL) -->
+                  <!-- W Americano pary są losowane przez system — dodaj graczy indywidualnie -->
+                  <div id="org-add-amr-dbl-note" style="display:none;">
+                    <div class="org-amr-dbl-hint">
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;margin-top:1px;">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                      </svg>
+                      <span>Americano debel — dodaj każdego gracza osobno. System sam ułoży pary do każdej rundy.</span>
+                    </div>
+                  </div>
+
+                  <!-- Pozostałe debele (RR, SGL itp.): stały skład pary (kapitan + partner) -->
                   <div id="org-add-dbl-row" style="display:none;">
                     <div class="org-dbl-players-row">
                       <div class="org-dbl-player-col">
@@ -2286,6 +2297,17 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   }
   .org-close-reg-btn:hover { background: var(--primary-btn-hover, #16a34a); }
   .org-close-reg-btn:disabled { opacity: 0.5; cursor: default; }
+
+  /* ── AMR debel hint ─────────────────────────────────────────────── */
+  .org-amr-dbl-hint {
+    display: flex; align-items: flex-start; gap: 7px;
+    padding: 8px 10px; margin-bottom: 10px;
+    background: color-mix(in srgb, var(--primary) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+    border-radius: 6px;
+    font-size: 0.78rem; color: var(--text-muted); line-height: 1.45;
+  }
+  .org-amr-dbl-hint svg { color: var(--primary); }
 
   /* ── Doubles add form ───────────────────────────────────────────── */
   .org-dbl-players-row {
@@ -3769,12 +3791,23 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     const canAdd = tStatus === 'DRF' || tStatus === 'REG';
     if (addRow && !canAdd) addRow.style.display = 'none';
 
-    // Debel: przełącz widok
-    const matchFormat = panel?.dataset.matchFormat ?? '';
-    const isDoubles = matchFormat === 'DBL';
-    const sngWrap  = document.getElementById('org-add-sng-wrap') as HTMLElement | null;
-    const dblRow   = document.getElementById('org-add-dbl-row') as HTMLElement | null;
-    if (isDoubles) {
+    // Debel: przełącz widok zależnie od typu turnieju
+    const matchFormat   = panel?.dataset.matchFormat ?? '';
+    const tournamentType = panel?.dataset.tournamentType ?? '';
+    const isDoubles     = matchFormat === 'DBL';
+    const isAmrDbl      = isDoubles && tournamentType === 'AMR';
+    const sngWrap       = document.getElementById('org-add-sng-wrap') as HTMLElement | null;
+    const dblRow        = document.getElementById('org-add-dbl-row') as HTMLElement | null;
+    const amrDblNote    = document.getElementById('org-add-amr-dbl-note') as HTMLElement | null;
+
+    if (isAmrDbl) {
+      // AMR debel: singiel-wrapper (wyszukiwarka + przycisk) zostaje widoczny,
+      // tylko pokazujemy hint wyjaśniający że pary układa system
+      if (amrDblNote) amrDblNote.style.display = 'block';
+      // sngWrap pozostaje widoczny (domyślnie display nie jest none)
+      if (dblRow) dblRow.style.display = 'none';
+    } else if (isDoubles) {
+      // Pozostałe debele (RR, SGL): stały skład pary
       if (sngWrap) sngWrap.style.display = 'none';
       if (dblRow)  dblRow.style.display = 'block';
     }
@@ -3959,8 +3992,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       inputEl.addEventListener('blur', () => setTimeout(close, 150));
     }
 
-    // ── Singiel ───────────────────────────────────────────────────────
-    if (!isDoubles) {
+    // ── Singiel + AMR debel (oba używają tego samego flow: dodaj gracza indywidualnie) ──
+    if (!isDoubles || isAmrDbl) {
       const searchEl = document.getElementById('org-add-user-search') as HTMLInputElement;
       const sugEl    = document.getElementById('org-user-suggestions') as HTMLElement;
       const addBtn   = document.getElementById('org-add-user-btn') as HTMLButtonElement;
