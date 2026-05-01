@@ -1887,10 +1887,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   .rr-matrix__row-head {
     position: sticky; left: 0;
     background: var(--surface-2);
-    padding: 0 16px;
+    padding: 0 20px 0 16px;
     font-weight: 600; color: var(--text);
     white-space: nowrap; text-align: left;
-    max-width: 180px; overflow: hidden; text-overflow: ellipsis;
+    min-width: 140px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
     vertical-align: middle;
     height: 44px;
     z-index: 1;
