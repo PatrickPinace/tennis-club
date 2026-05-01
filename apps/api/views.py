@@ -684,7 +684,6 @@ class RoundRobinMatchScoreView(APIView):
                 amr_cfg = AmericanoConfig.objects.filter(tournament=tournament).first()
             is_amr_participant = (
                 amr_cfg is not None
-                and amr_cfg.scheduling_type == 'STATIC'
                 and match.participant1 is not None
                 and match.participant2 is not None
                 and request.user in (
@@ -694,7 +693,7 @@ class RoundRobinMatchScoreView(APIView):
             )
         if not is_organizer and not is_rnd_participant and not is_amr_participant:
             return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR STATIC).'},
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR).'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1257,8 +1256,8 @@ class AmericanoConfigUpdateView(APIView):
     Tworzenie/edycja konfiguracji Americano przez organizatora.
     POST/PATCH /api/tournaments/{pk}/config/amr/
 
-    Pola: points_per_match (int >= 1), number_of_rounds (int >= 1).
-    scheduling_type zablokowane na STATIC w tym slice'u (DYNAMIC = Mexicano — później).
+    Pola: points_per_match (int >= 1), number_of_rounds (int >= 1),
+    scheduling_type ('STATIC' = Americano, 'DYNAMIC' = Mexicano).
     Tworzy AmericanoConfig jeśli nie istnieje.
     """
     permission_classes = [IsAuthenticated]
@@ -1313,13 +1312,14 @@ class AmericanoConfigUpdateView(APIView):
                 return Response({'detail': 'number_of_rounds musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
             config.number_of_rounds = nor
 
-        # scheduling_type zablokowane — obsługujemy tylko STATIC w tym slice'u
-        if 'scheduling_type' in data and data['scheduling_type'] != 'STATIC':
-            return Response(
-                {'detail': 'scheduling_type DYNAMIC (Mexicano) nie jest jeszcze obsługiwany. Zostaw STATIC.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        config.scheduling_type = 'STATIC'
+        if 'scheduling_type' in data:
+            valid = [c[0] for c in AmericanoConfig.SCHEDULING_CHOICES]
+            if data['scheduling_type'] not in valid:
+                return Response(
+                    {'detail': f'scheduling_type musi być jednym z: {valid}.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            config.scheduling_type = data['scheduling_type']
 
         config.save()
         return Response({
@@ -1488,6 +1488,69 @@ class RebuildRankingsView(APIView):
             'match_type': match_type or 'all',
             'season': season or 'all',
         }, status=status.HTTP_200_OK)
+
+
+class AmrNextRoundView(APIView):
+    """
+    Manualny fallback generowania następnej rundy Mexicano.
+    POST /api/tournaments/{pk}/amr/next-round/
+
+    Guardy:
+    - Turniej musi być AMR + DYNAMIC + ACT
+    - Bieżąca runda musi być kompletna (wszystkie mecze CMP)
+    - Nie przekroczono number_of_rounds
+    Uprawnienia: organizator lub is_staff.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import Tournament, TournamentsMatch, AmericanoConfig
+        from apps.tournaments.views import generate_next_mexicano_round, calculate_americano_standings
+
+        try:
+            tournament = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not (request.user == tournament.created_by or request.user.is_staff):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if tournament.tournament_type != Tournament.TournamentType.AMERICANO:
+            return Response({'detail': 'Endpoint tylko dla turnieju AMR.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        config = getattr(tournament, 'americano_config', None)
+        if not config or config.scheduling_type != 'DYNAMIC':
+            return Response({'detail': 'Endpoint tylko dla trybu DYNAMIC (Mexicano).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if tournament.status != Tournament.Status.ACTIVE:
+            return Response({'detail': 'Turniej musi być aktywny (ACT).'}, status=status.HTTP_409_CONFLICT)
+
+        from django.db.models import Max as _Max
+        current_max_round = tournament.matches.aggregate(
+            max_round=_Max('round_number')
+        ).get('max_round') or 0
+
+        if current_max_round == 0:
+            return Response({'detail': 'Brak meczów — wygeneruj pierwszą rundę przez zmianę statusu.'}, status=status.HTTP_409_CONFLICT)
+
+        pending = TournamentsMatch.objects.filter(
+            tournament=tournament,
+            round_number=current_max_round,
+        ).exclude(status=TournamentsMatch.Status.COMPLETED.value).exists()
+
+        if pending:
+            return Response(
+                {'detail': f'Runda {current_max_round} nie jest jeszcze kompletna — nie wszystkie mecze mają status CMP.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        standings_list = calculate_americano_standings(tournament)
+        count, message = generate_next_mexicano_round(tournament, config, standings_list)
+
+        if count == 0:
+            return Response({'detail': message}, status=status.HTTP_409_CONFLICT)
+
+        return Response({'generated': count, 'message': message}, status=status.HTTP_200_OK)
 
 
 class TournamentFinishView(APIView):
@@ -1846,8 +1909,6 @@ class TournamentStatusView(APIView):
                                 'scheduling_type': 'STATIC',
                             },
                         )
-                        if config.scheduling_type != 'STATIC':
-                            raise ValueError('Tylko tryb STATIC (Americano) jest obsługiwany w tym etapie.')
                         match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'

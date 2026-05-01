@@ -215,7 +215,16 @@ if (!currentUser) {
 
         <!-- ── Sekcja AMR ── -->
         <div id="wiz-amr-config" style="display:none;">
-          <div class="cfg-group-label">Mecze Americano</div>
+          <div class="cfg-group-label">Tryb rozgrywek</div>
+          <div class="cr-field" style="max-width:400px; margin-bottom:18px;">
+            <label class="cr-label" for="amr-scheduling-type">Format</label>
+            <select id="amr-scheduling-type" class="cr-input cr-select">
+              <option value="STATIC">Americano (stały harmonogram)</option>
+              <option value="DYNAMIC">Mexicano (dynamiczne parowanie co rundę)</option>
+            </select>
+            <span class="cr-hint" id="amr-scheduling-hint">Harmonogram wszystkich rund ustalany z góry na podstawie rotacji.</span>
+          </div>
+          <div class="cfg-group-label">Mecze</div>
           <div class="cfg-spinners-row">
             <div class="cfg-spinner-col">
               <span class="cfg-spinner-label">Liczba rund</span>
@@ -236,7 +245,7 @@ if (!currentUser) {
               <span class="cfg-hint">np. 32 = suma gemów w meczu</span>
             </div>
           </div>
-          <p class="cr-hint" style="margin-top:16px;">Americano singiel — każdy zagra z każdym maksymalnie raz. Harmonogram generowany automatycznie przy zamknięciu rejestracji.</p>
+          <p class="cr-hint" id="amr-mode-desc" style="margin-top:16px;">Americano — harmonogram wszystkich rund ustalany z góry. Mexicano — parowanie co rundę na podstawie aktualnego rankingu.</p>
         </div>
 
         <!-- ── Sekcja SGL ── -->
@@ -482,12 +491,13 @@ function buildSummary() {
         ${row('Mecz o 3. miejsce', sglThird.checked ? 'Tak' : 'Nie')}
       </div>`;
   } else if (typeEl.value === 'AMR') {
+    const schedLabel = amrSched.value === 'DYNAMIC' ? 'Mexicano (dynamiczne parowanie)' : 'Americano (stały harmonogram)';
     html += `
       <div class="sum-group">
-        <div class="sum-group-label">Americano</div>
+        <div class="sum-group-label">${amrSched.value === 'DYNAMIC' ? 'Mexicano' : 'Americano'}</div>
+        ${row('Tryb', schedLabel)}
         ${row('Liczba rund', amrRounds.value)}
         ${row('Punkty na mecz', amrPpm.value)}
-        ${row('Tryb', 'Americano (stały harmonogram)')}
       </div>`;
   }
 
@@ -575,8 +585,9 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
           body: JSON.stringify({
-            points_per_match: Number(amrPpm.value),
-            number_of_rounds: Number(amrRounds.value),
+            points_per_match:  Number(amrPpm.value),
+            number_of_rounds:  Number(amrRounds.value),
+            scheduling_type:   amrSched.value,
           }),
         });
         // Nie krytyczne — backend ma wartości domyślne
@@ -628,8 +639,10 @@ const pane2Title   = document.getElementById('wiz-pane2-title') as HTMLElement;
 const pane2Sub     = document.getElementById('wiz-pane2-sub')   as HTMLElement;
 const sglSeeding   = document.getElementById('sgl-seeding')    as HTMLSelectElement;
 const sglThird     = document.getElementById('sgl-third-place') as HTMLInputElement;
-const amrRounds    = document.getElementById('amr-rounds')     as HTMLInputElement;
-const amrPpm       = document.getElementById('amr-ppm')        as HTMLInputElement;
+const amrRounds    = document.getElementById('amr-rounds')          as HTMLInputElement;
+const amrPpm       = document.getElementById('amr-ppm')             as HTMLInputElement;
+const amrSched     = document.getElementById('amr-scheduling-type') as HTMLSelectElement;
+const amrSchedHint = document.getElementById('amr-scheduling-hint') as HTMLElement;
 
 function updatePane2ForType(type: string) {
   rrConfigDiv.style.display  = type === 'RND' ? '' : 'none';
@@ -647,6 +660,15 @@ function updatePane2ForType(type: string) {
   }
 }
 
+// ── AMR scheduling type hint ──────────────────────────────────────────────────
+amrSched.addEventListener('change', () => {
+  if (amrSched.value === 'DYNAMIC') {
+    amrSchedHint.textContent = 'Mexicano — parowanie co rundę na podstawie aktualnego rankingu punktowego.';
+  } else {
+    amrSchedHint.textContent = 'Americano — harmonogram wszystkich rund ustalany z góry na podstawie rotacji.';
+  }
+});
+
 // ── type select hint ──────────────────────────────────────────────────────────
 typeEl.addEventListener('change', () => {
   if (typeEl.value === 'RND') {
@@ -654,7 +676,7 @@ typeEl.addEventListener('change', () => {
   } else if (typeEl.value === 'SGL') {
     typeNote.textContent = 'Eliminacja pojedyncza — drabinka z awansem zwycięzców.';
   } else if (typeEl.value === 'AMR') {
-    typeNote.textContent = 'Americano — stały harmonogram, każdy zagra z każdym w wybranej liczbie rund.';
+    typeNote.textContent = 'Americano / Mexicano — singiel. Tryb (stały / dynamiczny) wybierasz w następnym kroku.';
   } else {
     typeNote.textContent = 'Uwaga: panel zarządzania meczami dostępny tylko dla Round Robin i Single Elimination.';
   }
