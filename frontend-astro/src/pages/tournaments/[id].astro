@@ -2001,17 +2001,23 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     min-width: 52px;
   }
 
+  /* Separator pod headerem karty */
+  .rr-matrix-card > .tc-card-header {
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 0;
+  }
+
   /* Nagłówek wiersza */
   .rr-matrix__row-head {
     position: sticky; left: 0;
     background: var(--surface-2);
-    padding: 0 20px 0 16px;
+    padding: 0 16px;
     font-weight: 600; color: var(--text);
     white-space: nowrap; text-align: left;
-    min-width: 140px; max-width: 200px;
+    min-width: 120px; max-width: 180px;
     overflow: hidden; text-overflow: ellipsis;
     vertical-align: middle;
-    height: 46px;
+    min-height: 52px;
     z-index: 1;
     border-right: 2px solid var(--border);
   }
@@ -2019,37 +2025,35 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   /* Przekątna */
   .rr-matrix__diag {
     background: var(--surface-3, #ebebeb);
-    width: 52px; height: 46px;
+    width: 52px; min-height: 52px;
   }
 
   /* Komórka meczu — bazowa */
   .rr-matrix__cell {
-    width: 64px; height: 46px;
+    width: 76px; min-height: 52px;
     text-align: center; vertical-align: middle;
     cursor: pointer;
     transition: filter 0.1s;
     position: relative;
+    padding: 5px 6px;
   }
   .rr-matrix__cell:hover { filter: brightness(0.91); }
 
-  /* Zawartość komórki */
-  .rr-matrix__cell {
-    display: table-cell; /* zachowaj td semantykę */
-  }
   /* Wewnętrzny układ — badge + score pod spodem */
   .rr-matrix__badge {
     display: block;
     font-size: 0.7rem; font-weight: 800;
-    line-height: 1.2;
+    line-height: 1.3;
     letter-spacing: 0.02em;
   }
   .rr-matrix__score {
     display: block;
-    font-size: 0.62rem; font-weight: 500;
-    color: inherit; opacity: 0.78;
-    line-height: 1.1;
-    white-space: nowrap;
-    max-width: 60px; overflow: hidden; text-overflow: ellipsis;
+    font-size: 0.58rem; font-weight: 500;
+    color: inherit; opacity: 0.75;
+    line-height: 1.2;
+    white-space: normal;
+    word-break: break-all;
+    max-width: 70px;
   }
   .rr-matrix__cell-dash {
     font-size: 0.82rem; color: inherit; opacity: 0.45;
@@ -3326,12 +3330,12 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
           label = isDraw ? 'remis' : rowWon ? 'wygrana' : 'przegrana';
           const badge = isDraw ? 'R' : rowWon ? 'W' : 'P';
           inner = `<span class="rr-matrix__badge">${badge}</span>`
-                + (m.score ? `<span class="rr-matrix__score">${escHtml(m.score)}</span>` : '');
+                + (m.score ? `<span class="rr-matrix__score">${escHtml(m.score).replace(/ /g,'<br>')}</span>` : '');
         } else if (m.status === 'WDR') {
           cellCls += ' rr-matrix__cell--wdr';
           const rowWon = m.winner_name === rowName;
           label = rowWon ? 'walkover — wygrana' : 'walkover — przegrana';
-          inner = `<span class="rr-matrix__badge">${rowWon ? 'WO' : 'WO'}</span>`;
+          inner = `<span class="rr-matrix__badge">WO</span>`;
         } else if (m.status === 'INP') {
           cellCls += ' rr-matrix__cell--live';
           label = 'w trakcie';
@@ -4277,7 +4281,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
           label = isDraw ? 'remis' : rowWon ? 'wygrana' : 'przegrana';
           const badge = isDraw ? 'R' : rowWon ? 'W' : 'P';
           inner = `<span class="rr-matrix__badge">${badge}</span>`
-                + (m.score ? `<span class="rr-matrix__score">${escH(m.score)}</span>` : '');
+                + (m.score ? `<span class="rr-matrix__score">${escH(m.score).replace(/ /g,'<br>')}</span>` : '');
         } else if (m.status === 'WDR') {
           const rowWon = m.winner_name === rowName;
           cls += ' rr-matrix__cell--wdr';
