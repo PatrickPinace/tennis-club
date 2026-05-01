@@ -5,7 +5,7 @@ import Sidebar from '@/components/Sidebar.astro';
 import Topbar from '@/components/Topbar.astro';
 import '@/styles/global.css';
 import { url } from '@/lib/url';
-import type { CurrentUser } from '@/lib/api';
+import { getCurrentUser, type CurrentUser } from '@/lib/api';
 
 interface Props {
   title?: string;
@@ -16,8 +16,6 @@ interface Props {
   ctaHref?: string;
   /** Liczba nieprzeczytanych powiadomień z Django API (null = niezalogowany) */
   unreadCount?: number | null;
-  /** Dane zalogowanego użytkownika — opcjonalne, przekazywane do sidebar footer */
-  currentUser?: CurrentUser | null;
 }
 
 const {
@@ -28,8 +26,10 @@ const {
   ctaLabel,
   ctaHref,
   unreadCount = null,
-  currentUser = null,
 } = Astro.props;
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const currentUser = await getCurrentUser(sessionCookie);
 
 const currentPath = Astro.url.pathname;
 ---
