@@ -379,4 +379,25 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
     .match-badges { display: none; }
     .match-actions { display: none; }
   }
+
+  @media (max-width: 480px) {
+    /* Stat boxy — mniejszy padding i font, 2+2 w grid */
+    .m-stats { gap: 8px; }
+    .m-stat { padding: 12px 14px; min-width: 0; flex: 1 1 calc(50% - 4px); }
+    .m-stat__val { font-size: 1.2rem; }
+
+    /* Filtry — zawijają się normalnie, mniejszy padding */
+    .m-filters { gap: 5px; }
+    .m-filter { padding: 5px 10px; font-size: 0.75rem; }
+
+    /* Lista meczów — mniejszy padding wiersza */
+    .match-row { padding: 11px 14px; }
+
+    /* Wynik meczu — mniejszy font */
+    .match-score__num { font-size: 0.82rem; }
+
+    /* Oponent — mniejszy font */
+    .match-opponent__name { font-size: 0.82rem; }
+    .match-opponent__meta { font-size: 0.7rem; }
+  }
 </style>
