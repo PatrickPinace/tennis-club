@@ -484,11 +484,13 @@ const {
   }
 
   @media (max-width: 640px) {
-    .topbar__inner { padding: 0 16px; }
-    .topbar__greeting { font-size: 1.1rem; }
+    .topbar__inner { padding: 0 14px; gap: 8px; }
+    /* Na telefonie: ukryj greeting i CTA — zostaje hamburger + bell + user + theme */
+    .topbar__greeting { display: none; }
     .topbar__search { display: none; }
+    .topbar__cta { display: none; }
+    .topbar__classic-link { display: none; }
     .topbar__user-info { display: none; }
-    .topbar__cta { padding: 0 10px; font-size: 0.8rem; }
   }
 
   /* ── Notification panel items (wstrzykiwane przez JS) ────────── */

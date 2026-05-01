@@ -909,13 +909,32 @@ const quickActions = [
   }
 
   @media (max-width: 640px) {
-    .stat-grid { grid-template-columns: 1fr 1fr; }
-    .stat-card__value { font-size: 1.05rem; }
-    .quick-actions { gap: 8px; }
-    .qa-btn { padding: 8px 12px; font-size: 0.8rem; }
-  }
+    /* Stat karty — 1 kolumna, wycentrowany tekst */
+    .stat-grid { grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px; }
+    .stat-card { padding: 16px 20px; text-align: center; }
+    .stat-card__header { justify-content: center; }
+    .stat-card__footer { justify-content: center; }
+    .stat-card__action { text-align: center; }
+    .stat-card__value { font-size: 1.15rem; }
 
-  @media (max-width: 480px) {
-    .stat-grid { grid-template-columns: 1fr; }
+    /* Quick actions — wycentrowane, zawijają się */
+    .quick-actions { justify-content: center; gap: 8px; }
+    .qa-btn { padding: 8px 14px; font-size: 0.8rem; }
+
+    /* Dashboard grid gap mniejszy */
+    .dashboard-grid { gap: 12px; }
+    .dashboard-col-main,
+    .dashboard-col-side { gap: 12px; }
+
+    /* Empty states — wycentrowane */
+    .dash-empty-inline { align-items: center; text-align: center; }
+    .dash-empty-inline__actions { justify-content: center; }
+    .dash-empty-tournaments { padding: 24px 16px; }
+
+    /* Tournament list — mniejszy padding */
+    .tournament-item { padding: 11px 16px; }
+
+    /* Activity list — mniejszy padding */
+    .activity-item { padding: 10px 16px; }
   }
 </style>
