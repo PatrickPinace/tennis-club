@@ -46,6 +46,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     subtitle={unreadCount > 0
       ? `Masz ${unreadCount} nieprzeczytane${unreadCount === 1 ? '' : unreadCount < 5 ? '' : 'ch'} powiadomień`
       : 'Wszystkie powiadomienia przeczytane'}
+    centered={true}
   />
 
   <div class="notif-wrap">

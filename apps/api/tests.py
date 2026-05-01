@@ -572,15 +572,15 @@ class RRMatchScoreParticipantPermissionTest(TestCase):
 
     # ── Walkover i cancel — tylko organizer/staff ─────────────────────────────
 
-    def test_403_participant_cannot_walkover(self):
-        """Uczestnik meczu RR nie może ustawić walkover."""
+    def test_200_participant_can_walkover(self):
+        """Uczestnik meczu RR może ustawić walkover (odblokowane)."""
         self.client.force_authenticate(user=self.p1_user)
         res = self.client.patch(
             _score_url(self.rnd_t.pk, self.rnd_match.pk),
             {'walkover': True, 'winner_participant_id': self.p1.pk},
             format='json',
         )
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200)
 
     def test_403_participant_cannot_cancel(self):
         """Uczestnik meczu RR nie może anulować meczu."""
@@ -631,10 +631,10 @@ class RRMatchScoreParticipantPermissionTest(TestCase):
         res = self.client.patch(_score_url(sgl_t.pk, sgl_match.pk), VALID_SCORE, format='json')
         self.assertEqual(res.status_code, 403)
 
-    # ── AMR — uczestnik nie ma dostępu ───────────────────────────────────────
+    # ── AMR — uczestnik ma dostęp do zwykłego wyniku ────────────────────────
 
-    def test_403_participant_amr(self):
-        """Uczestnik meczu AMR nie może wpisać wyniku — tylko organizer/staff."""
+    def test_200_participant_amr(self):
+        """Uczestnik meczu AMR STATIC może wpisać wynik gemowy."""
         amr_t = _make_act_tournament(self.org, t_type='AMR')
         amr_p1 = Participant.objects.create(
             tournament=amr_t, user=self.p1_user, display_name='AMR P1', status='ACT',
@@ -644,5 +644,118 @@ class RRMatchScoreParticipantPermissionTest(TestCase):
         )
         amr_match = _make_match(amr_t, amr_p1, amr_p2)
         self.client.force_authenticate(user=self.p1_user)
-        res = self.client.patch(_score_url(amr_t.pk, amr_match.pk), VALID_SCORE, format='json')
+        # points_per_match=32, suma musi się zgadzać
+        res = self.client.patch(
+            _score_url(amr_t.pk, amr_match.pk),
+            {'set1_p1': 20, 'set1_p2': 12},
+            format='json',
+        )
+        self.assertEqual(res.status_code, 200)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AMRMatchScoreParticipantPermissionTest
+# — uprawnienia uczestnika meczu AMR STATIC
+# ─────────────────────────────────────────────────────────────────────────────
+
+AMR_SCORE = {'set1_p1': 20, 'set1_p2': 12}  # suma = 32 = points_per_match
+
+
+class AMRMatchScoreParticipantPermissionTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.org      = User.objects.create_user(username='amr_org',   password='pass')
+        self.staff    = User.objects.create_user(username='amr_staff',  password='pass', is_staff=True)
+        self.p1_user  = User.objects.create_user(username='amr_p1',    password='pass')
+        self.p2_user  = User.objects.create_user(username='amr_p2',    password='pass')
+        self.outsider = User.objects.create_user(username='amr_out',   password='pass')
+
+        self.amr_t = _make_act_tournament(self.org, t_type='AMR')
+        self.p1 = Participant.objects.create(
+            tournament=self.amr_t, user=self.p1_user, display_name='AMR P1', status='ACT',
+        )
+        self.p2 = Participant.objects.create(
+            tournament=self.amr_t, user=self.p2_user, display_name='AMR P2', status='ACT',
+        )
+        self.amr_match = _make_match(self.amr_t, self.p1, self.p2)
+
+    def _url(self):
+        return _score_url(self.amr_t.pk, self.amr_match.pk)
+
+    # ── Organizer i staff ────────────────────────────────────────────────────
+
+    def test_200_organizer(self):
+        self.client.force_authenticate(user=self.org)
+        res = self.client.patch(self._url(), AMR_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_200_staff(self):
+        self.client.force_authenticate(user=self.staff)
+        res = self.client.patch(self._url(), AMR_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    # ── Uczestnik meczu ──────────────────────────────────────────────────────
+
+    def test_200_participant_p1(self):
+        """p1 może wpisać wynik swojego meczu AMR."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(self._url(), AMR_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_200_participant_p2(self):
+        """p2 może wpisać wynik swojego meczu AMR."""
+        self.client.force_authenticate(user=self.p2_user)
+        res = self.client.patch(self._url(), AMR_SCORE, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    def test_200_participant_can_correct(self):
+        """Uczestnik może ponownie wpisać wynik (CMP → korekta)."""
+        self.client.force_authenticate(user=self.p1_user)
+        self.client.patch(self._url(), AMR_SCORE, format='json')
+        res = self.client.patch(self._url(), {'set1_p1': 18, 'set1_p2': 14}, format='json')
+        self.assertEqual(res.status_code, 200)
+
+    # ── Outsider i niezalogowany ─────────────────────────────────────────────
+
+    def test_403_outsider(self):
+        """Użytkownik niebędący uczestnikiem meczu nie może wpisać wyniku."""
+        self.client.force_authenticate(user=self.outsider)
+        res = self.client.patch(self._url(), AMR_SCORE, format='json')
         self.assertEqual(res.status_code, 403)
+
+    def test_403_unauthenticated(self):
+        """Niezalogowany dostaje 403 (sesja Django, nie token)."""
+        res = self.client.patch(self._url(), AMR_SCORE, format='json')
+        self.assertEqual(res.status_code, 403)
+
+    # ── WDR i CNC nadal tylko organizer/staff ────────────────────────────────
+
+    def test_403_participant_walkover(self):
+        """Uczestnik AMR nie może wysłać walkover."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(
+            self._url(),
+            {'walkover': True, 'winner_participant_id': self.p1.pk},
+            format='json',
+        )
+        self.assertEqual(res.status_code, 403)
+
+    def test_403_participant_cancel(self):
+        """Uczestnik AMR nie może anulować meczu."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(self._url(), {'cancel': True}, format='json')
+        self.assertEqual(res.status_code, 403)
+
+    # ── Walidacja sumy gemów ─────────────────────────────────────────────────
+
+    def test_400_wrong_gem_sum(self):
+        """Suma gemów musi być równa points_per_match (32)."""
+        self.client.force_authenticate(user=self.p1_user)
+        res = self.client.patch(self._url(), {'set1_p1': 20, 'set1_p2': 10}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_200_correct_gem_sum(self):
+        """Organizer może wpisać wynik z poprawną sumą."""
+        self.client.force_authenticate(user=self.org)
+        res = self.client.patch(self._url(), {'set1_p1': 16, 'set1_p2': 16}, format='json')
+        self.assertEqual(res.status_code, 200)

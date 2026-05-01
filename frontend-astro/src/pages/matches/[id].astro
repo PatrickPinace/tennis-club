@@ -181,7 +181,7 @@ const awaitingConfirm = isPending && iAmReporter;
 
   <!-- Confirm flow — status bar -->
   {(isPending) && (
-    <div id="confirm-bar" class={`confirm-bar ${canConfirm ? 'confirm-bar--action' : 'confirm-bar--waiting'}`} style="margin-top:16px;">
+    <div id="confirm-bar" class={`confirm-bar ${canConfirm ? 'confirm-bar--action' : 'confirm-bar--waiting'}`} style="margin-top:20px;">
       <div class="confirm-bar__content">
         {canConfirm && (
           <>
@@ -211,7 +211,7 @@ const awaitingConfirm = isPending && iAmReporter;
 
   <!-- Szczegółowa tabela setów -->
   {sets.length > 0 && (
-    <div class="tc-card" style="margin-top:16px;">
+    <div class="tc-card" style="margin-top:20px;">
       <div class="tc-card-header">
         <span class="tc-card-title">Wynik setów</span>
       </div>
@@ -256,7 +256,7 @@ const awaitingConfirm = isPending && iAmReporter;
 
   <!-- Formularz edycji wyniku (widoczny tylko gdy can_edit, toggle) -->
   {canEdit && (
-    <div id="edit-form-card" class="tc-card" style="margin-top:16px; display:none;">
+    <div id="edit-form-card" class="tc-card" style="margin-top:20px; display:none;">
       <div class="tc-card-header">
         <span class="tc-card-title">Edytuj wynik</span>
       </div>
@@ -289,7 +289,7 @@ const awaitingConfirm = isPending && iAmReporter;
   )}
 
   <!-- Powrót -->
-  <div style="margin-top:20px;">
+  <div style="margin-top:28px;">
     <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm">← Wróć do listy meczów</a>
   </div>
 
@@ -298,14 +298,14 @@ const awaitingConfirm = isPending && iAmReporter;
 <style>
   .match-topbar {
     display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 18px; gap: 12px;
+    margin-bottom: 20px; gap: 12px;
   }
   .match-topbar .breadcrumb { margin-bottom: 0; }
 
   .breadcrumb {
     display: flex; align-items: center; gap: 6px;
     font-size: 0.8rem; color: var(--text-muted);
-    margin-bottom: 18px;
+    margin-bottom: 20px;
   }
   .breadcrumb__link { color: var(--primary); text-decoration: none; }
   .breadcrumb__link:hover { text-decoration: underline; }
@@ -406,7 +406,9 @@ const awaitingConfirm = isPending && iAmReporter;
 
   .match-header__date {
     font-size: 0.82rem; color: var(--text-muted);
-    text-align: center; margin-top: 4px;
+    text-align: center; margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
   }
 
   /* ── Sets table ──────────────────────────────────────────────────────── */

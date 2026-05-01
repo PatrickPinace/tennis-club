@@ -47,6 +47,7 @@ function formatDate(iso: string | null): string {
 }
 
 const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
+  id: t.id,
   name: t.name,
   type: TOURNAMENT_TYPE_LABEL[t.tournament_type] ?? t.tournament_type,
   date: t.start_date ? formatDate(t.start_date) : '—',
@@ -260,7 +261,7 @@ const quickActions = [
           <>
             <div class="tournament-list">
               {tournaments.map(t => (
-                <div class="tournament-item">
+                <a class="tournament-item" href={url(`/tournaments/${t.id}`)}>
                   <div class="tournament-item__left">
                     <div class="tournament-item__name">{t.name}</div>
                     <div class="tournament-item__meta">
@@ -277,7 +278,7 @@ const quickActions = [
                       {t.statusLabel}
                     </span>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
             <div class="tc-card-footer">
@@ -714,9 +715,12 @@ const quickActions = [
     padding: 14px 20px;
     border-bottom: 1px solid var(--border);
     transition: background 0.12s;
+    text-decoration: none; color: inherit;
+    cursor: pointer;
   }
   .tournament-item:last-child { border-bottom: none; }
   .tournament-item:hover { background: var(--surface-hover); }
+  .tournament-item:hover .tournament-item__name { color: var(--primary); }
 
   .tournament-item__name {
     font-weight: 600; font-size: 0.9rem; color: var(--text);

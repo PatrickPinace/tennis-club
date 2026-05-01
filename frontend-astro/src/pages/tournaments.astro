@@ -169,10 +169,12 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
   ctaHref={url('/tournaments/create')}
 >
 
+  <div class="t-hero">
   <PageHeader
     eyebrow="Rozgrywki"
     title="Turnieje"
     subtitle="Lista aktywnych i nadchodzących turniejów. Zarejestruj się lub śledź wyniki."
+    centered={true}
   />
 
   <!-- Stats row -->
@@ -194,6 +196,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
       <span class="t-stat__lbl">Zakończone</span>
     </div>
   </div>
+  </div><!-- /t-hero -->
 
   <!-- Trwa (ACT) -->
   {running.length > 0 && (
@@ -270,7 +273,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 
   <!-- Otwarte zapisy (REG) -->
   {registration.length > 0 && (
-    <section aria-labelledby="reg-heading" style={running.length > 0 ? 'margin-top:28px;' : ''}>
+    <section aria-labelledby="reg-heading" class={running.length > 0 ? 't-section' : ''}>
       <h2 class="section-label" id="reg-heading">Otwarte zapisy</h2>
       <div class="t-grid">
         {registration.map(t => (
@@ -328,7 +331,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 
   <!-- Nadchodzące (SCH) -->
   {scheduled.length > 0 && (
-    <section aria-labelledby="scheduled-heading" style="margin-top:28px;">
+    <section aria-labelledby="scheduled-heading" class="t-section">
       <h2 class="section-label" id="scheduled-heading">Nadchodzące</h2>
       <div class="t-grid">
         {scheduled.map(t => (
@@ -376,7 +379,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 
   <!-- Zakończone (FIN + CNC) -->
   {finished.length > 0 && (
-    <section aria-labelledby="finished-heading" style="margin-top:28px;">
+    <section aria-labelledby="finished-heading" class="t-section">
       <h2 class="section-label" id="finished-heading">Zakończone</h2>
       <div class="t-grid">
         {finished.map(t => (
@@ -442,18 +445,28 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 </AppLayout>
 
 <style>
+  /* ── Hero (PageHeader + stats) — wyśrodkowany ─────────────────────────── */
+  .t-hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .t-hero :global(.page-hdr) {
+    margin-bottom: 20px;
+  }
+
   /* ── Stats row ─────────────────────────────────────────────────────────── */
   .t-stats-row {
     display: flex; gap: 16px; flex-wrap: wrap;
-    margin-bottom: 24px;
+    justify-content: center;
+    margin-bottom: 0;
   }
 
   .t-stat {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 14px 20px;
-    display: flex; flex-direction: column; gap: 2px;
+    padding: 16px 22px;
+    display: flex; flex-direction: column; gap: 3px;
     min-width: 120px;
     box-shadow: var(--shadow-card);
   }
@@ -469,10 +482,10 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 
   /* ── Section labels ────────────────────────────────────────────────────── */
   .section-label {
-    font-size: 0.75rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--text-muted);
-    margin-bottom: 12px;
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.09em;
+    color: var(--text-dim);
+    margin-bottom: 14px;
     padding-left: 2px;
   }
 
@@ -480,7 +493,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
   .t-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
+    gap: 18px;
   }
 
   /* ── Tournament card ───────────────────────────────────────────────────── */
@@ -503,7 +516,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 
   .t-card__stripe { height: 3px; flex-shrink: 0; }
 
-  .t-card__body { padding: 18px 20px; flex: 1; }
+  .t-card__body { padding: 20px 22px; flex: 1; }
 
   .t-card__top {
     display: flex; align-items: center; justify-content: space-between;
@@ -602,10 +615,15 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
   .t-empty p { font-size: 1rem; font-weight: 600; color: var(--text); margin: 0; }
   .t-empty span { font-size: 0.85rem; }
 
+  /* ── Section spacing ───────────────────────────────────────────────────── */
+  .t-section { margin-top: 36px; }
+
   /* ── Footer meta ────────────────────────────────────────────────────────── */
   .t-footer-meta {
-    margin-top: 24px;
-    font-size: 0.78rem; color: var(--text-dim);
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 0.75rem; color: var(--text-dim);
     text-align: right;
   }
 
