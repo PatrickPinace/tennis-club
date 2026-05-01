@@ -516,16 +516,21 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                 <div class="td-round">
                   <div class="td-round__label">Runda {roundNum}</div>
                   <div class="td-round__matches">
-                    {(matchesByRound.get(roundNum) ?? []).map(m => (
+                    {(matchesByRound.get(roundNum) ?? []).map(m => {
+                      const isDoubles = m.participant3_id != null || m.participant4_id != null;
+                      // AMR debel: Team A = p1+p4, Team B = p2+p3
+                      const teamA = isDoubles
+                        ? `${m.participant1_name ?? '—'} / ${m.participant4_name ?? '—'}`
+                        : (m.participant1_name ?? '—');
+                      const teamB = isDoubles
+                        ? `${m.participant2_name ?? '—'} / ${m.participant3_name ?? '—'}`
+                        : (m.participant2_name ?? '—');
+                      return (
                       <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''}`}>
                         <div class="td-match__players">
-                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant1_name ?? '—'}
-                          </span>
+                          <span class="td-match__name">{teamA}</span>
                           <span class="td-match__vs">vs</span>
-                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant2_name ?? '—'}
-                          </span>
+                          <span class="td-match__name">{teamB}</span>
                         </div>
                         <div class="td-match__right">
                           {m.score ? (
@@ -537,7 +542,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -2691,7 +2697,9 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   type MatchData = {
     id: number; round_number: number; match_index: number; status: string;
     participant1_id: number | null; participant2_id: number | null;
+    participant3_id: number | null; participant4_id: number | null;
     participant1_name: string | null; participant2_name: string | null;
+    participant3_name: string | null; participant4_name: string | null;
     winner_name: string | null; score: string | null; scheduled_time: string | null;
     set1_p1_score: number|null; set1_p2_score: number|null;
     set2_p1_score: number|null; set2_p2_score: number|null;
@@ -2723,8 +2731,14 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   }
 
   function buildMatchCard(m: MatchData): string {
-    const p1 = escHtml(m.participant1_name ?? 'BYE');
-    const p2 = escHtml(m.participant2_name ?? 'BYE');
+    const isDoubles = m.participant3_id != null || m.participant4_id != null;
+    // AMR debel: Team A = p1+p4, Team B = p2+p3
+    const p1 = isDoubles
+      ? escHtml(`${m.participant1_name ?? 'BYE'} / ${m.participant4_name ?? 'BYE'}`)
+      : escHtml(m.participant1_name ?? 'BYE');
+    const p2 = isDoubles
+      ? escHtml(`${m.participant2_name ?? 'BYE'} / ${m.participant3_name ?? 'BYE'}`)
+      : escHtml(m.participant2_name ?? 'BYE');
     const roundLabel = `R${m.round_number} M${m.match_index}`;
 
     const statusBadge = m.status === 'CMP'
@@ -4715,7 +4729,9 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   type AMatch = {
     id: number; status: string;
     participant1_id: number|null; participant2_id: number|null;
+    participant3_id: number|null; participant4_id: number|null;
     participant1_name: string|null; participant2_name: string|null;
+    participant3_name: string|null; participant4_name: string|null;
     score: string|null;
     set1_p1_score: number|null; set1_p2_score: number|null;
   };
@@ -4743,7 +4759,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       if (!myParticipant) return;
 
       const myMatches = matches.filter(
-        m => m.participant1_id === myParticipant.id || m.participant2_id === myParticipant.id
+        m => m.participant1_id === myParticipant.id
+          || m.participant2_id === myParticipant.id
+          || m.participant3_id === myParticipant.id
+          || m.participant4_id === myParticipant.id
       );
       if (!myMatches.length) return;
 
@@ -4761,8 +4780,14 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       }
 
       function renderCard(m: AMatch): string {
-        const p1 = escH(m.participant1_name ?? '—');
-        const p2 = escH(m.participant2_name ?? '—');
+        const isDoubles = m.participant3_id != null || m.participant4_id != null;
+        // AMR debel: Team A = p1+p4, Team B = p2+p3
+        const p1 = isDoubles
+          ? escH(`${m.participant1_name ?? '—'} / ${m.participant4_name ?? '—'}`)
+          : escH(m.participant1_name ?? '—');
+        const p2 = isDoubles
+          ? escH(`${m.participant2_name ?? '—'} / ${m.participant3_name ?? '—'}`)
+          : escH(m.participant2_name ?? '—');
         const isDone = m.status === 'CMP' || m.status === 'WDR';
         const isCnc  = m.status === 'CNC';
         const v1 = m.set1_p1_score != null ? String(m.set1_p1_score) : '';

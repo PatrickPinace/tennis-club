@@ -682,15 +682,13 @@ class RoundRobinMatchScoreView(APIView):
             amr_cfg = getattr(tournament, '_amr_cfg_cache', None)
             if amr_cfg is None:
                 amr_cfg = AmericanoConfig.objects.filter(tournament=tournament).first()
-            is_amr_participant = (
-                amr_cfg is not None
-                and match.participant1 is not None
-                and match.participant2 is not None
-                and request.user in (
-                    match.participant1.user,
-                    match.participant2.user,
-                )
-            )
+            if amr_cfg is not None:
+                amr_users = set()
+                for attr in ('participant1', 'participant2', 'participant3', 'participant4'):
+                    p = getattr(match, attr, None)
+                    if p is not None and p.user is not None:
+                        amr_users.add(p.user)
+                is_amr_participant = request.user in amr_users
         if not is_organizer and not is_rnd_participant and not is_amr_participant:
             return Response(
                 {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR).'},
