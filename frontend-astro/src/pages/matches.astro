@@ -149,10 +149,12 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
   ctaHref={url('/matches/add')}
 >
 
+  <div class="m-hero">
   <PageHeader
     eyebrow="Rozgrywki"
     title="Historia meczów"
     subtitle="Wszystkie rozegrane mecze — towarzyskie i turniejowe."
+    centered={true}
   />
 
   <!-- Stats -->
@@ -174,6 +176,7 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
       <span class="m-stat__lbl">Win Rate</span>
     </div>
   </div>
+  </div><!-- /m-hero -->
 
   <!-- Filters -->
   <div class="m-filters" id="match-filters">
@@ -266,9 +269,20 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
 </script>
 
 <style>
+  /* ── Hero (PageHeader + stats) — wyśrodkowany ─────────────────────────── */
+  .m-hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .m-hero :global(.page-hdr) {
+    margin-bottom: 20px;
+  }
+
   /* ── Stats ─────────────────────────────────────────────────────────────── */
   .m-stats {
-    display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 24px;
+    display: flex; gap: 14px; flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 0;
   }
 
   .m-stat {
@@ -292,7 +306,8 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
 
   /* ── Filters ───────────────────────────────────────────────────────────── */
   .m-filters {
-    display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 24px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 24px;
   }
 
   .m-filter {

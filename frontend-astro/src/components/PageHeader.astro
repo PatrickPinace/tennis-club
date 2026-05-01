@@ -5,6 +5,7 @@ interface Props {
   eyebrow?: string;
   title: string;
   subtitle?: string;
+  centered?: boolean;
   // Opcjonalne CTA po prawej stronie
   ctaLabel?: string;
   ctaHref?: string;
@@ -15,13 +16,14 @@ const {
   eyebrow,
   title,
   subtitle,
+  centered = false,
   ctaLabel,
   ctaHref = '#',
   ctaPrimary = true,
 } = Astro.props;
 ---
 
-<header class="page-hdr">
+<header class={`page-hdr${centered ? ' page-hdr--centered' : ''}`}>
   <div class="page-hdr__text">
     {eyebrow && <p class="page-hdr__eyebrow">{eyebrow}</p>}
     <h1 class="page-hdr__title">{title}</h1>
@@ -65,5 +67,13 @@ const {
   .page-hdr__actions {
     flex-shrink: 0;
     padding-top: 2px;
+  }
+
+  /* ── Wariant wyśrodkowany ────────────────────────────────────────────────── */
+  .page-hdr--centered {
+    justify-content: center;
+  }
+  .page-hdr--centered .page-hdr__text {
+    text-align: center;
   }
 </style>

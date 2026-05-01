@@ -169,10 +169,12 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
   ctaHref={url('/tournaments/create')}
 >
 
+  <div class="t-hero">
   <PageHeader
     eyebrow="Rozgrywki"
     title="Turnieje"
     subtitle="Lista aktywnych i nadchodzących turniejów. Zarejestruj się lub śledź wyniki."
+    centered={true}
   />
 
   <!-- Stats row -->
@@ -194,6 +196,7 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
       <span class="t-stat__lbl">Zakończone</span>
     </div>
   </div>
+  </div><!-- /t-hero -->
 
   <!-- Trwa (ACT) -->
   {running.length > 0 && (
@@ -442,10 +445,20 @@ const publicTotal  = registration.length + running.length + scheduled.length + f
 </AppLayout>
 
 <style>
+  /* ── Hero (PageHeader + stats) — wyśrodkowany ─────────────────────────── */
+  .t-hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .t-hero :global(.page-hdr) {
+    margin-bottom: 20px;
+  }
+
   /* ── Stats row ─────────────────────────────────────────────────────────── */
   .t-stats-row {
     display: flex; gap: 16px; flex-wrap: wrap;
-    margin-bottom: 28px;
+    justify-content: center;
+    margin-bottom: 0;
   }
 
   .t-stat {
