@@ -1537,11 +1537,14 @@ class AmrNextRoundView(APIView):
         pending = TournamentsMatch.objects.filter(
             tournament=tournament,
             round_number=current_max_round,
-        ).exclude(status=TournamentsMatch.Status.COMPLETED.value).exists()
+        ).exclude(status__in=[
+            TournamentsMatch.Status.COMPLETED.value,
+            TournamentsMatch.Status.WITHDRAWN.value,
+        ]).exists()
 
         if pending:
             return Response(
-                {'detail': f'Runda {current_max_round} nie jest jeszcze kompletna — nie wszystkie mecze mają status CMP.'},
+                {'detail': f'Runda {current_max_round} nie jest jeszcze kompletna — nie wszystkie mecze mają status CMP lub WDR.'},
                 status=status.HTTP_409_CONFLICT,
             )
 
@@ -1900,7 +1903,6 @@ class TournamentStatusView(APIView):
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
                     elif tournament.tournament_type == 'AMR':
-                        from apps.tournaments.bracket import generate_americano_matches_static
                         from apps.tournaments.models import AmericanoConfig
                         config, _ = AmericanoConfig.objects.get_or_create(
                             tournament=tournament,
@@ -1910,7 +1912,15 @@ class TournamentStatusView(APIView):
                                 'scheduling_type': 'STATIC',
                             },
                         )
-                        match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
+                        if config.scheduling_type == 'DYNAMIC':
+                            # MEX DYNAMIC: generuj tylko rundę 1; kolejne rundy przez AmrNextRoundView
+                            from apps.tournaments.views import generate_next_mexicano_round
+                            standings_list = [{'participant': p} for p in participants_qs.order_by('pk')]
+                            match_count, gen_message = generate_next_mexicano_round(tournament, config, standings_list)
+                        else:
+                            # AMR STATIC: generuj cały harmonogram z góry
+                            from apps.tournaments.bracket import generate_americano_matches_static
+                            match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
                     tournament.status = new_status

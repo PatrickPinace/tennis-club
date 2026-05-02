@@ -4900,14 +4900,15 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         });
       });
 
-      // Odśwież standings AMR po zapisie
+      // Odśwież standings AMR po zapisie — z detalu turnieju (endpoint /standings/ jest tylko dla RND)
       function refreshAmrStandings() {
-        fetch(`${apiBase}/api/tournaments/${tId}/standings/`, { credentials: 'include' })
-          .then(r => r.ok ? r.json() : [])
-          .then(rows => {
+        fetch(`${apiBase}/api/tournaments/${tId}/`, { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            const rows: {display_name:string;points:string|number;matches_played:number}[] = data?.standings ?? [];
             const tbody = document.getElementById('amr-standings-body');
             if (!tbody || !rows.length) return;
-            tbody.innerHTML = rows.map((r: {display_name:string;points:string|number;matches_played:number}, idx: number) => `
+            tbody.innerHTML = rows.map((r, idx) => `
               <tr>
                 <td><span class="rank-pos${idx < 3 ? ` rank-pos--${idx+1}` : ''}">${idx+1}</span></td>
                 <td>${escH(r.display_name)}</td>
