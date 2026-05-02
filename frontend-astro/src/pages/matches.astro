@@ -149,6 +149,15 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
   ctaHref={url('/matches/add')}
 >
 
+<div class="page-narrow">
+  <!-- Banner sukcesu po dodaniu meczu -->
+  <div id="match-added-banner" class="m-added-banner" style="display:none;" role="status">
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+    </svg>
+    Mecz został zapisany i pojawił się na liście.
+  </div>
+
   <div class="m-hero">
   <PageHeader
     eyebrow="Rozgrywki"
@@ -242,9 +251,21 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
 
   </div>
 
+</div><!-- /page-narrow -->
 </AppLayout>
 
 <script>
+  // Pokaż banner sukcesu po dodaniu meczu (?added=1)
+  if (new URLSearchParams(window.location.search).get('added') === '1') {
+    const banner = document.getElementById('match-added-banner');
+    if (banner) {
+      banner.style.display = '';
+      setTimeout(() => { banner.style.display = 'none'; }, 6000);
+    }
+    // Usuń ?added=1 z URL bez reload
+    history.replaceState({}, '', window.location.pathname);
+  }
+
   const filters = document.querySelectorAll<HTMLButtonElement>('#match-filters .m-filter');
   const rows    = document.querySelectorAll<HTMLElement>('#match-list .match-row');
 
@@ -269,6 +290,15 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
 </script>
 
 <style>
+  /* ── Banner sukcesu ───────────────────────────────────────────────────── */
+  .m-added-banner {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+    color: var(--primary); font-size: 0.84rem; font-weight: 600;
+  }
+
   /* ── Hero (PageHeader + stats) — wyśrodkowany ─────────────────────────── */
   .m-hero {
     text-align: center;

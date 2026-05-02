@@ -216,33 +216,42 @@ const quickActions = [
 
       <!-- Quick actions -->
       <section class="quick-actions" aria-label="Szybkie akcje">
-        {quickActions.map(a => (
-          <a href={a.href} class={`qa-btn${a.primary ? ' qa-btn--primary' : ''}`}>
+        <!-- Główne CTA — pełna szerokość -->
+        <a href={url('/courts/reservations')} class="qa-btn qa-btn--primary qa-btn--full">
+          <span class="qa-btn__icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+            </svg>
+          </span>
+          Nowa Rezerwacja
+        </a>
+        <!-- Akcje drugoplanowe -->
+        <div class="qa-secondary">
+          <a href={url('/matches')} class="qa-btn qa-btn--secondary">
             <span class="qa-btn__icon" aria-hidden="true">
-              {a.icon === 'calendar' && (
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
-                </svg>
-              )}
-              {a.icon === 'vs' && (
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
-                </svg>
-              )}
-              {a.icon === 'trophy' && (
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                </svg>
-              )}
-              {a.icon === 'chart' && (
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
-                </svg>
-              )}
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+              </svg>
             </span>
-            {a.label}
+            Moje Mecze
           </a>
-        ))}
+          <a href={url('/tournaments')} class="qa-btn qa-btn--secondary">
+            <span class="qa-btn__icon" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+            </span>
+            Turnieje
+          </a>
+          <a href={url('/rankings')} class="qa-btn qa-btn--secondary">
+            <span class="qa-btn__icon" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+              </svg>
+            </span>
+            Ranking
+          </a>
+        </div>
       </section>
 
       <!-- Nadchodzące turnieje -->
@@ -302,22 +311,121 @@ const quickActions = [
 
     </div>
 
-    <!-- RIGHT: statystyki + aktywność -->
+    <!-- RIGHT: ostatnie mecze + turnieje + statystyki -->
     <div class="dashboard-col-side">
 
-      <!-- Moje statystyki -->
+      <!-- 1. Ostatnie mecze — feed (SSR fallback + JS live update) -->
+      <section class="tc-card" aria-labelledby="activity-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="activity-heading">Ostatnie mecze</h2>
+        </div>
+
+        {recentActivity.length === 0 ? (
+          <div id="activity-feed-empty" class="dash-empty-block">
+            <div class="dash-empty-block__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <p class="dash-empty-block__title">Brak rozegranych meczów</p>
+            <p class="dash-empty-block__sub">Tu pojawią się Twoje ostatnie mecze — towarzyskie i turniejowe.</p>
+            <div class="dash-empty-block__links">
+              <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm">Moje mecze</a>
+              <a href={url('/tournaments')} class="tc-btn tc-btn-ghost tc-btn-sm">Turnieje</a>
+            </div>
+          </div>
+        ) : (
+          <ul id="activity-feed-list" class="activity-list" role="list">
+            {recentActivity.map(item => (
+              <li class="activity-item">
+                <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <div class="activity-item__body">
+                  <div class="activity-item__title">{item.title}</div>
+                  <div class="activity-item__desc">{item.desc}</div>
+                </div>
+                <div class="activity-item__time">{item.time}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div class="tc-card-footer">
+          <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+            Wszystkie mecze →
+          </a>
+        </div>
+      </section>
+
+      <!-- 2. Turnieje — teaser lub onboarding CTA -->
+      <section class="tc-card" aria-labelledby="tourn-teaser-heading">
+        <div class="tc-card-header">
+          <h2 class="tc-card-title" id="tourn-teaser-heading">Turnieje</h2>
+        </div>
+        {tStats !== null ? (
+          <>
+            <div class="tc-card-body">
+              <div class="my-stats-grid">
+                <div class="my-stat">
+                  <div class="my-stat__value">{tStats.tournaments_played}</div>
+                  <div class="my-stat__label">Łącznie</div>
+                </div>
+                <div class="my-stat">
+                  <div class="my-stat__value">{tStats.tournaments_active}</div>
+                  <div class="my-stat__label">Aktywne</div>
+                </div>
+                <div class="my-stat">
+                  <div class="my-stat__value my-stat__value--highlight">
+                    {tStats.win_rate !== null ? `${tStats.win_rate}%` : '—'}
+                  </div>
+                  <div class="my-stat__label">Win rate</div>
+                </div>
+              </div>
+              <div class="my-stats-sub" style="margin-top:4px;">
+                <span class="my-stats-sub__item">
+                  <span class="my-stats-sub__dot" style="background:#22c55e"></span>
+                  Mecze: {tStats.matches_won} wygranych / {tStats.matches_played} rozegranych
+                </span>
+              </div>
+            </div>
+            <div class="tc-card-footer">
+              <a href={url('/profile')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
+                Pełne statystyki w profilu →
+              </a>
+            </div>
+          </>
+        ) : (
+          <div class="dash-empty-block">
+            <div class="dash-empty-block__icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+              </svg>
+            </div>
+            <p class="dash-empty-block__title">Brak turniejów</p>
+            <p class="dash-empty-block__sub">Nie uczestniczysz jeszcze w żadnym turnieju.</p>
+            <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">Przeglądaj turnieje →</a>
+          </div>
+        )}
+      </section>
+
+      <!-- 3. Statystyki — agregat meczów (najniższy priorytet) -->
       <section class="tc-card" aria-labelledby="my-stats-heading">
         <div class="tc-card-header">
-          <h2 class="tc-card-title" id="my-stats-heading">Moje Mecze</h2>
+          <h2 class="tc-card-title" id="my-stats-heading">Statystyki</h2>
         </div>
         <div class="tc-card-body">
           {matchesPlayed === 0 ? (
-            <div class="dash-empty-inline">
-              <p class="dash-empty-inline__text">Nie rozegrałeś jeszcze żadnego meczu.</p>
-              <div class="dash-empty-inline__actions">
-                <a href={url('/matches')} class="tc-btn tc-btn-primary tc-btn-sm">Dodaj pierwszy mecz →</a>
-                <a href={url('/tournaments')} class="tc-btn tc-btn-ghost tc-btn-sm">Dołącz do turnieju</a>
+            <div class="dash-empty-block">
+              <div class="dash-empty-block__icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
+                </svg>
               </div>
+              <p class="dash-empty-block__title">Brak danych</p>
+              <p class="dash-empty-block__sub">Statystyki pojawią się po rozegraniu pierwszych meczów.</p>
             </div>
           ) : (
             <>
@@ -359,121 +467,6 @@ const quickActions = [
               </div>
             </>
           )}
-        </div>
-      </section>
-
-      <!-- Turnieje — teaser lub onboarding CTA -->
-      <section class="tc-card" aria-labelledby="tourn-teaser-heading">
-        <div class="tc-card-header">
-          <h2 class="tc-card-title" id="tourn-teaser-heading">Turnieje</h2>
-        </div>
-        {tStats !== null ? (
-          <>
-            <div class="tc-card-body">
-              <div class="my-stats-grid">
-                <div class="my-stat">
-                  <div class="my-stat__value">{tStats.tournaments_played}</div>
-                  <div class="my-stat__label">Łącznie</div>
-                </div>
-                <div class="my-stat">
-                  <div class="my-stat__value">{tStats.tournaments_active}</div>
-                  <div class="my-stat__label">Aktywne</div>
-                </div>
-                <div class="my-stat">
-                  <div class="my-stat__value my-stat__value--highlight">
-                    {tStats.win_rate !== null ? `${tStats.win_rate}%` : '—'}
-                  </div>
-                  <div class="my-stat__label">Win rate</div>
-                </div>
-              </div>
-              <div class="my-stats-sub" style="margin-top:4px;">
-                <span class="my-stats-sub__item">
-                  <span class="my-stats-sub__dot" style="background:#22c55e"></span>
-                  Mecze: {tStats.matches_won} wygranych / {tStats.matches_played} rozegranych
-                </span>
-              </div>
-            </div>
-            <div class="tc-card-footer">
-              <a href={url('/profile')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
-                Pełne statystyki w profilu →
-              </a>
-            </div>
-          </>
-        ) : (
-          <div class="dash-empty-inline">
-            <p class="dash-empty-inline__text">Nie uczestniczysz jeszcze w żadnym turnieju.</p>
-            <a href={url('/tournaments')} class="tc-btn tc-btn-primary tc-btn-sm">
-              Przeglądaj turnieje →
-            </a>
-          </div>
-        )}
-      </section>
-
-      <!-- Ostatnia aktywność -->
-      <section class="tc-card" aria-labelledby="activity-heading">
-        <div class="tc-card-header">
-          <h2 class="tc-card-title" id="activity-heading">Ostatnia Aktywność</h2>
-        </div>
-
-        {recentActivity.length === 0 ? (
-          <div class="activity-empty-state">
-            <p class="activity-empty-state__text">Brak aktywności — zacznij od jednego z kroków:</p>
-            <ul class="activity-empty-state__list">
-              <li>
-                <a href={url('/tournaments')} class="activity-empty-state__link">
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                  Dołącz do turnieju
-                </a>
-              </li>
-              <li>
-                <a href={url('/rankings')} class="activity-empty-state__link">
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
-                  Zobacz ranking graczy
-                </a>
-              </li>
-              <li>
-                <a href={url('/profile')} class="activity-empty-state__link">
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
-                  Uzupełnij swój profil
-                </a>
-              </li>
-            </ul>
-          </div>
-        ) : (
-          <ul class="activity-list" role="list">
-            {recentActivity.map(item => (
-              <li class="activity-item">
-                <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
-                  {item.type === 'match' && (
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
-                    </svg>
-                  )}
-                  {item.type === 'reservation' && (
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                      <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
-                    </svg>
-                  )}
-                  {item.type === 'tournament' && (
-                    <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                    </svg>
-                  )}
-                </div>
-                <div class="activity-item__body">
-                  <div class="activity-item__title">{item.title}</div>
-                  <div class="activity-item__desc">{item.desc}</div>
-                </div>
-                <div class="activity-item__time">{item.time}</div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div class="tc-card-footer">
-          <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
-            Pełna historia →
-          </a>
         </div>
       </section>
 
@@ -549,8 +542,8 @@ const quickActions = [
         const m = d.last_match;
         const result = m.won ? 'Wygrana!' : 'Porażka';
         setCard('last-match',
-          `${result} ${m.score}`,
-          `vs ${m.opponent} · ${m.date}`
+          result,
+          `${m.score} · vs ${m.opponent} · ${m.date}`
         );
         // Kolor wartości: zielony=wygrana, czerwony=porażka
         const valEl = document.querySelector('[data-card-id="last-match"] .stat-card__value') as HTMLElement | null;
@@ -568,7 +561,90 @@ const quickActions = [
         );
       }
 
-      // Moje Mecze — renderowane SSR z matchHistoryRaw, nie nadpisujemy client-side
+      // ── Activity feed ─────────────────────────────────────────────
+      if (Array.isArray(d.activity)) {
+        const emptyEl  = document.getElementById('activity-feed-empty');
+        const listEl   = document.getElementById('activity-feed-list');
+        const section  = emptyEl?.closest('section') ?? listEl?.closest('section');
+
+        function relativeTime(iso: string): string {
+          try {
+            const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+            if (diff === 0) return 'dzisiaj';
+            if (diff === 1) return 'wczoraj';
+            if (diff < 7)  return `${diff} dni temu`;
+            return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+          } catch { return ''; }
+        }
+
+        function iconSvg(result: string): string {
+          if (result === 'win' || result === 'loss') {
+            // piłka — mecz
+            return `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>`;
+          }
+          if (result === 'tournament_join') {
+            // trofeum — turniej
+            return `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
+          }
+          // kalendarz — rezerwacja
+          return `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>`;
+        }
+
+        if (d.activity.length === 0) {
+          // Pokaż empty state, ukryj listę SSR
+          if (listEl) listEl.style.display = 'none';
+          if (emptyEl) {
+            emptyEl.style.display = '';
+          } else if (section) {
+            // Utwórz empty state jeśli SSR go nie wyrenderował (był SSR z danymi)
+            const div = document.createElement('div');
+            div.id = 'activity-feed-empty';
+            div.className = 'dash-empty-block';
+            div.innerHTML = `
+              <p class="dash-empty-block__title">Brak aktywności</p>
+              <p class="dash-empty-block__sub">Tu pojawią się Twoje ostatnie mecze i akcje.</p>
+            `;
+            const footer = section.querySelector('.tc-card-footer');
+            if (footer) section.insertBefore(div, footer);
+          }
+        } else {
+          // Ukryj SSR empty state
+          if (emptyEl) emptyEl.style.display = 'none';
+
+          // Zbuduj lub zaktualizuj listę
+          const target = listEl ?? (() => {
+            const ul = document.createElement('ul');
+            ul.id = 'activity-feed-list';
+            ul.className = 'activity-list';
+            ul.setAttribute('role', 'list');
+            const footer = section?.querySelector('.tc-card-footer');
+            if (footer && section) section.insertBefore(ul, footer);
+            else if (emptyEl?.parentNode) emptyEl.parentNode.insertBefore(ul, emptyEl);
+            return ul;
+          })();
+
+          target.innerHTML = d.activity.map((ev: {type:string;timestamp:string;title:string;detail:string;href?:string;result:string}) => {
+            const iconClass = ev.result === 'win'
+              ? 'activity-item__icon--win'
+              : ev.result === 'loss'
+                ? 'activity-item__icon--loss'
+                : 'activity-item__icon--neutral';
+            const iconType = ev.type === 'tournament_join' ? 'tournament_join' : ev.result;
+            const titleHtml = ev.href
+              ? `<a href="${ev.href}" class="activity-item__title-link">${ev.title}</a>`
+              : `<span>${ev.title}</span>`;
+            return `<li class="activity-item">
+              <div class="activity-item__icon ${iconClass}" aria-hidden="true">${iconSvg(iconType)}</div>
+              <div class="activity-item__body">
+                <div class="activity-item__title">${titleHtml}</div>
+                <div class="activity-item__desc">${ev.detail}</div>
+              </div>
+              <div class="activity-item__time">${relativeTime(ev.timestamp)}</div>
+            </li>`;
+          }).join('');
+          target.style.display = '';
+        }
+      }
 
       // ── Turnieje (jeśli nie mamy z build-time) ───────────────────
       if (d.upcoming_tournaments_count !== null) {
@@ -610,15 +686,22 @@ const quickActions = [
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
   }
+  /* Subtelny akcent tylko dla karty rezerwacji — mały pasek od góry przez shadow */
+  .stat-card--primary {
+    box-shadow: var(--shadow-card), inset 0 2px 0 0 rgba(34,197,94,0.45);
+  }
+  .stat-card--primary:hover {
+    box-shadow: var(--shadow-md), inset 0 2px 0 0 rgba(34,197,94,0.45);
+  }
 
   .stat-card__header {
     display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
   }
 
   .stat-card__label {
-    font-size: 0.78rem; font-weight: 600;
+    font-size: 0.75rem; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--text-muted);
+    color: var(--text-dim, #94a3b8);
     line-height: 1.3;
   }
 
@@ -629,8 +712,8 @@ const quickActions = [
   }
 
   .stat-card__value {
-    font-size: 1.25rem; font-weight: 800; color: var(--text);
-    letter-spacing: -0.025em; line-height: 1.2;
+    font-size: 1.4rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.03em; line-height: 1.15;
   }
   .stat-card__value--success { color: #22c55e; }
 
@@ -677,31 +760,47 @@ const quickActions = [
 
   /* ── Quick actions ───────────────────────────────────────────────────────── */
   .quick-actions {
-    display: flex; gap: 10px; flex-wrap: wrap;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .qa-secondary {
+    display: flex; gap: 8px; flex-wrap: wrap;
   }
 
   .qa-btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-    padding: 9px 16px; border-radius: 8px;
-    font-size: 0.85rem; font-weight: 600;
-    text-decoration: none;
-    background: var(--surface); color: var(--text-muted);
-    border: 1px solid var(--border);
+    border-radius: 8px; font-weight: 600; text-decoration: none;
     transition: background 0.12s, color 0.12s, border-color 0.12s;
+    border: 1px solid transparent;
   }
-  .qa-btn:hover {
+
+  /* Główne CTA — pełna szerokość, wyraźne */
+  .qa-btn--primary {
+    padding: 11px 20px;
+    font-size: 0.9rem;
+    background: #22c55e; color: #000; border-color: #22c55e;
+    box-shadow: 0 2px 10px rgba(34,197,94,0.28);
+    width: 100%;
+  }
+  .qa-btn--primary:hover { background: #16a34a; border-color: #16a34a; color: #000; }
+  .qa-btn--full { width: 100%; }
+
+  /* Drugoplanowe — mniejsze, szare */
+  .qa-btn--secondary {
+    padding: 7px 14px;
+    font-size: 0.82rem; font-weight: 500;
+    background: var(--surface); color: var(--text-muted);
+    border-color: var(--border);
+    flex: 1;
+  }
+  .qa-btn--secondary:hover {
     background: var(--surface-hover); color: var(--text);
     border-color: var(--border-light);
   }
-  .qa-btn--primary {
-    background: #22c55e; color: #000; border-color: #22c55e;
-    box-shadow: 0 2px 8px rgba(34,197,94,0.25);
-  }
-  .qa-btn--primary:hover { background: #16a34a; border-color: #16a34a; color: #000; }
 
   .qa-btn__icon {
     display: flex; align-items: center;
-    opacity: 0.7;
+    opacity: 0.65;
   }
   .qa-btn--primary .qa-btn__icon { opacity: 1; }
 
@@ -736,7 +835,7 @@ const quickActions = [
     display: inline-block;
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 4px; padding: 1px 6px;
-    font-size: 0.7rem; font-weight: 600; color: var(--text-dim);
+    font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
   }
 
   .tournament-item__sep { color: var(--text-dim); }
@@ -815,37 +914,36 @@ const quickActions = [
     width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   }
 
-  /* ── Inline empty states (Moje Mecze, Turnieje) ─────────────────────────── */
-  .dash-empty-inline {
-    padding: 20px 20px 24px;
-    display: flex; flex-direction: column; gap: 12px;
-  }
-  .dash-empty-inline__text {
-    font-size: 0.875rem; color: var(--text-muted); margin: 0;
-  }
-  .dash-empty-inline__actions {
-    display: flex; flex-wrap: wrap; gap: 8px;
+  /* ── Empty state — ujednolicony blok dla Moje Mecze / Turnieje / Aktywność ─ */
+  .dash-empty-block {
+    padding: 20px 20px 22px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; text-align: center;
   }
 
-  /* ── Activity empty state ────────────────────────────────────────────────── */
-  .activity-empty-state {
-    padding: 16px 20px 20px;
+  .dash-empty-block__icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    display: grid; place-items: center;
+    color: var(--text-dim);
+    margin-bottom: 2px;
   }
-  .activity-empty-state__text {
-    font-size: 0.82rem; color: var(--text-muted);
-    margin: 0 0 10px;
+
+  .dash-empty-block__title {
+    font-size: 0.875rem; font-weight: 600; color: var(--text);
+    margin: 0;
   }
-  .activity-empty-state__list {
-    list-style: none; padding: 0; margin: 0;
-    display: flex; flex-direction: column; gap: 6px;
+
+  .dash-empty-block__sub {
+    font-size: 0.78rem; color: var(--text-muted);
+    margin: 0 0 6px; line-height: 1.5;
+    max-width: 260px;
   }
-  .activity-empty-state__link {
-    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-    font-size: 0.875rem; font-weight: 600;
-    color: var(--primary); text-decoration: none;
-    transition: opacity 0.12s;
+
+  .dash-empty-block__links {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
   }
-  .activity-empty-state__link:hover { opacity: 0.75; }
 
   /* ── Activity list ───────────────────────────────────────────────────────── */
   .activity-empty {
@@ -856,45 +954,7 @@ const quickActions = [
     margin: 0;
   }
 
-  .activity-list {
-    list-style: none; padding: 0; margin: 0;
-  }
-
-  .activity-item {
-    display: flex; align-items: flex-start; gap: 11px;
-    padding: 12px 20px;
-    border-bottom: 1px solid var(--border);
-    transition: background 0.12s;
-  }
-  .activity-item:last-child { border-bottom: none; }
-  .activity-item:hover { background: var(--surface-hover); }
-
-  .activity-item__icon {
-    width: 30px; height: 30px; border-radius: 8px;
-    display: grid; place-items: center;
-    flex-shrink: 0; margin-top: 1px;
-  }
-  .activity-item__icon--win     { background: rgba(34,197,94,0.12);  color: #22c55e; }
-  .activity-item__icon--loss    { background: rgba(239,68,68,0.12);  color: #ef4444; }
-  .activity-item__icon--neutral { background: var(--surface-2); color: var(--text-muted); }
-
-  .activity-item__body { flex: 1; min-width: 0; }
-
-  .activity-item__title {
-    font-size: 0.85rem; font-weight: 600; color: var(--text);
-    margin-bottom: 2px;
-  }
-
-  .activity-item__desc {
-    font-size: 0.78rem; color: var(--text-muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-
-  .activity-item__time {
-    font-size: 0.72rem; color: var(--text-dim);
-    white-space: nowrap; flex-shrink: 0;
-    margin-top: 2px;
-  }
+  /* activity-list styles are in <style is:global> below — injected via JS so scoped CSS won't reach */
 
   /* ── Responsive ──────────────────────────────────────────────────────────── */
   @media (max-width: 1280px) {
@@ -917,24 +977,72 @@ const quickActions = [
     .stat-card__action { text-align: center; }
     .stat-card__value { font-size: 1.15rem; }
 
-    /* Quick actions — wycentrowane, zawijają się */
-    .quick-actions { justify-content: center; gap: 8px; }
-    .qa-btn { padding: 8px 14px; font-size: 0.8rem; }
+    /* Quick actions */
+    .qa-secondary { flex-direction: column; }
+    .qa-btn--secondary { flex: unset; width: 100%; }
 
     /* Dashboard grid gap mniejszy */
     .dashboard-grid { gap: 12px; }
     .dashboard-col-main,
     .dashboard-col-side { gap: 12px; }
 
-    /* Empty states — wycentrowane */
-    .dash-empty-inline { align-items: center; text-align: center; }
-    .dash-empty-inline__actions { justify-content: center; }
     .dash-empty-tournaments { padding: 24px 16px; }
 
     /* Tournament list — mniejszy padding */
     .tournament-item { padding: 11px 16px; }
 
     /* Activity list — mniejszy padding */
+    .activity-item { padding: 10px 16px; }
+  }
+</style>
+
+<style is:global>
+  /* Activity feed — is:global bo lista wstrzykiwana przez JS (innerHTML) */
+  .activity-list {
+    list-style: none; padding: 0; margin: 0;
+  }
+
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.12s;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-item:hover { background: var(--surface-hover); }
+
+  .activity-item__icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: grid; place-items: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .activity-item__icon--win     { background: rgba(34,197,94,0.12);  color: #22c55e; }
+  .activity-item__icon--loss    { background: rgba(239,68,68,0.12);  color: #ef4444; }
+  .activity-item__icon--neutral { background: var(--surface-2);      color: var(--text-muted); }
+
+  .activity-item__body { flex: 1; min-width: 0; }
+
+  .activity-item__title {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    margin-bottom: 2px;
+  }
+  .activity-item__title-link {
+    color: inherit; text-decoration: none;
+  }
+  .activity-item__title-link:hover { color: var(--primary); }
+
+  .activity-item__desc {
+    font-size: 0.78rem; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .activity-item__time {
+    font-size: 0.72rem; color: var(--text-muted);
+    white-space: nowrap; flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 640px) {
     .activity-item { padding: 10px 16px; }
   }
 </style>
