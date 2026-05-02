@@ -542,8 +542,8 @@ const quickActions = [
         const m = d.last_match;
         const result = m.won ? 'Wygrana!' : 'Porażka';
         setCard('last-match',
-          `${result} ${m.score}`,
-          `vs ${m.opponent} · ${m.date}`
+          result,
+          `${m.score} · vs ${m.opponent} · ${m.date}`
         );
         // Kolor wartości: zielony=wygrana, czerwony=porażka
         const valEl = document.querySelector('[data-card-id="last-match"] .stat-card__value') as HTMLElement | null;
