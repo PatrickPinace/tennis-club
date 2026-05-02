@@ -1917,6 +1917,8 @@ class TournamentStatusView(APIView):
                             from apps.tournaments.views import generate_next_mexicano_round
                             standings_list = [{'participant': p} for p in participants_qs.order_by('pk')]
                             match_count, gen_message = generate_next_mexicano_round(tournament, config, standings_list)
+                            if match_count == 0:
+                                raise ValueError(gen_message)
                         else:
                             # AMR STATIC: generuj cały harmonogram z góry
                             from apps.tournaments.bracket import generate_americano_matches_static
