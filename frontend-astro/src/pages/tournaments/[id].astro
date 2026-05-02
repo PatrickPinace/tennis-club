@@ -595,6 +595,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             data-tournament-type={tournament.tournament_type}
             data-match-format={tournament.match_format}
             data-sets-to-win="1"
+            data-points-per-match={String(tournament.config?.points_per_match ?? 32)}
             data-end-date={tournament.end_date ?? ''}
           >
             <div class="tc-card org-card">
@@ -2552,22 +2553,24 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
 // ── Organizer panel ───────────────────────────────────────────────────────────
 (async () => {
-  // Może być wiele div#org-panel (SGL, AMR, RND) — dane turnieju są takie same we wszystkich,
-  // ale zawartość HTML różna. Wybieramy właściwy panel po data-panel-type.
-  const anyPanel = document.getElementById('org-panel');
+  // AMR panel ma unikalne id="org-panel-amr"; SGL i RND mają id="org-panel".
+  // Dla AMR turnieju w DOM jest tylko #org-panel-amr — getElementById('org-panel') zwróci null.
+  const amrPanel = document.getElementById('org-panel-amr') as HTMLElement | null;
+  const anyPanel = amrPanel ?? document.getElementById('org-panel') as HTMLElement | null;
   if (!anyPanel) return;
 
   const tType = anyPanel.dataset.tournamentType ?? 'RND';
 
-  // AMR panel ma id="org-panel-amr", SGL i RND mają id="org-panel" z data-panel-type
-  const panel: HTMLElement = tType === 'AMR'
-    ? (document.getElementById('org-panel-amr') ?? anyPanel)
+  // Wybieramy właściwy panel — dla AMR to amrPanel, dla reszty pierwszy #org-panel w DOM
+  const panel: HTMLElement = amrPanel
+    ? amrPanel
     : (document.querySelector<HTMLElement>(`[id="org-panel"][data-panel-type="${tType === 'SGL' ? 'SGL' : 'RND'}"]`) ?? anyPanel);
 
   const tournamentId   = panel.dataset.tournamentId;
   const createdBy      = panel.dataset.createdBy;
   const tStatus        = panel.dataset.tournamentStatus;
   const setsToWin      = parseInt(panel.dataset.setsToWin ?? '2', 10);
+  const pointsPerMatch = parseInt(panel.dataset.pointsPerMatch ?? '32', 10);
   const apiBase        = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
   const isSGL          = tType === 'SGL';
   const isAMR          = tType === 'AMR';
@@ -2878,6 +2881,30 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         </div>
         <form class="org-score-form" data-match-id="${m.id}">
           <div class="org-form-row">
+            ${isAMR ? `
+            <div class="org-sets-row">
+              <div class="org-set-group">
+                <div class="org-set-label">Gemy</div>
+                <div class="org-set-inputs">
+                  <div class="org-score-spinner">
+                    <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
+                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                      name="set1_p1" placeholder="—" value="${v(m.set1_p1_score)}">
+                    <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
+                  </div>
+                  <span class="org-set-sep">:</span>
+                  <div class="org-score-spinner">
+                    <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
+                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                      name="set1_p2" placeholder="—" value="${v(m.set1_p2_score)}">
+                    <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:8px;">
+              Suma musi wynosić ${pointsPerMatch} gemów
+            </div>` : `
             <div class="org-sets-row">
               ${[1,2,3].map(s => {
                 const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
@@ -2902,7 +2929,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   </div>
                 </div>`;
               }).join('')}
-            </div>
+            </div>`}
             <div class="org-scheduled-group">
               <div class="org-scheduled-label">Termin</div>
               <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
