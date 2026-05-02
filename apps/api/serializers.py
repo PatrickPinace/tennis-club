@@ -254,6 +254,8 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
     """Mecz turniejowy — dla listy meczów w detalu turnieju."""
     participant1_name = serializers.SerializerMethodField()
     participant2_name = serializers.SerializerMethodField()
+    participant3_name = serializers.SerializerMethodField()
+    participant4_name = serializers.SerializerMethodField()
     winner_name = serializers.SerializerMethodField()
     score = serializers.SerializerMethodField()
 
@@ -262,7 +264,10 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'round_number', 'match_index', 'status',
             'participant1_id', 'participant2_id',
-            'participant1_name', 'participant2_name', 'winner_name',
+            'participant3_id', 'participant4_id',
+            'participant1_name', 'participant2_name',
+            'participant3_name', 'participant4_name',
+            'winner_name',
             'set1_p1_score', 'set1_p2_score',
             'set2_p1_score', 'set2_p2_score',
             'set3_p1_score', 'set3_p2_score',
@@ -274,6 +279,12 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
 
     def get_participant2_name(self, obj):
         return obj.participant2.display_name if obj.participant2 else None
+
+    def get_participant3_name(self, obj):
+        return obj.participant3.display_name if obj.participant3 else None
+
+    def get_participant4_name(self, obj):
+        return obj.participant4.display_name if obj.participant4 else None
 
     def get_winner_name(self, obj):
         return obj.winner.display_name if obj.winner else None

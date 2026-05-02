@@ -254,6 +254,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
           <!-- ── Zarządzanie (organizer) — SGL ────────────────────────────── -->
           <div
             id="org-panel"
+            data-panel-type="SGL"
             style="display:none;"
             data-tournament-id={tournament.id}
             data-created-by={tournament.created_by_username}
@@ -516,16 +517,21 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                 <div class="td-round">
                   <div class="td-round__label">Runda {roundNum}</div>
                   <div class="td-round__matches">
-                    {(matchesByRound.get(roundNum) ?? []).map(m => (
+                    {(matchesByRound.get(roundNum) ?? []).map(m => {
+                      const isDoubles = m.participant3_id != null || m.participant4_id != null;
+                      // AMR debel: Team A = p1+p4, Team B = p2+p3
+                      const teamA = isDoubles
+                        ? `${m.participant1_name ?? '—'} / ${m.participant4_name ?? '—'}`
+                        : (m.participant1_name ?? '—');
+                      const teamB = isDoubles
+                        ? `${m.participant2_name ?? '—'} / ${m.participant3_name ?? '—'}`
+                        : (m.participant2_name ?? '—');
+                      return (
                       <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''}`}>
                         <div class="td-match__players">
-                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant1_name ?? '—'}
-                          </span>
+                          <span class="td-match__name">{teamA}</span>
                           <span class="td-match__vs">vs</span>
-                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant2_name ?? '—'}
-                          </span>
+                          <span class="td-match__name">{teamB}</span>
                         </div>
                         <div class="td-match__right">
                           {m.score ? (
@@ -537,7 +543,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -579,7 +586,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
           <!-- Org-panel AMR -->
           <div
-            id="org-panel"
+            id="org-panel-amr"
+            data-panel-type="AMR"
             style="display:none;"
             data-tournament-id={tournament.id}
             data-created-by={tournament.created_by_username}
@@ -587,6 +595,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             data-tournament-type={tournament.tournament_type}
             data-match-format={tournament.match_format}
             data-sets-to-win="1"
+            data-points-per-match={String(tournament.config?.points_per_match ?? 32)}
             data-end-date={tournament.end_date ?? ''}
           >
             <div class="tc-card org-card">
@@ -646,15 +655,20 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   </div>
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
-                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
-                  <button id="org-close-reg-btn" class="org-close-reg-btn" type="button">
-                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    Zamknij zapisy i generuj mecze →
-                  </button>
-                  <span id="org-close-reg-msg" class="org-form-msg" style="margin-left:8px;"></span>
-                </div>
+                {tournament.status === 'REG' && (
+                  <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                    <button
+                      class="org-close-reg-btn"
+                      type="button"
+                      onclick="document.querySelector('#org-panel-amr [data-target=SCH]')?.click()"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                      </svg>
+                      Zamknij zapisy i generuj mecze →
+                    </button>
+                  </div>
+                )}
               </div>
 
               <!-- Konfiguracja AMR — widoczna tylko gdy DRF lub REG -->
@@ -987,6 +1001,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                Turniej nie może być Zakończony (FIN) ani Odwołany (CNC). -->
           <div
             id="org-panel"
+            data-panel-type="RND"
             style="display:none;"
             data-tournament-id={tournament.id}
             data-created-by={tournament.created_by_username}
@@ -1057,7 +1072,18 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                     <div id="org-user-suggestions" class="org-sug-dropdown" style="display:none;"></div>
                   </div>
 
-                  <!-- Debel: dwa pola + nazwa pary (widoczne gdy match_format=DBL) -->
+                  <!-- AMR debel: hint + reuse singiel-wyszukiwarki (widoczny gdy AMR+DBL) -->
+                  <!-- W Americano pary są losowane przez system — dodaj graczy indywidualnie -->
+                  <div id="org-add-amr-dbl-note" style="display:none;">
+                    <div class="org-amr-dbl-hint">
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;margin-top:1px;">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                      </svg>
+                      <span>Americano debel — dodaj każdego gracza osobno. System sam ułoży pary do każdej rundy.</span>
+                    </div>
+                  </div>
+
+                  <!-- Pozostałe debele (RR, SGL itp.): stały skład pary (kapitan + partner) -->
                   <div id="org-add-dbl-row" style="display:none;">
                     <div class="org-dbl-players-row">
                       <div class="org-dbl-player-col">
@@ -1099,16 +1125,21 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   </div>
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
-                <!-- Skrót: Zamknij zapisy (widoczny tylko gdy status REG i są min. 2 uczestników) -->
-                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
-                  <button id="org-close-reg-btn" class="org-close-reg-btn" type="button">
-                    <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                    </svg>
-                    Zamknij zapisy i generuj mecze →
-                  </button>
-                  <span id="org-close-reg-msg" class="org-form-msg" style="margin-left:8px;"></span>
-                </div>
+                <!-- Skrót: Zamknij zapisy — triggeruje działający przycisk z sekcji statusu -->
+                {tournament.status === 'REG' && (
+                  <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                    <button
+                      class="org-close-reg-btn"
+                      type="button"
+                      onclick="document.querySelector('[data-target=SCH]')?.click()"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                      </svg>
+                      Zamknij zapisy i generuj mecze →
+                    </button>
+                  </div>
+                )}
               </div>
 
               <!-- Tabela standings (odświeżana) -->
@@ -1694,8 +1725,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     margin-bottom: 2px;
   }
   .org-field-label {
-    display: flex; flex-direction: column; gap: 3px;
-    font-size: 0.78rem; color: var(--text-muted);
+    display: flex; flex-direction: column; gap: 3px; align-items: center;
+    font-size: 0.78rem; color: var(--text-muted); text-align: center;
   }
   .org-field-input {
     height: 32px; padding: 0 8px;
@@ -2281,6 +2312,17 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   .org-close-reg-btn:hover { background: var(--primary-btn-hover, #16a34a); }
   .org-close-reg-btn:disabled { opacity: 0.5; cursor: default; }
 
+  /* ── AMR debel hint ─────────────────────────────────────────────── */
+  .org-amr-dbl-hint {
+    display: flex; align-items: flex-start; gap: 7px;
+    padding: 8px 10px; margin-bottom: 10px;
+    background: color-mix(in srgb, var(--primary) 7%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+    border-radius: 6px;
+    font-size: 0.78rem; color: var(--text-muted); line-height: 1.45;
+  }
+  .org-amr-dbl-hint svg { color: var(--primary); }
+
   /* ── Doubles add form ───────────────────────────────────────────── */
   .org-dbl-players-row {
     display: flex; align-items: flex-start; gap: 8px;
@@ -2511,14 +2553,24 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
 // ── Organizer panel ───────────────────────────────────────────────────────────
 (async () => {
-  const panel = document.getElementById('org-panel');
-  if (!panel) return;
+  // AMR panel ma unikalne id="org-panel-amr"; SGL i RND mają id="org-panel".
+  // Dla AMR turnieju w DOM jest tylko #org-panel-amr — getElementById('org-panel') zwróci null.
+  const amrPanel = document.getElementById('org-panel-amr') as HTMLElement | null;
+  const anyPanel = amrPanel ?? document.getElementById('org-panel') as HTMLElement | null;
+  if (!anyPanel) return;
+
+  const tType = anyPanel.dataset.tournamentType ?? 'RND';
+
+  // Wybieramy właściwy panel — dla AMR to amrPanel, dla reszty pierwszy #org-panel w DOM
+  const panel: HTMLElement = amrPanel
+    ? amrPanel
+    : (document.querySelector<HTMLElement>(`[id="org-panel"][data-panel-type="${tType === 'SGL' ? 'SGL' : 'RND'}"]`) ?? anyPanel);
 
   const tournamentId   = panel.dataset.tournamentId;
   const createdBy      = panel.dataset.createdBy;
   const tStatus        = panel.dataset.tournamentStatus;
-  const tType          = panel.dataset.tournamentType ?? 'RND';
   const setsToWin      = parseInt(panel.dataset.setsToWin ?? '2', 10);
+  const pointsPerMatch = parseInt(panel.dataset.pointsPerMatch ?? '32', 10);
   const apiBase        = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
   const isSGL          = tType === 'SGL';
   const isAMR          = tType === 'AMR';
@@ -2691,7 +2743,9 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   type MatchData = {
     id: number; round_number: number; match_index: number; status: string;
     participant1_id: number | null; participant2_id: number | null;
+    participant3_id: number | null; participant4_id: number | null;
     participant1_name: string | null; participant2_name: string | null;
+    participant3_name: string | null; participant4_name: string | null;
     winner_name: string | null; score: string | null; scheduled_time: string | null;
     set1_p1_score: number|null; set1_p2_score: number|null;
     set2_p1_score: number|null; set2_p2_score: number|null;
@@ -2723,8 +2777,14 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   }
 
   function buildMatchCard(m: MatchData): string {
-    const p1 = escHtml(m.participant1_name ?? 'BYE');
-    const p2 = escHtml(m.participant2_name ?? 'BYE');
+    const isDoubles = m.participant3_id != null || m.participant4_id != null;
+    // AMR debel: Team A = p1+p4, Team B = p2+p3
+    const p1 = isDoubles
+      ? escHtml(`${m.participant1_name ?? 'BYE'} / ${m.participant4_name ?? 'BYE'}`)
+      : escHtml(m.participant1_name ?? 'BYE');
+    const p2 = isDoubles
+      ? escHtml(`${m.participant2_name ?? 'BYE'} / ${m.participant3_name ?? 'BYE'}`)
+      : escHtml(m.participant2_name ?? 'BYE');
     const roundLabel = `R${m.round_number} M${m.match_index}`;
 
     const statusBadge = m.status === 'CMP'
@@ -2821,6 +2881,30 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         </div>
         <form class="org-score-form" data-match-id="${m.id}">
           <div class="org-form-row">
+            ${isAMR ? `
+            <div class="org-sets-row">
+              <div class="org-set-group">
+                <div class="org-set-label">Gemy</div>
+                <div class="org-set-inputs">
+                  <div class="org-score-spinner">
+                    <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
+                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                      name="set1_p1" placeholder="—" value="${v(m.set1_p1_score)}">
+                    <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
+                  </div>
+                  <span class="org-set-sep">:</span>
+                  <div class="org-score-spinner">
+                    <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
+                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                      name="set1_p2" placeholder="—" value="${v(m.set1_p2_score)}">
+                    <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:8px;">
+              Suma musi wynosić ${pointsPerMatch} gemów
+            </div>` : `
             <div class="org-sets-row">
               ${[1,2,3].map(s => {
                 const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
@@ -2845,7 +2929,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   </div>
                 </div>`;
               }).join('')}
-            </div>
+            </div>`}
             <div class="org-scheduled-group">
               <div class="org-scheduled-label">Termin</div>
               <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
@@ -3742,39 +3826,51 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
   // ── Uczestnicy turnieju ────────────────────────────────────────────────────
   function initParticipantsPanel() {
-    const listEl       = document.getElementById('org-participants-list') as HTMLElement;
-    const msgEl        = document.getElementById('org-participant-msg') as HTMLElement;
-    const closeRegWrap = document.getElementById('org-close-reg-wrap') as HTMLElement | null;
-    const closeRegBtn  = document.getElementById('org-close-reg-btn') as HTMLButtonElement | null;
-    const closeRegMsg  = document.getElementById('org-close-reg-msg') as HTMLElement | null;
+    // Szukamy elementów wyłącznie wewnątrz aktywnego panelu org (panel może być SGL/AMR/RND)
+    const listEl        = panel.querySelector<HTMLElement>('#org-participants-list');
+    const msgEl         = panel.querySelector<HTMLElement>('#org-participant-msg');
+    const closeRegWraps = Array.from(panel.querySelectorAll<HTMLElement>('#org-close-reg-wrap'));
+    const closeRegBtns  = Array.from(panel.querySelectorAll<HTMLButtonElement>('#org-close-reg-btn'));
+    const closeRegMsgs  = Array.from(panel.querySelectorAll<HTMLElement>('#org-close-reg-msg'));
     if (!listEl) return;
 
     // Backend pozwala dodawać uczestników tylko w DRF i REG (non-staff).
     // Ukryj cały formularz add w pozostałych statusach.
-    const addRow = document.querySelector<HTMLElement>('.org-add-row');
+    const addRow = panel.querySelector<HTMLElement>('.org-add-row');
     const canAdd = tStatus === 'DRF' || tStatus === 'REG';
     if (addRow && !canAdd) addRow.style.display = 'none';
 
-    // Debel: przełącz widok
-    const matchFormat = panel?.dataset.matchFormat ?? '';
-    const isDoubles = matchFormat === 'DBL';
-    const sngWrap  = document.getElementById('org-add-sng-wrap') as HTMLElement | null;
-    const dblRow   = document.getElementById('org-add-dbl-row') as HTMLElement | null;
-    if (isDoubles) {
+    // Debel: przełącz widok zależnie od typu turnieju
+    const matchFormat   = panel?.dataset.matchFormat ?? '';
+    const tournamentType = panel?.dataset.tournamentType ?? '';
+    const isDoubles     = matchFormat === 'DBL';
+    const isAmrDbl      = isDoubles && tournamentType === 'AMR';
+    const sngWrap       = panel.querySelector<HTMLElement>('#org-add-sng-wrap');
+    const dblRow        = panel.querySelector<HTMLElement>('#org-add-dbl-row');
+    const amrDblNote    = panel.querySelector<HTMLElement>('#org-add-amr-dbl-note');
+
+    if (isAmrDbl) {
+      // AMR debel: singiel-wrapper (wyszukiwarka + przycisk) zostaje widoczny,
+      // tylko pokazujemy hint wyjaśniający że pary układa system
+      if (amrDblNote) amrDblNote.style.display = 'block';
+      // sngWrap pozostaje widoczny (domyślnie display nie jest none)
+      if (dblRow) dblRow.style.display = 'none';
+    } else if (isDoubles) {
+      // Pozostałe debele (RR, SGL): stały skład pary
       if (sngWrap) sngWrap.style.display = 'none';
       if (dblRow)  dblRow.style.display = 'block';
     }
 
     // Renderuj uczestników z SSR danych
     const ssrParticipants: Array<{id:number;display_name:string;seed_number:number|null;status:string}> =
-      JSON.parse(document.getElementById('ssr-participants-data')?.textContent ?? '[]');
+      JSON.parse(document.getElementById('ssr-participants-data')?.textContent ?? '[]'); // globalny — tylko jeden w DOM
 
     function updateCloseRegBtn() {
-      if (!closeRegWrap || !panel) return;
+      if (!closeRegWraps.length || !panel) return;
       const currentStatus = panel.dataset.tournamentStatus ?? '';
-      if (currentStatus !== 'REG') { closeRegWrap.style.display = 'none'; return; }
       const activeCount = listEl.querySelectorAll('.org-participant-row').length;
-      closeRegWrap.style.display = activeCount >= 2 ? 'block' : 'none';
+      const show = currentStatus === 'REG' && activeCount >= 2;
+      closeRegWraps.forEach(w => { w.style.display = show ? 'block' : 'none'; });
     }
 
     function bindRemoveBtn(btn: HTMLButtonElement, row: HTMLElement) {
@@ -3945,11 +4041,11 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       inputEl.addEventListener('blur', () => setTimeout(close, 150));
     }
 
-    // ── Singiel ───────────────────────────────────────────────────────
-    if (!isDoubles) {
-      const searchEl = document.getElementById('org-add-user-search') as HTMLInputElement;
-      const sugEl    = document.getElementById('org-user-suggestions') as HTMLElement;
-      const addBtn   = document.getElementById('org-add-user-btn') as HTMLButtonElement;
+    // ── Singiel + AMR debel (oba używają tego samego flow: dodaj gracza indywidualnie) ──
+    if (!isDoubles || isAmrDbl) {
+      const searchEl = panel.querySelector<HTMLInputElement>('#org-add-user-search')!;
+      const sugEl    = panel.querySelector<HTMLElement>('#org-user-suggestions')!;
+      const addBtn   = panel.querySelector<HTMLButtonElement>('#org-add-user-btn')!;
       let selectedUser: {id:number; display:string} | null = null;
 
       makeAutocomplete(searchEl, sugEl, (u) => { selectedUser = u.id ? u : null; });
@@ -3988,12 +4084,12 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
     // ── Debel ─────────────────────────────────────────────────────────
     if (isDoubles) {
-      const p1El      = document.getElementById('org-add-p1-search') as HTMLInputElement;
-      const p1SugEl   = document.getElementById('org-p1-suggestions') as HTMLElement;
-      const p2El      = document.getElementById('org-add-p2-search') as HTMLInputElement;
-      const p2SugEl   = document.getElementById('org-p2-suggestions') as HTMLElement;
-      const nameEl    = document.getElementById('org-add-dbl-name') as HTMLInputElement;
-      const dblAddBtn = document.getElementById('org-add-dbl-btn') as HTMLButtonElement;
+      const p1El      = panel.querySelector<HTMLInputElement>('#org-add-p1-search')!;
+      const p1SugEl   = panel.querySelector<HTMLElement>('#org-p1-suggestions')!;
+      const p2El      = panel.querySelector<HTMLInputElement>('#org-add-p2-search')!;
+      const p2SugEl   = panel.querySelector<HTMLElement>('#org-p2-suggestions')!;
+      const nameEl    = panel.querySelector<HTMLInputElement>('#org-add-dbl-name')!;
+      const dblAddBtn = panel.querySelector<HTMLButtonElement>('#org-add-dbl-btn')!;
 
       let p1: {id:number; display:string} | null = null;
       let p2: {id:number; display:string} | null = null;
@@ -4085,11 +4181,12 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
     }
 
     // Przycisk "Zamknij zapisy i generuj mecze" z sekcji uczestników
-    if (closeRegBtn) {
-      closeRegBtn.addEventListener('click', async () => {
+    closeRegBtns.forEach((btn, i) => {
+      const msgEl = closeRegMsgs[i] ?? closeRegMsgs[0] ?? null;
+      btn.addEventListener('click', async () => {
         if (!window.confirm('Zamknąć zapisy i wygenerować mecze? Tej operacji nie można cofnąć bez utraty meczów.')) return;
-        closeRegBtn.disabled = true;
-        if (closeRegMsg) { closeRegMsg.textContent = 'Generowanie…'; closeRegMsg.className = 'org-form-msg'; }
+        closeRegBtns.forEach(b => { b.disabled = true; });
+        if (msgEl) { msgEl.textContent = 'Generowanie…'; msgEl.className = 'org-form-msg'; }
         try {
           const res = await fetch(`${apiBase}/api/tournaments/${tournamentId}/status/`, {
             method: 'PATCH', credentials: 'include',
@@ -4101,18 +4198,18 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             // Przeładuj stronę — SSR załaduje nowe mecze, tabelę ligową i aktualny status
             window.location.reload();
           } else {
-            if (closeRegMsg) {
-              closeRegMsg.textContent = data.detail ?? `Błąd ${res.status}`;
-              closeRegMsg.className = 'org-form-msg org-form-msg--err';
+            if (msgEl) {
+              msgEl.textContent = data.detail ?? `Błąd ${res.status}`;
+              msgEl.className = 'org-form-msg org-form-msg--err';
             }
-            closeRegBtn.disabled = false;
+            closeRegBtns.forEach(b => { b.disabled = false; });
           }
         } catch {
-          if (closeRegMsg) { closeRegMsg.textContent = 'Błąd sieci.'; closeRegMsg.className = 'org-form-msg org-form-msg--err'; }
-          closeRegBtn.disabled = false;
+          if (msgEl) { msgEl.textContent = 'Błąd sieci.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+          closeRegBtns.forEach(b => { b.disabled = false; });
         }
       });
-    }
+    });
   }
 
   // ── Formularz konfiguracji AMR (DRF/REG) ─────────────────────────────────
@@ -4715,7 +4812,9 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
   type AMatch = {
     id: number; status: string;
     participant1_id: number|null; participant2_id: number|null;
+    participant3_id: number|null; participant4_id: number|null;
     participant1_name: string|null; participant2_name: string|null;
+    participant3_name: string|null; participant4_name: string|null;
     score: string|null;
     set1_p1_score: number|null; set1_p2_score: number|null;
   };
@@ -4743,7 +4842,10 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       if (!myParticipant) return;
 
       const myMatches = matches.filter(
-        m => m.participant1_id === myParticipant.id || m.participant2_id === myParticipant.id
+        m => m.participant1_id === myParticipant.id
+          || m.participant2_id === myParticipant.id
+          || m.participant3_id === myParticipant.id
+          || m.participant4_id === myParticipant.id
       );
       if (!myMatches.length) return;
 
@@ -4761,8 +4863,14 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
       }
 
       function renderCard(m: AMatch): string {
-        const p1 = escH(m.participant1_name ?? '—');
-        const p2 = escH(m.participant2_name ?? '—');
+        const isDoubles = m.participant3_id != null || m.participant4_id != null;
+        // AMR debel: Team A = p1+p4, Team B = p2+p3
+        const p1 = isDoubles
+          ? escH(`${m.participant1_name ?? '—'} / ${m.participant4_name ?? '—'}`)
+          : escH(m.participant1_name ?? '—');
+        const p2 = isDoubles
+          ? escH(`${m.participant2_name ?? '—'} / ${m.participant3_name ?? '—'}`)
+          : escH(m.participant2_name ?? '—');
         const isDone = m.status === 'CMP' || m.status === 'WDR';
         const isCnc  = m.status === 'CNC';
         const v1 = m.set1_p1_score != null ? String(m.set1_p1_score) : '';
@@ -4842,14 +4950,15 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
         });
       });
 
-      // Odśwież standings AMR po zapisie
+      // Odśwież standings AMR po zapisie — z detalu turnieju (endpoint /standings/ jest tylko dla RND)
       function refreshAmrStandings() {
-        fetch(`${apiBase}/api/tournaments/${tId}/standings/`, { credentials: 'include' })
-          .then(r => r.ok ? r.json() : [])
-          .then(rows => {
+        fetch(`${apiBase}/api/tournaments/${tId}/`, { credentials: 'include' })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            const rows: {display_name:string;points:string|number;matches_played:number}[] = data?.standings ?? [];
             const tbody = document.getElementById('amr-standings-body');
             if (!tbody || !rows.length) return;
-            tbody.innerHTML = rows.map((r: {display_name:string;points:string|number;matches_played:number}, idx: number) => `
+            tbody.innerHTML = rows.map((r, idx) => `
               <tr>
                 <td><span class="rank-pos${idx < 3 ? ` rank-pos--${idx+1}` : ''}">${idx+1}</span></td>
                 <td>${escH(r.display_name)}</td>

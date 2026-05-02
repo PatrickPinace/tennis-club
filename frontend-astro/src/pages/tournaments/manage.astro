@@ -74,12 +74,13 @@ function fmtDate(iso: string | null): string {
       </div>
     ) : (
       <div class="tc-card" style="overflow:hidden;">
+        <div style="overflow-x:auto;">
         <table class="tc-table manage-table">
           <thead>
             <tr>
               <th>Nazwa</th>
               <th>Status</th>
-              <th>Typ / Format</th>
+              <th class="col-type">Typ / Format</th>
               <th class="col-date">Start</th>
               <th class="col-date">Koniec</th>
               <th class="col-num">Uczestników</th>
@@ -100,7 +101,7 @@ function fmtDate(iso: string | null): string {
                     {STATUS_LABEL[t.status] ?? t.status}
                   </span>
                 </td>
-                <td class="manage-type">
+                <td class="manage-type col-type">
                   <span>{TYPE_LABEL[t.tournament_type] ?? t.tournament_type}</span>
                   <span class="manage-type__format">{FORMAT_LABEL[t.match_format] ?? t.match_format}</span>
                 </td>
@@ -116,6 +117,7 @@ function fmtDate(iso: string | null): string {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     )}
   </div>
@@ -236,5 +238,7 @@ function fmtDate(iso: string | null): string {
 
   @media (max-width: 768px) {
     .col-date { display: none; }
+    .col-type { display: none; }
+    .col-num  { display: none; }
   }
 </style>

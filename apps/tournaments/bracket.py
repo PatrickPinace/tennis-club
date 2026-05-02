@@ -358,32 +358,46 @@ def generate_americano_matches_static(tournament, participants_qs, config) -> tu
     """
     Generuje mecze dla turnieju Americano w trybie STATIC (stały harmonogram).
 
-    Algorytm round-robin z podziałem na rundy (rotation algorithm):
-      - n uczestników, każda runda = n/2 meczów
-      - Gracz 0 jest "kotwicą" (stały), pozostali rotują o 1 w prawo co rundę
-      - Generowane jest min(number_of_rounds, n-1) rund — w n-1 rundach każdy
-        zagra z każdym dokładnie raz; można wybrać mniejszą liczbę rund z configu
+    Algorytm round-robin z rotacją (rotation algorithm), dwa warianty:
 
-    Guardy (400):
-      - parzysta liczba uczestników (n % 2 == 0)
-      - n >= 4 (sensowny turniej Americano wymaga co najmniej 4 graczy)
-      - number_of_rounds >= 1 i <= n-1
+    SNG (singiel):
+      - n uczestników, każda runda = n/2 meczów (p1 vs p2)
+      - Gracz 0 "kotwica" (stały), pozostali rotują w prawo co rundę
+      - Para: circle[i] vs circle[n-1-i]
+      - Guardy: n % 2 == 0, n >= 4, rounds <= n-1
+
+    DBL (debel):
+      - n uczestników (każdy = indywidualny gracz), każda runda = n/4 meczów (2v2)
+      - Ta sama rotacja co SNG; mecz bierze 4 kolejne sloty po n/4 przesunięciu
+      - Team A = circle[i] + circle[i + 3*k],  Team B = circle[i + k] + circle[i + 2*k]
+        gdzie k = n // 4 (liczba kortów)
+      - Konwencja spójna z resztą AMR debla: participant1+participant4 vs participant2+participant3
+      - Guardy: n % 4 == 0, n >= 4, rounds <= n-1
 
     Zwraca: (liczba_meczów, komunikat)
     """
     from apps.tournaments.models import TournamentsMatch
 
+    is_doubles = tournament.match_format == 'DBL'
     participants = list(participants_qs.order_by('pk'))
     n = len(participants)
 
     # ── Guardy ────────────────────────────────────────────────────────────────
     if n < 4:
         raise ValueError(f'Americano wymaga co najmniej 4 uczestników (masz {n}).')
-    if n % 2 != 0:
-        raise ValueError(
-            f'Americano wymaga parzystej liczby uczestników (masz {n}). '
-            f'Dodaj lub usuń jednego gracza.'
-        )
+
+    if is_doubles:
+        if n % 4 != 0:
+            raise ValueError(
+                f'Americano debel wymaga liczby uczestników będącej wielokrotnością 4 (masz {n}). '
+                f'Dodaj lub usuń gracza tak, aby było 4, 8, 12... uczestników.'
+            )
+    else:
+        if n % 2 != 0:
+            raise ValueError(
+                f'Americano wymaga parzystej liczby uczestników (masz {n}). '
+                f'Dodaj lub usuń jednego gracza.'
+            )
 
     max_rounds = n - 1
     requested_rounds = config.number_of_rounds
@@ -391,47 +405,71 @@ def generate_americano_matches_static(tournament, participants_qs, config) -> tu
         raise ValueError('Liczba rund musi wynosić co najmniej 1.')
     if requested_rounds > max_rounds:
         raise ValueError(
-            f'Przy {n} uczestnikach można rozegrać maksymalnie {max_rounds} rund '
-            f'(każdy z każdym raz). Zmniejsz liczbę rund w konfiguracji.'
+            f'Przy {n} uczestnikach można rozegrać maksymalnie {max_rounds} rund. '
+            f'Zmniejsz liczbę rund w konfiguracji.'
         )
 
-    # ── Rotation algorithm (round-robin scheduling) ───────────────────────────
-    # Standardowy algorytm: gracz 0 stały, reszta rotuje w prawo co rundę.
-    # W rundzie r (0-indexed): lista rotowana = [0] + rotate_right(players[1:], r)
-    # Para: slot[i] vs slot[n-1-i] dla i in 0..n/2-1
+    # ── Rotation algorithm ────────────────────────────────────────────────────
+    # Gracz 0 stały ("kotwica"), pozostali rotują o 1 w prawo co rundę.
+    # circle = [anchor] + rotate_right(players[1:], round_idx)
 
-    players = list(range(n))  # indeksy uczestników
-    rotating = players[1:]    # gracze 0..n-1 bez "kotwicy" (index 0)
+    players = list(range(n))
+    rotating = players[1:]
     anchor = players[0]
 
     matches_to_create = []
     match_count = 0
 
     for round_idx in range(requested_rounds):
-        # Rotacja: przesuń rotating o round_idx pozycji w prawo
         rotated = rotating[-round_idx:] + rotating[:-round_idx] if round_idx > 0 else rotating[:]
-        circle = [anchor] + rotated  # pełna lista n graczy na tę rundę
+        circle = [anchor] + rotated
 
         round_number = round_idx + 1
         match_index = 1
 
-        for i in range(n // 2):
-            p1 = participants[circle[i]]
-            p2 = participants[circle[n - 1 - i]]
-            matches_to_create.append(TournamentsMatch(
-                tournament=tournament,
-                participant1=p1,
-                participant2=p2,
-                round_number=round_number,
-                match_index=match_index,
-                status=TournamentsMatch.Status.WAITING.value,
-            ))
-            match_index += 1
-            match_count += 1
+        if is_doubles:
+            # Debel: n/4 meczów na rundę, każdy mecz angażuje 4 graczy.
+            # k = liczba kortów = n // 4
+            # Slot i-ty meczu: indeksy circle[i], circle[i+k], circle[i+2k], circle[i+3k]
+            # Team A = p[circle[i]] + p[circle[i+3k]]  (participant1 + participant4)
+            # Team B = p[circle[i+k]] + p[circle[i+2k]] (participant2 + participant3)
+            # Konwencja spójna z generate_next_mexicano_round i generate_americano_matches.
+            k = n // 4
+            for i in range(k):
+                pa1 = participants[circle[i]]
+                pa2 = participants[circle[i + k]]
+                pa3 = participants[circle[i + 2 * k]]
+                pa4 = participants[circle[i + 3 * k]]
+                matches_to_create.append(TournamentsMatch(
+                    tournament=tournament,
+                    participant1=pa1, participant2=pa4,  # Team A
+                    participant3=pa2, participant4=pa3,  # Team B
+                    round_number=round_number,
+                    match_index=match_index,
+                    status=TournamentsMatch.Status.WAITING.value,
+                ))
+                match_index += 1
+                match_count += 1
+        else:
+            # Singiel: n/2 meczów na rundę, para circle[i] vs circle[n-1-i]
+            for i in range(n // 2):
+                p1 = participants[circle[i]]
+                p2 = participants[circle[n - 1 - i]]
+                matches_to_create.append(TournamentsMatch(
+                    tournament=tournament,
+                    participant1=p1,
+                    participant2=p2,
+                    round_number=round_number,
+                    match_index=match_index,
+                    status=TournamentsMatch.Status.WAITING.value,
+                ))
+                match_index += 1
+                match_count += 1
 
     TournamentsMatch.objects.bulk_create(matches_to_create)
+    fmt = 'debel' if is_doubles else 'singiel'
     logger.info(
-        '[americano] Wygenerowano %d meczów (%d rund, %d graczy) dla turnieju id=%d.',
-        match_count, requested_rounds, n, tournament.pk,
+        '[americano] Wygenerowano %d meczów (%d rund, %d graczy, %s) dla turnieju id=%d.',
+        match_count, requested_rounds, n, fmt, tournament.pk,
     )
-    return match_count, f'Wygenerowano {match_count} meczów Americano ({requested_rounds} rund, {n} graczy).'
+    return match_count, f'Wygenerowano {match_count} meczów Americano ({requested_rounds} rund, {n} graczy, {fmt}).'
