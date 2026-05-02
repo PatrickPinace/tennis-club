@@ -153,6 +153,7 @@ class MatchCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Set the logged-in user as p1 and create the match."""
         validated_data['p1'] = self.context['request'].user
+        validated_data['reported_by'] = self.context['request'].user
         match = Match.objects.create(**validated_data)
         return match
 
