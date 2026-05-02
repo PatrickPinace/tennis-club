@@ -236,12 +236,13 @@ def calculate_americano_standings(tournament):
     """
     Oblicza tabelę punktową dla turnieju Americano (singiel lub debl).
 
-    Model scoringu: set1_p1_score = gemy zdobyte przez stronę p1(/p2),
-                    set1_p2_score = gemy zdobyte przez stronę p3(/p4).
+    Model scoringu: set1_p1_score = gemy zdobyte przez Team A,
+                    set1_p2_score = gemy zdobyte przez Team B.
     Suma powinna równać się points_per_match z AmericanoConfig.
 
     Singiel (p3=None, p4=None): gemy idą bezpośrednio do p1 i p2.
-    Debl (p3!=None, p4!=None):  gemy idą do pary p1+p2 i pary p3+p4.
+    Debl (p3!=None, p4!=None):  Team A = (p1, p4), Team B = (p2, p3) —
+        zgodnie z konwencją generatora meczów AMR.
     """
     participants = tournament.participants.filter(status__in=['ACT', 'REG'])
     matches = tournament.matches.filter(status=TournamentsMatch.Status.COMPLETED.value)
@@ -266,15 +267,16 @@ def calculate_americano_standings(tournament):
         score2 = match.set1_p2_score or 0
 
         if is_doubles:
-            # Debl: p1+p2 vs p3+p4 — każdy zawodnik dostaje punkty swojej pary
+            # Debl: generator tworzy Team A = (p1, p4), Team B = (p2, p3)
+            # score1 = gemy Team A, score2 = gemy Team B
             if p1_id and p1_id in standings:
                 standings[p1_id]['points'] += score1
+            if p4_id and p4_id in standings:
+                standings[p4_id]['points'] += score1
             if p2_id and p2_id in standings:
-                standings[p2_id]['points'] += score1
+                standings[p2_id]['points'] += score2
             if p3_id and p3_id in standings:
                 standings[p3_id]['points'] += score2
-            if p4_id and p4_id in standings:
-                standings[p4_id]['points'] += score2
         else:
             # Singiel: p1 vs p2 — każdy dostaje własne gemy
             if p1_id and p1_id in standings:

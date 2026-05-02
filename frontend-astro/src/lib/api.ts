@@ -166,8 +166,12 @@ export interface TournamentMatch {
   status: string;
   participant1_id: number | null;
   participant2_id: number | null;
+  participant3_id: number | null;
+  participant4_id: number | null;
   participant1_name: string | null;
   participant2_name: string | null;
+  participant3_name: string | null;
+  participant4_name: string | null;
   winner_name: string | null;
   set1_p1_score: number | null;
   set1_p2_score: number | null;

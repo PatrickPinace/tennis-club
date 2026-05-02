@@ -41,6 +41,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
 ---
 
 <AppLayout title="Powiadomienia" currentUser={currentUser}>
+<div class="page-narrow">
   <PageHeader
     title="Powiadomienia"
     subtitle={unreadCount > 0
@@ -104,6 +105,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     )}
 
   </div>
+</div><!-- /page-narrow -->
 </AppLayout>
 
 <script>
