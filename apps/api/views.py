@@ -525,25 +525,26 @@ class DashboardSummaryView(APIView):
                 .first()
             )
             if last_match:
-                # Wyznacz wynik z perspektywy zalogowanego gracza
+                # Wyznacz wynik z perspektywy zalogowanego gracza — licz wszystkie sety
                 is_p1_side = (last_match.p1 == user or last_match.p3 == user)
-                my_s1  = last_match.p1_set1 if is_p1_side else last_match.p2_set1
-                opp_s1 = last_match.p2_set1 if is_p1_side else last_match.p1_set1
-                my_s2  = last_match.p1_set2 if is_p1_side else last_match.p2_set2
-                opp_s2 = last_match.p2_set2 if is_p1_side else last_match.p1_set2
+                opponent = last_match.p2 if is_p1_side else last_match.p1
 
-                sets_won  = sum(1 for m, o in [(my_s1, opp_s1), (my_s2, opp_s2)] if m is not None and o is not None and m > o)
-                sets_lost = sum(1 for m, o in [(my_s1, opp_s1), (my_s2, opp_s2)] if m is not None and o is not None and m < o)
-
-                opponent = last_match.p2 if last_match.p1 == user else last_match.p1
-
-                score_parts = [f"{my_s1}:{opp_s1}"]
-                if my_s2 is not None and opp_s2 is not None:
-                    score_parts.append(f"{my_s2}:{opp_s2}")
-                if last_match.p1_set3 is not None:
-                    my_s3  = last_match.p1_set3 if is_p1_side else last_match.p2_set3
-                    opp_s3 = last_match.p2_set3 if is_p1_side else last_match.p1_set3
-                    score_parts.append(f"{my_s3}:{opp_s3}")
+                sets_won = sets_lost = 0
+                score_parts = []
+                for p1s, p2s in [
+                    (last_match.p1_set1, last_match.p2_set1),
+                    (last_match.p1_set2, last_match.p2_set2),
+                    (last_match.p1_set3, last_match.p2_set3),
+                ]:
+                    if p1s is None or p2s is None:
+                        continue
+                    my_s  = p1s if is_p1_side else p2s
+                    opp_s = p2s if is_p1_side else p1s
+                    score_parts.append(f"{my_s}:{opp_s}")
+                    if my_s > opp_s:
+                        sets_won += 1
+                    elif opp_s > my_s:
+                        sets_lost += 1
 
                 last_match_data = {
                     'date': last_match.match_date.isoformat(),
@@ -606,22 +607,40 @@ class DashboardSummaryView(APIView):
             )
             for m in friendly_matches:
                 is_p1 = (m.p1 == user or m.p3 == user)
-                my_g  = m.p1_set1 if is_p1 else m.p2_set1
-                opp_g = m.p2_set1 if is_p1 else m.p1_set1
-                opp   = m.p2 if (m.p1 == user or m.p3 == user) else m.p1
-                won   = (my_g is not None and opp_g is not None and my_g > opp_g)
-                sets  = [f"{m.p1_set1}:{m.p2_set1}"]
-                if m.p1_set2 is not None and m.p2_set2 is not None:
-                    sets.append(f"{m.p1_set2}:{m.p2_set2}")
-                if m.p1_set3 is not None and m.p2_set3 is not None:
-                    sets.append(f"{m.p1_set3}:{m.p2_set3}")
+                opp   = m.p2 if is_p1 else m.p1
+
+                # Licz sety (ta sama logika co tools.py) — nie porównuj tylko set1
+                p1_sets_won = 0
+                p2_sets_won = 0
+                sets = []
+                for s1, s2 in [
+                    (m.p1_set1, m.p2_set1),
+                    (m.p1_set2, m.p2_set2),
+                    (m.p1_set3, m.p2_set3),
+                ]:
+                    if s1 is None or s2 is None:
+                        continue
+                    sets.append(f"{s1}:{s2}")
+                    if s1 > s2:
+                        p1_sets_won += 1
+                    elif s2 > s1:
+                        p2_sets_won += 1
+
+                if p1_sets_won > p2_sets_won:
+                    won = is_p1
+                elif p2_sets_won > p1_sets_won:
+                    won = not is_p1
+                else:
+                    won = None  # remis
+
+                result_label = 'Wygrana' if won is True else ('Porażka' if won is False else 'Remis')
                 activity_events.append({
                     'type': 'match',
                     'timestamp': m.last_updated.isoformat(),
-                    'title': ('Wygrana' if won else 'Porażka') + f' vs {_full_name(opp)}',
+                    'title': result_label + f' vs {_full_name(opp)}',
                     'detail': ('Debel' if m.match_double else 'Singiel') + ' · ' + ', '.join(sets),
                     'href': f'/matches/{m.pk}',
-                    'result': 'win' if won else 'loss',
+                    'result': 'win' if won is True else ('loss' if won is False else 'neutral'),
                 })
         except Exception:
             pass

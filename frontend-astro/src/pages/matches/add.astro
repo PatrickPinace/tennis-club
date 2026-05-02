@@ -1,6 +1,6 @@
 ---
-// matches/add.astro — formularz dodawania rozegranego meczu towarzyskiego (singiel)
-// Prywatna strona: wymaga zalogowania. Bez debla, bez confirm flow.
+// matches/add.astro — formularz dodawania rozegranego meczu towarzyskiego (singiel i debel)
+// Prywatna strona: wymaga zalogowania.
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
@@ -14,8 +14,8 @@ if (!currentUser) {
   return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/matches/add')));
 }
 
-// Dzisiejsza data jako default dla pola daty
 const today = new Date().toISOString().slice(0, 10);
+const myId  = currentUser.id;
 ---
 
 <AppLayout title="Dodaj mecz" showSearch={false} showCta={false} currentUser={currentUser}>
@@ -26,113 +26,148 @@ const today = new Date().toISOString().slice(0, 10);
   <div class="add-wrap">
     <div class="add-header">
       <h1 class="add-title">Dodaj mecz towarzyski</h1>
-      <p class="add-subtitle">Zapisz wynik rozegranego meczu singla.</p>
+      <p class="add-subtitle">Zapisz wynik rozegranego meczu.</p>
     </div>
 
-    <!-- Alert błędu -->
     <div id="add-error" class="add-alert add-alert--err" style="display:none;" role="alert"></div>
 
     <div class="tc-card add-card">
-      <form id="add-form" novalidate>
+      <form id="add-form" novalidate data-my-id={String(myId)}>
 
-        <!-- Przeciwnik -->
+        <!-- Toggle singiel / debel -->
+        <div class="af-field">
+          <label class="af-label">Format</label>
+          <div class="af-format-toggle" role="group" aria-label="Format meczu">
+            <button type="button" id="btn-sng" class="af-format-btn af-format-btn--active" data-format="SNG">
+              Singiel
+            </button>
+            <button type="button" id="btn-dbl" class="af-format-btn" data-format="DBL">
+              Debel
+            </button>
+          </div>
+        </div>
+
+        <!-- ── DRUŻYNA 1 (Twoja) ── -->
+        <div class="af-team-header" id="team1-header" style="display:none;">
+          <span class="af-team-label af-team-label--you">Twoja drużyna</span>
+        </div>
+
+        <!-- Twój partner (debel) -->
+        <div class="af-field af-field--dbl" id="field-partner" style="display:none;">
+          <label class="af-label" for="af-partner-input">
+            Twój partner <span class="af-required">*</span>
+          </label>
+          <div class="af-autocomplete" id="af-ac-partner">
+            <input id="af-partner-input" class="af-input" type="text"
+              placeholder="Wpisz imię lub nazwisko..."
+              autocomplete="off" aria-autocomplete="list"
+              aria-controls="af-sug-partner" aria-expanded="false" />
+            <input type="hidden" id="af-partner-id" />
+            <ul id="af-sug-partner" class="af-suggestions" role="listbox" style="display:none;" aria-label="Sugestie partnerów"></ul>
+            <div class="af-search-status" id="af-status-partner" aria-live="polite"></div>
+          </div>
+          <p id="af-partner-err" class="af-field-err" style="display:none;">Wybierz partnera z listy.</p>
+        </div>
+
+        <!-- ── DRUŻYNA 2 (Rywal) ── -->
+        <div class="af-team-header" id="team2-header" style="display:none;">
+          <span class="af-team-label af-team-label--opp">Drużyna przeciwna</span>
+        </div>
+
+        <!-- Główny przeciwnik -->
         <div class="af-field">
           <label class="af-label" for="af-opponent-input">
-            Przeciwnik <span class="af-required">*</span>
+            <span id="lbl-opponent">Przeciwnik</span> <span class="af-required">*</span>
           </label>
-          <div class="af-autocomplete" id="af-autocomplete">
-            <input
-              id="af-opponent-input"
-              class="af-input"
-              type="text"
+          <div class="af-autocomplete" id="af-ac-opponent">
+            <input id="af-opponent-input" class="af-input" type="text"
               placeholder="Wpisz imię lub nazwisko..."
-              autocomplete="off"
-              aria-autocomplete="list"
-              aria-controls="af-suggestions"
-              aria-expanded="false"
-            />
-            <input type="hidden" id="af-opponent-id" name="p2" />
-            <ul
-              id="af-suggestions"
-              class="af-suggestions"
-              role="listbox"
-              style="display:none;"
-              aria-label="Sugestie graczy"
-            ></ul>
-            <div id="af-search-status" class="af-search-status" aria-live="polite"></div>
+              autocomplete="off" aria-autocomplete="list"
+              aria-controls="af-sug-opponent" aria-expanded="false" />
+            <input type="hidden" id="af-opponent-id" />
+            <ul id="af-sug-opponent" class="af-suggestions" role="listbox" style="display:none;" aria-label="Sugestie przeciwników"></ul>
+            <div class="af-search-status" id="af-status-opponent" aria-live="polite"></div>
           </div>
           <p id="af-opponent-err" class="af-field-err" style="display:none;">Wybierz przeciwnika z listy.</p>
         </div>
 
-        <!-- Sety -->
+        <!-- Partner przeciwnika (debel) -->
+        <div class="af-field af-field--dbl" id="field-rival2" style="display:none;">
+          <label class="af-label" for="af-rival2-input">
+            Partner przeciwnika <span class="af-required">*</span>
+          </label>
+          <div class="af-autocomplete" id="af-ac-rival2">
+            <input id="af-rival2-input" class="af-input" type="text"
+              placeholder="Wpisz imię lub nazwisko..."
+              autocomplete="off" aria-autocomplete="list"
+              aria-controls="af-sug-rival2" aria-expanded="false" />
+            <input type="hidden" id="af-rival2-id" />
+            <ul id="af-sug-rival2" class="af-suggestions" role="listbox" style="display:none;" aria-label="Sugestie partnerów przeciwnika"></ul>
+            <div class="af-search-status" id="af-status-rival2" aria-live="polite"></div>
+          </div>
+          <p id="af-rival2-err" class="af-field-err" style="display:none;">Wybierz partnera przeciwnika z listy.</p>
+        </div>
+
+        <!-- ── Sety ── -->
         <div class="af-field">
           <label class="af-label">Wynik</label>
           <div class="af-sets">
-
-            <!-- Set 1 (wymagany) -->
+            <!-- Set 1 -->
             <div class="af-set">
               <span class="af-set-label">Set 1 <span class="af-required">*</span></span>
               <div class="af-set-row">
                 <div class="af-set-col">
-                  <span class="af-set-who">Ty</span>
+                  <span class="af-set-who" id="lbl-s1-p1">Ty</span>
                   <input id="af-p1s1" class="af-num" type="number" min="0" max="99" placeholder="0" inputmode="numeric" />
                 </div>
                 <span class="af-set-sep">:</span>
                 <div class="af-set-col">
-                  <span class="af-set-who">Rywal</span>
+                  <span class="af-set-who" id="lbl-s1-p2">Rywal</span>
                   <input id="af-p2s1" class="af-num" type="number" min="0" max="99" placeholder="0" inputmode="numeric" />
                 </div>
               </div>
-              <p id="af-s1-err" class="af-field-err" style="display:none;">Set 1 jest wymagany — wpisz wynik dla obu graczy.</p>
+              <p id="af-s1-err" class="af-field-err" style="display:none;">Set 1 jest wymagany — wpisz wynik dla obu stron.</p>
             </div>
-
-            <!-- Set 2 (opcjonalny) -->
+            <!-- Set 2 -->
             <div class="af-set af-set--opt">
               <span class="af-set-label">Set 2 <span class="af-optional">(opcjonalnie)</span></span>
               <div class="af-set-row">
                 <div class="af-set-col">
-                  <span class="af-set-who">Ty</span>
+                  <span class="af-set-who" id="lbl-s2-p1">Ty</span>
                   <input id="af-p1s2" class="af-num" type="number" min="0" max="99" placeholder="—" inputmode="numeric" />
                 </div>
                 <span class="af-set-sep">:</span>
                 <div class="af-set-col">
-                  <span class="af-set-who">Rywal</span>
+                  <span class="af-set-who" id="lbl-s2-p2">Rywal</span>
                   <input id="af-p2s2" class="af-num" type="number" min="0" max="99" placeholder="—" inputmode="numeric" />
                 </div>
               </div>
-              <p id="af-s2-err" class="af-field-err" style="display:none;">Wpisz wynik dla obu graczy w secie 2.</p>
+              <p id="af-s2-err" class="af-field-err" style="display:none;">Wpisz wynik dla obu stron w secie 2.</p>
             </div>
-
-            <!-- Set 3 (opcjonalny) -->
+            <!-- Set 3 -->
             <div class="af-set af-set--opt">
               <span class="af-set-label">Set 3 <span class="af-optional">(opcjonalnie)</span></span>
               <div class="af-set-row">
                 <div class="af-set-col">
-                  <span class="af-set-who">Ty</span>
+                  <span class="af-set-who" id="lbl-s3-p1">Ty</span>
                   <input id="af-p1s3" class="af-num" type="number" min="0" max="99" placeholder="—" inputmode="numeric" />
                 </div>
                 <span class="af-set-sep">:</span>
                 <div class="af-set-col">
-                  <span class="af-set-who">Rywal</span>
+                  <span class="af-set-who" id="lbl-s3-p2">Rywal</span>
                   <input id="af-p2s3" class="af-num" type="number" min="0" max="99" placeholder="—" inputmode="numeric" />
                 </div>
               </div>
-              <p id="af-s3-err" class="af-field-err" style="display:none;">Wpisz wynik dla obu graczy w secie 3.</p>
+              <p id="af-s3-err" class="af-field-err" style="display:none;">Wpisz wynik dla obu stron w secie 3.</p>
             </div>
-
           </div>
         </div>
 
         <!-- Data meczu -->
         <div class="af-field">
           <label class="af-label" for="af-date">Data meczu</label>
-          <input
-            id="af-date"
-            class="af-input af-input--date"
-            type="date"
-            value={today}
-            max={today}
-          />
+          <input id="af-date" class="af-input af-input--date" type="date"
+            value={today} max={today} />
         </div>
 
         <!-- Submit -->
@@ -150,247 +185,319 @@ const today = new Date().toISOString().slice(0, 10);
 
 <script>
   (function () {
-    // ── Bazowy URL — ta sama konwencja co inne strony ──────────────────────────
     const API  = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
-    const BASE = import.meta.env.BASE_URL?.replace(/\/$/, '') ?? '';
+    const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+    const form = document.getElementById('add-form') as HTMLFormElement;
+    const ME   = Number((form as HTMLElement)?.dataset?.myId ?? 0);
 
-    // ── Elementy ───────────────────────────────────────────────────────────────
-    const form        = document.getElementById('add-form') as HTMLFormElement;
-    const errorBanner = document.getElementById('add-error') as HTMLElement;
+    // ── Stan formularza ────────────────────────────────────────────────────────
+    let isDouble = false;
 
-    const opponentInput = document.getElementById('af-opponent-input') as HTMLInputElement;
-    const opponentId    = document.getElementById('af-opponent-id')    as HTMLInputElement;
-    const suggestions   = document.getElementById('af-suggestions')    as HTMLUListElement;
-    const searchStatus  = document.getElementById('af-search-status')  as HTMLElement;
-    const opponentErr   = document.getElementById('af-opponent-err')   as HTMLElement;
+    // ── Elementy toggle ────────────────────────────────────────────────────────
+    const btnSng      = document.getElementById('btn-sng');
+    const btnDbl      = document.getElementById('btn-dbl');
+    const fieldPartner = document.getElementById('field-partner');
+    const fieldRival2  = document.getElementById('field-rival2');
+    const team1Header  = document.getElementById('team1-header');
+    const team2Header  = document.getElementById('team2-header');
+    const lblOpponent  = document.getElementById('lbl-opponent');
 
-    const p1s1 = document.getElementById('af-p1s1') as HTMLInputElement;
-    const p2s1 = document.getElementById('af-p2s1') as HTMLInputElement;
-    const p1s2 = document.getElementById('af-p1s2') as HTMLInputElement;
-    const p2s2 = document.getElementById('af-p2s2') as HTMLInputElement;
-    const p1s3 = document.getElementById('af-p1s3') as HTMLInputElement;
-    const p2s3 = document.getElementById('af-p2s3') as HTMLInputElement;
-    const s1Err = document.getElementById('af-s1-err') as HTMLElement;
-    const s2Err = document.getElementById('af-s2-err') as HTMLElement;
-    const s3Err = document.getElementById('af-s3-err') as HTMLElement;
+    // Etykiety "Ty/Rywal" → "Ty+Partner/Rywal+Partner" w setach
+    const setLabelsP1 = [
+      document.getElementById('lbl-s1-p1'),
+      document.getElementById('lbl-s2-p1'),
+      document.getElementById('lbl-s3-p1'),
+    ];
+    const setLabelsP2 = [
+      document.getElementById('lbl-s1-p2'),
+      document.getElementById('lbl-s2-p2'),
+      document.getElementById('lbl-s3-p2'),
+    ];
 
-    const dateInput = document.getElementById('af-date') as HTMLInputElement;
-    const submitBtn = document.getElementById('af-submit') as HTMLButtonElement;
+    function setFormat(dbl) {
+      isDouble = dbl;
+      btnSng?.classList.toggle('af-format-btn--active', !dbl);
+      btnDbl?.classList.toggle('af-format-btn--active', dbl);
+      const show = el => el && (el.style.display = '');
+      const hide = el => el && (el.style.display = 'none');
 
-    // ── CSRF ───────────────────────────────────────────────────────────────────
-    function getCsrf(): string {
-      return document.cookie.split(';')
-        .map(c => c.trim())
-        .find(c => c.startsWith('csrftoken='))
-        ?.split('=')[1] ?? '';
-    }
-
-    // ── Autocomplete ───────────────────────────────────────────────────────────
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let selectedUserId: number | null = null;
-    let selectedUserName = '';
-
-    function closeSuggestions() {
-      suggestions.style.display = 'none';
-      opponentInput.setAttribute('aria-expanded', 'false');
-    }
-
-    function renderSuggestions(users: {id:number; username:string; first_name:string; last_name:string}[]) {
-      if (users.length === 0) {
-        suggestions.innerHTML = '<li class="af-sug-empty">Brak wyników</li>';
+      if (dbl) {
+        show(fieldPartner); show(fieldRival2);
+        show(team1Header); show(team2Header);
+        if (lblOpponent) lblOpponent.textContent = 'Główny przeciwnik';
+        setLabelsP1.forEach(el => { if (el) el.textContent = 'Ty / P'; });
+        setLabelsP2.forEach(el => { if (el) el.textContent = 'Rywal / P'; });
       } else {
-        suggestions.innerHTML = users.map(u => {
-          const full = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username;
-          const sub  = u.first_name || u.last_name ? u.username : '';
-          return `<li class="af-sug-item" role="option" data-id="${u.id}" data-name="${full}">
-            <span class="af-sug-name">${full}</span>
-            ${sub ? `<span class="af-sug-sub">${sub}</span>` : ''}
-          </li>`;
-        }).join('');
-      }
-      suggestions.style.display = '';
-      opponentInput.setAttribute('aria-expanded', 'true');
-    }
-
-    async function fetchUsers(q: string) {
-      searchStatus.textContent = 'Szukam…';
-      try {
-        const endpoint = q.length >= 2
-          ? `${API}/api/users/?search=${encodeURIComponent(q)}`
-          : `${API}/api/users/?suggest=1`;
-        const res = await fetch(endpoint, { credentials: 'include' });
-        if (!res.ok) throw new Error('API error');
-        const data = await res.json();
-        searchStatus.textContent = '';
-        renderSuggestions(data);
-      } catch {
-        searchStatus.textContent = '';
-        suggestions.innerHTML = '<li class="af-sug-empty">Błąd ładowania</li>';
-        suggestions.style.display = '';
+        hide(fieldPartner); hide(fieldRival2);
+        hide(team1Header); hide(team2Header);
+        if (lblOpponent) lblOpponent.textContent = 'Przeciwnik';
+        setLabelsP1.forEach(el => { if (el) el.textContent = 'Ty'; });
+        setLabelsP2.forEach(el => { if (el) el.textContent = 'Rywal'; });
+        // Reset pól debla
+        resetAC('partner');
+        resetAC('rival2');
       }
     }
 
-    // Otwórz sugestie przy focus (suggest mode)
-    opponentInput.addEventListener('focus', () => {
-      if (!opponentInput.value.trim()) {
-        fetchUsers('');
+    btnSng?.addEventListener('click', () => setFormat(false));
+    btnDbl?.addEventListener('click', () => setFormat(true));
+
+    // ── Autocomplete factory ───────────────────────────────────────────────────
+    // Każde pole ma: inputEl, hiddenEl, sugListEl, statusEl, errEl
+    const acState = {}; // key → { selectedId, selectedName, timer }
+
+    function makeAC(key, inputId, hiddenId, sugId, statusId) {
+      const inputEl  = document.getElementById(inputId);
+      const hiddenEl = document.getElementById(hiddenId);
+      const sugEl    = document.getElementById(sugId);
+      const statusEl = document.getElementById(statusId);
+      if (!inputEl || !hiddenEl || !sugEl) return;
+
+      acState[key] = { selectedId: null, selectedName: '', timer: null };
+
+      function closeSug() {
+        sugEl.style.display = 'none';
+        inputEl.setAttribute('aria-expanded', 'false');
       }
-    });
 
-    // Wpisywanie — debounce 250ms
-    opponentInput.addEventListener('input', () => {
-      // Reset wyboru gdy zmieniony tekst
-      selectedUserId = null;
-      opponentId.value = '';
-      opponentErr.style.display = 'none';
-
-      const q = opponentInput.value.trim();
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => fetchUsers(q), 250);
-    });
-
-    // Kliknięcie sugestii
-    suggestions.addEventListener('click', (e) => {
-      const item = (e.target as HTMLElement).closest<HTMLElement>('.af-sug-item');
-      if (!item) return;
-      selectedUserId = Number(item.dataset.id);
-      selectedUserName = item.dataset.name ?? '';
-      opponentInput.value = selectedUserName;
-      opponentId.value = String(selectedUserId);
-      opponentErr.style.display = 'none';
-      closeSuggestions();
-    });
-
-    // Zamknij przy kliknięciu poza
-    document.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('#af-autocomplete')) {
-        closeSuggestions();
+      function getSelectedIds() {
+        // Zbierz wszystkie aktualnie wybrane ID (żeby wykluczyć z sugestii)
+        const ids = new Set();
+        ids.add(ME); // zalogowany user zawsze wykluczony
+        for (const k of ['opponent', 'partner', 'rival2']) {
+          const id = acState[k]?.selectedId;
+          if (id) ids.add(id);
+        }
+        return ids;
       }
-    });
 
-    // Klawiatura — Escape zamyka
-    opponentInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeSuggestions();
-    });
+      function renderSug(users) {
+        const excluded = getSelectedIds();
+        const filtered = users.filter(u => !excluded.has(u.id) || acState[key].selectedId === u.id);
+        if (filtered.length === 0) {
+          sugEl.innerHTML = '<li class="af-sug-empty">Brak wyników</li>';
+        } else {
+          sugEl.innerHTML = filtered.map(u => {
+            const full = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username;
+            const sub  = (u.first_name || u.last_name) ? u.username : '';
+            return `<li class="af-sug-item" role="option" data-id="${u.id}" data-name="${full}">
+              <span class="af-sug-name">${full}</span>
+              ${sub ? `<span class="af-sug-sub">${sub}</span>` : ''}
+            </li>`;
+          }).join('');
+        }
+        sugEl.style.display = '';
+        inputEl.setAttribute('aria-expanded', 'true');
+      }
 
-    // ── Helpers walidacji ──────────────────────────────────────────────────────
-    function intVal(el: HTMLInputElement): number | null {
-      const v = el.value.trim();
+      async function fetchUsers(q) {
+        if (statusEl) statusEl.textContent = 'Szukam…';
+        try {
+          const endpoint = q.length >= 2
+            ? `${API}/api/users/?search=${encodeURIComponent(q)}`
+            : `${API}/api/users/?suggest=1`;
+          const res = await fetch(endpoint, { credentials: 'include' });
+          if (!res.ok) throw new Error();
+          const data = await res.json();
+          if (statusEl) statusEl.textContent = '';
+          renderSug(data);
+        } catch {
+          if (statusEl) statusEl.textContent = '';
+          sugEl.innerHTML = '<li class="af-sug-empty">Błąd ładowania</li>';
+          sugEl.style.display = '';
+        }
+      }
+
+      inputEl.addEventListener('focus', () => {
+        if (!inputEl.value.trim()) fetchUsers('');
+      });
+
+      inputEl.addEventListener('input', () => {
+        acState[key].selectedId = null;
+        hiddenEl.value = '';
+        clearErr(key);
+        const q = inputEl.value.trim();
+        if (acState[key].timer) clearTimeout(acState[key].timer);
+        acState[key].timer = setTimeout(() => fetchUsers(q), 250);
+      });
+
+      sugEl.addEventListener('click', (e) => {
+        const item = e.target.closest('.af-sug-item');
+        if (!item) return;
+        acState[key].selectedId = Number(item.dataset.id);
+        acState[key].selectedName = item.dataset.name ?? '';
+        inputEl.value = acState[key].selectedName;
+        hiddenEl.value = String(acState[key].selectedId);
+        clearErr(key);
+        closeSug();
+      });
+
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeSug();
+      });
+
+      document.addEventListener('click', (e) => {
+        const wrap = inputEl.closest('.af-autocomplete');
+        if (wrap && !wrap.contains(e.target)) closeSug();
+      });
+    }
+
+    function resetAC(key) {
+      if (!acState[key]) return;
+      acState[key].selectedId = null;
+      acState[key].selectedName = '';
+      const inputId = { opponent: 'af-opponent-input', partner: 'af-partner-input', rival2: 'af-rival2-input' }[key];
+      const hiddenId = { opponent: 'af-opponent-id', partner: 'af-partner-id', rival2: 'af-rival2-id' }[key];
+      const input = document.getElementById(inputId);
+      const hidden = document.getElementById(hiddenId);
+      if (input) input.value = '';
+      if (hidden) hidden.value = '';
+    }
+
+    // Inicjalizuj autocomplete dla każdego pola
+    makeAC('opponent', 'af-opponent-input', 'af-opponent-id', 'af-sug-opponent', 'af-status-opponent');
+    makeAC('partner',  'af-partner-input',  'af-partner-id',  'af-sug-partner',  'af-status-partner');
+    makeAC('rival2',   'af-rival2-input',   'af-rival2-id',   'af-sug-rival2',   'af-status-rival2');
+
+    // ── Walidacja ──────────────────────────────────────────────────────────────
+    const errorBanner = document.getElementById('add-error');
+
+    function clearErr(key) {
+      const map = { opponent: 'af-opponent-err', partner: 'af-partner-err', rival2: 'af-rival2-err' };
+      const el = document.getElementById(map[key]);
+      if (el) el.style.display = 'none';
+    }
+
+    function showFieldErr(id, show) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = show ? '' : 'none';
+    }
+
+    function intVal(id) {
+      const v = document.getElementById(id)?.value?.trim() ?? '';
       if (v === '') return null;
       const n = parseInt(v, 10);
       return isNaN(n) ? null : n;
     }
 
-    function showErr(el: HTMLElement, show: boolean) {
-      el.style.display = show ? '' : 'none';
-    }
-
-    function validate(): boolean {
+    function validate() {
       let ok = true;
 
-      // Przeciwnik
-      if (!opponentId.value) {
-        showErr(opponentErr, true);
-        ok = false;
+      // Przeciwnik wymagany zawsze
+      if (!acState['opponent']?.selectedId) {
+        showFieldErr('af-opponent-err', true); ok = false;
+      }
+
+      // Pola debla wymagane gdy debel
+      if (isDouble) {
+        if (!acState['partner']?.selectedId) {
+          showFieldErr('af-partner-err', true); ok = false;
+        }
+        if (!acState['rival2']?.selectedId) {
+          showFieldErr('af-rival2-err', true); ok = false;
+        }
+
+        // Unikalność — zbierz wszystkie 4 ID
+        if (ok) {
+          const ids = [
+            ME,
+            acState['opponent'].selectedId,
+            acState['partner'].selectedId,
+            acState['rival2'].selectedId,
+          ];
+          if (new Set(ids).size < ids.length) {
+            if (errorBanner) {
+              errorBanner.textContent = 'Każdy gracz musi być inną osobą — ten sam gracz pojawia się dwukrotnie.';
+              errorBanner.style.display = '';
+            }
+            ok = false;
+          }
+        }
       }
 
       // Set 1 wymagany
-      const s1p1 = intVal(p1s1);
-      const s1p2 = intVal(p2s1);
-      const s1missing = s1p1 === null || s1p2 === null;
-      const s1neg = (s1p1 !== null && s1p1 < 0) || (s1p2 !== null && s1p2 < 0);
-      showErr(s1Err, s1missing || s1neg);
-      if (s1missing || s1neg) ok = false;
+      const s1p1 = intVal('af-p1s1'), s1p2 = intVal('af-p2s1');
+      const s1bad = s1p1 === null || s1p2 === null || s1p1 < 0 || s1p2 < 0;
+      showFieldErr('af-s1-err', s1bad); if (s1bad) ok = false;
 
       // Set 2 — oba albo żaden
-      const s2p1 = intVal(p1s2);
-      const s2p2 = intVal(p2s2);
-      const s2partial = (s2p1 === null) !== (s2p2 === null);
-      const s2neg = (s2p1 !== null && s2p1 < 0) || (s2p2 !== null && s2p2 < 0);
-      showErr(s2Err, s2partial || s2neg);
-      if (s2partial || s2neg) ok = false;
+      const s2p1 = intVal('af-p1s2'), s2p2 = intVal('af-p2s2');
+      const s2bad = (s2p1 === null) !== (s2p2 === null) || (s2p1 !== null && s2p1 < 0) || (s2p2 !== null && s2p2 < 0);
+      showFieldErr('af-s2-err', s2bad); if (s2bad) ok = false;
 
       // Set 3 — oba albo żaden
-      const s3p1 = intVal(p1s3);
-      const s3p2 = intVal(p2s3);
-      const s3partial = (s3p1 === null) !== (s3p2 === null);
-      const s3neg = (s3p1 !== null && s3p1 < 0) || (s3p2 !== null && s3p2 < 0);
-      showErr(s3Err, s3partial || s3neg);
-      if (s3partial || s3neg) ok = false;
+      const s3p1 = intVal('af-p1s3'), s3p2 = intVal('af-p2s3');
+      const s3bad = (s3p1 === null) !== (s3p2 === null) || (s3p1 !== null && s3p1 < 0) || (s3p2 !== null && s3p2 < 0);
+      showFieldErr('af-s3-err', s3bad); if (s3bad) ok = false;
 
       return ok;
     }
 
-    // ── Submit ─────────────────────────────────────────────────────────────────
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorBanner.style.display = 'none';
+    // ── CSRF ───────────────────────────────────────────────────────────────────
+    function getCsrf() {
+      return document.cookie.split(';').map(c => c.trim())
+        .find(c => c.startsWith('csrftoken='))?.split('=')[1] ?? '';
+    }
 
+    // ── Submit ─────────────────────────────────────────────────────────────────
+    const submitBtn = document.getElementById('af-submit');
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (errorBanner) errorBanner.style.display = 'none';
       if (!validate()) return;
 
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Zapisuję…';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Zapisuję…'; }
 
-      const payload: Record<string, string | number | boolean> = {
-        p2: Number(opponentId.value),
-        match_double: false,
-        match_date: dateInput.value,
-        p1_set1: intVal(p1s1)!,
-        p2_set1: intVal(p2s1)!,
+      const payload = {
+        p2: acState['opponent'].selectedId,
+        match_double: isDouble,
+        match_date: document.getElementById('af-date')?.value ?? '',
+        p1_set1: intVal('af-p1s1'),
+        p2_set1: intVal('af-p2s1'),
       };
 
-      const s2p1 = intVal(p1s2);
-      const s2p2 = intVal(p2s2);
-      if (s2p1 !== null && s2p2 !== null) {
-        payload['p1_set2'] = s2p1;
-        payload['p2_set2'] = s2p2;
+      if (isDouble) {
+        payload.p3 = acState['partner'].selectedId;   // partner zalogowanego (Team A)
+        payload.p4 = acState['rival2'].selectedId;    // partner przeciwnika (Team B)
       }
 
-      const s3p1 = intVal(p1s3);
-      const s3p2 = intVal(p2s3);
-      if (s3p1 !== null && s3p2 !== null) {
-        payload['p1_set3'] = s3p1;
-        payload['p2_set3'] = s3p2;
-      }
+      const s2p1 = intVal('af-p1s2'), s2p2 = intVal('af-p2s2');
+      if (s2p1 !== null && s2p2 !== null) { payload.p1_set2 = s2p1; payload.p2_set2 = s2p2; }
+
+      const s3p1 = intVal('af-p1s3'), s3p2 = intVal('af-p2s3');
+      if (s3p1 !== null && s3p2 !== null) { payload.p1_set3 = s3p1; payload.p2_set3 = s3p2; }
 
       try {
         const res = await fetch(`${API}/api/matches/add/`, {
           method: 'POST',
           credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCsrf(),
-          },
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
           body: JSON.stringify(payload),
         });
 
         if (res.ok) {
-          // Redirect na /matches z query ?added=1 — pokaż banner
           window.location.href = `${BASE}/matches?added=1`;
           return;
         }
 
-        // Błąd backendu
         let errMsg = 'Nie udało się zapisać meczu. Spróbuj ponownie.';
         try {
-          const errData = await res.json();
-          if (typeof errData === 'object') {
-            const msgs = Object.entries(errData)
+          const d = await res.json();
+          if (typeof d === 'object') {
+            const msgs = Object.entries(d)
               .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
               .join(' | ');
             if (msgs) errMsg = msgs;
           }
-        } catch { /* zostaje domyślny komunikat */ }
+        } catch {}
 
-        errorBanner.textContent = errMsg;
-        errorBanner.style.display = '';
+        if (errorBanner) { errorBanner.textContent = errMsg; errorBanner.style.display = ''; }
 
       } catch {
-        errorBanner.textContent = 'Błąd połączenia. Sprawdź sieć i spróbuj ponownie.';
-        errorBanner.style.display = '';
+        if (errorBanner) { errorBanner.textContent = 'Błąd połączenia. Sprawdź sieć i spróbuj ponownie.'; errorBanner.style.display = ''; }
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Zapisz mecz';
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Zapisz mecz'; }
       }
     });
 
@@ -400,11 +507,13 @@ const today = new Date().toISOString().slice(0, 10);
 <style>
   .add-wrap {
     padding: 0 var(--page-px, 28px) 40px;
-    max-width: 560px;
+    max-width: 600px;
+    margin: 0 auto;
   }
 
   .add-header {
-    margin-bottom: 24px;
+    text-align: center;
+    margin-bottom: 28px;
   }
   .add-title {
     font-size: 1.5rem; font-weight: 800; color: var(--text);
@@ -425,12 +534,46 @@ const today = new Date().toISOString().slice(0, 10);
     color: var(--danger, #ef4444);
   }
 
-  .add-card { padding: 24px 28px; }
+  .add-card { padding: 28px 32px; text-align: center; }
+
+  :global(.tc-breadcrumb) { max-width: 600px; margin: 0 auto; }
+
+  /* ── Format toggle ──────────────────────────────────────────────────── */
+  .af-format-toggle {
+    display: inline-flex; border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .af-format-btn {
+    padding: 7px 20px;
+    font-size: 0.84rem; font-weight: 600;
+    background: var(--surface); color: var(--text-muted);
+    border: none; cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .af-format-btn + .af-format-btn {
+    border-left: 1px solid var(--border);
+  }
+  .af-format-btn--active {
+    background: var(--primary); color: #fff;
+  }
+
+  /* ── Team headers (debel) ───────────────────────────────────────────── */
+  .af-team-header {
+    margin-bottom: 8px; margin-top: 4px;
+    text-align: center;
+  }
+  .af-team-label {
+    font-size: 0.72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.07em;
+    padding: 3px 10px; border-radius: 99px;
+  }
+  .af-team-label--you  { background: rgba(34,197,94,0.1); color: #22c55e; }
+  .af-team-label--opp  { background: rgba(239,68,68,0.1); color: var(--danger,#ef4444); }
 
   /* ── Pola formularza ────────────────────────────────────────────────── */
-  .af-field { margin-bottom: 22px; }
+  .af-field { margin-bottom: 20px; }
   .af-label {
-    display: block;
+    display: block; text-align: center;
     font-size: 0.84rem; font-weight: 700; color: var(--text);
     margin-bottom: 7px;
   }
@@ -438,12 +581,12 @@ const today = new Date().toISOString().slice(0, 10);
   .af-optional { font-weight: 400; font-size: 0.78rem; color: var(--text-muted); }
 
   .af-input {
-    width: 100%; box-sizing: border-box;
+    display: block; width: 100%; max-width: 400px; box-sizing: border-box;
+    margin: 0 auto;
     padding: 9px 12px; border-radius: 8px;
     border: 1px solid var(--border);
     background: var(--surface); color: var(--text);
-    font-size: 0.9rem;
-    outline: none;
+    font-size: 0.9rem; text-align: left; outline: none;
     transition: border-color 0.12s;
   }
   .af-input:focus { border-color: var(--primary); }
@@ -451,57 +594,26 @@ const today = new Date().toISOString().slice(0, 10);
 
   .af-field-err {
     font-size: 0.78rem; color: var(--danger, #ef4444);
-    margin: 5px 0 0; font-weight: 600;
+    margin: 5px auto 0; font-weight: 600;
+    max-width: 400px; text-align: left;
   }
 
-  /* ── Autocomplete ───────────────────────────────────────────────────── */
-  .af-autocomplete { position: relative; }
-
-  .af-suggestions {
-    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-    z-index: 100;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; box-shadow: var(--shadow-card, 0 4px 16px rgba(0,0,0,0.12));
-    list-style: none; padding: 4px 0; margin: 0;
-    max-height: 220px; overflow-y: auto;
-  }
-
-  .af-sug-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; cursor: pointer;
-    transition: background 0.1s;
-  }
-  .af-sug-item:hover, .af-sug-item[aria-selected="true"] {
-    background: var(--surface-hover);
-  }
-
-  .af-sug-name {
-    font-size: 0.875rem; font-weight: 600; color: var(--text);
-  }
-  .af-sug-sub {
-    font-size: 0.75rem; color: var(--text-muted);
-  }
-
-  .af-sug-empty {
-    padding: 10px 12px;
-    font-size: 0.84rem; color: var(--text-muted); text-align: center;
-  }
-
+  /* ── Autocomplete wrapper ───────────────────────────────────────────── */
+  .af-autocomplete { position: relative; max-width: 400px; margin: 0 auto; }
   .af-search-status {
     font-size: 0.78rem; color: var(--text-muted);
-    margin-top: 5px; min-height: 18px;
+    margin-top: 4px; min-height: 16px;
   }
 
   /* ── Sety ───────────────────────────────────────────────────────────── */
-  .af-sets {
-    display: flex; flex-direction: column; gap: 14px;
-  }
+  .af-sets { display: flex; flex-direction: column; gap: 14px; max-width: 400px; margin: 0 auto; }
 
   .af-set {
     background: var(--surface-2, var(--surface-hover));
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 14px 16px;
+    display: flex; flex-direction: column; align-items: center;
   }
   .af-set--opt { opacity: 0.9; }
 
@@ -512,14 +624,8 @@ const today = new Date().toISOString().slice(0, 10);
     margin-bottom: 10px;
   }
 
-  .af-set-row {
-    display: flex; align-items: center; gap: 10px;
-  }
-
-  .af-set-col {
-    display: flex; flex-direction: column; align-items: center; gap: 4px;
-  }
-
+  .af-set-row { display: flex; align-items: center; gap: 10px; }
+  .af-set-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .af-set-who {
     font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
     text-transform: uppercase; letter-spacing: 0.05em;
@@ -531,8 +637,7 @@ const today = new Date().toISOString().slice(0, 10);
     border: 1px solid var(--border);
     background: var(--surface); color: var(--text);
     font-size: 1.1rem; font-weight: 700;
-    outline: none;
-    -moz-appearance: textfield;
+    outline: none; -moz-appearance: textfield;
     transition: border-color 0.12s;
   }
   .af-num:focus { border-color: var(--primary); }
@@ -541,8 +646,7 @@ const today = new Date().toISOString().slice(0, 10);
 
   .af-set-sep {
     font-size: 1.2rem; font-weight: 700; color: var(--text-muted);
-    margin-top: 20px; /* wyrównanie z polem — nad etykietą "Ty/Rywal" */
-    flex-shrink: 0;
+    margin-top: 20px; flex-shrink: 0;
   }
 
   /* ── Akcje ──────────────────────────────────────────────────────────── */
@@ -557,5 +661,33 @@ const today = new Date().toISOString().slice(0, 10);
     .af-actions { flex-direction: column-reverse; }
     .af-actions .tc-btn { width: 100%; justify-content: center; }
     .af-num { width: 56px; }
+  }
+</style>
+
+<style is:global>
+  /* ── Autocomplete dropdown — is:global bo budowany przez innerHTML w JS ── */
+  .af-suggestions {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    z-index: 100;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    list-style: none; padding: 4px 0; margin: 0;
+    max-height: 240px; overflow-y: auto;
+  }
+
+  .af-sug-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .af-sug-item:hover, .af-sug-item[aria-selected="true"] {
+    background: var(--surface-hover);
+  }
+
+  .af-sug-name { font-size: 0.875rem; font-weight: 600; color: var(--text); }
+  .af-sug-sub  { font-size: 0.75rem; color: var(--text-muted); }
+  .af-sug-empty {
+    padding: 10px 12px;
+    font-size: 0.84rem; color: var(--text-muted); text-align: center;
   }
 </style>
