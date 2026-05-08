@@ -97,6 +97,8 @@ export interface MatchHistoryEntry {
   score_status?: 'PENDING' | 'CONFIRMED';
   reported_by?: MatchUser | null;
   confirmed_by?: MatchUser | null;
+  is_tournament?: boolean;
+  tournament_id?: number | null;
 }
 
 export interface RankingData {
