@@ -32,7 +32,7 @@ FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
 # Ustawienia zależne od środowiska
 if DJANGO_ENV == 'development':
     DEBUG = True
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.129', 'tennis-web']
+    ALLOWED_HOSTS = ['*']
     # Ustawienia SSL/Security wyłączone dla developmentu
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
@@ -46,6 +46,7 @@ if DJANGO_ENV == 'development':
     CSRF_TRUSTED_ORIGINS = [
         'http://localhost:4321',
         'http://127.0.0.1:4321',
+        'http://localhost',
     ]
 else: # Ustawienia produkcyjne
     DEBUG = False
@@ -361,6 +362,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4321",   # Astro dev
     "http://127.0.0.1:4321",
     "http://localhost:3000",   # alternatywny port Astro
+    "http://localhost",        # Nginx gateway
 ]
 # Pozwól przeglądarce wysyłać cookies sesji (potrzebne do endpointów @login_required)
 CORS_ALLOW_CREDENTIALS = True

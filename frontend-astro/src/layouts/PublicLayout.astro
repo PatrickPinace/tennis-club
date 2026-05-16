@@ -1,0 +1,118 @@
+---
+import '@/styles/global.css';
+import { url } from '@/lib/url';
+import { getCurrentUser } from '@/lib/api';
+
+interface Props {
+  title?: string;
+}
+
+const { title = 'Tennis Club' } = Astro.props;
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const currentUser = await getCurrentUser(sessionCookie);
+---
+
+<!doctype html>
+<html lang="pl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} — Tennis Club</title>
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+</head>
+
+<body class="public-layout">
+  <nav class="public-nav">
+    <div class="nav-container">
+      <a href={url('/')} class="nav-brand">🎾 Tennis Club</a>
+      <div class="nav-actions">
+        {currentUser ? (
+          <a href={url('/dashboard')} class="tc-btn tc-btn-primary tc-btn-sm">Panel główny</a>
+        ) : (
+          <div class="nav-auth-buttons">
+            <a href={url('/login')} class="tc-btn tc-btn-secondary tc-btn-sm">Zaloguj się</a>
+            <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm">Zarejestruj się</a>
+          </div>
+        )}
+      </div>
+    </div>
+  </nav>
+
+  <main class="public-main">
+    <slot />
+  </main>
+
+  <footer class="public-footer">
+    <div class="footer-container">
+      <p>&copy; {new Date().getFullYear()} Tennis Club. Wszystkie prawa zastrzeżone.</p>
+    </div>
+  </footer>
+</body>
+</html>
+
+<style>
+  .public-layout {
+    font-family: 'Times New Roman', Times, serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: #ffffff;
+    overflow: hidden;
+  }
+
+  .public-nav {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid #e2e8f0;
+    height: 72px;
+    display: flex;
+    align-items: center;
+  }
+
+  .nav-container {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    width: 100%;
+    padding: 0 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .nav-brand {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #16a34a;
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-auth-buttons {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .public-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .public-footer {
+    padding: 0.5rem 1rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    text-align: center;
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+
+  .footer-container {
+    max-width: var(--content-max);
+    margin: 0 auto;
+  }
+</style>
