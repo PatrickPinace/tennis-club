@@ -73,3 +73,9 @@ Uwagi.txt
 tennis_club_projekt_dump.txt
 db.sqlite3
 .aider*
+
+# Local development environment overrides
+docker-compose.yml
+DEPLOYMENT.md
+docker-compose.override.yml
+nginx.conf

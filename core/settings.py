@@ -32,7 +32,7 @@ FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
 # Ustawienia zależne od środowiska
 if DJANGO_ENV == 'development':
     DEBUG = True
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.129']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2', '192.168.0.129', 'tennis-web']
     # Ustawienia SSL/Security wyłączone dla developmentu
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
