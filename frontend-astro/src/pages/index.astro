@@ -1,5 +1,6 @@
 ---
 import PublicLayout from '@/layouts/PublicLayout.astro';
+import '@/styles/home.css';
 import { url } from '@/lib/url';
 
 const title = "Znajdź Partnera do Gry";
@@ -11,9 +12,9 @@ const title = "Znajdź Partnera do Gry";
     <div class="hero-overlay"></div>
     <div class="hero-content">
       <h1>Znajdź Partnera do Gry w Tenisa Już Dziś</h1>
-      <p>Dołącz do naszej społeczności pasjonatów tenisa. Umawiaj się na mecze, rezerwuj korty i podnoś swoje umiejętności.</p>
+      <p>Dołącz do naszej społeczności pasjonatów tenisa. Umawiaj się na mecze,<br>rezerwuj korty i podnoś swoje umiejętności.</p>
       <div class="hero-actions">
-        <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-lg">Dołącz Teraz</a>
+        <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm">Dołącz Teraz</a>
       </div>
     </div>
   </header>
@@ -51,163 +52,3 @@ const title = "Znajdź Partnera do Gry";
     </div>
   </section>
 </PublicLayout>
-
-<style>
-  /* ── Hero Section ────────────────────────────────────────────────────────── */
-  .hero-section {
-    position: relative;
-    padding: 40px var(--space-6);
-    flex: 1; /* Wypełnia całe wolne miejsce na ekranie */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background-color: var(--surface); /* Domyślny kolor tła */
-    background: var(--surface) url('/static/img/01.png') no-repeat center center / cover;
-    color: white;
-    overflow: hidden;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
-  }
-
-  .hero-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.25);
-    z-index: 1;
-  }
-
-  .hero-content {
-    position: relative;
-    z-index: 2;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 var(--space-4);
-    width: 100%;
-  }
-
-  .hero-section h1 {
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 48px;
-    font-weight: 900;
-    line-height: 1.2;
-    margin-bottom: 16px; 
-    color: #ffffff;
-    letter-spacing: -0.01em;
-  }
-
-  .hero-section p {
-    font-size: clamp(1rem, 2vw, 1.15rem);
-    margin-bottom: 32px;
-    color: rgba(255, 255, 255, 0.95);
-    max-width: 1100px; /* Zwiększono z 80ch, aby tekst był w jednej linii */
-    margin-left: auto;
-    margin-right: auto;
-    line-height: 1.5;
-    font-weight: 500;
-  }
-
-  .hero-actions {
-    display: flex;
-    justify-content: center;
-    padding-bottom: 20px;
-  }
-
-  .tc-btn-primary {
-    background: #22c55e !important; /* Zielony jak wcześniej */
-    color: #ffffff !important;
-    border-color: #22c55e !important;
-    padding: 12px 32px !important;
-    font-size: 1rem !important;
-  }
-
-  .tc-btn-primary:hover {
-    background: #16a34a !important;
-    border-color: #16a34a !important;
-  }
-
-  /* ── Features Section ───────────────────────────────────────────────────── */
-  .features-section {
-    padding: 40px var(--space-6); /* Zmniejszono padding, aby całość zmieściła się na ekranie */
-    background: #f8fafc;
-  }
-
-  .features-container {
-    max-width: var(--content-max);
-    margin: 0 auto;
-    padding-bottom: 20px;
-    padding-top: 20px;
-  }
-
-  .section-header {
-    text-align: center;
-    margin-bottom: 0; /* Usunięto margines 72px */
-  }
-
-  .section-header h2 {
-    font-size: clamp(1.75rem, 4vw, 2.25rem);
-    font-weight: 800;
-    color: #0f172a;
-    letter-spacing: -0.02em;
-  }
-
-  .section-header p {
-    font-size: 1.1rem;
-    color: #64748b;
-    max-width: 65ch;
-    margin: 0 auto;
-  }
-
-  .features-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 48px;
-    margin-top: 40px;
-    max-width: 1100px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  .feature-card {
-    background: transparent !important;
-    padding: 20px;
-    text-align: center;
-    border: none !important;
-    box-shadow: none !important;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .feature-icon {
-    font-size: 2.8rem;
-    margin-bottom: 24px;
-    line-height: 1;
-  }
-
-  .feature-card h3 {
-    font-size: 1.25rem;
-    font-weight: 800;
-    margin-bottom: 12px;
-    color: #0f172a;
-  }
-
-  .feature-card p {
-    color: #64748b;
-    line-height: 1.6;
-    font-size: 0.95rem;
-    margin: 0;
-  }
-
-  /* ── Responsywność ───────────────────────────────────────────────────────── */
-  @media (max-width: 1024px) {
-    .features-grid {
-      grid-template-columns: 1fr;
-      max-width: 500px;
-      margin: 0 auto;
-    }
-    
-    .hero-section {
-      padding: 60px var(--space-4);
-    }
-  }
-</style>

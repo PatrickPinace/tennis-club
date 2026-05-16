@@ -1,5 +1,6 @@
 ---
 import '@/styles/global.css';
+import '@/styles/layout.css';
 import { url } from '@/lib/url';
 import { getCurrentUser } from '@/lib/api';
 
@@ -30,14 +31,45 @@ const currentUser = await getCurrentUser(sessionCookie);
         {currentUser ? (
           <a href={url('/dashboard')} class="tc-btn tc-btn-primary tc-btn-sm">Panel główny</a>
         ) : (
-          <div class="nav-auth-buttons">
-            <a href={url('/login')} class="tc-btn tc-btn-secondary tc-btn-sm">Zaloguj się</a>
-            <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm">Zarejestruj się</a>
+          <div class="nav-auth-wrapper">
+            <!-- Desktop: Dwa przyciski -->
+            <div class="nav-auth-desktop">
+              <a href={url('/login')} class="tc-btn tc-btn-secondary tc-btn-sm">Zaloguj się</a>
+              <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm">Zarejestruj się</a>
+            </div>
+            
+            <!-- Mobile: Jeden przycisk z menu -->
+            <div class="nav-auth-mobile">
+              <button id="mobile-auth-btn" class="tc-btn tc-btn-primary tc-btn-sm">
+                Logowanie ▾
+              </button>
+              <div id="mobile-auth-dropdown" class="auth-dropdown">
+                <a href={url('/login')}>Zaloguj się</a>
+                <a href={url('/register')}>Zarejestruj się</a>
+              </div>
+            </div>
           </div>
         )}
       </div>
     </div>
   </nav>
+
+  <script>
+    const btn = document.getElementById('mobile-auth-btn');
+    const dropdown = document.getElementById('mobile-auth-dropdown');
+    
+    if (btn && dropdown) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('is-open');
+      });
+      
+      // Zamknij menu po kliknięciu poza nie
+      document.addEventListener('click', () => {
+        dropdown.classList.remove('is-open');
+      });
+    }
+  </script>
 
   <main class="public-main">
     <slot />
@@ -50,69 +82,3 @@ const currentUser = await getCurrentUser(sessionCookie);
   </footer>
 </body>
 </html>
-
-<style>
-  .public-layout {
-    font-family: 'Times New Roman', Times, serif;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    background: #ffffff;
-    overflow: hidden;
-  }
-
-  .public-nav {
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-bottom: 1px solid #e2e8f0;
-    height: 72px;
-    display: flex;
-    align-items: center;
-  }
-
-  .nav-container {
-    max-width: var(--content-max);
-    margin: 0 auto;
-    width: 100%;
-    padding: 0 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .nav-brand {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #16a34a;
-    text-decoration: none;
-    letter-spacing: -0.02em;
-  }
-
-  .nav-auth-buttons {
-    display: flex;
-    gap: 0.75rem;
-  }
-
-  .public-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .public-footer {
-    padding: 0.5rem 1rem;
-    background: #f8fafc;
-    border-top: 1px solid #e2e8f0;
-    text-align: center;
-    color: #64748b;
-    font-size: 0.875rem;
-  }
-
-  .footer-container {
-    max-width: var(--content-max);
-    margin: 0 auto;
-  }
-</style>
