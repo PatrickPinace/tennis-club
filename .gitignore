@@ -80,3 +80,4 @@ docker-compose.override.yml
 nginx.conf
 DEPLOYMENT.md
 .antigravity.rules
+/doc
