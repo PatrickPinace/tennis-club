@@ -469,7 +469,7 @@ const myId  = currentUser.id;
       if (s3p1 !== null && s3p2 !== null) { payload.p1_set3 = s3p1; payload.p2_set3 = s3p2; }
 
       try {
-        const res = await fetch(`${API}/api/matches/add/`, {
+        const res = await fetch(`${API}/api/matches/create/`, {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },

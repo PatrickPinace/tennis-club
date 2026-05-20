@@ -151,7 +151,10 @@ const todayIso = new Date().toISOString().slice(0, 10);
 
 </AppLayout>
 
-<style>
+<style is:global>
+  /* ── courts/reservations.astro ─────────────────────────────────────────── */
+  /* is:global wymagane bo część klas (.calendar-*, .cal-res*) tworzonych przez JS */
+
   /* ── My reservations ───────────────────────────────────────────────────── */
   .my-res-section { margin-bottom: 24px; }
 

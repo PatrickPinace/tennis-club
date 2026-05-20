@@ -6,7 +6,8 @@ router = DefaultRouter()
 router.register(r'tournaments', views.TournamentViewSet, basename='tournament')
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # Custom paths muszą być przed router.urls — DefaultRouter rejestruje
+    # tournaments/<pk>/ i przechwytuje np. tournaments/create/ jako pk="create".
     path('tournaments/list/', views.TournamentListView.as_view(), name='tournament-list-api'),
     path('tournaments/mine/', views.MyTournamentsView.as_view(), name='tournament-mine-api'),
     path('tournaments/create/', views.TournamentCreateView.as_view(), name='tournament-create'),
@@ -26,4 +27,6 @@ urlpatterns = [
     path('tournaments/<int:pk>/config/amr/', views.AmericanoConfigUpdateView.as_view(), name='tournament-config-amr'),
     path('tournaments/<int:pk>/amr/next-round/', views.AmrNextRoundView.as_view(), name='tournament-amr-next-round'),
     path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),
+    # Router na końcu — obsługuje standardowe CRUD akcje ViewSetu
+    path('', include(router.urls)),
 ]
