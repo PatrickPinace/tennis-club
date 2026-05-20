@@ -1,100 +1,109 @@
 ---
-// courts/reservations.astro — grid godziny × korty w stylu kalendarza
-// Docelowo: GET /courts/api/timeline-data/<pk>/ (istnieje w Django)
+// courts/reservations.astro — moje rezerwacje kortów + grafik dostępności (SSR)
+export const prerender = false;
+
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
+import { getCurrentUser, getMyReservations, type ReservationEntry } from '@/lib/api';
 import { url } from '@/lib/url';
 
-// Dane demo — docelowo z /courts/api/timeline-data/<pk>/
-const courts = ['Kort 1', 'Kort 2', 'Kort 3 (Trawa)', 'Kort 4'];
-const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 08:00 – 20:00
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+const [currentUser, rawReservations] = await Promise.all([
+  getCurrentUser(sessionCookie),
+  getMyReservations(sessionCookie),
+]);
 
-// Demo rezerwacje: { court: 0-based index, start: godzina, end: godzina, user, type }
-const reservations = [
-  { court: 0, start: 9,  end: 10, user: 'Marek W.',   type: 'own',     label: 'Marek W.' },
-  { court: 1, start: 10, end: 12, user: 'Adam K.',    type: 'other',   label: 'Adam K.' },
-  { court: 2, start: 11, end: 12.5, user: 'Marcin K.', type: 'own',   label: 'Marcin K.' },
-  { court: 2, start: 14, end: 15.5, user: 'Piotr W.', type: 'other',  label: 'Piotr W.' },
-  { court: 3, start: 13, end: 14, user: 'Rafał N.',   type: 'other',   label: 'Rafał N.' },
-  { court: 0, start: 15, end: 16.5, user: 'Marcin K.', type: 'own',   label: 'Marcin K.' },
-  { court: 1, start: 16, end: 17, user: 'Łukasz D.',  type: 'other',   label: 'Łukasz D.' },
-  { court: 3, start: 16, end: 18, user: 'Tomasz B.',  type: 'other',   label: 'Tomasz B.' },
-  { court: 2, start: 18, end: 19, user: 'Paweł Z.',   type: 'other',   label: 'Paweł Z.' },
-];
-
-// Moje nadchodzące rezerwacje
-const myReservations = [
-  { court: 'Kort 3 (Trawa)', date: '24 Paź 2026', time: '16:00–17:30', partner: 'Marek W.',   status: 'confirmed' },
-  { court: 'Kort 1',         date: '28 Paź 2026', time: '09:00–10:00', partner: 'Solo (trening)', status: 'confirmed' },
-  { court: 'Kort 2',         date: '5 Lis 2026',  time: '17:00–18:00', partner: 'Adam K.',    status: 'pending'   },
-];
-
-// Zmienna do przeliczania pozycji na gridzie
-const gridStart = 8;   // 08:00
-const gridRows  = 13;  // liczba godzin
-const SLOT_PX   = 60;  // px na godzinę
-
-function reservationStyle(r: typeof reservations[0]) {
-  const top    = (r.start - gridStart) * SLOT_PX;
-  const height = (r.end - r.start) * SLOT_PX - 4;
-  return `top:${top}px; height:${height}px;`;
+if (!currentUser) {
+  return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/courts/reservations')));
 }
+
+// Pomocnik formatowania daty i godziny z ISO datetime
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+  } catch { return iso; }
+}
+function fmtTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  } catch { return iso; }
+}
+
+const myReservations = rawReservations.map((r: ReservationEntry) => ({
+  id: r.id,
+  court: r.court_name ?? 'Kort',
+  facility: r.facility_name ?? '',
+  date: fmtDate(r.start_time),
+  time: `${fmtTime(r.start_time)}–${fmtTime(r.end_time)}`,
+  status: r.status.toLowerCase() as 'pending' | 'confirmed',
+}));
+
+// Stałe dla grafiku (używane też w JS)
+const GRID_START = 8;   // 08:00
+const GRID_END   = 21;  // ostatni slot 20:30
+const SLOT_PX    = 30;  // px na 30 min
+const GRID_ROWS  = (GRID_END - GRID_START) * 2; // liczba slotów 30-min
+const GRID_H_PX  = GRID_ROWS * SLOT_PX;
+const hours      = Array.from({ length: GRID_END - GRID_START }, (_, i) => GRID_START + i);
+
+// Dzisiejsza data jako default dla grafiku
+const todayIso = new Date().toISOString().slice(0, 10);
 ---
 
 <AppLayout
   title="Rezerwacje kortów"
-  greeting="Rezerwacje kortów"
   showSearch={false}
-  showCta={true}
-  ctaLabel="+ Nowa rezerwacja"
-  ctaHref={url('/courts/reservations/new')}
+  showCta={false}
+  currentUser={currentUser}
 >
 
   <PageHeader
     eyebrow="Korty"
     title="Rezerwacje kortów"
-    subtitle="Wtorek, 24 Październik 2026 — Korty Otwock"
     centered={true}
   />
 
   <!-- Moje rezerwacje — szybki podgląd -->
   <section class="my-res-section" aria-labelledby="my-res-heading">
     <h2 class="section-label" id="my-res-heading">Moje rezerwacje</h2>
-    <div class="my-res-grid">
-      {myReservations.map(r => (
-        <div class={`my-res-card my-res-card--${r.status}`}>
-          <div class="my-res-card__left">
-            <div class="my-res-card__court">{r.court}</div>
-            <div class="my-res-card__time">{r.date} · {r.time}</div>
-            <div class="my-res-card__partner">z {r.partner}</div>
+
+    {myReservations.length === 0 ? (
+      <div class="my-res-empty">
+        <span class="my-res-empty__icon" aria-hidden="true">📅</span>
+        <div class="my-res-empty__text">Nie masz żadnych aktywnych rezerwacji.</div>
+      </div>
+    ) : (
+      <div class="my-res-grid">
+        {myReservations.map(r => (
+          <div class={`my-res-card my-res-card--${r.status}`}>
+            <div class="my-res-card__left">
+              <div class="my-res-card__court">{r.court}</div>
+              {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
+              <div class="my-res-card__time">{r.date} · {r.time}</div>
+            </div>
+            <div class="my-res-card__right">
+              <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
+                {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
+              </span>
+            </div>
           </div>
-          <div class="my-res-card__right">
-            <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
-              {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
-            </span>
-            <button class="tc-btn tc-btn-ghost tc-btn-sm" style="margin-top:6px;">
-              Odwołaj
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    )}
   </section>
 
-  <!-- Grafik kortów — grid godziny × korty -->
+  <!-- Grafik kortów — dynamicznie ładowany przez JS -->
   <section class="calendar-section tc-card" aria-labelledby="calendar-heading">
     <div class="tc-card-header">
-      <h2 class="tc-card-title" id="calendar-heading">
-        Grafik kortów — Wtorek, 24 Paź
-      </h2>
+      <h2 class="tc-card-title" id="calendar-heading">Grafik kortów</h2>
       <div class="calendar-nav">
-        <button class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Poprzedni dzień">
+        <button id="cal-prev" class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Poprzedni dzień">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
           </svg>
         </button>
-        <span class="calendar-date-label">24 Październik 2026</span>
-        <button class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Następny dzień">
+        <span id="cal-date-label" class="calendar-date-label">—</span>
+        <button id="cal-next" class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Następny dzień">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
           </svg>
@@ -102,64 +111,23 @@ function reservationStyle(r: typeof reservations[0]) {
       </div>
     </div>
 
-    <div class="calendar-wrap" style="overflow-x:auto;">
-      <div class="calendar-grid" style={`--slot-px:${SLOT_PX}px; --courts:${courts.length};`}>
+    <!-- Skeleton / loading / empty states -->
+    <div id="cal-loading" class="cal-state" style="display:none;">
+      <span class="cal-state__icon" aria-hidden="true">⏳</span>
+      <span>Ładowanie grafiku…</span>
+    </div>
+    <div id="cal-empty" class="cal-state" style="display:none;">
+      <span class="cal-state__icon" aria-hidden="true">🎾</span>
+      <span>Brak obiektów z włączoną rezerwacją online.</span>
+    </div>
+    <div id="cal-error" class="cal-state cal-state--error" style="display:none;">
+      <span class="cal-state__icon" aria-hidden="true">⚠</span>
+      <span id="cal-error-msg">Nie udało się załadować grafiku.</span>
+    </div>
 
-        <!-- Nagłówki kortów -->
-        <div class="calendar-header">
-          <div class="calendar-time-col" aria-hidden="true"></div>
-          {courts.map(c => (
-            <div class="calendar-court-header">{c}</div>
-          ))}
-        </div>
-
-        <!-- Body: godziny + rezerwacje -->
-        <div class="calendar-body">
-          <!-- Kolumna godzin -->
-          <div class="calendar-time-col" aria-label="Godziny">
-            {hours.map(h => (
-              <div class="calendar-hour-label" style={`height:${SLOT_PX}px;`}>
-                {String(h).padStart(2,'0')}:00
-              </div>
-            ))}
-          </div>
-
-          <!-- Kolumny kortów -->
-          {courts.map((c, courtIdx) => (
-            <div
-              class="calendar-court-col"
-              style={`height:${gridRows * SLOT_PX}px;`}
-              aria-label={c}
-            >
-              <!-- Linie godzin (tło) -->
-              {hours.map(h => (
-                <div
-                  class={`calendar-hour-line${h % 2 === 0 ? ' calendar-hour-line--even' : ''}`}
-                  style={`height:${SLOT_PX}px;`}
-                  aria-hidden="true"
-                ></div>
-              ))}
-
-              <!-- Rezerwacje na tym korcie -->
-              {reservations
-                .filter(r => r.court === courtIdx)
-                .map(r => (
-                  <div
-                    class={`cal-res cal-res--${r.type}`}
-                    style={reservationStyle(r)}
-                    role="button"
-                    tabindex="0"
-                    aria-label={`${r.user}, ${r.start}:00–${r.end}:00, ${c}`}
-                  >
-                    <div class="cal-res__time">{String(r.start).padStart(2,'0')}:00–{String(r.end).padStart(2,'0')}{r.end % 1 === 0.5 ? '30' : ':00'}</div>
-                    <div class="cal-res__user">{r.label}</div>
-                  </div>
-                ))
-              }
-            </div>
-          ))}
-        </div>
-      </div>
+    <!-- Kontener na dynamiczny grid — wypełniany przez JS -->
+    <div id="cal-wrap" class="calendar-wrap" style="overflow-x:auto; display:none;">
+      <div id="cal-grid" class="calendar-grid"></div>
     </div>
 
     <!-- Legenda -->
@@ -178,7 +146,6 @@ function reservationStyle(r: typeof reservations[0]) {
           Wolny slot
         </div>
       </div>
-      <span style="font-size:0.75rem; color:var(--text-dim);">Dane demo — endpoint: GET /courts/api/timeline-data/&lt;pk&gt;/</span>
     </div>
   </section>
 
@@ -221,33 +188,48 @@ function reservationStyle(r: typeof reservations[0]) {
   .my-res-card__time {
     font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;
   }
-  .my-res-card__partner {
-    font-size: 0.78rem; color: var(--text-dim);
+  .my-res-card__facility {
+    font-size: 0.75rem; color: var(--text-dim); margin-bottom: 2px;
   }
+
+  .my-res-empty {
+    display: flex; align-items: center; gap: 10px;
+    padding: 20px 16px;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+  .my-res-empty__icon { font-size: 1.25rem; flex-shrink: 0; }
 
   .my-res-card__right {
     display: flex; flex-direction: column; align-items: flex-end;
     flex-shrink: 0;
   }
 
-  /* ── Calendar ──────────────────────────────────────────────────────────── */
+  /* ── Calendar states ───────────────────────────────────────────────────── */
   .calendar-section { margin-top: 0; }
 
+  .cal-state {
+    display: flex; align-items: center; gap: 10px;
+    padding: 24px 20px;
+    font-size: 0.875rem; color: var(--text-muted);
+  }
+  .cal-state--error { color: var(--danger); }
+  .cal-state__icon { font-size: 1.25rem; flex-shrink: 0; }
+
+  /* ── Calendar nav ──────────────────────────────────────────────────────── */
   .calendar-nav {
     display: flex; align-items: center; gap: 8px;
   }
   .calendar-date-label {
     font-size: 0.85rem; font-weight: 600; color: var(--text);
-    white-space: nowrap;
+    white-space: nowrap; min-width: 160px; text-align: center;
   }
 
-  .calendar-wrap {
-    padding-bottom: 4px;
-  }
-
-  .calendar-grid {
-    min-width: 560px;
-  }
+  .calendar-wrap { padding-bottom: 4px; }
+  .calendar-grid { min-width: 560px; }
 
   /* Nagłówki kortów */
   .calendar-header {
@@ -258,10 +240,7 @@ function reservationStyle(r: typeof reservations[0]) {
     background: var(--surface);
   }
 
-  .calendar-time-col {
-    flex-shrink: 0;
-    width: 56px;
-  }
+  .calendar-time-col { flex-shrink: 0; width: 56px; }
 
   .calendar-court-header {
     padding: 10px 8px;
@@ -278,17 +257,13 @@ function reservationStyle(r: typeof reservations[0]) {
     grid-template-columns: 56px repeat(var(--courts), 1fr);
   }
 
-  .calendar-time-col {
-    display: flex; flex-direction: column;
-  }
+  .calendar-time-col { display: flex; flex-direction: column; }
 
   .calendar-hour-label {
     display: flex; align-items: flex-start;
-    padding: 0 8px 0 4px;
+    padding: 0 8px 0 4px; padding-top: 4px;
     font-size: 0.7rem; color: var(--text-dim);
-    font-weight: 500;
-    flex-shrink: 0;
-    padding-top: 4px;
+    font-weight: 500; flex-shrink: 0;
   }
 
   /* Kolumna kortu */
@@ -297,32 +272,26 @@ function reservationStyle(r: typeof reservations[0]) {
     position: relative;
   }
 
-  .calendar-hour-line {
+  .calendar-slot-line {
     border-bottom: 1px solid var(--border);
     box-sizing: border-box;
   }
-  .calendar-hour-line--even { background: rgba(0,0,0,0.01); }
-  [data-theme="dark"] .calendar-hour-line--even { background: rgba(255,255,255,0.01); }
+  .calendar-slot-line--hour { border-bottom-color: var(--border); }
+  .calendar-slot-line--half { border-bottom-style: dashed; opacity: 0.4; }
 
   /* Rezerwacje */
   .cal-res {
     position: absolute;
     left: 3px; right: 3px;
     border-radius: 6px;
-    padding: 5px 7px;
-    cursor: pointer;
+    padding: 4px 6px;
     overflow: hidden;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     transition: filter 0.12s, transform 0.12s;
     z-index: 1;
   }
-  .cal-res:hover {
-    filter: brightness(1.08);
-    transform: scaleX(1.01);
-    z-index: 2;
-  }
+  .cal-res:hover { filter: brightness(1.08); transform: scaleX(1.01); z-index: 2; }
 
-  /* Moja rezerwacja — zielona */
   .cal-res--own {
     background: rgba(34,197,94,0.2);
     border: 1.5px solid #22c55e;
@@ -330,11 +299,9 @@ function reservationStyle(r: typeof reservations[0]) {
   }
   [data-theme="dark"] .cal-res--own {
     background: rgba(34,197,94,0.18);
-    color: #4ade80;
-    border-color: #22c55e;
+    color: #4ade80; border-color: #22c55e;
   }
 
-  /* Inna rezerwacja — niebieska jak na makiecie */
   .cal-res--other {
     background: rgba(59,130,246,0.15);
     border: 1.5px solid rgba(59,130,246,0.4);
@@ -342,31 +309,25 @@ function reservationStyle(r: typeof reservations[0]) {
   }
   [data-theme="dark"] .cal-res--other {
     background: rgba(59,130,246,0.2);
-    color: #93c5fd;
-    border-color: rgba(59,130,246,0.5);
+    color: #93c5fd; border-color: rgba(59,130,246,0.5);
   }
 
   .cal-res__time {
-    font-size: 0.68rem; font-weight: 600; opacity: 0.75; margin-bottom: 2px;
+    font-size: 0.65rem; font-weight: 600; opacity: 0.75; margin-bottom: 1px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .cal-res__user {
+  .cal-res__label {
     font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   /* Legenda */
-  .cal-legend {
-    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
-  }
-
+  .cal-legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .cal-legend__item {
     display: flex; align-items: center; gap: 6px;
     font-size: 0.78rem; color: var(--text-muted);
   }
-
   .cal-legend__dot {
-    width: 10px; height: 10px; border-radius: 3px;
-    flex-shrink: 0;
+    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
   }
   .cal-legend__dot--own   { background: rgba(34,197,94,0.4); border: 1px solid #22c55e; }
   .cal-legend__dot--other { background: rgba(59,130,246,0.3); border: 1px solid rgba(59,130,246,0.5); }
@@ -377,3 +338,174 @@ function reservationStyle(r: typeof reservations[0]) {
     .my-res-grid { grid-template-columns: 1fr; }
   }
 </style>
+
+<script define:vars={{ GRID_START, GRID_END, SLOT_PX, GRID_H_PX, todayIso }}>
+// ── Grafik kortów — dynamiczny render z API ────────────────────────────────
+
+const HOURS_PER_SLOT = 0.5;   // 30 min
+const SLOT_COUNT = (GRID_END - GRID_START) * 2;
+
+let currentDate = todayIso;   // 'YYYY-MM-DD'
+let facilityId  = null;
+
+const loading   = document.getElementById('cal-loading');
+const empty     = document.getElementById('cal-empty');
+const errorBox  = document.getElementById('cal-error');
+const errorMsg  = document.getElementById('cal-error-msg');
+const calWrap   = document.getElementById('cal-wrap');
+const calGrid   = document.getElementById('cal-grid');
+const dateLabel = document.getElementById('cal-date-label');
+
+function showState(which) {
+  loading.style.display  = which === 'loading' ? '' : 'none';
+  empty.style.display    = which === 'empty'   ? '' : 'none';
+  errorBox.style.display = which === 'error'   ? '' : 'none';
+  calWrap.style.display  = which === 'grid'    ? '' : 'none';
+}
+
+function fmtDateLabel(iso) {
+  try {
+    return new Date(iso + 'T12:00:00').toLocaleDateString('pl-PL', {
+      weekday: 'long', day: 'numeric', month: 'long'
+    });
+  } catch { return iso; }
+}
+
+function addDays(iso, n) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Grupuje kolejne sloty tego samego statusu w bloki do renderowania
+function groupSlots(slots) {
+  const blocks = [];
+  let cur = null;
+  for (const slot of slots) {
+    const type = slot.is_mine ? 'own' : (slot.status !== 'FREE' ? 'other' : 'free');
+    if (cur && cur.type === type && cur.type !== 'free') {
+      cur.count++;
+    } else {
+      if (cur && cur.type !== 'free') blocks.push(cur);
+      cur = { type, startSlot: slots.indexOf(slot), count: 1, time: slot.time };
+    }
+  }
+  if (cur && cur.type !== 'free') blocks.push(cur);
+  return blocks;
+}
+
+function renderGrid(data) {
+  const courts = data.courts;
+  if (!courts || courts.length === 0) { showState('empty'); return; }
+
+  // Ustaw CSS var dla liczby kortów
+  calGrid.style.setProperty('--courts', courts.length);
+
+  // Generuj sloty czasu (etykiety co godzinę)
+  const hourSlots = SLOT_COUNT; // 30-min sloty
+
+  let html = `
+    <div class="calendar-header">
+      <div class="calendar-time-col"></div>
+      ${courts.map(c => `<div class="calendar-court-header">${c.name}</div>`).join('')}
+    </div>
+    <div class="calendar-body">
+      <div class="calendar-time-col">
+        ${Array.from({length: GRID_END - GRID_START}, (_, i) => {
+          const h = GRID_START + i;
+          return `<div class="calendar-hour-label" style="height:${SLOT_PX * 2}px;">${String(h).padStart(2,'0')}:00</div>`;
+        }).join('')}
+      </div>
+      ${courts.map(court => {
+        const slots = court.slots; // [{time, status, is_mine}]
+
+        // Buduj bloki ciągłych rezerwacji
+        const blocks = [];
+        let cur = null;
+        for (let i = 0; i < slots.length; i++) {
+          const s = slots[i];
+          const type = s.is_mine ? 'own' : (s.status !== 'FREE' ? 'other' : 'free');
+          if (cur && cur.type === type && cur.type !== 'free') {
+            cur.count++;
+          } else {
+            if (cur && cur.type !== 'free') blocks.push(cur);
+            cur = { type, startIdx: i, count: 1, time: s.time };
+          }
+        }
+        if (cur && cur.type !== 'free') blocks.push(cur);
+
+        // Linie tła — jeden div na każdy slot 30-min
+        const lines = Array.from({length: hourSlots}, (_, i) => {
+          const isHour = i % 2 === 0;
+          return `<div class="calendar-slot-line ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}" style="height:${SLOT_PX}px;"></div>`;
+        }).join('');
+
+        // Bloki rezerwacji
+        const resHtml = blocks.map(b => {
+          const top    = b.startIdx * SLOT_PX;
+          const height = b.count * SLOT_PX - 2;
+          const endH   = GRID_START + Math.floor((b.startIdx + b.count) / 2);
+          const endM   = ((b.startIdx + b.count) % 2) * 30;
+          const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+          const label  = b.type === 'own' ? 'Twoja rezerwacja' : 'Zarezerwowane';
+          return `<div class="cal-res cal-res--${b.type}" style="top:${top}px; height:${height}px;">
+            <div class="cal-res__time">${b.time}–${endStr}</div>
+            <div class="cal-res__label">${label}</div>
+          </div>`;
+        }).join('');
+
+        return `<div class="calendar-court-col" style="height:${GRID_H_PX}px;">${lines}${resHtml}</div>`;
+      }).join('')}
+    </div>
+  `;
+
+  calGrid.innerHTML = html;
+  showState('grid');
+}
+
+async function loadTimeline() {
+  if (!facilityId) { showState('empty'); return; }
+  showState('loading');
+  dateLabel.textContent = fmtDateLabel(currentDate);
+
+  try {
+    const res = await fetch(`/api/courts/timeline/${facilityId}/?date=${currentDate}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    renderGrid(data);
+  } catch (e) {
+    errorMsg.textContent = `Nie udało się załadować grafiku. (${e.message})`;
+    showState('error');
+  }
+}
+
+async function init() {
+  showState('loading');
+  dateLabel.textContent = fmtDateLabel(currentDate);
+
+  try {
+    const res = await fetch('/api/courts/facilities/', { credentials: 'include' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const facilities = await res.json();
+    if (!facilities || facilities.length === 0) { showState('empty'); return; }
+    facilityId = facilities[0].id;
+    await loadTimeline();
+  } catch (e) {
+    errorMsg.textContent = `Nie udało się załadować listy obiektów. (${e.message})`;
+    showState('error');
+  }
+}
+
+document.getElementById('cal-prev')?.addEventListener('click', async () => {
+  currentDate = addDays(currentDate, -1);
+  await loadTimeline();
+});
+document.getElementById('cal-next')?.addEventListener('click', async () => {
+  currentDate = addDays(currentDate, 1);
+  await loadTimeline();
+});
+
+init();
+</script>

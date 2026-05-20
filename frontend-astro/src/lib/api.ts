@@ -159,6 +159,15 @@ export interface NextReservationData {
   status: string;
 }
 
+export interface ReservationEntry {
+  id: number;
+  court_name: string | null;
+  facility_name: string | null;
+  start_time: string;   // ISO datetime
+  end_time: string;     // ISO datetime
+  status: 'PENDING' | 'CONFIRMED';
+}
+
 // ── Tournament Detail ───────────────────────────────────────────────────────
 
 export interface TournamentMatch {
@@ -534,6 +543,18 @@ export async function getMatchHistory(
   sessionCookie?: string
 ): Promise<MatchHistoryEntry[]> {
   const data = await apiFetch<MatchHistoryEntry[]>('/api/matches/history/', { sessionCookie });
+  return data ?? [];
+}
+
+/**
+ * Zwraca aktywne rezerwacje kortów zalogowanego użytkownika (PENDING + CONFIRMED).
+ * Endpoint: GET /api/courts/reservations/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django.
+ */
+export async function getMyReservations(
+  sessionCookie?: string
+): Promise<ReservationEntry[]> {
+  const data = await apiFetch<ReservationEntry[]>('/api/courts/reservations/', { sessionCookie });
   return data ?? [];
 }
 

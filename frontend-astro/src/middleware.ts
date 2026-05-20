@@ -23,6 +23,7 @@ const PRIVATE_PATHS = [
   '/tournaments/create',
   '/notifications',
   '/profile/edit',
+  '/courts',
 ];
 
 // Trasy, które zalogowany user powinien opuścić (redirect na dashboard)
