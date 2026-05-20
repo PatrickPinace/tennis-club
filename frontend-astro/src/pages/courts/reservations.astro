@@ -67,29 +67,31 @@ const todayIso = new Date().toISOString().slice(0, 10);
   <section class="my-res-section" aria-labelledby="my-res-heading">
     <h2 class="section-label" id="my-res-heading">Moje rezerwacje</h2>
 
-    {myReservations.length === 0 ? (
-      <div class="my-res-empty">
-        <span class="my-res-empty__icon" aria-hidden="true">📅</span>
-        <div class="my-res-empty__text">Nie masz żadnych aktywnych rezerwacji.</div>
-      </div>
-    ) : (
-      <div class="my-res-grid">
-        {myReservations.map(r => (
-          <div class={`my-res-card my-res-card--${r.status}`}>
-            <div class="my-res-card__left">
-              <div class="my-res-card__court">{r.court}</div>
-              {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
-              <div class="my-res-card__time">{r.date} · {r.time}</div>
+    <div id="my-res-list">
+      {myReservations.length === 0 ? (
+        <div class="my-res-empty">
+          <span class="my-res-empty__icon" aria-hidden="true">📅</span>
+          <div class="my-res-empty__text">Nie masz żadnych aktywnych rezerwacji.</div>
+        </div>
+      ) : (
+        <div class="my-res-grid">
+          {myReservations.map(r => (
+            <div class={`my-res-card my-res-card--${r.status}`}>
+              <div class="my-res-card__left">
+                <div class="my-res-card__court">{r.court}</div>
+                {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
+                <div class="my-res-card__time">{r.date} · {r.time}</div>
+              </div>
+              <div class="my-res-card__right">
+                <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
+                  {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
+                </span>
+              </div>
             </div>
-            <div class="my-res-card__right">
-              <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
-                {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
+          ))}
+        </div>
+      )}
+    </div>
   </section>
 
   <!-- Grafik kortów — dynamicznie ładowany przez JS -->
@@ -102,7 +104,16 @@ const todayIso = new Date().toISOString().slice(0, 10);
             <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
           </svg>
         </button>
-        <span id="cal-date-label" class="calendar-date-label">—</span>
+
+        <!-- Klikalna etykieta daty — otwiera natywny date picker -->
+        <label class="cal-date-picker-wrap" aria-label="Wybierz datę">
+          <span id="cal-date-label" class="calendar-date-label">—</span>
+          <svg class="cal-date-picker-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+          </svg>
+          <input id="cal-date-input" type="date" class="cal-date-input-hidden" aria-label="Wybierz datę grafiku" />
+        </label>
+
         <button id="cal-next" class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Następny dzień">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
@@ -148,6 +159,22 @@ const todayIso = new Date().toISOString().slice(0, 10);
       </div>
     </div>
   </section>
+
+  <!-- Toast sukcesu / błędu -->
+  <div id="res-toast" class="res-toast" style="display:none;" role="alert" aria-live="polite"></div>
+
+  <!-- Popup potwierdzenia rezerwacji -->
+  <div id="res-popup" class="res-popup-backdrop" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="res-popup-title">
+    <div class="res-popup">
+      <div class="res-popup__title" id="res-popup-title">Potwierdź rezerwację</div>
+      <div id="res-popup-detail" class="res-popup__detail"></div>
+      <div class="res-popup__actions">
+        <button id="res-popup-confirm" class="tc-btn tc-btn-primary tc-btn-sm">Zarezerwuj</button>
+        <button id="res-popup-cancel"  class="tc-btn tc-btn-ghost   tc-btn-sm">Anuluj</button>
+      </div>
+      <div id="res-popup-msg" class="res-popup__msg" style="display:none;"></div>
+    </div>
+  </div>
 
 </AppLayout>
 
@@ -226,9 +253,33 @@ const todayIso = new Date().toISOString().slice(0, 10);
   .calendar-nav {
     display: flex; align-items: center; gap: 8px;
   }
+  /* Wrapper etykiety daty — klikalny, otwiera natywny picker */
+  .cal-date-picker-wrap {
+    position: relative;
+    display: flex; align-items: center; gap: 5px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm, 6px);
+    transition: background 0.12s;
+  }
+  .cal-date-picker-wrap:hover { background: var(--surface-2, rgba(128,128,128,0.08)); }
+
   .calendar-date-label {
     font-size: 0.85rem; font-weight: 600; color: var(--text);
-    white-space: nowrap; min-width: 160px; text-align: center;
+    white-space: nowrap; min-width: 140px; text-align: center;
+    pointer-events: none;
+  }
+
+  .cal-date-picker-icon {
+    color: var(--text-muted); flex-shrink: 0; pointer-events: none;
+  }
+
+  /* Input schowany wizualnie — ale klikalny przez label */
+  .cal-date-input-hidden {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+    font-size: 0; /* nie zajmuje miejsca tekstem */
   }
 
   .calendar-wrap { padding-bottom: 4px; }
@@ -280,7 +331,7 @@ const todayIso = new Date().toISOString().slice(0, 10);
     box-sizing: border-box;
   }
   .calendar-slot-line--hour { border-bottom-color: var(--border); }
-  .calendar-slot-line--half { border-bottom-style: dashed; opacity: 0.4; }
+  .calendar-slot-line--half { border-bottom-style: dashed; border-bottom-color: rgba(128,128,128,0.25); }
 
   /* Rezerwacje */
   .cal-res {
@@ -336,6 +387,83 @@ const todayIso = new Date().toISOString().slice(0, 10);
   .cal-legend__dot--other { background: rgba(59,130,246,0.3); border: 1px solid rgba(59,130,246,0.5); }
   .cal-legend__dot--free  { background: var(--surface-2); border: 1px solid var(--border); }
 
+  /* ── Free slot hover + drag ───────────────────────────────────────────── */
+  .cal-slot-free {
+    position: relative;
+    cursor: ns-resize;
+    transition: background 0.08s;
+    box-sizing: border-box;
+    user-select: none;
+  }
+  .cal-slot-free:hover {
+    background: rgba(34,197,94,0.08);
+  }
+  /* Tooltip "przeciągnij lub kliknij" — tylko gdy nie ma aktywnego drag */
+  .cal-slot-free:hover::after {
+    content: '↕ Przeciągnij lub kliknij';
+    position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 0.6rem; font-weight: 700; color: #16a34a;
+    white-space: nowrap; pointer-events: none;
+    z-index: 3;
+  }
+  /* Zaznaczony zakres drag */
+  .cal-slot-drag {
+    background: rgba(34,197,94,0.22) !important;
+    border-color: rgba(34,197,94,0.5) !important;
+  }
+  .cal-slot-drag::after { display: none !important; }
+
+  [data-theme="dark"] .cal-slot-free:hover { background: rgba(34,197,94,0.12); }
+  [data-theme="dark"] .cal-slot-free:hover::after { color: #4ade80; }
+  [data-theme="dark"] .cal-slot-drag { background: rgba(34,197,94,0.28) !important; }
+
+  /* ── Popup ─────────────────────────────────────────────────────────────── */
+  .res-popup-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,0.35);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .res-popup {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg, 12px);
+    padding: 24px 28px;
+    min-width: 280px; max-width: 360px;
+    box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18));
+  }
+  .res-popup__title {
+    font-size: 1rem; font-weight: 700; color: var(--text);
+    margin-bottom: 8px;
+  }
+  .res-popup__detail {
+    font-size: 0.875rem; color: var(--text-muted);
+    margin-bottom: 18px; line-height: 1.5;
+  }
+  .res-popup__actions { display: flex; gap: 10px; }
+  .res-popup__msg {
+    margin-top: 12px; font-size: 0.82rem; font-weight: 600;
+  }
+  .res-popup__msg--error { color: var(--danger); }
+  .res-popup__msg--success { color: #22c55e; }
+
+  /* ── Toast ─────────────────────────────────────────────────────────────── */
+  .res-toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 60;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 0.875rem; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .res-toast--success { border-left: 3px solid #22c55e; color: #16a34a; }
+  .res-toast--error   { border-left: 3px solid var(--danger); color: var(--danger); }
+  [data-theme="dark"] .res-toast--success { color: #4ade80; }
+
   /* ── Responsive ────────────────────────────────────────────────────────── */
   @media (max-width: 768px) {
     .my-res-grid { grid-template-columns: 1fr; }
@@ -343,14 +471,17 @@ const todayIso = new Date().toISOString().slice(0, 10);
 </style>
 
 <script define:vars={{ GRID_START, GRID_END, SLOT_PX, GRID_H_PX, todayIso }}>
-// ── Grafik kortów — dynamiczny render z API ────────────────────────────────
+// ── Grafik kortów — dynamiczny render z API + create reservation ───────────
 
-const HOURS_PER_SLOT = 0.5;   // 30 min
 const SLOT_COUNT = (GRID_END - GRID_START) * 2;
 
-let currentDate = todayIso;   // 'YYYY-MM-DD'
+let currentDate = todayIso;
 let facilityId  = null;
 
+// Aktualnie wybrany slot do rezerwacji
+let pendingSlot = null; // { courtId, courtName, date, startTime, endTime }
+
+// DOM refs — grafik
 const loading   = document.getElementById('cal-loading');
 const empty     = document.getElementById('cal-empty');
 const errorBox  = document.getElementById('cal-error');
@@ -358,6 +489,24 @@ const errorMsg  = document.getElementById('cal-error-msg');
 const calWrap   = document.getElementById('cal-wrap');
 const calGrid   = document.getElementById('cal-grid');
 const dateLabel = document.getElementById('cal-date-label');
+const dateInput = document.getElementById('cal-date-input');
+
+// DOM refs — popup
+const popup        = document.getElementById('res-popup');
+const popupDetail  = document.getElementById('res-popup-detail');
+const popupConfirm = document.getElementById('res-popup-confirm');
+const popupCancel  = document.getElementById('res-popup-cancel');
+const popupMsg     = document.getElementById('res-popup-msg');
+
+// DOM refs — toast
+const toast = document.getElementById('res-toast');
+
+// ── Utils ──────────────────────────────────────────────────────────────────
+
+function getCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? m[1] : '';
+}
 
 function showState(which) {
   loading.style.display  = which === 'loading' ? '' : 'none';
@@ -380,34 +529,157 @@ function addDays(iso, n) {
   return d.toISOString().slice(0, 10);
 }
 
-// Grupuje kolejne sloty tego samego statusu w bloki do renderowania
-function groupSlots(slots) {
-  const blocks = [];
-  let cur = null;
-  for (const slot of slots) {
-    const type = slot.is_mine ? 'own' : (slot.status !== 'FREE' ? 'other' : 'free');
-    if (cur && cur.type === type && cur.type !== 'free') {
-      cur.count++;
-    } else {
-      if (cur && cur.type !== 'free') blocks.push(cur);
-      cur = { type, startSlot: slots.indexOf(slot), count: 1, time: slot.time };
-    }
-  }
-  if (cur && cur.type !== 'free') blocks.push(cur);
-  return blocks;
+// Czas końca slotu +30 min
+function slotEnd(startTime) {
+  const [h, m] = startTime.split(':').map(Number);
+  const total  = h * 60 + m + 30;
+  return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
 }
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+
+let toastTimer = null;
+function showToast(msg, type = 'success') {
+  toast.textContent = msg;
+  toast.className   = `res-toast res-toast--${type}`;
+  toast.style.display = '';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+}
+
+// ── Popup ──────────────────────────────────────────────────────────────────
+
+function durationMin(start, end) {
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  return (eh * 60 + em) - (sh * 60 + sm);
+}
+
+function openPopup(slot) {
+  pendingSlot = slot;
+  const dur = durationMin(slot.startTime, slot.endTime);
+  popupDetail.textContent = `${slot.courtName} · ${fmtDateLabel(slot.date)} · ${slot.startTime}–${slot.endTime} (${dur} min)`;
+  popupMsg.style.display = 'none';
+  popupMsg.textContent   = '';
+  popupConfirm.disabled  = false;
+  popupConfirm.textContent = 'Zarezerwuj';
+  popup.style.display = '';
+}
+
+function closePopup() {
+  popup.style.display = 'none';
+  pendingSlot = null;
+}
+
+popupCancel?.addEventListener('click', closePopup);
+popup?.addEventListener('click', e => { if (e.target === popup) closePopup(); });
+
+popupConfirm?.addEventListener('click', async () => {
+  if (!pendingSlot) return;
+  popupConfirm.disabled    = true;
+  popupConfirm.textContent = 'Rezerwuję…';
+  popupMsg.style.display   = 'none';
+
+  try {
+    const res = await fetch('/api/courts/reserve/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrf(),
+      },
+      body: JSON.stringify({
+        court_id:   pendingSlot.courtId,
+        date:       pendingSlot.date,
+        start_time: pendingSlot.startTime,
+        end_time:   pendingSlot.endTime,
+      }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      closePopup();
+      showToast('Rezerwacja złożona — oczekuje na potwierdzenie.', 'success');
+      // Odśwież timeline i listę "Moje rezerwacje"
+      await loadTimeline();
+      await reloadMyReservations();
+    } else {
+      const msg = data.detail || `Błąd ${res.status}`;
+      popupMsg.textContent   = msg;
+      popupMsg.className     = 'res-popup__msg res-popup__msg--error';
+      popupMsg.style.display = '';
+      popupConfirm.disabled  = false;
+      popupConfirm.textContent = 'Zarezerwuj';
+    }
+  } catch {
+    popupMsg.textContent   = 'Błąd sieci. Spróbuj ponownie.';
+    popupMsg.className     = 'res-popup__msg res-popup__msg--error';
+    popupMsg.style.display = '';
+    popupConfirm.disabled  = false;
+    popupConfirm.textContent = 'Zarezerwuj';
+  }
+});
+
+// ── Reload "Moje rezerwacje" bez page refresh ──────────────────────────────
+
+async function reloadMyReservations() {
+  try {
+    const res  = await fetch('/api/courts/reservations/', { credentials: 'include' });
+    if (!res.ok) return;
+    const list = await res.json();
+    renderMyReservations(list);
+  } catch { /* nie rób nic — sekcja pozostaje jak była */ }
+}
+
+function fmtDateShort(iso) {
+  try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; }
+}
+function fmtTimeStr(iso) {
+  try { return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }); } catch { return iso; }
+}
+
+function renderMyReservations(list) {
+  const section = document.getElementById('my-res-list');
+  if (!section) return;
+
+  if (!list || list.length === 0) {
+    section.innerHTML = `
+      <div class="my-res-empty">
+        <span class="my-res-empty__icon" aria-hidden="true">📅</span>
+        <div class="my-res-empty__text">Nie masz żadnych aktywnych rezerwacji.</div>
+      </div>`;
+    return;
+  }
+
+  section.innerHTML = `<div class="my-res-grid">${list.map(r => {
+    const status  = r.status.toLowerCase();
+    const date    = fmtDateShort(r.start_time);
+    const timeStr = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
+    const badge   = status === 'confirmed'
+      ? '<span class="tc-badge tc-badge-success">Potwierdzona</span>'
+      : '<span class="tc-badge tc-badge-warning">Oczekuje</span>';
+    return `
+      <div class="my-res-card my-res-card--${status}">
+        <div class="my-res-card__left">
+          <div class="my-res-card__court">${r.court_name ?? 'Kort'}</div>
+          ${r.facility_name ? `<div class="my-res-card__facility">${r.facility_name}</div>` : ''}
+          <div class="my-res-card__time">${date} · ${timeStr}</div>
+        </div>
+        <div class="my-res-card__right">${badge}</div>
+      </div>`;
+  }).join('')}</div>`;
+}
+
+// ── Grid render ────────────────────────────────────────────────────────────
 
 function renderGrid(data) {
   const courts = data.courts;
   if (!courts || courts.length === 0) { showState('empty'); return; }
 
-  // Ustaw CSS var dla liczby kortów
   calGrid.style.setProperty('--courts', courts.length);
 
-  // Generuj sloty czasu (etykiety co godzinę)
-  const hourSlots = SLOT_COUNT; // 30-min sloty
-
-  let html = `
+  const html = `
     <div class="calendar-header">
       <div class="calendar-time-col"></div>
       ${courts.map(c => `<div class="calendar-court-header">${c.name}</div>`).join('')}
@@ -420,13 +692,13 @@ function renderGrid(data) {
         }).join('')}
       </div>
       ${courts.map(court => {
-        const slots = court.slots; // [{time, status, is_mine}]
+        const slots = court.slots;
 
         // Buduj bloki ciągłych rezerwacji
         const blocks = [];
         let cur = null;
         for (let i = 0; i < slots.length; i++) {
-          const s = slots[i];
+          const s    = slots[i];
           const type = s.is_mine ? 'own' : (s.status !== 'FREE' ? 'other' : 'free');
           if (cur && cur.type === type && cur.type !== 'free') {
             cur.count++;
@@ -437,13 +709,27 @@ function renderGrid(data) {
         }
         if (cur && cur.type !== 'free') blocks.push(cur);
 
-        // Linie tła — jeden div na każdy slot 30-min
-        const lines = Array.from({length: hourSlots}, (_, i) => {
+        // Linie tła + klikalne wolne sloty
+        const lines = Array.from({length: SLOT_COUNT}, (_, i) => {
           const isHour = i % 2 === 0;
-          return `<div class="calendar-slot-line ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}" style="height:${SLOT_PX}px;"></div>`;
+          const slot   = slots[i];
+          const isFree = slot && slot.status === 'FREE';
+          if (isFree) {
+            const endTime = slotEnd(slot.time);
+            return `<div class="calendar-slot-line cal-slot-free ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}"
+              style="height:${SLOT_PX}px;"
+              data-court-id="${court.id}"
+              data-court-name="${court.name}"
+              data-start="${slot.time}"
+              data-end="${endTime}"
+              role="button" tabindex="0"
+              aria-label="Zarezerwuj ${court.name} ${slot.time}–${endTime}">
+            </div>`;
+          }
+          return `<div class="calendar-slot-line ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}" style="height:${SLOT_PX}px;" aria-hidden="true"></div>`;
         }).join('');
 
-        // Bloki rezerwacji
+        // Bloki zajętych rezerwacji
         const resHtml = blocks.map(b => {
           const top    = b.startIdx * SLOT_PX;
           const height = b.count * SLOT_PX - 2;
@@ -464,7 +750,139 @@ function renderGrid(data) {
 
   calGrid.innerHTML = html;
   showState('grid');
+
+  // ── Drag-to-select na wolnych slotach ─────────────────────────────────────
+  // Stan drag
+  let dragCourtId   = null;
+  let dragCourtName = null;
+  let dragStartEl   = null;
+  let dragEndEl     = null;
+  let isDragging    = false;
+
+  // Wszystkie wolne sloty w danej kolumnie kortu (po court-id)
+  function freeSlotsByCourt(courtId) {
+    return [...calGrid.querySelectorAll(`.cal-slot-free[data-court-id="${courtId}"]`)];
+  }
+
+  // Podświetl zakres slotów od startEl do endEl w obrębie jednego kortu
+  function highlightRange(courtId, startEl, endEl) {
+    const all     = freeSlotsByCourt(courtId);
+    const startI  = all.indexOf(startEl);
+    const endI    = all.indexOf(endEl);
+    if (startI === -1 || endI === -1) return;
+    const lo = Math.min(startI, endI);
+    const hi = Math.max(startI, endI);
+
+    // Sprawdź czy wszystkie sloty w zakresie są FREE (brak przeszkód między nimi)
+    // — sloty zajęte nie mają klasy cal-slot-free więc przeskok oznacza blok zajęty
+    const colEl  = startEl.closest('.calendar-court-col');
+    const allInCol = [...colEl.querySelectorAll('.calendar-slot-line')];
+    const startGlobal = allInCol.indexOf(startEl);
+    const endGlobal   = allInCol.indexOf(endEl);
+    const loG = Math.min(startGlobal, endGlobal);
+    const hiG = Math.max(startGlobal, endGlobal);
+    let   hasBlocked = false;
+    for (let i = loG; i <= hiG; i++) {
+      if (!allInCol[i].classList.contains('cal-slot-free')) { hasBlocked = true; break; }
+    }
+
+    // Czyść poprzednie podświetlenie
+    all.forEach(el => el.classList.remove('cal-slot-drag'));
+
+    if (!hasBlocked) {
+      for (let i = lo; i <= hi; i++) all[i].classList.add('cal-slot-drag');
+      return !hasBlocked;
+    }
+    return false;
+  }
+
+  function clearHighlight() {
+    calGrid.querySelectorAll('.cal-slot-drag').forEach(el => el.classList.remove('cal-slot-drag'));
+  }
+
+  // Otwórz popup z zakresem od startEl do endEl
+  function openFromDrag(courtId, courtName, startEl, endEl) {
+    const colEl      = startEl.closest('.calendar-court-col');
+    const allInCol   = [...colEl.querySelectorAll('.calendar-slot-line')];
+    const startGlobal = allInCol.indexOf(startEl);
+    const endGlobal   = allInCol.indexOf(endEl);
+    const loEl = startGlobal <= endGlobal ? startEl : endEl;
+    const hiEl = startGlobal <= endGlobal ? endEl   : startEl;
+
+    const startTime = loEl.dataset.start;
+    // endTime = hiEl.dataset.end (tj. +30 min od hiEl.dataset.start)
+    const endTime   = hiEl.dataset.end;
+
+    openPopup({ courtId: parseInt(courtId, 10), courtName, date: currentDate, startTime, endTime });
+  }
+
+  // Event delegation na calGrid
+  calGrid.addEventListener('mousedown', e => {
+    const el = e.target.closest('.cal-slot-free');
+    if (!el) return;
+    e.preventDefault(); // zapobiegaj zaznaczaniu tekstu
+    isDragging    = true;
+    dragCourtId   = el.dataset.courtId;
+    dragCourtName = el.dataset.courtName;
+    dragStartEl   = el;
+    dragEndEl     = el;
+    el.classList.add('cal-slot-drag');
+  });
+
+  calGrid.addEventListener('mouseover', e => {
+    if (!isDragging) return;
+    const el = e.target.closest('.cal-slot-free');
+    if (!el || el.dataset.courtId !== dragCourtId) return;
+    dragEndEl = el;
+    highlightRange(dragCourtId, dragStartEl, dragEndEl);
+  });
+
+  document.addEventListener('mouseup', e => {
+    if (!isDragging) return;
+    isDragging = false;
+
+    const el = e.target.closest?.('.cal-slot-free');
+    // Jeśli mouseup na tym samym slocie co start — prosty klik (30 min)
+    if (dragStartEl === dragEndEl) {
+      clearHighlight();
+      openPopup({
+        courtId:   parseInt(dragCourtId, 10),
+        courtName: dragCourtName,
+        date:      currentDate,
+        startTime: dragStartEl.dataset.start,
+        endTime:   dragStartEl.dataset.end,
+      });
+    } else {
+      // Drag — sprawdź czy zakres jest spójny (brak zajętych slotów)
+      const ok = highlightRange(dragCourtId, dragStartEl, dragEndEl);
+      clearHighlight();
+      if (ok !== false) {
+        openFromDrag(dragCourtId, dragCourtName, dragStartEl, dragEndEl);
+      }
+      // jeśli ok === false (był zajęty slot w środku) — nie otwieraj popupu
+    }
+
+    dragStartEl = dragEndEl = dragCourtId = dragCourtName = null;
+  });
+
+  // Keyboard: Enter/Space na slocie = pojedynczy 30-min slot
+  calGrid.querySelectorAll('.cal-slot-free').forEach(el => {
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openPopup({
+          courtId:   parseInt(el.dataset.courtId, 10),
+          courtName: el.dataset.courtName,
+          date:      currentDate,
+          startTime: el.dataset.start,
+          endTime:   el.dataset.end,
+        });
+      }
+    });
+  });
 }
+
+// ── Timeline load ──────────────────────────────────────────────────────────
 
 async function loadTimeline() {
   if (!facilityId) { showState('empty'); return; }
@@ -484,8 +902,11 @@ async function loadTimeline() {
   }
 }
 
+// ── Init ───────────────────────────────────────────────────────────────────
+
 async function init() {
   showState('loading');
+  if (dateInput) dateInput.value = currentDate;   // ustaw picker na dzisiaj
   dateLabel.textContent = fmtDateLabel(currentDate);
 
   try {
@@ -501,13 +922,19 @@ async function init() {
   }
 }
 
-document.getElementById('cal-prev')?.addEventListener('click', async () => {
-  currentDate = addDays(currentDate, -1);
+// ── Centralna zmiana daty — synchronizuje picker + etykietę + fetch ───────────
+
+async function setDate(iso) {
+  currentDate = iso;
+  if (dateInput) dateInput.value = iso;   // sync picker z aktualną datą
   await loadTimeline();
-});
-document.getElementById('cal-next')?.addEventListener('click', async () => {
-  currentDate = addDays(currentDate, 1);
-  await loadTimeline();
+}
+
+document.getElementById('cal-prev')?.addEventListener('click', () => setDate(addDays(currentDate, -1)));
+document.getElementById('cal-next')?.addEventListener('click', () => setDate(addDays(currentDate, 1)));
+
+dateInput?.addEventListener('change', () => {
+  if (dateInput.value) setDate(dateInput.value);
 });
 
 init();

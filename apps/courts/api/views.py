@@ -1,8 +1,9 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status as http_status
 
 from apps.courts.models import Reservation, TennisFacility, Court
 from .serializers import MyReservationSerializer, FacilityListSerializer
@@ -126,3 +127,87 @@ class TimelineView(APIView):
             'date': selected_date.isoformat(),
             'courts': courts_data,
         })
+
+
+class CreateReservationView(APIView):
+    """
+    POST /api/courts/reserve/
+
+    Tworzy rezerwację kortu dla zalogowanego użytkownika.
+    Status domyślnie PENDING (właściciel musi zatwierdzić).
+
+    Body (JSON):
+      court_id   — int, wymagane
+      date       — str, 'YYYY-MM-DD', wymagane
+      start_time — str, 'HH:MM', wymagane
+      end_time   — str, 'HH:MM', wymagane
+
+    Walidacja:
+      - court musi należeć do facility z reservation=True
+      - end_time > start_time
+      - brak kolizji z istniejącymi rezerwacjami (status != REJECTED/CHANGED)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        court_id   = request.data.get('court_id')
+        date_str   = request.data.get('date')
+        start_str  = request.data.get('start_time')
+        end_str    = request.data.get('end_time')
+
+        # Walidacja wymaganych pól
+        missing = [f for f, v in [('court_id', court_id), ('date', date_str), ('start_time', start_str), ('end_time', end_str)] if not v]
+        if missing:
+            return Response({'detail': f'Brakujące pola: {", ".join(missing)}.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Pobierz kort i sprawdź czy facility ma rezerwację online
+        try:
+            court = Court.objects.select_related('facility').get(pk=court_id)
+        except Court.DoesNotExist:
+            return Response({'detail': 'Kort nie istnieje.'}, status=http_status.HTTP_404_NOT_FOUND)
+
+        if not court.facility.reservation:
+            return Response({'detail': 'Ten obiekt nie przyjmuje rezerwacji online.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Parsowanie dat
+        try:
+            res_date   = date.fromisoformat(date_str)
+            start_time = datetime.strptime(start_str, '%H:%M').time()
+            end_time   = datetime.strptime(end_str,   '%H:%M').time()
+        except ValueError:
+            return Response({'detail': 'Nieprawidłowy format daty lub czasu (oczekiwany YYYY-MM-DD, HH:MM).'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        start_dt = datetime.combine(res_date, start_time)
+        end_dt   = datetime.combine(res_date, end_time)
+
+        # end > start
+        if start_dt >= end_dt:
+            return Response({'detail': 'Godzina zakończenia musi być późniejsza niż rozpoczęcia.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Walidacja kolizji — ta sama logika co w forms.py
+        conflict = Reservation.objects.filter(
+            court=court,
+            start_time__lt=end_dt,
+            end_time__gt=start_dt,
+        ).exclude(status__in=['REJECTED', 'CHANGED'])
+
+        if conflict.exists():
+            return Response({'detail': 'Ten slot jest już zajęty. Wybierz inny termin.'}, status=http_status.HTTP_409_CONFLICT)
+
+        # Utwórz rezerwację jako PENDING (właściciel musi zatwierdzić)
+        reservation = Reservation.objects.create(
+            user=request.user,
+            court=court,
+            start_time=start_dt,
+            end_time=end_dt,
+            status='PENDING',
+        )
+
+        return Response({
+            'id': reservation.id,
+            'court_name': f'Kort {court.court_number}',
+            'facility_name': court.facility.name,
+            'start_time': reservation.start_time.isoformat(),
+            'end_time': reservation.end_time.isoformat(),
+            'status': reservation.status,
+        }, status=http_status.HTTP_201_CREATED)
