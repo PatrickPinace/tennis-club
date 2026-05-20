@@ -28,7 +28,7 @@ class MyReservationListView(generics.ListAPIView):
     def get_queryset(self):
         return (
             Reservation.objects
-            .filter(user=self.request.user, status__in=['PENDING', 'CONFIRMED'])
+            .filter(user=self.request.user, status__in=['PENDING', 'CONFIRMED', 'REJECTED'])
             .select_related('court__facility')
             .order_by('start_time')
         )

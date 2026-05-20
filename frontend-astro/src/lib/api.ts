@@ -165,7 +165,7 @@ export interface ReservationEntry {
   facility_name: string | null;
   start_time: string;   // ISO datetime
   end_time: string;     // ISO datetime
-  status: 'PENDING' | 'CONFIRMED';
+  status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
 }
 
 // ── Tournament Detail ───────────────────────────────────────────────────────

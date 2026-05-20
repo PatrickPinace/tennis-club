@@ -70,8 +70,33 @@ const myReservations = rawReservations.map((r: ReservationEntry) => ({
   facility: r.facility_name ?? '',
   date: fmtDate(r.start_time),
   time: `${fmtTime(r.start_time)}–${fmtTime(r.end_time)}`,
-  status: r.status.toLowerCase() as 'pending' | 'confirmed',
+  startIso: r.start_time,
+  status: r.status.toLowerCase() as 'pending' | 'confirmed' | 'rejected',
 }));
+
+// Konfiguracja statusu — jedna centralna definicja używana w SSR i JS
+// badge: klasa CSS badge | hint: tekst pomocniczy | canCancel: czy pokazujemy "Anuluj"
+function resStatusConfig(status: string, isFuture: boolean) {
+  if (status === 'confirmed') return {
+    badgeClass: 'tc-badge-success',
+    badgeLabel: 'Zatwierdzona',
+    hint: 'Rezerwacja potwierdzona przez właściciela.',
+    canCancel: isFuture,
+  };
+  if (status === 'rejected') return {
+    badgeClass: 'tc-badge-danger',
+    badgeLabel: 'Odrzucona',
+    hint: 'Rezerwacja została odrzucona przez właściciela.',
+    canCancel: false,
+  };
+  // PENDING (domyślnie)
+  return {
+    badgeClass: 'tc-badge-warning',
+    badgeLabel: 'Oczekuje',
+    hint: 'Czeka na decyzję właściciela obiektu.',
+    canCancel: isFuture,
+  };
+}
 
 // Stałe dla grafiku (używane też w JS)
 const GRID_START = 8;   // 08:00
@@ -152,27 +177,32 @@ const todayIso = new Date().toISOString().slice(0, 10);
       {myReservations.length === 0 ? (
         <div class="my-res-empty">
           <span class="my-res-empty__icon" aria-hidden="true">📅</span>
-          <div class="my-res-empty__text">Nie masz żadnych aktywnych rezerwacji.</div>
+          <div class="my-res-empty__text">Nie masz żadnych rezerwacji.</div>
         </div>
       ) : (
         <div class="my-res-grid">
-          {myReservations.map(r => (
-            <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id}>
-              <div class="my-res-card__left">
-                <div class="my-res-card__court">{r.court}</div>
-                {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
-                <div class="my-res-card__time">{r.date} · {r.time}</div>
+          {myReservations.map(r => {
+            const isFuture = new Date(r.startIso) > new Date();
+            const cfg = resStatusConfig(r.status, isFuture);
+            return (
+              <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id}>
+                <div class="my-res-card__left">
+                  <div class="my-res-card__court">{r.court}</div>
+                  {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
+                  <div class="my-res-card__time">{r.date} · {r.time}</div>
+                  <div class="my-res-card__hint">{cfg.hint}</div>
+                </div>
+                <div class="my-res-card__right">
+                  <span class={`tc-badge ${cfg.badgeClass}`}>{cfg.badgeLabel}</span>
+                  {cfg.canCancel && (
+                    <button class="my-res-cancel-btn" data-res-id={r.id} aria-label="Anuluj rezerwację">
+                      Anuluj
+                    </button>
+                  )}
+                </div>
               </div>
-              <div class="my-res-card__right">
-                <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
-                  {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
-                </span>
-                <button class="my-res-cancel-btn" data-res-id={r.id} aria-label="Anuluj rezerwację">
-                  Anuluj
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -224,8 +254,11 @@ const todayIso = new Date().toISOString().slice(0, 10);
     </div>
 
     <!-- Kontener na dynamiczny grid — wypełniany przez JS -->
-    <div id="cal-wrap" class="calendar-wrap" style="overflow-x:auto; display:none;">
-      <div id="cal-grid" class="calendar-grid"></div>
+    <!-- calendar-wrap-outer: scroll shadow hint (opacity 1 gdy grid szerszy niż kontener) -->
+    <div class="calendar-wrap-outer">
+      <div id="cal-wrap" class="calendar-wrap" style="overflow-x:auto; display:none;">
+        <div id="cal-grid" class="calendar-grid"></div>
+      </div>
     </div>
 
     <!-- Legenda -->
@@ -381,6 +414,7 @@ const todayIso = new Date().toISOString().slice(0, 10);
   .my-res-card:hover { box-shadow: var(--shadow-md); }
   .my-res-card--confirmed { border-left: 3px solid #22c55e; }
   .my-res-card--pending   { border-left: 3px solid var(--warning); }
+  .my-res-card--rejected  { border-left: 3px solid var(--danger, #dc2626); opacity: 0.75; }
 
   .my-res-card__court {
     font-weight: 700; font-size: 0.9rem; color: var(--text);
@@ -391,6 +425,9 @@ const todayIso = new Date().toISOString().slice(0, 10);
   }
   .my-res-card__facility {
     font-size: 0.75rem; color: var(--text-dim); margin-bottom: 2px;
+  }
+  .my-res-card__hint {
+    font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; line-height: 1.4;
   }
 
   .my-res-empty {
@@ -436,6 +473,18 @@ const todayIso = new Date().toISOString().slice(0, 10);
     background: var(--danger, #dc2626); color: #fff; border: none;
   }
   .tc-btn-danger:hover { background: #b91c1c; }
+
+  /* tc-badge-danger — czerwony badge dla REJECTED */
+  .tc-badge-danger {
+    background: rgba(239,68,68,0.1);
+    color: var(--danger, #dc2626);
+    border: 1px solid rgba(239,68,68,0.25);
+  }
+  [data-theme="dark"] .tc-badge-danger {
+    background: rgba(239,68,68,0.15);
+    color: #f87171;
+    border-color: rgba(239,68,68,0.3);
+  }
 
   /* ── Calendar states ───────────────────────────────────────────────────── */
   .calendar-section { margin-top: 0; }
@@ -759,9 +808,142 @@ const todayIso = new Date().toISOString().slice(0, 10);
   [data-theme="dark"] .res-toast--success .res-toast__icon { color: #4ade80; }
 
   /* ── Responsive ────────────────────────────────────────────────────────── */
+
+  /* ── 768px — tablet / duży telefon ──────────────────────────────── */
   @media (max-width: 768px) {
     .my-res-grid { grid-template-columns: 1fr; }
+
+    /* Owner: wiersz stackuje się pionowo — info nad przyciskami */
+    .owner-res-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px;
+    }
+    .owner-res-row__actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    /* tc-card header — tytuł + badge zawijają się */
+    .tc-card-header {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    /* Legenda grafiku — ciaśniejsza */
+    .cal-legend { gap: 10px; }
   }
+
+  /* ── 480px — telefon ──────────────────────────────────────────────── */
+  @media (max-width: 480px) {
+    /* Karty rezerwacji — lewa kolumna pełna szerokość, prawa poniżej */
+    .my-res-card {
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 14px;
+    }
+    .my-res-card__right {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      flex-shrink: unset;
+    }
+    /* Inline confirm na full-width karcie */
+    .my-res-inline-confirm {
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
+      justify-content: space-between;
+    }
+    .my-res-inline-confirm__label { white-space: normal; }
+
+    /* Owner: przyciski pełna szerokość na bardzo wąskim */
+    .owner-res-row__actions {
+      flex-direction: column;
+      gap: 6px;
+    }
+    .owner-res-row__actions .tc-btn {
+      width: 100%;
+      justify-content: center;
+      min-height: 38px; /* wygodny dotyk */
+    }
+
+    /* Sekcja owner — mniejszy padding */
+    .owner-section .tc-card-header { padding: 14px 14px; }
+
+    /* Nawigacja grafiku — wraparound zamiast overflow */
+    .calendar-nav {
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+    .cal-date-btn {
+      padding: 5px 9px;
+    }
+    .cal-date-btn__label {
+      /* Skróć etykietę daty — browser i tak da krótkie locale */
+      max-width: 130px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Przycisk anuluj — większy area dotyku */
+    .my-res-cancel-btn {
+      padding: 6px 2px;
+      min-height: 32px;
+    }
+
+    /* Popup — wypełnij cały ekran na mini telefonie */
+    .res-popup-backdrop { padding: 8px; align-items: flex-end; }
+    .res-popup {
+      border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    /* Toast — full width na wąskim */
+    .res-toast {
+      left: 16px; right: 16px;
+      transform: none;
+      bottom: 16px;
+      max-width: none;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Legenda grafiku — pionowo */
+    .cal-legend { flex-direction: column; gap: 6px; }
+  }
+
+  /* ── Grafik — świadomy poziomy scroll ─────────────────────────────── */
+  /* .calendar-grid { min-width: 560px } zostawiamy — grafik z natury jest szeroki.
+     .calendar-wrap { overflow-x: auto } już jest inline. Dodajemy visual hint. */
+  .calendar-wrap {
+    /* Smooth scrolling, overflow-x ustawiony inline w HTML */
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Scroll shadow hint po prawej stronie gdy grid przewija się */
+  .calendar-wrap-outer {
+    position: relative;
+  }
+  .calendar-wrap-outer::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 24px;
+    background: linear-gradient(to right, transparent, var(--surface));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .calendar-wrap-outer.is-scrollable::after { opacity: 1; }
 </style>
 
 <script define:vars={{ GRID_START, GRID_END, SLOT_PX, GRID_H_PX, todayIso }}>
@@ -977,7 +1159,7 @@ function renderMyReservations(list) {
     section.innerHTML = `
       <div class="my-res-empty">
         <span class="my-res-empty__icon" aria-hidden="true">📅</span>
-        <div class="my-res-empty__text">Nie masz żadnych aktywnych rezerwacji.</div>
+        <div class="my-res-empty__text">Nie masz żadnych rezerwacji.</div>
       </div>`;
     return;
   }
@@ -988,10 +1170,24 @@ function renderMyReservations(list) {
     const dateStr   = fmtDateShort(r.start_time);
     const timeStr   = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
     const isFuture  = new Date(r.start_time) > now;
-    const badge     = status === 'confirmed'
-      ? '<span class="tc-badge tc-badge-success">Potwierdzona</span>'
-      : '<span class="tc-badge tc-badge-warning">Oczekuje</span>';
-    const cancelBtn = isFuture
+
+    let badgeClass, badgeLabel, hint, canCancel;
+    if (status === 'confirmed') {
+      badgeClass = 'tc-badge-success'; badgeLabel = 'Zatwierdzona';
+      hint = 'Rezerwacja potwierdzona przez właściciela.';
+      canCancel = isFuture;
+    } else if (status === 'rejected') {
+      badgeClass = 'tc-badge-danger'; badgeLabel = 'Odrzucona';
+      hint = 'Rezerwacja została odrzucona przez właściciela.';
+      canCancel = false;
+    } else {
+      badgeClass = 'tc-badge-warning'; badgeLabel = 'Oczekuje';
+      hint = 'Czeka na decyzję właściciela obiektu.';
+      canCancel = isFuture;
+    }
+
+    const badge     = `<span class="tc-badge ${badgeClass}">${badgeLabel}</span>`;
+    const cancelBtn = canCancel
       ? `<button class="my-res-cancel-btn" data-res-id="${r.id}" aria-label="Anuluj rezerwację">Anuluj</button>`
       : '';
     return `
@@ -1000,6 +1196,7 @@ function renderMyReservations(list) {
           <div class="my-res-card__court">${r.court_name ?? 'Kort'}</div>
           ${r.facility_name ? `<div class="my-res-card__facility">${r.facility_name}</div>` : ''}
           <div class="my-res-card__time">${dateStr} · ${timeStr}</div>
+          <div class="my-res-card__hint">${hint}</div>
         </div>
         <div class="my-res-card__right">${badge}${cancelBtn}</div>
       </div>`;
@@ -1239,6 +1436,8 @@ function renderGrid(data) {
 
   calGrid.innerHTML = html;
   showState('grid');
+  // Odśwież hint scrolla po wyrenderowaniu gridu
+  requestAnimationFrame(() => window.__calScrollHintUpdate?.());
 
   // ── Drag-to-select na wolnych slotach ─────────────────────────────────────
   // Stan drag
@@ -1453,4 +1652,19 @@ dateInput?.addEventListener('change', () => {
 });
 
 init();
+
+// ── Scroll shadow — wizualny hint że grid można przewijać ─────────────────
+(function () {
+  const outer = calWrap?.closest('.calendar-wrap-outer');
+  if (!outer || !calWrap) return;
+
+  function updateScrollHint() {
+    const canScroll = calWrap.scrollWidth > calWrap.clientWidth;
+    const atEnd     = calWrap.scrollLeft + calWrap.clientWidth >= calWrap.scrollWidth - 4;
+    outer.classList.toggle('is-scrollable', canScroll && !atEnd);
+  }
+
+  calWrap.addEventListener('scroll', updateScrollHint, { passive: true });
+  window.__calScrollHintUpdate = updateScrollHint;
+})();
 </script>
