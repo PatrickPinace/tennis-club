@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.conf import settings
 
@@ -61,6 +62,8 @@ class Reservation(models.Model):
     end_time = models.DateTimeField(verbose_name="Czas zakończenia")
     created_at = models.DateTimeField(auto_now_add=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING', verbose_name="Status")
+    # Pole pomocnicze — grupowanie rezerwacji w serię (cykliczne). NULL = pojedyncza rezerwacja.
+    series_id = models.UUIDField(null=True, blank=True, db_index=True, verbose_name="ID serii")
 
     def __str__(self):
         return f"Rezerwacja {self.court} przez {self.user} od {self.start_time} do {self.end_time}"
