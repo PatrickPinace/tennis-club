@@ -401,7 +401,12 @@ class NotificationMarkAllReadView(APIView):
 
 
 class MatchHistoryView(generics.ListAPIView):
-    """API endpoint that lists match history with calculated results."""
+    """API endpoint that lists match history with calculated results.
+
+    Returns both friendly Match objects and completed TournamentMatches
+    (converted to a common dict format by Results.get_matches).
+    Tournament entries have is_tournament=True and tournament_id set.
+    """
     serializer_class = MatchHistorySerializer
     permission_classes = [IsAuthenticated]
 
@@ -409,6 +414,59 @@ class MatchHistoryView(generics.ListAPIView):
         filters = match_tools.prepare_filters(self.request)
         results_obj = match_tools.Results(self.request, sort="match_date", **filters)
         return results_obj.qs
+
+    def list(self, request, *args, **kwargs):
+        """Override list to return the full matches list (friendly + tournament)."""
+        filters = match_tools.prepare_filters(request)
+        results_obj = match_tools.Results(request, sort="match_date", **filters)
+
+        def build_player(m, key):
+            """Build {id, username, first_name, last_name} from match dict keys."""
+            uid = m.get(f'{key}_id')
+            if not uid:
+                return None
+            full = m.get(key) or ''   # e.g. "Jan Kowalski"
+            parts = full.strip().split(' ', 1) if full else []
+            return {
+                'id': uid,
+                'username': m.get(f'{key}_username') or '',
+                'first_name': parts[0] if parts else '',
+                'last_name': parts[1] if len(parts) > 1 else '',
+            }
+
+        data = []
+        for m in results_obj.matches:
+            entry = {
+                'id': m.get('id'),
+                'p1': build_player(m, 'p1'),
+                'p2': build_player(m, 'p2'),
+                'p3': build_player(m, 'p3'),
+                'p4': build_player(m, 'p4'),
+                'p1_set1': m.get('p1_set1'),
+                'p1_set2': m.get('p1_set2'),
+                'p1_set3': m.get('p1_set3'),
+                'p2_set1': m.get('p2_set1'),
+                'p2_set2': m.get('p2_set2'),
+                'p2_set3': m.get('p2_set3'),
+                'match_double': m.get('match_double', False),
+                'description': m.get('description'),
+                'match_date': str(m.get('match_date', '')),
+                'score_status': m.get('score_status'),
+                'reported_by': None,
+                'confirmed_by': None,
+                'win': m.get('win'),
+                'user': m.get('user'),
+                'p1_win_set': m.get('p1_win_set', 0),
+                'p2_win_set': m.get('p2_win_set', 0),
+                'p1_win_gem': m.get('p1_win_gem', 0),
+                'p2_win_gem': m.get('p2_win_gem', 0),
+                # Extra fields for tournament matches
+                'is_tournament': m.get('is_tournament', False),
+                'tournament_id': m.get('tournament_id'),
+            }
+            data.append(entry)
+
+        return Response(data)
 
 
 class MatchFiltersView(APIView):

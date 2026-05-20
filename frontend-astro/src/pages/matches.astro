@@ -61,7 +61,7 @@ function formatDate(iso: string): string {
 // ── Mapuj surowe dane API na shape UI ────────────────────────────────────────
 
 type MatchRow = {
-  id: number;
+  id: number | string;
   result: 'win' | 'loss' | 'draw';
   resultLabel: string;
   resultLetter: string;
@@ -71,6 +71,8 @@ type MatchRow = {
   score: string;
   format: 'SNG' | 'DBL';
   typeLabel: string;
+  isTournament: boolean;
+  tournamentId: number | null;
 };
 
 function mapMatch(m: MatchHistoryEntry): MatchRow {
@@ -119,16 +121,18 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
     score: formatScore(m),
     format: m.match_double ? 'DBL' : 'SNG',
     typeLabel,
+    isTournament: m.is_tournament ?? false,
+    tournamentId: m.tournament_id ?? null,
   };
 }
 
 // ── Fallback demo — gdy API niedostępne lub niezalogowany ───────────────────
 const demoMatches: MatchRow[] = [
-  { id: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',        opponentInitials: 'TB', date: '21 paź 2026', score: '6:3, 7:5',     format: 'SNG', typeLabel: 'Towarzyski' },
-  { id: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',    opponentInitials: 'AK', date: '15 paź 2026', score: '4:6, 5:7',     format: 'SNG', typeLabel: 'Turniejowy' },
-  { id: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',       opponentInitials: 'RN', date: '8 paź 2026',  score: '6:1, 6:4',     format: 'SNG', typeLabel: 'Turniejowy' },
-  { id: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski',  opponentInitials: 'PW', date: '1 paź 2026',  score: '7:5, 4:6, 10:8', format: 'SNG', typeLabel: 'Towarzyski' },
-  { id: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',      opponentInitials: 'MW', date: '18 wrz 2026', score: '3:6, 6:7',     format: 'SNG', typeLabel: 'Towarzyski' },
+  { id: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',       opponentInitials: 'TB', date: '21 paź 2026', score: '6:3, 7:5',       format: 'SNG', typeLabel: 'Towarzyski', isTournament: false, tournamentId: null },
+  { id: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',   opponentInitials: 'AK', date: '15 paź 2026', score: '4:6, 5:7',       format: 'SNG', typeLabel: 'Turniejowy', isTournament: true,  tournamentId: null },
+  { id: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',      opponentInitials: 'RN', date: '8 paź 2026',  score: '6:1, 6:4',       format: 'SNG', typeLabel: 'Turniejowy', isTournament: true,  tournamentId: null },
+  { id: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski', opponentInitials: 'PW', date: '1 paź 2026',  score: '7:5, 4:6, 10:8', format: 'SNG', typeLabel: 'Towarzyski', isTournament: false, tournamentId: null },
+  { id: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',     opponentInitials: 'MW', date: '18 wrz 2026', score: '3:6, 6:7',       format: 'SNG', typeLabel: 'Towarzyski', isTournament: false, tournamentId: null },
 ];
 
 const matches: MatchRow[] = isLive ? rawMatches.map(mapMatch) : demoMatches;
@@ -145,7 +149,7 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
   greeting="Historia meczów"
   showSearch={false}
   showCta={true}
-  ctaLabel="+ Dodaj mecz"
+  ctaLabel="+ Dodaj mecz towarzyski"
   ctaHref={url('/matches/add')}
 >
 
@@ -242,7 +246,10 @@ const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
 
             <!-- Actions -->
             <div class="match-actions">
-              <a href={url(`/matches/${m.id}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
+              {m.isTournament && m.tournamentId
+                ? <a href={url(`/tournaments/${m.tournamentId}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Turniej →</a>
+                : <a href={url(`/matches/${m.id}`)} class="tc-btn tc-btn-ghost tc-btn-sm">Szczegóły</a>
+              }
             </div>
           </li>
         ))}
