@@ -109,16 +109,12 @@ class MatchDetailView(generics.RetrieveAPIView):
             instance.match_date = parsed
             update_fields.append('match_date')
 
-        # score_status: staff → CONFIRMED od razu; uczestnik → PENDING (czeka na potwierdzenie)
+        # Friendly matches: wynik zawsze CONFIRMED od razu — nie wymagamy confirm drugiej osoby.
+        # reported_by = kto zgłosił; confirmed_by = None (nie było obowiązkowego flow).
         if update_fields:
-            if request.user.is_staff:
-                instance.score_status = 'CONFIRMED'
-                instance.reported_by = request.user
-                instance.confirmed_by = request.user
-            else:
-                instance.score_status = 'PENDING'
-                instance.reported_by = request.user
-                instance.confirmed_by = None
+            instance.score_status = 'CONFIRMED'
+            instance.reported_by = request.user
+            instance.confirmed_by = None
             update_fields += ['score_status', 'reported_by', 'confirmed_by']
             instance.save(update_fields=update_fields)
 
