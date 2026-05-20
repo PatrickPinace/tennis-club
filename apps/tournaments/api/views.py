@@ -1,265 +1,20 @@
 import logging
 from rest_framework import viewsets, generics, status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly, AllowAny, IsAuthenticated
-
-logger = logging.getLogger(__name__)
+from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from apps.tournaments.models import Tournament
-from apps.matches import tools as match_tools
-from apps.matches.models import Match
-from .serializers import (TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
-                          RegisterSerializer, UserDetailsSerializer, NotificationSerializer,
-                          MatchCreateSerializer, MatchHistorySerializer, PlayerRankingSerializer,
-                          RoundRobinStandingSerializer, RoundRobinConfigSerializer,
-                          RoundRobinConfigUpdateSerializer)
 from django.contrib.auth.models import User
 from django.utils import timezone
-from chats.models import ChatMessage
-from notifications.models import Notifications
 
+from apps.tournaments.models import Tournament
+from apps.tournaments.api.serializers import (
+    TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
+    RoundRobinStandingSerializer, RoundRobinConfigSerializer,
+    RoundRobinConfigUpdateSerializer
+)
 
-class RegisterView(generics.CreateAPIView):
-    queryset = User.objects.all()
-    permission_classes = (AllowAny,)
-    serializer_class = RegisterSerializer
+logger = logging.getLogger(__name__)
 
-
-class MatchCreateView(generics.CreateAPIView):
-    """API endpoint to create a new friendly match."""
-    serializer_class = MatchCreateSerializer
-    permission_classes = [IsAuthenticated]
-
-
-class MatchDetailView(generics.RetrieveAPIView):
-    """
-    GET  /api/matches/<id>/ — szczegóły meczu towarzyskiego + pole can_edit.
-    PATCH /api/matches/<id>/ — edycja wyniku przez uczestnika lub is_staff.
-
-    PATCH body (wszystkie opcjonalne, ale p1_set1 i p2_set1 wymagane jeśli wpisujemy wynik):
-      p1_set1, p2_set1  — wyniki 1. seta (wymagane)
-      p1_set2, p2_set2  — wyniki 2. seta (opcjonalne)
-      p1_set3, p2_set3  — wyniki 3. seta (opcjonalne)
-      match_date        — data meczu ISO 8601 (opcjonalne)
-
-    Uprawnienia PATCH: uczestnik meczu (p1/p2/p3/p4) lub is_staff.
-    """
-    serializer_class = MatchHistorySerializer
-    permission_classes = [IsAuthenticated]
-    queryset = Match.objects.select_related('p1', 'p2', 'p3', 'p4').all()
-
-    def _players(self, instance):
-        ids = [instance.p1_id, instance.p2_id]
-        if instance.p3_id:
-            ids.append(instance.p3_id)
-        if instance.p4_id:
-            ids.append(instance.p4_id)
-        return ids
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        data = serializer.data
-        data['can_edit'] = request.user.is_staff or request.user.pk in self._players(instance)
-        return Response(data)
-
-    def patch(self, request, *args, **kwargs):
-        instance = self.get_object()
-
-        if not (request.user.is_staff or request.user.pk in self._players(instance)):
-            return Response(
-                {'detail': 'Brak uprawnień. Tylko uczestnik meczu lub administrator może edytować wynik.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        def _int_or_none(key):
-            v = request.data.get(key)
-            if v is None or v == '':
-                return None, False
-            try:
-                return int(v), False
-            except (ValueError, TypeError):
-                return None, True  # błąd
-
-        errors = {}
-        sets = {}
-        for field in ('p1_set1', 'p2_set1', 'p1_set2', 'p2_set2', 'p1_set3', 'p2_set3'):
-            val, err = _int_or_none(field)
-            if err:
-                errors[field] = 'Musi być liczbą całkowitą lub null.'
-            else:
-                sets[field] = val
-
-        if errors:
-            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
-
-        # set1 wymagane jeśli w ogóle wpisujemy wynik
-        if 'p1_set1' in request.data or 'p2_set1' in request.data:
-            if sets.get('p1_set1') is None or sets.get('p2_set1') is None:
-                return Response(
-                    {'detail': 'p1_set1 i p2_set1 są wymagane.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        # Wartości ujemne niedozwolone
-        for field, val in sets.items():
-            if val is not None and val < 0:
-                return Response(
-                    {'detail': f'Pole „{field}" nie może być ujemne.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        update_fields = []
-        for field, val in sets.items():
-            if field in request.data:
-                setattr(instance, field, val)
-                update_fields.append(field)
-
-        if 'match_date' in request.data:
-            from django.utils.dateparse import parse_date
-            raw = request.data.get('match_date')
-            parsed = parse_date(str(raw)) if raw else None
-            if raw and parsed is None:
-                return Response(
-                    {'detail': 'Nieprawidłowy format match_date (oczekiwany YYYY-MM-DD).'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            instance.match_date = parsed
-            update_fields.append('match_date')
-
-        # score_status: staff → CONFIRMED od razu; uczestnik → PENDING (czeka na potwierdzenie)
-        if update_fields:
-            if request.user.is_staff:
-                instance.score_status = 'CONFIRMED'
-                instance.reported_by = request.user
-                instance.confirmed_by = request.user
-            else:
-                instance.score_status = 'PENDING'
-                instance.reported_by = request.user
-                instance.confirmed_by = None
-            update_fields += ['score_status', 'reported_by', 'confirmed_by']
-            instance.save(update_fields=update_fields)
-
-        serializer = self.get_serializer(instance)
-        data = serializer.data
-        data['can_edit'] = True
-        return Response(data, status=status.HTTP_200_OK)
-
-
-class MatchConfirmView(APIView):
-    """
-    POST /api/matches/<id>/confirm/
-
-    Drugi uczestnik meczu potwierdza wynik.
-    Reguły:
-    - tylko uczestnik meczu (p1/p2/p3/p4) może potwierdzić
-    - nie można potwierdzić własnego zgłoszenia (reported_by != request.user)
-    - mecz musi być w statusie PENDING
-    """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk, *args, **kwargs):
-        try:
-            instance = Match.objects.select_related('p1', 'p2', 'p3', 'p4').get(pk=pk)
-        except Match.DoesNotExist:
-            return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
-
-        player_ids = [instance.p1_id, instance.p2_id]
-        if instance.p3_id:
-            player_ids.append(instance.p3_id)
-        if instance.p4_id:
-            player_ids.append(instance.p4_id)
-
-        if request.user.pk not in player_ids:
-            return Response(
-                {'detail': 'Brak uprawnień. Tylko uczestnik meczu może potwierdzić wynik.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if instance.score_status != 'PENDING':
-            return Response(
-                {'detail': 'Wynik nie czeka na potwierdzenie.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if instance.reported_by_id == request.user.pk:
-            return Response(
-                {'detail': 'Nie możesz potwierdzić własnego zgłoszenia.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        instance.score_status = 'CONFIRMED'
-        instance.confirmed_by = request.user
-        instance.save(update_fields=['score_status', 'confirmed_by'])
-
-        from .serializers import MatchHistorySerializer
-        serializer = MatchHistorySerializer(instance, context={'request': request})
-        data = serializer.data
-        data['can_edit'] = True
-        return Response(data, status=status.HTTP_200_OK)
-
-
-class UserListView(generics.ListAPIView):
-    """
-    Lista użytkowników z filtrowaniem po ?search= i trybem podpowiedzi ?suggest=1.
-
-    ?search=<query> — filtruje po first_name, last_name, username (icontains, OR).
-      Bez search lub query < 2 znaki → pusta lista (nie ujawniamy wszystkich).
-      Wyniki posortowane relevance-first, limit 20.
-
-    ?suggest=1 — zwraca do 8 ostatnio zarejestrowanych użytkowników (bez filtrowania).
-      Używane przez autocomplete jako "startowe sugestie" przy focus na polu search.
-    """
-    serializer_class = UserDetailsSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        from django.db.models import Q, Case, When, IntegerField
-
-        # Tryb podpowiedzi — kilka ostatnich userów bez filtrowania
-        if self.request.query_params.get('suggest') == '1':
-            return User.objects.order_by('-date_joined')[:8]
-
-        q = self.request.query_params.get('search', '').strip()
-        if len(q) < 2:
-            return User.objects.none()
-        return (
-            User.objects
-            .filter(
-                Q(first_name__icontains=q) |
-                Q(last_name__icontains=q) |
-                Q(username__icontains=q)
-            )
-            .annotate(
-                relevance=Case(
-                    When(username__iexact=q, then=0),
-                    When(username__istartswith=q, then=1),
-                    When(first_name__istartswith=q, then=2),
-                    When(last_name__istartswith=q, then=2),
-                    default=3,
-                    output_field=IntegerField(),
-                )
-            )
-            .order_by('relevance', 'last_name', 'first_name')[:20]
-        )
-
-
-class UserDetailsView(APIView):
-    """Returns details of the currently logged-in user."""
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
-        serializer = UserDetailsSerializer(request.user)
-        return Response(serializer.data)
-
-
-class UnreadChatMessagesCountView(APIView):
-    """Returns the count of unread chat conversations for the user."""
-    permission_classes = (IsAuthenticated,)
-
-    def get(self, request):
-        count = ChatMessage.objects.filter(recipient=request.user, is_read=False).values('sender').distinct().count()
-        return Response({'unread_count': count}, status=status.HTTP_200_OK)
 
 class TournamentViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -361,482 +116,6 @@ class MyTournamentsView(generics.ListAPIView):
         )
 
 
-class NotificationListView(generics.ListAPIView):
-    """API endpoint that lists notifications for the current user."""
-    serializer_class = NotificationSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Notifications.objects.filter(user=self.request.user)
-
-
-class NotificationMarkReadView(APIView):
-    """
-    PATCH /api/notifications/{pk}/read/
-    Oznacza pojedyncze powiadomienie jako przeczytane.
-    Tylko właściciel może oznaczyć swoje powiadomienie.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def patch(self, request, pk):
-        try:
-            notif = Notifications.objects.get(pk=pk, user=request.user)
-        except Notifications.DoesNotExist:
-            return Response({'detail': 'Nie znaleziono.'}, status=status.HTTP_404_NOT_FOUND)
-        notif.is_read = True
-        notif.save(update_fields=['is_read'])
-        return Response({'id': notif.pk, 'is_read': True}, status=status.HTTP_200_OK)
-
-
-class NotificationMarkAllReadView(APIView):
-    """
-    POST /api/notifications/read-all/
-    Oznacza wszystkie powiadomienia użytkownika jako przeczytane.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        updated = Notifications.objects.filter(user=request.user, is_read=False).update(is_read=True)
-        return Response({'marked': updated}, status=status.HTTP_200_OK)
-
-
-class MatchHistoryView(generics.ListAPIView):
-    """API endpoint that lists match history with calculated results.
-
-    Returns both friendly Match objects and completed TournamentMatches
-    (converted to a common dict format by Results.get_matches).
-    Tournament entries have is_tournament=True and tournament_id set.
-    """
-    serializer_class = MatchHistorySerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        filters = match_tools.prepare_filters(self.request)
-        results_obj = match_tools.Results(self.request, sort="match_date", **filters)
-        return results_obj.qs
-
-    def list(self, request, *args, **kwargs):
-        """Override list to return the full matches list (friendly + tournament)."""
-        filters = match_tools.prepare_filters(request)
-        results_obj = match_tools.Results(request, sort="match_date", **filters)
-
-        def build_player(m, key):
-            """Build {id, username, first_name, last_name} from match dict keys."""
-            uid = m.get(f'{key}_id')
-            if not uid:
-                return None
-            full = m.get(key) or ''   # e.g. "Jan Kowalski"
-            parts = full.strip().split(' ', 1) if full else []
-            return {
-                'id': uid,
-                'username': m.get(f'{key}_username') or '',
-                'first_name': parts[0] if parts else '',
-                'last_name': parts[1] if len(parts) > 1 else '',
-            }
-
-        data = []
-        for m in results_obj.matches:
-            entry = {
-                'id': m.get('id'),
-                'p1': build_player(m, 'p1'),
-                'p2': build_player(m, 'p2'),
-                'p3': build_player(m, 'p3'),
-                'p4': build_player(m, 'p4'),
-                'p1_set1': m.get('p1_set1'),
-                'p1_set2': m.get('p1_set2'),
-                'p1_set3': m.get('p1_set3'),
-                'p2_set1': m.get('p2_set1'),
-                'p2_set2': m.get('p2_set2'),
-                'p2_set3': m.get('p2_set3'),
-                'match_double': m.get('match_double', False),
-                'description': m.get('description'),
-                'match_date': str(m.get('match_date', '')),
-                'score_status': m.get('score_status'),
-                'reported_by': None,
-                'confirmed_by': None,
-                'win': m.get('win'),
-                'user': m.get('user'),
-                'p1_win_set': m.get('p1_win_set', 0),
-                'p2_win_set': m.get('p2_win_set', 0),
-                'p1_win_gem': m.get('p1_win_gem', 0),
-                'p2_win_gem': m.get('p2_win_gem', 0),
-                # Extra fields for tournament matches
-                'is_tournament': m.get('is_tournament', False),
-                'tournament_id': m.get('tournament_id'),
-            }
-            data.append(entry)
-
-        return Response(data)
-
-
-class MatchFiltersView(APIView):
-    """API endpoint to get filter options for match history."""
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        all_played_opponents = match_tools.get_played_with_players(request)
-        doubles_partners = match_tools.get_doubles_partners(request)
-        doubles_opponents = match_tools.get_doubles_opponents(request)
-        years = match_tools.prepare_years(request)
-
-        return Response({
-            'years': years,
-            'all_played_opponents': UserDetailsSerializer(all_played_opponents, many=True).data,
-            'doubles_partners': UserDetailsSerializer(doubles_partners, many=True).data,
-            'doubles_opponents': UserDetailsSerializer(doubles_opponents, many=True).data,
-        })
-
-
-class RankingListView(generics.ListAPIView):
-    """
-    Lista rankingowa graczy.
-    GET /api/rankings/list/?type=SNG&year=2026
-
-    Query params:
-      type  — SNG (domyślny) lub DBL
-      year  — rok sezonu (liczba) lub "all" dla all-time
-
-    Auth: IsAuthenticatedOrReadOnly — odczyt publiczny, tak jak turnieje.
-    """
-    serializer_class = PlayerRankingSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        from apps.rankings.models import PlayerRanking
-        match_type = self.request.query_params.get('type', 'SNG').upper()
-        year_param = self.request.query_params.get('year', None)
-
-        # Normalizuj typ
-        if match_type not in ('SNG', 'DBL'):
-            match_type = 'SNG'
-
-        # Wyznacz sezon
-        if year_param is None or year_param == '':
-            # Domyślnie: najnowszy dostępny sezon z danych
-            latest = (
-                PlayerRanking.objects
-                .filter(match_type=match_type)
-                .exclude(season=None)
-                .order_by('-season')
-                .values_list('season', flat=True)
-                .first()
-            )
-            season = latest  # może być None = all-time
-        elif year_param.lower() == 'all':
-            season = None
-        elif year_param.isdigit():
-            season = int(year_param)
-        else:
-            season = None
-
-        return (
-            PlayerRanking.objects
-            .filter(match_type=match_type, season=season)
-            .select_related('user')
-            .order_by('position')
-        )
-
-
-class DashboardSummaryView(APIView):
-    """
-    Lekki endpoint dla dashboardu Astro.
-    Zwraca dane potrzebne do stat-cards:
-      - ranking (pozycja, punkty)
-      - ostatni mecz
-      - najbliższa rezerwacja
-      - liczba nadchodzących turniejów
-
-    Auth: IsAuthenticated (sesja Django lub JWT).
-    Gdy brak danych → null (graceful degradation dla frontendu).
-    """
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        now = timezone.now()
-
-        # ── Ranking ──────────────────────────────────────────────────
-        try:
-            from apps.rankings.models import PlayerRanking
-            ranking = PlayerRanking.objects.filter(user=user, match_type='SNG').first()
-            ranking_data = {
-                'position': ranking.position if ranking else None,
-                'points': float(ranking.points) if ranking else None,
-                'matches_played': ranking.matches_played if ranking else None,
-                'matches_won': ranking.matches_won if ranking else None,
-                'matches_lost': ranking.matches_lost if ranking else None,
-                'win_rate': round(
-                    ranking.matches_won / ranking.matches_played * 100
-                ) if ranking and ranking.matches_played else None,
-            }
-        except Exception:
-            ranking_data = None
-
-        # ── Ostatni mecz ────────────────────────────────────────────
-        try:
-            from apps.matches.models import Match
-            from django.db.models import Q
-            last_match = (
-                Match.objects
-                .filter(Q(p1=user) | Q(p2=user) | Q(p3=user) | Q(p4=user))
-                .order_by('-match_date', '-last_updated')
-                .first()
-            )
-            if last_match:
-                # Wyznacz wynik z perspektywy zalogowanego gracza — licz wszystkie sety
-                is_p1_side = (last_match.p1 == user or last_match.p3 == user)
-                opponent = last_match.p2 if is_p1_side else last_match.p1
-
-                sets_won = sets_lost = 0
-                score_parts = []
-                for p1s, p2s in [
-                    (last_match.p1_set1, last_match.p2_set1),
-                    (last_match.p1_set2, last_match.p2_set2),
-                    (last_match.p1_set3, last_match.p2_set3),
-                ]:
-                    if p1s is None or p2s is None:
-                        continue
-                    my_s  = p1s if is_p1_side else p2s
-                    opp_s = p2s if is_p1_side else p1s
-                    score_parts.append(f"{my_s}:{opp_s}")
-                    if my_s > opp_s:
-                        sets_won += 1
-                    elif opp_s > my_s:
-                        sets_lost += 1
-
-                last_match_data = {
-                    'date': last_match.match_date.isoformat(),
-                    'opponent': opponent.get_full_name() or opponent.username,
-                    'score': ' '.join(score_parts),
-                    'won': sets_won > sets_lost,
-                    'double': last_match.match_double,
-                }
-            else:
-                last_match_data = None
-        except Exception:
-            last_match_data = None
-
-        # ── Najbliższa rezerwacja ──────────────────────────────────
-        try:
-            from apps.courts.models import Reservation
-            next_res = (
-                Reservation.objects
-                .filter(user=user, start_time__gte=now, status__in=['PENDING', 'CONFIRMED'])
-                .select_related('court', 'court__facility')
-                .order_by('start_time')
-                .first()
-            )
-            if next_res:
-                reservation_data = {
-                    'date': next_res.start_time.strftime('%d %b, %H:%M'),
-                    'end_time': next_res.end_time.strftime('%H:%M'),
-                    'court': str(next_res.court) if next_res.court else None,
-                    'status': next_res.status,
-                }
-            else:
-                reservation_data = None
-        except Exception:
-            reservation_data = None
-
-        # ── Nadchodzące turnieje (liczba) ──────────────────────────
-        try:
-            upcoming_tournaments_count = Tournament.objects.filter(
-                status__in=['REG', 'ACT']
-            ).count()
-        except Exception:
-            upcoming_tournaments_count = None
-
-        # ── Activity feed ───────────────────────────────────────────
-        activity_events = []
-        try:
-            from apps.matches.models import Match
-            from django.db.models import Q
-
-            def _full_name(u):
-                return (u.get_full_name().strip() or u.username) if u else '?'
-
-            # 1. Mecze towarzyskie — ostatnie 10 z wynikiem (posortujemy później)
-            friendly_matches = (
-                Match.objects
-                .filter(Q(p1=user) | Q(p2=user) | Q(p3=user) | Q(p4=user))
-                .filter(p1_set1__isnull=False)   # musi mieć przynajmniej 1 set
-                .select_related('p1', 'p2')
-                .order_by('-last_updated')[:10]
-            )
-            for m in friendly_matches:
-                is_p1 = (m.p1 == user or m.p3 == user)
-                opp   = m.p2 if is_p1 else m.p1
-
-                # Licz sety (ta sama logika co tools.py) — nie porównuj tylko set1
-                p1_sets_won = 0
-                p2_sets_won = 0
-                sets = []
-                for s1, s2 in [
-                    (m.p1_set1, m.p2_set1),
-                    (m.p1_set2, m.p2_set2),
-                    (m.p1_set3, m.p2_set3),
-                ]:
-                    if s1 is None or s2 is None:
-                        continue
-                    sets.append(f"{s1}:{s2}")
-                    if s1 > s2:
-                        p1_sets_won += 1
-                    elif s2 > s1:
-                        p2_sets_won += 1
-
-                if p1_sets_won > p2_sets_won:
-                    won = is_p1
-                elif p2_sets_won > p1_sets_won:
-                    won = not is_p1
-                else:
-                    won = None  # remis
-
-                result_label = 'Wygrana' if won is True else ('Porażka' if won is False else 'Remis')
-                activity_events.append({
-                    'type': 'match',
-                    'timestamp': m.last_updated.isoformat(),
-                    'title': result_label + f' vs {_full_name(opp)}',
-                    'detail': ('Debel' if m.match_double else 'Singiel') + ' · ' + ', '.join(sets),
-                    'href': f'/matches/{m.pk}',
-                    'result': 'win' if won is True else ('loss' if won is False else 'neutral'),
-                })
-        except Exception:
-            pass
-
-        try:
-            from apps.tournaments.models import TournamentsMatch, Participant
-            # 2. Mecze turniejowe zakończone (CMP) — przez Participant zalogowanego usera
-            my_participant_ids = list(
-                Participant.objects.filter(user=user).values_list('id', flat=True)
-            )
-            if my_participant_ids:
-                t_matches = (
-                    TournamentsMatch.objects
-                    .filter(
-                        status='CMP',
-                    )
-                    .filter(
-                        Q(participant1_id__in=my_participant_ids) |
-                        Q(participant2_id__in=my_participant_ids) |
-                        Q(participant3_id__in=my_participant_ids) |
-                        Q(participant4_id__in=my_participant_ids)
-                    )
-                    .select_related(
-                        'tournament',
-                        'participant1__user', 'participant2__user',
-                        'participant3__user', 'participant4__user',
-                    )
-                    .order_by('-scheduled_time')[:10]
-                )
-                for tm in t_matches:
-                    # Ustal stronę gracza i wynik
-                    my_p_ids = set(my_participant_ids)
-                    is_team_a = (
-                        (tm.participant1_id in my_p_ids) or
-                        (tm.participant4_id in my_p_ids)
-                    )
-                    g_a = tm.set1_p1_score
-                    g_b = tm.set1_p2_score
-                    if g_a is not None and g_b is not None:
-                        won = g_a > g_b if is_team_a else g_b > g_a
-                        score_str = f'{g_a}:{g_b}'
-                    else:
-                        won = None
-                        score_str = None
-
-                    # Skonstruuj nazwę przeciwnika
-                    if is_team_a:
-                        opp_p = tm.participant2
-                        opp_p2 = tm.participant3
-                    else:
-                        opp_p = tm.participant1
-                        opp_p2 = tm.participant4
-                    opp_name = _full_name(opp_p.user if opp_p and opp_p.user else None)
-                    if opp_p2 and opp_p2.user:
-                        opp_name += f' / {_full_name(opp_p2.user)}'
-
-                    result_label = ('Wygrana' if won else 'Porażka') if won is not None else 'Zakończony'
-                    detail = f'Turniej: {tm.tournament.name}'
-                    if score_str:
-                        detail += f' · {score_str}'
-
-                    ts = tm.scheduled_time.isoformat() if tm.scheduled_time else None
-                    if not ts:
-                        continue  # bez timestamp pomiń
-
-                    activity_events.append({
-                        'type': 'match',
-                        'timestamp': ts,
-                        'title': f'{result_label} vs {opp_name}',
-                        'detail': detail,
-                        'href': f'/tournaments/{tm.tournament_id}',
-                        'result': 'win' if won else ('loss' if won is False else 'neutral'),
-                    })
-        except Exception:
-            pass
-
-        try:
-            from apps.tournaments.models import Participant
-            # 3. Dołączenie do turnieju
-            joins = (
-                Participant.objects
-                .filter(user=user)
-                .exclude(status='WDN')
-                .select_related('tournament')
-                .order_by('-created_at')[:10]
-            )
-            for p in joins:
-                activity_events.append({
-                    'type': 'tournament_join',
-                    'timestamp': p.created_at.isoformat(),
-                    'title': f'Dołączyłeś do turnieju {p.tournament.name}',
-                    'detail': p.tournament.get_status_display() if hasattr(p.tournament, 'get_status_display') else '',
-                    'href': f'/tournaments/{p.tournament_id}',
-                    'result': 'neutral',
-                })
-        except Exception:
-            pass
-
-        try:
-            from apps.courts.models import Reservation
-
-            def _weekday_pl(dt):
-                days = ['poniedziałek', 'wtorek', 'środę', 'czwartek', 'piątek', 'sobotę', 'niedzielę']
-                return days[dt.weekday()]
-
-            reservations = (
-                Reservation.objects
-                .filter(user=user, status__in=['PENDING', 'CONFIRMED'])
-                .order_by('-created_at')[:5]
-            )
-            for r in reservations:
-                day = _weekday_pl(r.start_time)
-                time_str = r.start_time.strftime('%H:%M')
-                court_str = f' ({r.court})' if r.court else ''
-                activity_events.append({
-                    'type': 'reservation',
-                    'timestamp': r.created_at.isoformat(),
-                    'title': f'Zarezerwowałeś kort na {day} {time_str}{court_str}',
-                    'detail': r.start_time.strftime('%d %b %Y'),
-                    'href': '/courts/reservations',
-                    'result': 'neutral',
-                })
-        except Exception:
-            pass
-
-        # Posortuj wszystkie eventy malejąco po timestamp, weź 5
-        activity_events.sort(key=lambda e: e['timestamp'], reverse=True)
-        activity_data = activity_events[:5]
-
-        return Response({
-            'ranking': ranking_data,
-            'last_match': last_match_data,
-            'next_reservation': reservation_data,
-            'upcoming_tournaments_count': upcoming_tournaments_count,
-            'activity': activity_data,
-        })
-
-
 class RoundRobinMatchScoreView(APIView):
     """
     Zapis wyniku meczu przez organizatora.
@@ -859,7 +138,7 @@ class RoundRobinMatchScoreView(APIView):
 
     Logika wyznaczania zwycięzcy:
       - liczy wygrane sety per uczestnik
-      - jeśli jeden z nich ≥ sets_to_win → winner + status CMP
+      - jika jeden z nich ≥ sets_to_win → winner + status CMP
       - jeśli są wyniki ale brak zwycięzcy → status INP
       - zapisuje MatchScoreHistory
 
@@ -880,7 +159,7 @@ class RoundRobinMatchScoreView(APIView):
             Tournament, TournamentsMatch, RoundRobinConfig, MatchScoreHistory,
         )
 
-        # ── Pobierz turniej i mecz ────────────────────────────────────────────
+        # ── Pobierz turniej ───────────────────────────────────────────────────
         try:
             tournament = Tournament.objects.select_related(
                 'round_robin_config', 'elimination_config'
@@ -1163,7 +442,6 @@ class RoundRobinMatchScoreView(APIView):
 
             gps = config_for_validation.games_per_set   # np. 6
             sts = config_for_validation.sets_to_win      # np. 2
-            max_sets = sts * 2 - 1                        # np. 3
 
             # Sety 1 i 2: standardowy set gemowy (max gps+2 z przewagą, albo gps:gps → tie-break)
             for i in (1, 2):
@@ -1482,7 +760,7 @@ class EliminationConfigUpdateView(APIView):
         if 'initial_seeding' in data:
             seeding = data['initial_seeding']
             if seeding not in ('RANDOM', 'SEEDING'):
-                return Response({'detail': 'initial_seeding musi być RANDOM lub SEEDING.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'initial_seeding must be RANDOM or SEEDING.'}, status=status.HTTP_400_BAD_REQUEST)
             config.initial_seeding = seeding
         if 'third_place_match' in data:
             config.third_place_match = bool(data['third_place_match'])
@@ -1541,25 +819,25 @@ class AmericanoConfigUpdateView(APIView):
             try:
                 ppm = int(data['points_per_match'])
             except (TypeError, ValueError):
-                return Response({'detail': 'points_per_match musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'points_per_match must be integer.'}, status=status.HTTP_400_BAD_REQUEST)
             if ppm < 1:
-                return Response({'detail': 'points_per_match musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'points_per_match must be >= 1.'}, status=status.HTTP_400_BAD_REQUEST)
             config.points_per_match = ppm
 
         if 'number_of_rounds' in data:
             try:
                 nor = int(data['number_of_rounds'])
             except (TypeError, ValueError):
-                return Response({'detail': 'number_of_rounds musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'number_of_rounds must be integer.'}, status=status.HTTP_400_BAD_REQUEST)
             if nor < 1:
-                return Response({'detail': 'number_of_rounds musi wynosić co najmniej 1.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'detail': 'number_of_rounds must be >= 1.'}, status=status.HTTP_400_BAD_REQUEST)
             config.number_of_rounds = nor
 
         if 'scheduling_type' in data:
             valid = [c[0] for c in AmericanoConfig.SCHEDULING_CHOICES]
             if data['scheduling_type'] not in valid:
                 return Response(
-                    {'detail': f'scheduling_type musi być jednym z: {valid}.'},
+                    {'detail': f'scheduling_type must be in: {valid}.'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             config.scheduling_type = data['scheduling_type']
@@ -1663,73 +941,6 @@ class RoundRobinConfigUpdateView(APIView):
         return Response({
             'config': RoundRobinConfigSerializer(config).data,
             'standings': RoundRobinStandingSerializer(standings_out, many=True).data,
-        }, status=status.HTTP_200_OK)
-
-
-class RebuildRankingsView(APIView):
-    """
-    Ręczny rebuild precomputed rankingów.
-    POST /api/admin/rebuild-rankings/
-
-    Uprawnienia: is_staff only.
-
-    Body (JSON, wszystkie opcjonalne):
-      match_type — 'SNG' lub 'DBL' (domyślnie: oba)
-      season     — rok (liczba) lub pominięty = wszystkie sezony
-
-    Odpowiedź 200:
-      { "rebuilt": <liczba wpisów>, "match_type": ..., "season": ... }
-    """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        if not request.user.is_staff:
-            return Response(
-                {'detail': 'Wymagane uprawnienia is_staff.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        match_type = request.data.get('match_type')
-        season_raw = request.data.get('season')
-
-        # Walidacja match_type
-        if match_type is not None and match_type not in ('SNG', 'DBL'):
-            return Response(
-                {'detail': 'match_type musi być "SNG" lub "DBL".'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Walidacja season
-        season = None
-        if season_raw is not None:
-            try:
-                season = int(season_raw)
-            except (ValueError, TypeError):
-                return Response(
-                    {'detail': 'season musi być liczbą całkowitą.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        logger.info(
-            '[rankings] Ręczny rebuild zainicjowany przez %s: match_type=%s, season=%s.',
-            request.user.username, match_type or 'all', season or 'all',
-        )
-
-        try:
-            from apps.rankings.services.ranking_calculator import rebuild_rankings
-            count = rebuild_rankings(match_type=match_type, season=season)
-        except Exception as exc:
-            logger.error('[rankings] Błąd ręcznego rebuild: %s', exc, exc_info=True)
-            return Response(
-                {'detail': f'Błąd rebuildu: {exc}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        logger.info('[rankings] Ręczny rebuild zakończony: %d wpisów.', count)
-        return Response({
-            'rebuilt': count,
-            'match_type': match_type or 'all',
-            'season': season or 'all',
         }, status=status.HTTP_200_OK)
 
 
@@ -2492,7 +1703,7 @@ class TournamentJoinView(APIView):
     - turniej musi być w statusie REG
     - user nie może być już aktywnym uczestnikiem (Participant lub TeamMember)
     - jeśli był WDN → reaktywacja rekordu
-    - jeśli osiągnięto max_participants (RND) → 409
+    - jeśli osiągniętą max_participants (RND) → 409
     """
     permission_classes = [IsAuthenticated]
 

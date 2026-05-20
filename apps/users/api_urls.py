@@ -1,3 +1,4 @@
+# [LEGACY - SESSION AUTH]
 """
 API URLs for authentication endpoints
 Used by Astro frontend

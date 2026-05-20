@@ -76,6 +76,8 @@ db.sqlite3
 
 # Local development environment overrides
 docker-compose.yml
-DEPLOYMENT.md
 docker-compose.override.yml
 nginx.conf
+DEPLOYMENT.md
+.antigravity.rules
+/doc
