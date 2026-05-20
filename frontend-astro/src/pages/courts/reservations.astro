@@ -8,6 +8,8 @@ import { getCurrentUser, getMyReservations, type ReservationEntry } from '@/lib/
 import { url } from '@/lib/url';
 
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+
+// SSR fetch — równolegle
 const [currentUser, rawReservations] = await Promise.all([
   getCurrentUser(sessionCookie),
   getMyReservations(sessionCookie),
@@ -15,6 +17,32 @@ const [currentUser, rawReservations] = await Promise.all([
 
 if (!currentUser) {
   return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/courts/reservations')));
+}
+
+// Właściciel / staff — pobierz oczekujące rezerwacje do zatwierdzenia
+interface PendingEntry {
+  id: number;
+  court_name: string | null;
+  facility_name: string | null;
+  start_time: string;
+  end_time: string;
+  status: string;
+  user_name: string;
+}
+const isManager = currentUser.is_staff;  // rozszerzalne o facility.owner w przyszłości
+
+// Dla is_staff pobieramy pending SSR; dla właściciela facility też (backend filtruje)
+// Dla zwykłego usera nie fetchujemy w ogóle
+let pendingReservations: PendingEntry[] = [];
+if (isManager) {
+  try {
+    const DJANGO_API = import.meta.env.DJANGO_API_URL ?? process.env.DJANGO_API_URL ?? 'http://localhost:8000';
+    const pr = await fetch(`${DJANGO_API}/api/courts/reservations/pending/`, {
+      headers: { Cookie: sessionCookie ?? '', Accept: 'application/json' },
+      redirect: 'manual',
+    });
+    if (pr.ok) pendingReservations = await pr.json();
+  } catch { /* graceful — sekcja będzie pusta */ }
 }
 
 // Pomocnik formatowania daty i godziny z ISO datetime
@@ -26,6 +54,13 @@ function fmtDate(iso: string): string {
 function fmtTime(iso: string): string {
   try {
     return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+  } catch { return iso; }
+}
+function fmtDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('pl-PL', {
+      weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+    });
   } catch { return iso; }
 }
 
@@ -63,6 +98,52 @@ const todayIso = new Date().toISOString().slice(0, 10);
     centered={true}
   />
 
+  <!-- Sekcja managera — widoczna tylko dla is_staff / właściciela obiektu -->
+  {isManager && (
+    <section class="owner-section tc-card" aria-labelledby="owner-heading" id="owner-section">
+      <div class="tc-card-header">
+        <h2 class="tc-card-title" id="owner-heading">Oczekujące rezerwacje</h2>
+        <span class="owner-section__badge" id="owner-pending-count">
+          {pendingReservations.length > 0 ? `${pendingReservations.length} oczekuje` : 'Brak oczekujących'}
+        </span>
+      </div>
+
+      <div id="owner-pending-list">
+        {pendingReservations.length === 0 ? (
+          <div class="owner-empty">
+            <span aria-hidden="true">✓</span>
+            Wszystkie rezerwacje są obsłużone.
+          </div>
+        ) : (
+          <div class="owner-res-list">
+            {pendingReservations.map(r => (
+              <div class="owner-res-row" data-res-id={r.id}>
+                <div class="owner-res-row__info">
+                  <div class="owner-res-row__who">{r.user_name}</div>
+                  <div class="owner-res-row__what">
+                    {r.court_name ?? 'Kort'}
+                    {r.facility_name && <span class="owner-res-row__facility"> · {r.facility_name}</span>}
+                  </div>
+                  <div class="owner-res-row__when">
+                    {fmtDateTime(r.start_time)}–{fmtTime(r.end_time)}
+                  </div>
+                </div>
+                <div class="owner-res-row__actions">
+                  <button class="tc-btn tc-btn-success tc-btn-sm owner-approve-btn" data-res-id={r.id}>
+                    Zatwierdź
+                  </button>
+                  <button class="tc-btn tc-btn-ghost tc-btn-sm owner-reject-btn" data-res-id={r.id}>
+                    Odrzuć
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )}
+
   <!-- Moje rezerwacje — szybki podgląd -->
   <section class="my-res-section" aria-labelledby="my-res-heading">
     <h2 class="section-label" id="my-res-heading">Moje rezerwacje</h2>
@@ -76,7 +157,7 @@ const todayIso = new Date().toISOString().slice(0, 10);
       ) : (
         <div class="my-res-grid">
           {myReservations.map(r => (
-            <div class={`my-res-card my-res-card--${r.status}`}>
+            <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id}>
               <div class="my-res-card__left">
                 <div class="my-res-card__court">{r.court}</div>
                 {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
@@ -86,6 +167,9 @@ const todayIso = new Date().toISOString().slice(0, 10);
                 <span class={`tc-badge ${r.status === 'confirmed' ? 'tc-badge-success' : 'tc-badge-warning'}`}>
                   {r.status === 'confirmed' ? 'Potwierdzona' : 'Oczekuje'}
                 </span>
+                <button class="my-res-cancel-btn" data-res-id={r.id} aria-label="Anuluj rezerwację">
+                  Anuluj
+                </button>
               </div>
             </div>
           ))}
@@ -105,14 +189,17 @@ const todayIso = new Date().toISOString().slice(0, 10);
           </svg>
         </button>
 
-        <!-- Klikalna etykieta daty — otwiera natywny date picker -->
-        <label class="cal-date-picker-wrap" aria-label="Wybierz datę">
-          <span id="cal-date-label" class="calendar-date-label">—</span>
-          <svg class="cal-date-picker-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <!-- Przycisk daty — input wewnątrz żeby picker otwierał się pod buttonem -->
+        <button type="button" id="cal-date-btn" class="cal-date-btn" aria-label="Wybierz datę z kalendarza">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
           </svg>
-          <input id="cal-date-input" type="date" class="cal-date-input-hidden" aria-label="Wybierz datę grafiku" />
-        </label>
+          <span id="cal-date-label" class="cal-date-btn__label">—</span>
+          <input id="cal-date-input" type="date" aria-label="Wybierz datę grafiku"
+            style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0;" />
+        </button>
+
+        <button id="cal-today" class="tc-btn tc-btn-ghost tc-btn-sm" aria-label="Przejdź do dzisiaj">Dziś</button>
 
         <button id="cal-next" class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Następny dzień">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -211,6 +298,61 @@ const todayIso = new Date().toISOString().slice(0, 10);
   /* ── courts/reservations.astro ─────────────────────────────────────────── */
   /* is:global wymagane bo część klas (.calendar-*, .cal-res*) tworzonych przez JS */
 
+  /* ── Owner section ─────────────────────────────────────────────────────── */
+  .owner-section { margin-bottom: 24px; }
+
+  .owner-section__badge {
+    font-size: 0.72rem; font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 99px;
+    background: rgba(234,179,8,0.12);
+    color: #92400e;
+    border: 1px solid rgba(234,179,8,0.3);
+  }
+  [data-theme="dark"] .owner-section__badge { color: #fbbf24; }
+
+  .owner-empty {
+    display: flex; align-items: center; gap: 8px;
+    padding: 18px 20px;
+    font-size: 0.875rem; color: var(--text-muted);
+  }
+
+  .owner-res-list { display: flex; flex-direction: column; }
+
+  .owner-res-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .owner-res-row:last-child { border-bottom: none; }
+  .owner-res-row:hover { background: var(--surface-2, rgba(128,128,128,0.04)); }
+
+  .owner-res-row__info { flex: 1; min-width: 0; }
+  .owner-res-row__who {
+    font-weight: 700; font-size: 0.875rem; color: var(--text);
+    margin-bottom: 2px;
+  }
+  .owner-res-row__what {
+    font-size: 0.82rem; color: var(--text-muted); margin-bottom: 2px;
+  }
+  .owner-res-row__facility { opacity: 0.7; }
+  .owner-res-row__when {
+    font-size: 0.78rem; color: var(--text-dim);
+  }
+
+  .owner-res-row__actions {
+    display: flex; gap: 8px; flex-shrink: 0;
+  }
+
+  /* tc-btn-success — jeśli nie ma w globalnych */
+  .tc-btn-success {
+    background: #22c55e; color: #fff; border: none;
+  }
+  .tc-btn-success:hover { background: #16a34a; }
+  .tc-btn-success:disabled { background: #86efac; cursor: not-allowed; }
+
   /* ── My reservations ───────────────────────────────────────────────────── */
   .my-res-section { margin-bottom: 24px; }
 
@@ -264,8 +406,36 @@ const todayIso = new Date().toISOString().slice(0, 10);
 
   .my-res-card__right {
     display: flex; flex-direction: column; align-items: flex-end;
-    flex-shrink: 0;
+    flex-shrink: 0; gap: 6px;
   }
+
+  /* Przycisk Anuluj na karcie rezerwacji */
+  .my-res-cancel-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.72rem; font-weight: 600;
+    color: var(--text-dim);
+    padding: 2px 0;
+    text-decoration: underline;
+    transition: color 0.12s;
+  }
+  .my-res-cancel-btn:hover { color: var(--danger, #dc2626); }
+
+  /* Inline confirm — pojawia się po kliknięciu "Anuluj" */
+  .my-res-inline-confirm {
+    display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
+    animation: fadeIn 0.12s ease;
+  }
+  .my-res-inline-confirm__label {
+    font-size: 0.72rem; font-weight: 600; color: var(--danger, #dc2626);
+    white-space: nowrap;
+  }
+  .my-res-inline-confirm .tc-btn { font-size: 0.72rem; padding: 3px 10px; }
+
+  /* tc-btn-danger — jeśli nie ma w globalnych stylach */
+  .tc-btn-danger {
+    background: var(--danger, #dc2626); color: #fff; border: none;
+  }
+  .tc-btn-danger:hover { background: #b91c1c; }
 
   /* ── Calendar states ───────────────────────────────────────────────────── */
   .calendar-section { margin-top: 0; }
@@ -282,34 +452,34 @@ const todayIso = new Date().toISOString().slice(0, 10);
   .calendar-nav {
     display: flex; align-items: center; gap: 8px;
   }
-  /* Wrapper etykiety daty — klikalny, otwiera natywny picker */
-  .cal-date-picker-wrap {
-    position: relative;
-    display: flex; align-items: center; gap: 5px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: var(--radius-sm, 6px);
-    transition: background 0.12s;
-  }
-  .cal-date-picker-wrap:hover { background: var(--surface-2, rgba(128,128,128,0.08)); }
+  /* ── Nawigacja daty ──────────────────────────────────────────────────────── */
+  .calendar-nav { gap: 6px; }
 
-  .calendar-date-label {
+  /* Przycisk daty — wygląda jak button, zawiera ukryty input[date] */
+  .cal-date-btn {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 7px;
+    cursor: pointer;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 6px);
+    background: var(--surface);
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    white-space: nowrap;
+  }
+  .cal-date-btn:hover {
+    background: var(--surface-2, rgba(128,128,128,0.07));
+    border-color: var(--primary, #22c55e);
+    box-shadow: 0 0 0 2px rgba(34,197,94,0.12);
+  }
+  .cal-date-btn svg { color: var(--text-muted); flex-shrink: 0; pointer-events: none; }
+
+  .cal-date-btn__label {
     font-size: 0.85rem; font-weight: 600; color: var(--text);
-    white-space: nowrap; min-width: 140px; text-align: center;
     pointer-events: none;
   }
 
-  .cal-date-picker-icon {
-    color: var(--text-muted); flex-shrink: 0; pointer-events: none;
-  }
-
-  /* Input schowany wizualnie — ale klikalny przez label */
-  .cal-date-input-hidden {
-    position: absolute; inset: 0;
-    opacity: 0; cursor: pointer;
-    width: 100%; height: 100%;
-    font-size: 0; /* nie zajmuje miejsca tekstem */
-  }
+  /* Input daty — schowany wizualnie przez inline style, otwierany przez showPicker() */
 
   .calendar-wrap { padding-bottom: 4px; }
   .calendar-grid { min-width: 560px; }
@@ -683,6 +853,8 @@ function durationMin(start, end) {
 }
 
 function openPopup(slot) {
+  // Blokada dat przeszłych — nie powinno się zdarzać, ale jako obrona
+  if (slot.date < todayIso) return;
   pendingSlot = slot;
 
   const dur      = durationMin(slot.startTime, slot.endTime);
@@ -810,23 +982,182 @@ function renderMyReservations(list) {
     return;
   }
 
+  const now = new Date();
   section.innerHTML = `<div class="my-res-grid">${list.map(r => {
-    const status  = r.status.toLowerCase();
-    const date    = fmtDateShort(r.start_time);
-    const timeStr = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
-    const badge   = status === 'confirmed'
+    const status    = r.status.toLowerCase();
+    const dateStr   = fmtDateShort(r.start_time);
+    const timeStr   = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
+    const isFuture  = new Date(r.start_time) > now;
+    const badge     = status === 'confirmed'
       ? '<span class="tc-badge tc-badge-success">Potwierdzona</span>'
       : '<span class="tc-badge tc-badge-warning">Oczekuje</span>';
+    const cancelBtn = isFuture
+      ? `<button class="my-res-cancel-btn" data-res-id="${r.id}" aria-label="Anuluj rezerwację">Anuluj</button>`
+      : '';
     return `
-      <div class="my-res-card my-res-card--${status}">
+      <div class="my-res-card my-res-card--${status}" data-res-id="${r.id}">
         <div class="my-res-card__left">
           <div class="my-res-card__court">${r.court_name ?? 'Kort'}</div>
           ${r.facility_name ? `<div class="my-res-card__facility">${r.facility_name}</div>` : ''}
-          <div class="my-res-card__time">${date} · ${timeStr}</div>
+          <div class="my-res-card__time">${dateStr} · ${timeStr}</div>
         </div>
-        <div class="my-res-card__right">${badge}</div>
+        <div class="my-res-card__right">${badge}${cancelBtn}</div>
       </div>`;
   }).join('')}</div>`;
+}
+
+// ── Anulowanie rezerwacji ──────────────────────────────────────────────────
+//
+// Flow: klik "Anuluj" → przycisk zmienia się w "Potwierdź / Cofnij" (inline confirm)
+//       → klik "Potwierdź" → DELETE /api/courts/reservations/<id>/
+//       → sukces: reload listy + reload timeline | błąd: toast
+
+let cancelConfirmId = null; // ID rezerwacji w trybie inline-confirm
+
+document.getElementById('my-res-list').addEventListener('click', async e => {
+  const btn = e.target.closest('.my-res-cancel-btn, .my-res-confirm-btn, .my-res-undo-btn');
+  if (!btn) return;
+
+  const resId = parseInt(btn.dataset.resId, 10);
+
+  // ── "Anuluj" → przejdź w tryb inline-confirm ──────────────────────────
+  if (btn.classList.contains('my-res-cancel-btn')) {
+    // Cofnij poprzedni inline-confirm jeśli jest inny
+    if (cancelConfirmId && cancelConfirmId !== resId) {
+      resetCancelState(cancelConfirmId);
+    }
+    cancelConfirmId = resId;
+    const card = document.querySelector(`[data-res-id="${resId}"]`);
+    if (!card) return;
+    const right = card.querySelector('.my-res-card__right');
+    // Schowaj oryginalny badge + przycisk Anuluj, pokaż inline confirm
+    right.querySelectorAll('.tc-badge, .my-res-cancel-btn').forEach(el => el.style.display = 'none');
+    right.insertAdjacentHTML('beforeend', `
+      <div class="my-res-inline-confirm" data-confirm-id="${resId}">
+        <span class="my-res-inline-confirm__label">Na pewno anulować?</span>
+        <button class="my-res-confirm-btn tc-btn tc-btn-danger tc-btn-sm" data-res-id="${resId}">Tak, anuluj</button>
+        <button class="my-res-undo-btn tc-btn tc-btn-ghost tc-btn-sm" data-res-id="${resId}">Cofnij</button>
+      </div>
+    `);
+    return;
+  }
+
+  // ── "Cofnij" → wróć do normalnego stanu ──────────────────────────────
+  if (btn.classList.contains('my-res-undo-btn')) {
+    resetCancelState(resId);
+    cancelConfirmId = null;
+    return;
+  }
+
+  // ── "Tak, anuluj" → DELETE ────────────────────────────────────────────
+  if (btn.classList.contains('my-res-confirm-btn')) {
+    btn.disabled = true;
+    btn.textContent = 'Anulowanie…';
+
+    try {
+      const res = await fetch(`/api/courts/reservations/${resId}/`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf() },
+      });
+
+      if (res.ok || res.status === 204) {
+        cancelConfirmId = null;
+        showToast('Rezerwacja została anulowana.', 'success');
+        await Promise.all([reloadMyReservations(), loadTimeline()]);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.detail || `Nie udało się anulować (błąd ${res.status}).`, 'error');
+        resetCancelState(resId);
+        cancelConfirmId = null;
+      }
+    } catch {
+      showToast('Brak połączenia z serwerem. Spróbuj ponownie.', 'error');
+      resetCancelState(resId);
+      cancelConfirmId = null;
+    }
+  }
+});
+
+function resetCancelState(resId) {
+  const card = document.querySelector(`[data-res-id="${resId}"]`);
+  if (!card) return;
+  const right = card.querySelector('.my-res-card__right');
+  right.querySelector('.my-res-inline-confirm')?.remove();
+  right.querySelectorAll('.tc-badge, .my-res-cancel-btn').forEach(el => el.style.display = '');
+}
+
+// ── Owner: zatwierdzanie / odrzucanie rezerwacji ───────────────────────────
+
+const ownerList = document.getElementById('owner-pending-list');
+
+if (ownerList) {
+  ownerList.addEventListener('click', async e => {
+    const btn = e.target.closest('.owner-approve-btn, .owner-reject-btn');
+    if (!btn) return;
+
+    const resId  = parseInt(btn.dataset.resId, 10);
+    const action = btn.classList.contains('owner-approve-btn') ? 'approve' : 'reject';
+    const row    = ownerList.querySelector(`[data-res-id="${resId}"]`);
+
+    // Zablokuj oba przyciski w wierszu
+    row?.querySelectorAll('button').forEach(b => { b.disabled = true; });
+    btn.textContent = action === 'approve' ? 'Zatwierdzam…' : 'Odrzucam…';
+
+    try {
+      const res = await fetch(`/api/courts/reservations/${resId}/status/`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrf(),
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      if (res.ok) {
+        const label = action === 'approve' ? 'Rezerwacja zatwierdzona.' : 'Rezerwacja odrzucona.';
+        showToast(label, action === 'approve' ? 'success' : 'warning');
+        // Usuń wiersz z listy
+        row?.remove();
+        // Aktualizuj licznik badge
+        updateOwnerCount();
+        // Odśwież timeline żeby zwolniony slot był widoczny (przy odrzuceniu)
+        await loadTimeline();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.detail || `Błąd ${res.status}.`, 'error');
+        row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
+        btn.textContent = action === 'approve' ? 'Zatwierdź' : 'Odrzuć';
+      }
+    } catch {
+      showToast('Brak połączenia z serwerem.', 'error');
+      row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
+      btn.textContent = action === 'approve' ? 'Zatwierdź' : 'Odrzuć';
+    }
+  });
+}
+
+function updateOwnerCount() {
+  const rows  = ownerList?.querySelectorAll('.owner-res-row') ?? [];
+  const count = rows.length;
+  const badge = document.getElementById('owner-pending-count');
+  if (!badge) return;
+
+  if (count === 0) {
+    badge.textContent = 'Brak oczekujących';
+    // Pokaż empty state
+    const list = ownerList?.querySelector('.owner-res-list');
+    if (list) {
+      list.innerHTML = `
+        <div class="owner-empty">
+          <span aria-hidden="true">✓</span>
+          Wszystkie rezerwacje są obsłużone.
+        </div>`;
+    }
+  } else {
+    badge.textContent = `${count} oczekuje`;
+  }
 }
 
 // ── Grid render ────────────────────────────────────────────────────────────
@@ -1064,7 +1395,8 @@ async function loadTimeline() {
 
 async function init() {
   showState('loading');
-  if (dateInput) dateInput.value = currentDate;   // ustaw picker na dzisiaj
+  if (dateInput) dateInput.value = currentDate;
+  if (todayBtn) todayBtn.style.display = 'none'; // startujemy od dziś — zbędny
   dateLabel.textContent = fmtDateLabel(currentDate);
 
   try {
@@ -1082,14 +1414,39 @@ async function init() {
 
 // ── Centralna zmiana daty — synchronizuje picker + etykietę + fetch ───────────
 
+const todayBtn  = document.getElementById('cal-today');
+const dateBtnEl = document.getElementById('cal-date-btn');
+
+// Blokada przeszłych dat — min=dziś na inpucie
+if (dateInput) dateInput.min = todayIso;
+
 async function setDate(iso) {
+  // Odrzuć daty z przeszłości (zabezpieczenie np. przy prev < dziś)
+  if (iso < todayIso) iso = todayIso;
   currentDate = iso;
-  if (dateInput) dateInput.value = iso;   // sync picker z aktualną datą
+  if (dateInput) dateInput.value = iso;
+  if (todayBtn) todayBtn.style.display = (iso === todayIso) ? 'none' : '';
   await loadTimeline();
 }
 
-document.getElementById('cal-prev')?.addEventListener('click', () => setDate(addDays(currentDate, -1)));
+// Prev: nie cofaj poniżej dzisiaj
+document.getElementById('cal-prev')?.addEventListener('click', () => {
+  const prev = addDays(currentDate, -1);
+  if (prev >= todayIso) setDate(prev);
+});
 document.getElementById('cal-next')?.addEventListener('click', () => setDate(addDays(currentDate, 1)));
+todayBtn?.addEventListener('click', () => setDate(todayIso));
+
+// Klik w przycisk daty → showPicker() na ukrytym inpucie
+dateBtnEl?.addEventListener('click', () => {
+  if (!dateInput) return;
+  try {
+    dateInput.showPicker();
+  } catch {
+    // Fallback dla starszych przeglądarek — klik bezpośredni
+    dateInput.click();
+  }
+});
 
 dateInput?.addEventListener('change', () => {
   if (dateInput.value) setDate(dateInput.value);

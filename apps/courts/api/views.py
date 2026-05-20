@@ -8,6 +8,8 @@ from rest_framework import status as http_status
 from apps.courts.models import Reservation, TennisFacility, Court
 from .serializers import MyReservationSerializer, FacilityListSerializer
 
+import django.utils.timezone as tz
+
 GRID_START = 8   # 08:00
 GRID_END   = 21  # do 21:00 (ostatni slot 20:30)
 
@@ -211,3 +213,142 @@ class CreateReservationView(APIView):
             'end_time': reservation.end_time.isoformat(),
             'status': reservation.status,
         }, status=http_status.HTTP_201_CREATED)
+
+
+class CancelReservationView(APIView):
+    """
+    DELETE /api/courts/reservations/<id>/
+
+    Anuluje (usuwa) własną rezerwację zalogowanego użytkownika.
+
+    Reguły:
+      - Użytkownik może anulować tylko swoją rezerwację.
+      - Dozwolone statusy: PENDING, CONFIRMED.
+      - Nie można anulować rezerwacji z przeszłości (start_time < teraz).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        try:
+            reservation = Reservation.objects.select_related('court__facility').get(pk=pk)
+        except Reservation.DoesNotExist:
+            return Response({'detail': 'Rezerwacja nie istnieje.'}, status=http_status.HTTP_404_NOT_FOUND)
+
+        # Tylko właściciel rezerwacji
+        if reservation.user_id != request.user.pk:
+            return Response({'detail': 'Brak uprawnień.'}, status=http_status.HTTP_403_FORBIDDEN)
+
+        # Tylko aktywne statusy
+        if reservation.status not in ('PENDING', 'CONFIRMED'):
+            return Response(
+                {'detail': 'Nie można anulować rezerwacji o tym statusie.'},
+                status=http_status.HTTP_409_CONFLICT,
+            )
+
+        # Nie można anulować przeszłych rezerwacji
+        now = tz.now()
+        if reservation.start_time <= now:
+            return Response(
+                {'detail': 'Nie można anulować rezerwacji, która już się rozpoczęła lub minęła.'},
+                status=http_status.HTTP_409_CONFLICT,
+            )
+
+        reservation.delete()
+        return Response(status=http_status.HTTP_204_NO_CONTENT)
+
+
+class PendingReservationsView(generics.ListAPIView):
+    """
+    GET /api/courts/reservations/pending/
+
+    Zwraca oczekujące rezerwacje (PENDING) dla obiektów, których właścicielem
+    jest zalogowany użytkownik, lub wszystkie PENDING jeśli is_staff.
+    Posortowane chronologicznie.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = MyReservationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = (
+            Reservation.objects
+            .filter(status='PENDING')
+            .select_related('court__facility', 'user')
+            .order_by('start_time')
+        )
+        if user.is_staff:
+            return qs
+        return qs.filter(court__facility__owner=user)
+
+    def list(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        # Rozszerzamy serializer o dane usera składającego rezerwację
+        data = []
+        for r in qs:
+            data.append({
+                'id': r.id,
+                'court_name': f'Kort {r.court.court_number}' if r.court else None,
+                'facility_name': r.court.facility.name if r.court else None,
+                'start_time': r.start_time.isoformat(),
+                'end_time': r.end_time.isoformat(),
+                'status': r.status,
+                'user_name': r.user.get_full_name() or r.user.username,
+            })
+        return Response(data)
+
+
+class ReservationStatusView(APIView):
+    """
+    PATCH /api/courts/reservations/<id>/status/
+
+    Zmienia status rezerwacji przez właściciela obiektu lub is_staff.
+
+    Body (JSON):
+      action — 'approve' | 'reject'
+
+    Reguły:
+      - Tylko właściciel facility (facility.owner) lub is_staff.
+      - approve: PENDING → CONFIRMED
+      - reject:  PENDING → REJECTED
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            reservation = (
+                Reservation.objects
+                .select_related('court__facility', 'user')
+                .get(pk=pk)
+            )
+        except Reservation.DoesNotExist:
+            return Response({'detail': 'Rezerwacja nie istnieje.'}, status=http_status.HTTP_404_NOT_FOUND)
+
+        # Uprawnienia: właściciel facility lub is_staff
+        is_owner = (
+            reservation.court and
+            reservation.court.facility.owner_id == request.user.pk
+        )
+        if not (is_owner or request.user.is_staff):
+            return Response({'detail': 'Brak uprawnień.'}, status=http_status.HTTP_403_FORBIDDEN)
+
+        action = request.data.get('action')
+        if action not in ('approve', 'reject'):
+            return Response(
+                {'detail': 'Nieprawidłowa akcja. Dozwolone: approve, reject.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        if reservation.status != 'PENDING':
+            return Response(
+                {'detail': f'Rezerwacja nie jest w statusie PENDING (aktualny: {reservation.status}).'},
+                status=http_status.HTTP_409_CONFLICT,
+            )
+
+        new_status = 'CONFIRMED' if action == 'approve' else 'REJECTED'
+        reservation.status = new_status
+        reservation.save(update_fields=['status'])
+
+        return Response({
+            'id': reservation.id,
+            'status': reservation.status,
+        })
