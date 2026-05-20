@@ -1,3 +1,4 @@
+# [LEGACY - SESSION AUTH]
 """
 REST API views for authentication
 Used by Astro frontend
