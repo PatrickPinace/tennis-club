@@ -9,6 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // https://astro.build/config
 export default defineConfig({
   integrations: [tailwind()],
+  devToolbar: {
+    enabled: false
+  },
 
   // Prefiks URL dla wdrożenia równoległego obok Django pod /astro/.
   // W dev zostaw jako '/' (domyślne) — lokalnie Astro działa bez prefiksu.
@@ -35,6 +38,14 @@ export default defineConfig({
       },
     },
     server: {
+      hmr: {
+        path: '/_astro/hmr',
+      },
+      watch: {
+        // Wymusza aktywne sprawdzanie zmian (polling) - kluczowe dla Docker na Windows
+        usePolling: true,
+        interval: 100,
+      },
       proxy: {
         '/api': {
           target: 'http://localhost:8000',
