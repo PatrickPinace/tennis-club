@@ -166,13 +166,42 @@ const todayIso = new Date().toISOString().slice(0, 10);
   <!-- Popup potwierdzenia rezerwacji -->
   <div id="res-popup" class="res-popup-backdrop" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="res-popup-title">
     <div class="res-popup">
-      <div class="res-popup__title" id="res-popup-title">Potwierdź rezerwację</div>
-      <div id="res-popup-detail" class="res-popup__detail"></div>
-      <div class="res-popup__actions">
-        <button id="res-popup-confirm" class="tc-btn tc-btn-primary tc-btn-sm">Zarezerwuj</button>
-        <button id="res-popup-cancel"  class="tc-btn tc-btn-ghost   tc-btn-sm">Anuluj</button>
+
+      <!-- Nagłówek -->
+      <div class="res-popup__header">
+        <div class="res-popup__icon" aria-hidden="true">🎾</div>
+        <div>
+          <div class="res-popup__title" id="res-popup-title">Rezerwacja kortu</div>
+          <div class="res-popup__subtitle">Sprawdź szczegóły i potwierdź</div>
+        </div>
+        <button id="res-popup-close" class="res-popup__close" aria-label="Zamknij">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+        </button>
       </div>
-      <div id="res-popup-msg" class="res-popup__msg" style="display:none;"></div>
+
+      <!-- Detale rezerwacji — wypełniane przez JS -->
+      <div id="res-popup-detail" class="res-popup__detail"></div>
+
+      <!-- Info o statusie PENDING -->
+      <div class="res-popup__notice">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        Rezerwacja będzie oczekiwać na zatwierdzenie przez właściciela obiektu.
+      </div>
+
+      <!-- Akcje -->
+      <div class="res-popup__actions">
+        <button id="res-popup-confirm" class="tc-btn tc-btn-primary tc-btn-sm">
+          <span id="res-popup-confirm-label">Zarezerwuj</span>
+        </button>
+        <button id="res-popup-cancel" class="tc-btn tc-btn-ghost tc-btn-sm">Anuluj</button>
+      </div>
+
+      <!-- Komunikat błędu / sukcesu inline -->
+      <div id="res-popup-msg" class="res-popup__msg" style="display:none;" role="alert"></div>
     </div>
   </div>
 
@@ -421,31 +450,119 @@ const todayIso = new Date().toISOString().slice(0, 10);
   /* ── Popup ─────────────────────────────────────────────────────────────── */
   .res-popup-backdrop {
     position: fixed; inset: 0; z-index: 50;
-    background: rgba(0,0,0,0.35);
+    background: rgba(0,0,0,0.4);
     display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+    animation: fadeIn 0.15s ease;
   }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
   .res-popup {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg, 12px);
-    padding: 24px 28px;
-    min-width: 280px; max-width: 360px;
-    box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18));
+    padding: 0;
+    width: 100%; max-width: 400px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+    animation: slideUp 0.18s ease;
+    overflow: hidden;
   }
+  @keyframes slideUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+  /* Nagłówek popupu */
+  .res-popup__header {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .res-popup__icon {
+    font-size: 1.5rem; flex-shrink: 0; line-height: 1;
+    margin-top: 2px;
+  }
+  .res-popup__header > div:nth-child(2) { flex: 1; min-width: 0; }
   .res-popup__title {
-    font-size: 1rem; font-weight: 700; color: var(--text);
-    margin-bottom: 8px;
+    font-size: 0.95rem; font-weight: 700; color: var(--text);
+    line-height: 1.3;
   }
+  .res-popup__subtitle {
+    font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;
+  }
+  .res-popup__close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); padding: 2px; flex-shrink: 0;
+    border-radius: 4px; transition: background 0.12s, color 0.12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .res-popup__close:hover { background: var(--surface-2); color: var(--text); }
+
+  /* Detale — wypełniane przez JS jako structured HTML */
   .res-popup__detail {
-    font-size: 0.875rem; color: var(--text-muted);
-    margin-bottom: 18px; line-height: 1.5;
+    padding: 16px 20px 0;
   }
-  .res-popup__actions { display: flex; gap: 10px; }
+  .res-popup__row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+  }
+  .res-popup__row:last-child { border-bottom: none; }
+  .res-popup__row-icon {
+    width: 16px; text-align: center; flex-shrink: 0;
+    color: var(--text-dim); font-size: 0.85rem;
+  }
+  .res-popup__row-label {
+    color: var(--text-muted); font-size: 0.78rem; min-width: 52px; flex-shrink: 0;
+  }
+  .res-popup__row-value {
+    color: var(--text); font-weight: 600;
+  }
+  .res-popup__duration {
+    display: inline-block;
+    background: var(--surface-2, rgba(128,128,128,0.1));
+    border-radius: 4px; padding: 1px 6px;
+    font-size: 0.72rem; font-weight: 700;
+    color: var(--text-muted); margin-left: 6px;
+  }
+
+  /* Notice PENDING */
+  .res-popup__notice {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin: 14px 20px 0;
+    background: rgba(234,179,8,0.08);
+    border: 1px solid rgba(234,179,8,0.25);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;
+  }
+  .res-popup__notice svg { flex-shrink: 0; margin-top: 1px; color: #ca8a04; }
+
+  /* Akcje */
+  .res-popup__actions {
+    display: flex; gap: 10px;
+    padding: 16px 20px 20px;
+  }
+  .res-popup__actions .tc-btn:first-child { flex: 1; }
+
+  /* Komunikat błędu inline */
   .res-popup__msg {
-    margin-top: 12px; font-size: 0.82rem; font-weight: 600;
+    margin: 0 20px 16px;
+    padding: 9px 12px;
+    border-radius: 7px;
+    font-size: 0.82rem; font-weight: 600;
+    display: flex; align-items: flex-start; gap: 7px;
+    line-height: 1.4;
   }
-  .res-popup__msg--error { color: var(--danger); }
-  .res-popup__msg--success { color: #22c55e; }
+  .res-popup__msg--error {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: var(--danger, #dc2626);
+  }
+  .res-popup__msg--conflict {
+    background: rgba(234,179,8,0.08);
+    border: 1px solid rgba(234,179,8,0.3);
+    color: #92400e;
+  }
+  [data-theme="dark"] .res-popup__msg--conflict { color: #fbbf24; }
 
   /* ── Toast ─────────────────────────────────────────────────────────────── */
   .res-toast {
@@ -453,16 +570,23 @@ const todayIso = new Date().toISOString().slice(0, 10);
     z-index: 60;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px 20px;
+    border-radius: 10px;
+    padding: 12px 18px;
     font-size: 0.875rem; font-weight: 600;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
     color: var(--text);
-    white-space: nowrap;
+    max-width: calc(100vw - 32px);
+    white-space: normal; text-align: center;
+    display: flex; align-items: center; gap: 8px;
+    animation: toastIn 0.2s ease;
   }
-  .res-toast--success { border-left: 3px solid #22c55e; color: #16a34a; }
-  .res-toast--error   { border-left: 3px solid var(--danger); color: var(--danger); }
-  [data-theme="dark"] .res-toast--success { color: #4ade80; }
+  @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+  .res-toast--success { border-left: 3px solid #22c55e; }
+  .res-toast--success .res-toast__icon { color: #16a34a; }
+  .res-toast--error   { border-left: 3px solid var(--danger, #dc2626); }
+  .res-toast--error .res-toast__icon   { color: var(--danger, #dc2626); }
+  .res-toast__icon { font-size: 1rem; flex-shrink: 0; }
+  [data-theme="dark"] .res-toast--success .res-toast__icon { color: #4ade80; }
 
   /* ── Responsive ────────────────────────────────────────────────────────── */
   @media (max-width: 768px) {
@@ -538,13 +662,16 @@ function slotEnd(startTime) {
 
 // ── Toast ──────────────────────────────────────────────────────────────────
 
+const TOAST_ICONS = { success: '✓', error: '✕', warning: '⚠' };
+
 let toastTimer = null;
 function showToast(msg, type = 'success') {
-  toast.textContent = msg;
-  toast.className   = `res-toast res-toast--${type}`;
+  const icon = TOAST_ICONS[type] ?? '';
+  toast.innerHTML = `<span class="res-toast__icon" aria-hidden="true">${icon}</span><span>${msg}</span>`;
+  toast.className = `res-toast res-toast--${type}`;
   toast.style.display = '';
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
+  toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
 }
 
 // ── Popup ──────────────────────────────────────────────────────────────────
@@ -557,13 +684,40 @@ function durationMin(start, end) {
 
 function openPopup(slot) {
   pendingSlot = slot;
-  const dur = durationMin(slot.startTime, slot.endTime);
-  popupDetail.textContent = `${slot.courtName} · ${fmtDateLabel(slot.date)} · ${slot.startTime}–${slot.endTime} (${dur} min)`;
+
+  const dur      = durationMin(slot.startTime, slot.endTime);
+  const dateStr  = fmtDateLabel(slot.date);
+
+  // Strukturalne detale — czytelne wiersze
+  popupDetail.innerHTML = `
+    <div class="res-popup__row">
+      <span class="res-popup__row-icon" aria-hidden="true">🎾</span>
+      <span class="res-popup__row-label">Kort</span>
+      <span class="res-popup__row-value">${slot.courtName}</span>
+    </div>
+    <div class="res-popup__row">
+      <span class="res-popup__row-icon" aria-hidden="true">📅</span>
+      <span class="res-popup__row-label">Data</span>
+      <span class="res-popup__row-value">${dateStr}</span>
+    </div>
+    <div class="res-popup__row">
+      <span class="res-popup__row-icon" aria-hidden="true">⏰</span>
+      <span class="res-popup__row-label">Godzina</span>
+      <span class="res-popup__row-value">
+        ${slot.startTime}–${slot.endTime}
+        <span class="res-popup__duration">${dur} min</span>
+      </span>
+    </div>
+  `;
+
+  // Reset stanu
   popupMsg.style.display = 'none';
-  popupMsg.textContent   = '';
+  popupMsg.innerHTML     = '';
   popupConfirm.disabled  = false;
-  popupConfirm.textContent = 'Zarezerwuj';
+  document.getElementById('res-popup-confirm-label').textContent = 'Zarezerwuj';
   popup.style.display = '';
+  // Focus trap — focus na przycisk Zarezerwuj
+  setTimeout(() => popupConfirm?.focus(), 50);
 }
 
 function closePopup() {
@@ -571,14 +725,25 @@ function closePopup() {
   pendingSlot = null;
 }
 
+function showPopupError(msg, isConflict = false) {
+  popupMsg.innerHTML     = `<span aria-hidden="true">${isConflict ? '⚠' : '✕'}</span><span>${msg}</span>`;
+  popupMsg.className     = `res-popup__msg res-popup__msg--${isConflict ? 'conflict' : 'error'}`;
+  popupMsg.style.display = '';
+  popupConfirm.disabled  = false;
+  document.getElementById('res-popup-confirm-label').textContent = 'Zarezerwuj';
+}
+
+// Zamknięcie: X button, klik tła, Escape
+document.getElementById('res-popup-close')?.addEventListener('click', closePopup);
 popupCancel?.addEventListener('click', closePopup);
 popup?.addEventListener('click', e => { if (e.target === popup) closePopup(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && popup?.style.display !== 'none') closePopup(); });
 
 popupConfirm?.addEventListener('click', async () => {
   if (!pendingSlot) return;
-  popupConfirm.disabled    = true;
-  popupConfirm.textContent = 'Rezerwuję…';
-  popupMsg.style.display   = 'none';
+  popupConfirm.disabled  = true;
+  document.getElementById('res-popup-confirm-label').textContent = 'Rezerwuję…';
+  popupMsg.style.display = 'none';
 
   try {
     const res = await fetch('/api/courts/reserve/', {
@@ -600,24 +765,17 @@ popupConfirm?.addEventListener('click', async () => {
 
     if (res.ok) {
       closePopup();
-      showToast('Rezerwacja złożona — oczekuje na potwierdzenie.', 'success');
-      // Odśwież timeline i listę "Moje rezerwacje"
-      await loadTimeline();
-      await reloadMyReservations();
+      showToast('Rezerwacja złożona — oczekuje na zatwierdzenie przez właściciela.', 'success');
+      await Promise.all([loadTimeline(), reloadMyReservations()]);
+    } else if (res.status === 409) {
+      showPopupError(data.detail || 'Ten slot jest już zajęty. Wybierz inny termin.', true);
+    } else if (res.status === 400) {
+      showPopupError(data.detail || 'Nieprawidłowe dane rezerwacji.');
     } else {
-      const msg = data.detail || `Błąd ${res.status}`;
-      popupMsg.textContent   = msg;
-      popupMsg.className     = 'res-popup__msg res-popup__msg--error';
-      popupMsg.style.display = '';
-      popupConfirm.disabled  = false;
-      popupConfirm.textContent = 'Zarezerwuj';
+      showPopupError(data.detail || `Błąd serwera (${res.status}). Spróbuj ponownie.`);
     }
   } catch {
-    popupMsg.textContent   = 'Błąd sieci. Spróbuj ponownie.';
-    popupMsg.className     = 'res-popup__msg res-popup__msg--error';
-    popupMsg.style.display = '';
-    popupConfirm.disabled  = false;
-    popupConfirm.textContent = 'Zarezerwuj';
+    showPopupError('Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.');
   }
 });
 
