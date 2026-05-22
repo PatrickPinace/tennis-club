@@ -166,6 +166,7 @@ export interface ReservationEntry {
   start_time: string;   // ISO datetime
   end_time: string;     // ISO datetime
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+  series_id: string | null;  // UUID serii dla rezerwacji cyklicznych, null = pojedyncza
 }
 
 // ── Tournament Detail ───────────────────────────────────────────────────────

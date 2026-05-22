@@ -72,6 +72,7 @@ const myReservations = rawReservations.map((r: ReservationEntry) => ({
   time: `${fmtTime(r.start_time)}–${fmtTime(r.end_time)}`,
   startIso: r.start_time,
   status: r.status.toLowerCase() as 'pending' | 'confirmed' | 'rejected',
+  seriesId: (r as any).series_id ?? null,
 }));
 
 // Konfiguracja statusu — jedna centralna definicja używana w SSR i JS
@@ -185,9 +186,12 @@ const todayIso = new Date().toISOString().slice(0, 10);
             const isFuture = new Date(r.startIso) > new Date();
             const cfg = resStatusConfig(r.status, isFuture);
             return (
-              <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id}>
+              <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id} data-series-id={r.seriesId ?? ''}>
                 <div class="my-res-card__left">
-                  <div class="my-res-card__court">{r.court}</div>
+                  <div class="my-res-card__court">
+                    {r.court}
+                    {r.seriesId && <span class="my-res-series-badge">↻ Seria</span>}
+                  </div>
                   {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
                   <div class="my-res-card__time">{r.date} · {r.time}</div>
                   <div class="my-res-card__hint">{cfg.hint}</div>
@@ -303,6 +307,26 @@ const todayIso = new Date().toISOString().slice(0, 10);
 
       <!-- Detale rezerwacji — wypełniane przez JS -->
       <div id="res-popup-detail" class="res-popup__detail"></div>
+
+      <!-- Opcja cykliczna -->
+      <div class="res-popup__recurring" id="res-popup-recurring-wrap">
+        <label class="recurring-toggle">
+          <input type="checkbox" id="res-recurring-check" />
+          <span class="recurring-toggle__label">Rezerwacja cykliczna (co tydzień)</span>
+        </label>
+        <div class="recurring-weeks-row" id="res-recurring-weeks-row" style="display:none;">
+          <label class="recurring-weeks-label" for="res-recurring-weeks">Liczba tygodni:</label>
+          <select id="res-recurring-weeks" class="recurring-weeks-select">
+            <option value="2">2 tygodnie</option>
+            <option value="3">3 tygodnie</option>
+            <option value="4" selected>4 tygodnie</option>
+            <option value="6">6 tygodni</option>
+            <option value="8">8 tygodni</option>
+            <option value="10">10 tygodni</option>
+            <option value="12">12 tygodni</option>
+          </select>
+        </div>
+      </div>
 
       <!-- Info o statusie PENDING -->
       <div class="res-popup__notice">
@@ -921,6 +945,61 @@ const todayIso = new Date().toISOString().slice(0, 10);
     .cal-legend { flex-direction: column; gap: 6px; }
   }
 
+  /* ── Series badge na karcie rezerwacji ────────────────────────────── */
+  .my-res-series-badge {
+    display: inline-block;
+    font-size: 0.62rem; font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(99,102,241,0.1);
+    color: #6366f1;
+    border: 1px solid rgba(99,102,241,0.25);
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+  }
+  [data-theme="dark"] .my-res-series-badge {
+    background: rgba(99,102,241,0.18);
+    color: #a5b4fc;
+    border-color: rgba(99,102,241,0.35);
+  }
+
+  /* ── Popup: sekcja recurring ───────────────────────────────────────── */
+  .res-popup__recurring {
+    padding: 14px 20px 0;
+  }
+  .recurring-toggle {
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; user-select: none;
+  }
+  .recurring-toggle input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: var(--primary, #22c55e);
+    cursor: pointer; flex-shrink: 0;
+  }
+  .recurring-toggle__label {
+    font-size: 0.82rem; font-weight: 600; color: var(--text-muted);
+  }
+  .recurring-weeks-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(99,102,241,0.06);
+    border: 1px solid rgba(99,102,241,0.18);
+    border-radius: 8px;
+  }
+  .recurring-weeks-label {
+    font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;
+  }
+  .recurring-weeks-select {
+    flex: 1; padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+
   /* ── Grafik — świadomy poziomy scroll ─────────────────────────────── */
   /* .calendar-grid { min-width: 560px } zostawiamy — grafik z natury jest szeroki.
      .calendar-wrap { overflow-x: auto } już jest inline. Dodajemy visual hint. */
@@ -1069,10 +1148,23 @@ function openPopup(slot) {
   popupMsg.innerHTML     = '';
   popupConfirm.disabled  = false;
   document.getElementById('res-popup-confirm-label').textContent = 'Zarezerwuj';
+
+  // Reset recurring
+  const recurringCheck = document.getElementById('res-recurring-check');
+  const weeksRow       = document.getElementById('res-recurring-weeks-row');
+  if (recurringCheck) recurringCheck.checked = false;
+  if (weeksRow) weeksRow.style.display = 'none';
+
   popup.style.display = '';
   // Focus trap — focus na przycisk Zarezerwuj
   setTimeout(() => popupConfirm?.focus(), 50);
 }
+
+// Toggle recurring sekcji w popupie
+document.getElementById('res-recurring-check')?.addEventListener('change', function () {
+  const weeksRow = document.getElementById('res-recurring-weeks-row');
+  if (weeksRow) weeksRow.style.display = this.checked ? '' : 'none';
+});
 
 function closePopup() {
   popup.style.display = 'none';
@@ -1096,8 +1188,22 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && popup?.sty
 popupConfirm?.addEventListener('click', async () => {
   if (!pendingSlot) return;
   popupConfirm.disabled  = true;
-  document.getElementById('res-popup-confirm-label').textContent = 'Rezerwuję…';
+
+  const recurringCheck = document.getElementById('res-recurring-check');
+  const weeksSelect    = document.getElementById('res-recurring-weeks');
+  const isRecurring    = recurringCheck?.checked ?? false;
+  const weeks          = isRecurring ? parseInt(weeksSelect?.value ?? '4', 10) : null;
+
+  document.getElementById('res-popup-confirm-label').textContent = isRecurring ? 'Rezerwuję serię…' : 'Rezerwuję…';
   popupMsg.style.display = 'none';
+
+  const body = {
+    court_id:   pendingSlot.courtId,
+    date:       pendingSlot.date,
+    start_time: pendingSlot.startTime,
+    end_time:   pendingSlot.endTime,
+    ...(isRecurring && { recurring: true, weeks }),
+  };
 
   try {
     const res = await fetch('/api/courts/reserve/', {
@@ -1107,19 +1213,17 @@ popupConfirm?.addEventListener('click', async () => {
         'Content-Type': 'application/json',
         'X-CSRFToken': getCsrf(),
       },
-      body: JSON.stringify({
-        court_id:   pendingSlot.courtId,
-        date:       pendingSlot.date,
-        start_time: pendingSlot.startTime,
-        end_time:   pendingSlot.endTime,
-      }),
+      body: JSON.stringify(body),
     });
 
     const data = await res.json().catch(() => ({}));
 
     if (res.ok) {
       closePopup();
-      showToast('Rezerwacja złożona — oczekuje na zatwierdzenie przez właściciela.', 'success');
+      const msg = isRecurring
+        ? `Seria ${data.count} rezerwacji złożona — oczekuje na zatwierdzenie.`
+        : 'Rezerwacja złożona — oczekuje na zatwierdzenie przez właściciela.';
+      showToast(msg, 'success');
       await Promise.all([loadTimeline(), reloadMyReservations()]);
     } else if (res.status === 409) {
       showPopupError(data.detail || 'Ten slot jest już zajęty. Wybierz inny termin.', true);
@@ -1186,14 +1290,18 @@ function renderMyReservations(list) {
       canCancel = isFuture;
     }
 
+    const seriesId  = r.series_id ?? null;
+    const seriesBadge = seriesId
+      ? `<span class="my-res-series-badge">↻ Seria</span>`
+      : '';
     const badge     = `<span class="tc-badge ${badgeClass}">${badgeLabel}</span>`;
     const cancelBtn = canCancel
-      ? `<button class="my-res-cancel-btn" data-res-id="${r.id}" aria-label="Anuluj rezerwację">Anuluj</button>`
+      ? `<button class="my-res-cancel-btn" data-res-id="${r.id}" data-series-id="${seriesId ?? ''}" aria-label="Anuluj rezerwację">Anuluj</button>`
       : '';
     return `
-      <div class="my-res-card my-res-card--${status}" data-res-id="${r.id}">
+      <div class="my-res-card my-res-card--${status}" data-res-id="${r.id}" data-series-id="${seriesId ?? ''}">
         <div class="my-res-card__left">
-          <div class="my-res-card__court">${r.court_name ?? 'Kort'}</div>
+          <div class="my-res-card__court">${r.court_name ?? 'Kort'}${seriesBadge}</div>
           ${r.facility_name ? `<div class="my-res-card__facility">${r.facility_name}</div>` : ''}
           <div class="my-res-card__time">${dateStr} · ${timeStr}</div>
           <div class="my-res-card__hint">${hint}</div>
@@ -1226,13 +1334,22 @@ document.getElementById('my-res-list').addEventListener('click', async e => {
     cancelConfirmId = resId;
     const card = document.querySelector(`[data-res-id="${resId}"]`);
     if (!card) return;
-    const right = card.querySelector('.my-res-card__right');
+    const right    = card.querySelector('.my-res-card__right');
+    const seriesId = card.dataset.seriesId || '';
+
     // Schowaj oryginalny badge + przycisk Anuluj, pokaż inline confirm
     right.querySelectorAll('.tc-badge, .my-res-cancel-btn').forEach(el => el.style.display = 'none');
+
+    // Jeśli rezerwacja należy do serii — daj wybór: tylko ta / cała seria
+    const seriesButtons = seriesId
+      ? `<button class="my-res-confirm-series-btn tc-btn tc-btn-danger tc-btn-sm" data-res-id="${resId}" data-series-id="${seriesId}">Anuluj całą serię</button>
+         <button class="my-res-confirm-btn tc-btn tc-btn-ghost tc-btn-sm" data-res-id="${resId}" style="font-size:0.7rem;">Tylko tę</button>`
+      : `<button class="my-res-confirm-btn tc-btn tc-btn-danger tc-btn-sm" data-res-id="${resId}">Tak, anuluj</button>`;
+
     right.insertAdjacentHTML('beforeend', `
       <div class="my-res-inline-confirm" data-confirm-id="${resId}">
-        <span class="my-res-inline-confirm__label">Na pewno anulować?</span>
-        <button class="my-res-confirm-btn tc-btn tc-btn-danger tc-btn-sm" data-res-id="${resId}">Tak, anuluj</button>
+        <span class="my-res-inline-confirm__label">${seriesId ? 'Anulować:' : 'Na pewno anulować?'}</span>
+        ${seriesButtons}
         <button class="my-res-undo-btn tc-btn tc-btn-ghost tc-btn-sm" data-res-id="${resId}">Cofnij</button>
       </div>
     `);
@@ -1246,7 +1363,7 @@ document.getElementById('my-res-list').addEventListener('click', async e => {
     return;
   }
 
-  // ── "Tak, anuluj" → DELETE ────────────────────────────────────────────
+  // ── "Tylko tę / Tak, anuluj" → DELETE pojedynczej rezerwacji ─────────
   if (btn.classList.contains('my-res-confirm-btn')) {
     btn.disabled = true;
     btn.textContent = 'Anulowanie…';
@@ -1265,6 +1382,37 @@ document.getElementById('my-res-list').addEventListener('click', async e => {
       } else {
         const data = await res.json().catch(() => ({}));
         showToast(data.detail || `Nie udało się anulować (błąd ${res.status}).`, 'error');
+        resetCancelState(resId);
+        cancelConfirmId = null;
+      }
+    } catch {
+      showToast('Brak połączenia z serwerem. Spróbuj ponownie.', 'error');
+      resetCancelState(resId);
+      cancelConfirmId = null;
+    }
+  }
+
+  // ── "Anuluj całą serię" → DELETE przyszłych rezerwacji serii ─────────
+  if (btn.classList.contains('my-res-confirm-series-btn')) {
+    const seriesId = btn.dataset.seriesId;
+    btn.disabled = true;
+    btn.textContent = 'Anulowanie serii…';
+
+    try {
+      const res = await fetch(`/api/courts/series/${seriesId}/`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf() },
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        cancelConfirmId = null;
+        showToast(`Anulowano ${data.cancelled ?? ''} przyszłych rezerwacji serii.`, 'success');
+        await Promise.all([reloadMyReservations(), loadTimeline()]);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.detail || `Nie udało się anulować serii (błąd ${res.status}).`, 'error');
         resetCancelState(resId);
         cancelConfirmId = null;
       }
