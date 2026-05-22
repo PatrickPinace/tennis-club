@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime, timedelta
+from django.db import models
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -27,9 +28,16 @@ class MyReservationListView(generics.ListAPIView):
     serializer_class = MyReservationSerializer
 
     def get_queryset(self):
+        now = tz.now()
         return (
             Reservation.objects
-            .filter(user=self.request.user, status__in=['PENDING', 'CONFIRMED', 'REJECTED'])
+            .filter(user=self.request.user)
+            .filter(
+                # Aktywne (przyszłe lub trwające): PENDING i CONFIRMED — pokaż jeśli end_time > now
+                models.Q(status__in=['PENDING', 'CONFIRMED'], end_time__gt=now)
+                # REJECTED — pokaż przez 7 dni po terminie żeby user widział feedback
+                | models.Q(status='REJECTED', end_time__gt=now - timedelta(days=7))
+            )
             .select_related('court__facility')
             .order_by('start_time')
         )
@@ -349,9 +357,10 @@ class PendingReservationsView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        now  = tz.now()
         qs = (
             Reservation.objects
-            .filter(status='PENDING')
+            .filter(status='PENDING', end_time__gt=now)
             .select_related('court__facility', 'user')
             .order_by('start_time')
         )

@@ -71,6 +71,7 @@ const myReservations = rawReservations.map((r: ReservationEntry) => ({
   date: fmtDate(r.start_time),
   time: `${fmtTime(r.start_time)}–${fmtTime(r.end_time)}`,
   startIso: r.start_time,
+  endIso: r.end_time,
   status: r.status.toLowerCase() as 'pending' | 'confirmed' | 'rejected',
   seriesId: (r as any).series_id ?? null,
 }));
@@ -94,7 +95,9 @@ function resStatusConfig(status: string, isFuture: boolean) {
   return {
     badgeClass: 'tc-badge-warning',
     badgeLabel: 'Oczekuje',
-    hint: 'Czeka na decyzję właściciela obiektu.',
+    hint: isFuture
+      ? 'Czeka na decyzję właściciela obiektu.'
+      : 'Właściciel nie podjął decyzji przed terminem.',
     canCancel: isFuture,
   };
 }
@@ -183,7 +186,7 @@ const todayIso = new Date().toISOString().slice(0, 10);
       ) : (
         <div class="my-res-grid">
           {myReservations.map(r => {
-            const isFuture = new Date(r.startIso) > new Date();
+            const isFuture = new Date(r.endIso) > new Date();
             const cfg = resStatusConfig(r.status, isFuture);
             return (
               <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id} data-series-id={r.seriesId ?? ''}>
@@ -1304,7 +1307,7 @@ function renderMyReservations(list) {
     const status    = r.status.toLowerCase();
     const dateStr   = fmtDateShort(r.start_time);
     const timeStr   = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
-    const isFuture  = new Date(r.start_time) > now;
+    const isFuture  = new Date(r.end_time) > now;
 
     let badgeClass, badgeLabel, hint, canCancel;
     if (status === 'confirmed') {
@@ -1317,7 +1320,9 @@ function renderMyReservations(list) {
       canCancel = false;
     } else {
       badgeClass = 'tc-badge-warning'; badgeLabel = 'Oczekuje';
-      hint = 'Czeka na decyzję właściciela obiektu.';
+      hint = isFuture
+        ? 'Czeka na decyzję właściciela obiektu.'
+        : 'Właściciel nie podjął decyzji przed terminem.';
       canCancel = isFuture;
     }
 
