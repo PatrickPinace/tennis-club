@@ -1,0 +1,30 @@
+---
+// TournamentStatPills — 4 stat pills shared across SGL, AMR, RND views.
+interface Props {
+  participantCount: number;
+  totalMatches: number;
+  completedMatches: number;
+  pendingMatches: number;
+}
+
+const { participantCount, totalMatches, completedMatches, pendingMatches } = Astro.props;
+---
+
+<div class="td-stats">
+  <div class="td-stat">
+    <span class="td-stat__val">{participantCount}</span>
+    <span class="td-stat__lbl">Uczestników</span>
+  </div>
+  <div class="td-stat">
+    <span class="td-stat__val">{totalMatches}</span>
+    <span class="td-stat__lbl">Meczów</span>
+  </div>
+  <div class="td-stat">
+    <span class="td-stat__val">{completedMatches}</span>
+    <span class="td-stat__lbl">Rozegranych</span>
+  </div>
+  <div class="td-stat">
+    <span class="td-stat__val">{pendingMatches}</span>
+    <span class="td-stat__lbl">Pozostałych</span>
+  </div>
+</div>

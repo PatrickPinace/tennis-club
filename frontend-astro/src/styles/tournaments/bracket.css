@@ -1,0 +1,88 @@
+  /* ── Bracket (SGL drabinka) ─────────────────────────────────────────────── */
+  .bracket-container {
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .bkt-wrap {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    min-width: max-content;
+  }
+  .bkt-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 160px;
+  }
+  .bkt-col-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  .bkt-col-matches {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .bkt-match {
+    background: var(--surface-2);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    overflow: hidden;
+    min-width: 160px;
+  }
+  .bkt-match--done {
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+  }
+  .bkt-player {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-light);
+    gap: 6px;
+  }
+  .bkt-player:last-child { border-bottom: none; }
+  .bkt-player--winner {
+    color: var(--text);
+    font-weight: 700;
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+  .bkt-player-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bkt-score {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .bkt-score-neutral {
+    padding: 3px 10px 5px;
+    font-size: 0.73rem;
+    color: var(--text-dim);
+    text-align: right;
+  }
+  .bkt-third-label {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 3px 6px 2px;
+    background: var(--surface-3, var(--surface-2));
+    border-bottom: 1px solid var(--border-light);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }

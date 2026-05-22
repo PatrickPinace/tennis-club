@@ -1,0 +1,37 @@
+---
+// ParticipantsList — public participants card shared across SGL, AMR, RND views.
+interface Props {
+  participants: Array<{
+    display_name: string;
+    seed_number?: number | null;
+  }>;
+  count: number;
+}
+
+const { participants, count } = Astro.props;
+
+function getInitials(name: string): string {
+  return name.split(' ').filter((w: string) => w && w !== '/').slice(0, 2).map((w: string) => w[0]).join('');
+}
+---
+
+{participants.length > 0 && (
+  <div class="tc-card" style="margin-bottom:24px;">
+    <div class="tc-card-header">
+      <span class="tc-card-title">Uczestnicy ({count})</span>
+    </div>
+    <div class="td-participants">
+      {participants.map(p => (
+        <div class="td-participant">
+          <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
+            {getInitials(p.display_name)}
+          </div>
+          <span class="td-participant__name">{p.display_name}</span>
+          {p.seed_number && (
+            <span class="td-seed">#{p.seed_number}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+)}

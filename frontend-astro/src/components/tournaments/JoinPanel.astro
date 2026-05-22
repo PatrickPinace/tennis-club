@@ -1,0 +1,21 @@
+---
+// JoinPanel — self-registration bar for REG status. Used by RND and AMR views.
+interface Props {
+  tournamentId: number;
+  status: string;
+}
+
+const { tournamentId, status } = Astro.props;
+---
+
+{status === 'REG' && (
+  <div id="join-panel" style="display:none;margin-bottom:24px;"
+    data-tournament-id={tournamentId}
+    data-tournament-status={status}>
+    <div class="join-bar">
+      <span class="join-bar__text">Rejestracja otwarta — dołącz do turnieju!</span>
+      <button id="join-btn" class="tc-btn tc-btn-primary tc-btn-sm">Dołącz</button>
+      <span id="join-msg" class="org-form-msg" style="margin-left:8px;"></span>
+    </div>
+  </div>
+)}
