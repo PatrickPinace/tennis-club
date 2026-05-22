@@ -567,13 +567,12 @@ const {
 </style>
 
 <script>
+  import { getCsrf, escHtml as escHtmlShared } from '@/lib/client-utils';
+
   const _API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
              ?? 'http://localhost:8000';
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  function getCsrf(): string {
-    return document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? '';
-  }
 
   function fmtTime(iso: string): string {
     try {
@@ -645,9 +644,7 @@ const {
     });
   }
 
-  function escHtmlNotif(s: string): string {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  const escHtmlNotif = escHtmlShared;
 
   async function markRead(id: number, el: HTMLElement) {
     try {

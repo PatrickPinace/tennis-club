@@ -297,11 +297,9 @@ if (!currentUser) {
 </AppLayout>
 
 <script>
-const API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+import { getCsrf, escHtml } from '@/lib/client-utils';
 
-function getCsrf(): string {
-  return document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? '';
-}
+const API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
 
 // ── Elementy DOM ──────────────────────────────────────────────────────────────
 const errBox    = document.getElementById('wiz-error') as HTMLElement;
@@ -512,10 +510,6 @@ function formatDate(iso: string): string {
       hour: '2-digit', minute: '2-digit',
     });
   } catch { return iso; }
-}
-
-function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ── Tworzenie turnieju ────────────────────────────────────────────────────────
