@@ -184,6 +184,8 @@ const myId  = currentUser.id;
 </AppLayout>
 
 <script>
+  import { getCsrf } from '@/lib/client-utils';
+
   (function () {
     const API  = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
     const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
@@ -431,12 +433,6 @@ const myId  = currentUser.id;
       showFieldErr('af-s3-err', s3bad); if (s3bad) ok = false;
 
       return ok;
-    }
-
-    // ── CSRF ───────────────────────────────────────────────────────────────────
-    function getCsrf() {
-      return document.cookie.split(';').map(c => c.trim())
-        .find(c => c.startsWith('csrftoken='))?.split('=')[1] ?? '';
     }
 
     // ── Submit ─────────────────────────────────────────────────────────────────
