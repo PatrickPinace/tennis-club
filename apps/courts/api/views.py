@@ -192,6 +192,22 @@ class CreateReservationView(APIView):
         if start_dt >= end_dt:
             return Response({'detail': 'Godzina zakończenia musi być późniejsza niż rozpoczęcia.'}, status=http_status.HTTP_400_BAD_REQUEST)
 
+        # Sloty muszą być wyrównane do siatki 30 min
+        if start_time.minute % 30 != 0 or end_time.minute % 30 != 0:
+            return Response({'detail': 'Godziny rezerwacji muszą być wyrównane do pełnej lub połówki godziny (np. 09:00, 09:30).'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Sloty muszą mieścić się w dozwolonym zakresie godzin (GRID_START–GRID_END)
+        if start_time.hour < GRID_START or end_time.hour > GRID_END or (end_time.hour == GRID_END and end_time.minute > 0):
+            return Response(
+                {'detail': f'Rezerwacje są możliwe tylko w godzinach {GRID_START:02d}:00–{GRID_END:02d}:00.'},
+                status=http_status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Nie można tworzyć rezerwacji w przeszłości ani dla slotów które już minęły
+        now = tz.now()
+        if start_dt <= now:
+            return Response({'detail': 'Nie można zarezerwować kortu na termin, który już minął lub właśnie trwa.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
         # ── Pojedyncza rezerwacja ──────────────────────────────────────────
         if not recurring:
             conflict = Reservation.objects.filter(

@@ -659,6 +659,27 @@ const todayIso = new Date().toISOString().slice(0, 10);
   .cal-legend__dot--other { background: rgba(59,130,246,0.3); border: 1px solid rgba(59,130,246,0.5); }
   .cal-legend__dot--free  { background: var(--surface-2); border: 1px solid var(--border); }
 
+  /* ── Miniony slot (dziś, w przeszłości) — nieklikalny ────────────────── */
+  .cal-slot-past {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      rgba(128,128,128,0.07) 4px,
+      rgba(128,128,128,0.07) 8px
+    );
+    cursor: not-allowed;
+  }
+  [data-theme="dark"] .cal-slot-past {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 4px,
+      rgba(255,255,255,0.04) 4px,
+      rgba(255,255,255,0.04) 8px
+    );
+  }
+
   /* ── Free slot hover + drag ───────────────────────────────────────────── */
   .cal-slot-free {
     position: relative;
@@ -1116,6 +1137,16 @@ function durationMin(start, end) {
 function openPopup(slot) {
   // Blokada dat przeszłych — nie powinno się zdarzać, ale jako obrona
   if (slot.date < todayIso) return;
+
+  // Blokada slotów z przeszłości dla dzisiejszego dnia
+  if (slot.date === todayIso) {
+    const now = new Date();
+    const [sh, sm] = slot.startTime.split(':').map(Number);
+    const slotStart = new Date(todayIso + 'T00:00:00');
+    slotStart.setHours(sh, sm, 0, 0);
+    if (slotStart <= now) return;
+  }
+
   pendingSlot = slot;
 
   const dur      = durationMin(slot.startTime, slot.endTime);
@@ -1544,12 +1575,23 @@ function renderGrid(data) {
         if (cur && cur.type !== 'free') blocks.push(cur);
 
         // Linie tła + klikalne wolne sloty
+        const nowForSlots   = new Date();
+        const isToday       = currentDate === todayIso;
         const lines = Array.from({length: SLOT_COUNT}, (_, i) => {
           const isHour = i % 2 === 0;
           const slot   = slots[i];
           const isFree = slot && slot.status === 'FREE';
           if (isFree) {
             const endTime = slotEnd(slot.time);
+            // Na dzisiaj — zablokuj sloty które już minęły
+            if (isToday) {
+              const [sh, sm] = slot.time.split(':').map(Number);
+              const slotStart = new Date(todayIso + 'T00:00:00');
+              slotStart.setHours(sh, sm, 0, 0);
+              if (slotStart <= nowForSlots) {
+                return `<div class="calendar-slot-line cal-slot-past ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}" style="height:${SLOT_PX}px;" aria-hidden="true"></div>`;
+              }
+            }
             return `<div class="calendar-slot-line cal-slot-free ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}"
               style="height:${SLOT_PX}px;"
               data-court-id="${court.id}"
