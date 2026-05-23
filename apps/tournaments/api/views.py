@@ -750,19 +750,23 @@ class EliminationConfigUpdateView(APIView):
         except Tournament.DoesNotExist:
             return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if tournament.tournament_type != Tournament.TournamentType.SINGLE_ELIMINATION:
+        if tournament.tournament_type not in (
+            Tournament.TournamentType.SINGLE_ELIMINATION,
+            Tournament.TournamentType.DOUBLE_ELIMINATION,
+        ):
             return Response(
-                {'detail': 'Endpoint /config/sgl/ obsługuje tylko turnieje SGL.'},
+                {'detail': 'Endpoint /config/sgl/ obsługuje tylko turnieje SGL i DBE.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if not (request.user.is_staff or tournament.created_by == request.user):
             return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
 
+        is_dbe = tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION
         from apps.tournaments.models import EliminationConfig
         config, _ = EliminationConfig.objects.get_or_create(
             tournament=tournament,
-            defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
+            defaults={'initial_seeding': 'SEEDING', 'third_place_match': False if is_dbe else True},
         )
 
         data = request.data
@@ -771,8 +775,10 @@ class EliminationConfigUpdateView(APIView):
             if seeding not in ('RANDOM', 'SEEDING'):
                 return Response({'detail': 'initial_seeding must be RANDOM or SEEDING.'}, status=status.HTTP_400_BAD_REQUEST)
             config.initial_seeding = seeding
-        if 'third_place_match' in data:
+        if 'third_place_match' in data and not is_dbe:
             config.third_place_match = bool(data['third_place_match'])
+        if is_dbe:
+            config.third_place_match = False  # DBE nie ma meczu o 3. miejsce
 
         config.save()
         return Response({

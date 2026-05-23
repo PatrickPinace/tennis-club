@@ -266,7 +266,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             cfg = getattr(obj, 'round_robin_config', None)
             if cfg:
                 return RoundRobinConfigSerializer(cfg).data
-        if obj.tournament_type == 'SGL':
+        if obj.tournament_type in ('SGL', 'DBE'):
             cfg = getattr(obj, 'elimination_config', None)
             if cfg:
                 return {
