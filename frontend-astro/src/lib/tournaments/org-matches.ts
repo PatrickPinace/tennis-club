@@ -293,7 +293,7 @@ async function handleScoreSubmit(
         msgEl.className = 'org-form-msg org-form-msg--ok';
       }
       await refreshMatchesData();
-      if (cfg.isSGL) {
+      if (cfg.isSGL || cfg.isDBE) {
         await cbs.loadBracket();
       } else if (cfg.isAMR) {
         await cbs.loadAmericanoStandings();
@@ -333,7 +333,7 @@ export function applyMatchFilter(
   if (!container) return;
 
   if (!state.allMatches.length) {
-    container.innerHTML = '<div class="org-matches-empty">Brak zaplanowanych meczów.</div>';
+    container.innerHTML = '<div class="org-matches-empty">Mecze zostaną zaplanowane po zamknięciu zapisów.</div>';
     return;
   }
 
@@ -411,7 +411,7 @@ export function applyMatchFilter(
                 winner_name: null };
               renderMatches(cfg, state);
             }
-            if (cfg.isSGL) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); document.dispatchEvent(new CustomEvent('amr-match-scored')); } else { await cbs.loadStandings(); }
+            if (cfg.isSGL || cfg.isDBE) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); document.dispatchEvent(new CustomEvent('amr-match-scored')); } else { await cbs.loadStandings(); }
           } else {
             if (msgEl) { msgEl.textContent = d.detail ?? 'Błąd anulowania.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
             btn.disabled = false;
