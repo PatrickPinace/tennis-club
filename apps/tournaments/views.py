@@ -1403,29 +1403,74 @@ def generate_round_robin_matches_initial(tournament, participants_qs):
     """
     Generuje wszystkie mecze dla turnieju "każdy z każdym" (Round Robin)
     i zapisuje je w bazie danych.
+
+    SNG (singiel):
+      - Każdy uczestnik gra z każdym innym dokładnie raz.
+      - Mecze mają obsadę: participant1 vs participant2.
+      - Wymagane: co najmniej 2 uczestników.
+
+    DBL (debel):
+      - Uczestnicy tworzą stałe pary drużyn (sorted by pk: [0,1], [2,3], …).
+      - Każda drużyna gra z każdą inną drużyną dokładnie raz.
+      - Obsada meczu: participant1+participant4 vs participant2+participant3
+        (konwencja spójna z AMR DBL).
+      - Wymagane: parzysta liczba uczestników, co najmniej 4.
     """
     from itertools import combinations
 
-    if participants_qs.count() < 2:
+    is_doubles = tournament.match_format == 'DBL'
+    participants = list(participants_qs.order_by('pk'))
+    n = len(participants)
+
+    if is_doubles:
+        if n < 4:
+            return 0, f"Za mało uczestników ({n}). RR debel wymaga co najmniej 4."
+        if n % 2 != 0:
+            return 0, f"RR debel wymaga parzystej liczby uczestników (masz {n}). Dodaj lub usuń jednego gracza."
+
+        # Sparuj graczy w stałe drużyny: (p0,p1), (p2,p3), ...
+        teams = [(participants[i], participants[i + 1]) for i in range(0, n, 2)]
+
+        TournamentsMatch.objects.filter(tournament=tournament).delete()
+
+        matches_to_create = []
+        for i, ((ta1, ta2), (tb1, tb2)) in enumerate(combinations(teams, 2), 1):
+            # Team A = ta1 (p1) + ta2 (p4),  Team B = tb1 (p2) + tb2 (p3)
+            # Konwencja: participant1+participant4 vs participant2+participant3
+            matches_to_create.append(
+                TournamentsMatch(
+                    tournament=tournament,
+                    participant1=ta1, participant2=tb1,
+                    participant3=tb2, participant4=ta2,
+                    round_number=1,
+                    match_index=i,
+                    status=TournamentsMatch.Status.WAITING.value,
+                )
+            )
+
+        created = TournamentsMatch.objects.bulk_create(matches_to_create)
+        return len(created), f"Wygenerowano {len(created)} meczów deblowych (RR DBL)."
+
+    # SNG — każdy z każdym
+    if n < 2:
         return 0, "Za mało uczestników (wymagane co najmniej 2), aby wygenerować mecze."
 
     TournamentsMatch.objects.filter(tournament=tournament).delete()
 
-    match_pairs = combinations(participants_qs, 2)
-
     matches_to_create = [
         TournamentsMatch(
-            tournament=tournament, 
-            participant1=p1, 
-            participant2=p2, 
-            round_number=1, 
+            tournament=tournament,
+            participant1=p1,
+            participant2=p2,
+            round_number=1,
             match_index=i,
-            status=TournamentsMatch.Status.WAITING.value)
-        for i, (p1, p2) in enumerate(match_pairs, 1)
+            status=TournamentsMatch.Status.WAITING.value,
+        )
+        for i, (p1, p2) in enumerate(combinations(participants, 2), 1)
     ]
 
-    created_matches = TournamentsMatch.objects.bulk_create(matches_to_create)
-    return len(created_matches), f"Wygenerowano {len(created_matches)} meczów."
+    created = TournamentsMatch.objects.bulk_create(matches_to_create)
+    return len(created), f"Wygenerowano {len(created)} meczów."
 
 
 def generate_elimination_matches_initial(tournament, participants_qs, config):

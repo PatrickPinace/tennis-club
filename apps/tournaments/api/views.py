@@ -598,8 +598,9 @@ class RoundRobinStandingsView(APIView):
       - Wzbogaca wynik o: draws, win_rate, position.
       - draws = matches_played - wins - losses (mecze z winner=None przy status=CMP).
       - win_rate = wins / matches_played * 100, zaokrąglone do 1 miejsca; null gdy brak meczów.
-      - Sortowanie: points DESC → sets_diff DESC → games_diff DESC
-        (tie_breaker_priority z config nie jest używany — znany bug, zostawiony celowo).
+      - Sortowanie: delegowane do _sort_standings() z tools.py na podstawie config.tie_breaker_priority
+        (HEAD / SETS / GAMES). Wartości zapisane przez stary create.astro były niepoprawne
+        (points_sets_games itp.) i wpadały w fallback HEAD — naprawiono po stronie create.astro (2026-05).
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
 
@@ -1211,6 +1212,9 @@ class TournamentCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # ── is_ranked (domyślnie True; False = turniej towarzyski bez wpływu na ranking) ──
+        is_ranked = bool(data.get('is_ranked', True))
+
         # ── Utwórz turniej ────────────────────────────────────────────────────
         tournament = Tournament.objects.create(
             name=name,
@@ -1218,6 +1222,7 @@ class TournamentCreateView(APIView):
             tournament_type=tournament_type,
             match_format=match_format,
             rank=rank,
+            is_ranked=is_ranked,
             start_date=start_date,
             end_date=end_date,
             status=Tournament.Status.DRAFT,

@@ -33,6 +33,7 @@ export interface TournamentListEntry {
   tournament_type: 'SGL' | 'DBE' | 'RND' | 'LDR' | 'AMR' | 'SWS';
   match_format: 'SNG' | 'DBL';
   rank: 1 | 2 | 3;
+  is_ranked: boolean;
   participant_count: number;
   created_by_name: string;
   facility_name: string | null;
@@ -230,6 +231,7 @@ export interface AmrConfig {
 
 export interface SglConfig {
   sets_to_win: number;
+  initial_seeding: 'RANDOM' | 'SEEDING';
   third_place_match: boolean;
 }
 
@@ -243,6 +245,7 @@ export interface TournamentDetail {
   tournament_type: string;
   match_format: string;
   rank: number;
+  is_ranked: boolean;
   facility_name: string | null;
   created_by_name: string;
   created_by_username: string;

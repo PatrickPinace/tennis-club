@@ -38,6 +38,13 @@ def rebuild_rankings_on_tournament_finish(sender, instance, created, **kwargs):
     if current != 'FIN' or previous == 'FIN':
         return
 
+    if not instance.is_ranked:
+        logger.info(
+            '[rankings] Turniej id=%d → FIN, ale is_ranked=False — pomijam rebuild rankingów.',
+            instance.pk,
+        )
+        return
+
     if not instance.end_date:
         logger.warning(
             '[rankings] Turniej id=%d zmienił status na FIN, ale brak end_date — pomijam rebuild.',

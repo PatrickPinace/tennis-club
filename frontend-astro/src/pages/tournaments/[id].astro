@@ -158,6 +158,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
           <span class="tc-badge tc-badge-primary">{isRoundRobin ? 'Liga (Round Robin)' : isSingleElimination ? 'Eliminacja pojedyncza' : isMexicano ? 'Mexicano' : isAmericano ? 'Americano' : (tournament.tournament_type ?? '—')}</span>
           <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format}</span>
           {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
+          {!tournament.is_ranked && <span class="tc-badge tc-badge-neutral" style="opacity:0.7;">Towarzyski</span>}
         </div>
         <div class="td-info-meta">
           {(tournament.start_date || tournament.end_date) && (
@@ -298,6 +299,25 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
             </div>
           </div>
+
+          <!-- ── Konfiguracja drabinki (zwijana) ─────────────────────────── -->
+          {tournament.config && (
+            <details class="tc-card td-config-card">
+              <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
+                <span class="tc-card-title">Zasady</span>
+                <span style="font-size:0.78rem; color:var(--text-dim);">▾ rozwiń</span>
+              </summary>
+              <div class="td-config-body">
+                <div class="td-config-grid">
+                  <div>
+                    <div class="td-config-row"><span>Rozstawienie</span><strong>{(tournament.config as any).initial_seeding === 'RANDOM' ? 'Losowe' : 'Według rankingu (seed)'}</strong></div>
+                    <div class="td-config-row"><span>Mecz o 3. miejsce</span><strong>{(tournament.config as any).third_place_match ? 'Tak' : 'Nie'}</strong></div>
+                    <div class="td-config-row"><span>Format meczu</span><strong>Do {(tournament.config as any).sets_to_win} wygranych setów</strong></div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
 
           <!-- SSR data dla JS -->
           {tournament && (

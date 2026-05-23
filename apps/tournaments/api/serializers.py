@@ -39,7 +39,7 @@ class TournamentListSerializer(serializers.ModelSerializer):
             'id', 'name', 'description',
             'start_date', 'end_date',
             'status', 'tournament_type', 'match_format',
-            'rank',
+            'rank', 'is_ranked',
             'participant_count', 'created_by_name', 'facility_name',
             'matches_progress',
         ]
@@ -241,7 +241,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'description',
             'start_date', 'end_date',
-            'status', 'tournament_type', 'match_format', 'rank',
+            'status', 'tournament_type', 'match_format', 'rank', 'is_ranked',
             'facility_name', 'created_by_name', 'created_by_username',
             'participant_count', 'participants',
             'config', 'matches', 'standings',
@@ -266,6 +266,14 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             cfg = getattr(obj, 'round_robin_config', None)
             if cfg:
                 return RoundRobinConfigSerializer(cfg).data
+        if obj.tournament_type == 'SGL':
+            cfg = getattr(obj, 'elimination_config', None)
+            if cfg:
+                return {
+                    'sets_to_win': cfg.sets_to_win,
+                    'initial_seeding': cfg.initial_seeding,
+                    'third_place_match': cfg.third_place_match,
+                }
         if obj.tournament_type == 'AMR':
             cfg = getattr(obj, 'americano_config', None)
             if cfg:

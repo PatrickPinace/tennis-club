@@ -91,6 +91,11 @@ class Tournament(models.Model):
         default=1,
         verbose_name='Ranga turnieju',
     )
+    is_ranked = models.BooleanField(
+        default=True,
+        verbose_name='Turniej rankingowy',
+        help_text='Jeśli odznaczone, turniej nie wpływa na globalny ranking klasyfikacyjny.',
+    )
     created_by = models.ForeignKey(
         User, 
         on_delete=models.PROTECT, 
