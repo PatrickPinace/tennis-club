@@ -77,10 +77,7 @@ if (!currentUser) {
             <select id="cr-type" class="cr-input cr-select">
               <option value="RND" selected>Liga (Round Robin)</option>
               <option value="SGL">Eliminacja pojedyncza</option>
-              <option value="DBE">Eliminacja podwójna</option>
-              <option value="LDR">Drabinka</option>
               <option value="AMR">Americano / Mexicano</option>
-              <option value="SWS">System szwajcarski</option>
             </select>
             <span id="cr-type-note" class="cr-hint">
               Panel zarządzania meczami i tabela ligowa dostępne dla Round Robin.
@@ -344,10 +341,7 @@ const cfgTiebreak  = document.getElementById('cfg-tiebreak') as HTMLSelectElemen
 const TYPE_LABELS: Record<string, string> = {
   RND: 'Liga (Round Robin)',
   SGL: 'Eliminacja pojedyncza',
-  DBE: 'Eliminacja podwójna',
-  LDR: 'Drabinka',
   AMR: 'Americano / Mexicano',
-  SWS: 'System szwajcarski',
 };
 const FORMAT_LABELS: Record<string, string> = { SNG: 'Singiel', DBL: 'Debel' };
 
