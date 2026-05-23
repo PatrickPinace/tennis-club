@@ -129,3 +129,112 @@ class RebuildSignalTest(TestCase):
         # Turniej zapisany mimo błędu rebuild
         t.refresh_from_db()
         self.assertEqual(t.status, 'FIN')
+
+    @patch('apps.rankings.services.ranking_calculator.rebuild_rankings')
+    def test_no_trigger_for_unranked_tournament(self, mock_rebuild):
+        """is_ranked=False → FIN: rebuild NIE powinien być wywołany (turniej towarzyski)."""
+        t = Tournament.objects.create(
+            name='Towarzyski test',
+            tournament_type='RND',
+            match_format='SNG',
+            status='DRF',
+            rank=1,
+            is_ranked=False,
+            created_by=self.org,
+            start_date=datetime.date(2026, 1, 1),
+            end_date=datetime.date(2026, 3, 31),
+        )
+        mock_rebuild.reset_mock()
+
+        t.status = 'FIN'
+        t.save()
+
+        mock_rebuild.assert_not_called()
+
+    @patch('apps.rankings.services.ranking_calculator.rebuild_rankings')
+    def test_trigger_for_ranked_tournament(self, mock_rebuild):
+        """is_ranked=True (domyślnie) → FIN: rebuild powinien zostać wywołany."""
+        t = Tournament.objects.create(
+            name='Rankingowy test',
+            tournament_type='RND',
+            match_format='SNG',
+            status='DRF',
+            rank=1,
+            is_ranked=True,
+            created_by=self.org,
+            start_date=datetime.date(2026, 1, 1),
+            end_date=datetime.date(2026, 3, 31),
+        )
+        mock_rebuild.reset_mock()
+
+        t.status = 'FIN'
+        t.save()
+
+        mock_rebuild.assert_called_once_with(match_type='SNG', season=2026)
+
+    @patch('apps.rankings.services.ranking_calculator.rebuild_rankings')
+    def test_unranked_tournament_excluded_from_ranking_calculation(self, mock_rebuild):
+        """
+        Turniej is_ranked=False nie powinien wpływać na PlayerRanking.
+
+        Weryfikuje Q(tournament__is_ranked=True) w _build_filters przez
+        sprawdzenie, że calculate_rankings() ignoruje mecze z turnieju unranked.
+        """
+        from django.contrib.auth.models import User as DjangoUser
+        from apps.tournaments.models import Participant, TournamentsMatch
+        from apps.rankings.services.ranking_calculator import calculate_rankings
+        from apps.rankings.models import PlayerRanking
+
+        player = DjangoUser.objects.create_user(username='calc_player', password='pass')
+
+        # Turniej rankingowy (FIN, is_ranked=True)
+        ranked_t = Tournament.objects.create(
+            name='Ranked T', tournament_type='RND', match_format='SNG',
+            status='FIN', rank=1, is_ranked=True, created_by=self.org,
+            start_date=datetime.date(2026, 1, 1), end_date=datetime.date(2026, 3, 31),
+        )
+        # Turniej towarzyski (FIN, is_ranked=False)
+        unranked_t = Tournament.objects.create(
+            name='Unranked T', tournament_type='RND', match_format='SNG',
+            status='FIN', rank=1, is_ranked=False, created_by=self.org,
+            start_date=datetime.date(2026, 1, 1), end_date=datetime.date(2026, 3, 31),
+        )
+
+        # Uczestnik w obu turniejach
+        p_ranked = Participant.objects.create(
+            tournament=ranked_t, user=player, display_name='Player', status='ACT',
+        )
+        p_unranked = Participant.objects.create(
+            tournament=unranked_t, user=player, display_name='Player', status='ACT',
+        )
+
+        # Mecz wygrany w turnieju rankingowym
+        m_ranked = TournamentsMatch.objects.create(
+            tournament=ranked_t, round_number=1, match_index=0,
+            participant1=p_ranked, status='CMP',
+            set1_p1_score=6, set1_p2_score=3,
+            set2_p1_score=6, set2_p2_score=2,
+            winner=p_ranked,
+        )
+        p_ranked.won_matches.add(m_ranked)
+
+        # Mecz wygrany w turnieju towarzyskim
+        m_unranked = TournamentsMatch.objects.create(
+            tournament=unranked_t, round_number=1, match_index=0,
+            participant1=p_unranked, status='CMP',
+            set1_p1_score=6, set1_p2_score=0,
+            set2_p1_score=6, set2_p2_score=0,
+            winner=p_unranked,
+        )
+        p_unranked.won_matches.add(m_unranked)
+
+        results = calculate_rankings(match_type='SNG', season=2026)
+        player_row = next((r for r in results if r['user_id'] == player.pk), None)
+
+        # Gracz powinien pojawić się w rankingu (1 mecz z ranked_t)
+        self.assertIsNotNone(player_row, 'Gracz nie znaleziony w calculate_rankings — brak meczów z turnieju rankingowego.')
+        # Tylko 1 wygrana z ranked_t, mecz z unranked_t nie liczony
+        self.assertEqual(player_row['matches_won'], 1,
+            f'Oczekiwano 1 wygranej (tylko ranked_t), otrzymano {player_row["matches_won"]}.')
+        self.assertEqual(player_row['matches_played'], 1,
+            f'Oczekiwano 1 meczu (tylko ranked_t), otrzymano {player_row["matches_played"]}.')
