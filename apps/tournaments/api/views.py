@@ -1280,10 +1280,10 @@ class TournamentStatusView(APIView):
 
     # Dozwolone przejścia dla zwykłego organizatora
     ALLOWED_TRANSITIONS = {
-        'DRF': ['REG'],
-        'REG': ['DRF', 'SCH'],
-        'SCH': ['REG', 'ACT'],
-        'ACT': ['FIN'],
+        'DRF': ['REG', 'CNC'],
+        'REG': ['DRF', 'SCH', 'CNC'],
+        'SCH': ['REG', 'ACT', 'CNC'],
+        'ACT': ['FIN', 'CNC'],
         'FIN': [],
         'CNC': [],
     }

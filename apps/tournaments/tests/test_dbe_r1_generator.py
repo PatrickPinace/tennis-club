@@ -170,14 +170,18 @@ class DBEGeneratorBracketTypeTest(TestCase):
             t, qs, config, bracket_type=TournamentsMatch.BracketType.WINNERS
         )
 
-        # bracket_size=8, 4 pary → zawsze 4 mecze (losowość decyduje ile jest BYE per para)
+        # bracket_size=8, 4 pary → zawsze 4 mecze R1
         self.assertEqual(count, 4)
-        # Łączna liczba uczestników we wszystkich slotach p1 = 6 (bez None)
-        matches = TournamentsMatch.objects.filter(tournament=t)
-        self.assertEqual(matches.count(), 4)
-        # Wszystkie mają bracket_type='W'
-        types = matches.values_list('bracket_type', flat=True)
+        r1_matches = TournamentsMatch.objects.filter(tournament=t, round_number=1)
+        self.assertEqual(r1_matches.count(), 4)
+        # Wszystkie R1 mają bracket_type='W'
+        types = r1_matches.values_list('bracket_type', flat=True)
         self.assertTrue(all(bt == 'W' for bt in types))
+        # Gracze z BYE zostali już awansowani do R2
+        bye_matches = r1_matches.filter(participant2=None)
+        self.assertGreater(bye_matches.count(), 0)
+        r2_matches = TournamentsMatch.objects.filter(tournament=t, round_number=2)
+        self.assertGreater(r2_matches.count(), 0)
 
     def test_dbe_6_players_bye_matches_have_bracket_type_W(self):
         """Mecze BYE w DBE mają bracket_type='W'."""

@@ -1569,6 +1569,20 @@ def generate_elimination_matches_initial(tournament, participants_qs, config, br
         match_index += 1
 
     created_matches = TournamentsMatch.objects.bulk_create(matches_to_create)
+
+    # Advance graczy z meczów BYE (participant2=None, status=CMP) do R2.
+    # Musi być wywołane po bulk_create, gdy mecze mają już pk.
+    if num_byes > 0:
+        from apps.tournaments.models import TournamentsMatch as _TM2
+        if tournament.tournament_type == 'SGL':
+            from apps.tournaments.bracket import advance_winner_in_bracket
+            for m in _TM2.objects.filter(tournament=tournament, round_number=1, participant2=None, status=_TM2.Status.COMPLETED):
+                advance_winner_in_bracket(m, tournament)
+        elif tournament.tournament_type == 'DBE':
+            from apps.tournaments.bracket import advance_dbe_match
+            for m in _TM2.objects.filter(tournament=tournament, round_number=1, participant2=None, status=_TM2.Status.COMPLETED):
+                advance_dbe_match(m, tournament)
+
     return len(created_matches), f"Wygenerowano drabinkę dla {num_participants} uczestników ({len(matches_to_create)} meczów, {num_byes} wolnych losów)."
 
 

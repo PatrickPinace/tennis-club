@@ -1,10 +1,12 @@
 ---
-// OrgFinishSection — "Zakończ turniej" confirm flow. Shared across SGL, AMR, RND org panels.
+// OrgFinishSection — "Zakończ turniej" + "Anuluj turniej" confirm flows.
 // No props needed — all IDs are fixed and consumed by org-finish.ts.
 ---
 
 <div id="org-finish-section" style="display:none; padding:0 20px 20px; border-top:1px solid var(--border); margin-top:8px; padding-top:16px;">
   <div class="org-section-label" style="margin-bottom:12px;">Zakończenie turnieju</div>
+
+  <!-- ── Finish confirm box ───────────────────────────────────────────── -->
   <div id="org-finish-confirm" style="display:none;" class="org-finish-confirm-box">
     <div id="org-finish-unplayed-warn" style="display:none;" class="org-finish-unplayed-warn"></div>
     <p class="org-finish-confirm__msg">
@@ -15,13 +17,34 @@
       <button id="org-finish-cancel-btn" class="org-finish-btn org-finish-btn--ghost">Anuluj</button>
     </div>
   </div>
-  <div id="org-finish-trigger-wrap">
+
+  <!-- ── Cancel confirm box ───────────────────────────────────────────── -->
+  <div id="org-cancel-confirm" style="display:none;" class="org-finish-confirm-box org-cancel-confirm-box">
+    <p class="org-finish-confirm__msg">
+      Czy na pewno chcesz anulować turniej? Turniej zostanie oznaczony jako odwołany. Tej akcji nie można cofnąć.
+    </p>
+    <div class="org-finish-confirm__actions">
+      <button id="org-cancel-yes-btn" class="org-finish-btn org-finish-btn--danger">Tak, anuluj turniej</button>
+      <button id="org-cancel-back-btn" class="org-finish-btn org-finish-btn--ghost">Wróć</button>
+    </div>
+  </div>
+
+  <!-- ── Trigger row ───────────────────────────────────────────────────── -->
+  <div id="org-finish-trigger-wrap" class="org-finish-trigger-row">
     <button id="org-finish-btn" class="org-finish-btn org-finish-btn--outline">
       <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;">
         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
       </svg>
       Zakończ turniej
     </button>
-    <span id="org-finish-msg" class="org-form-msg" style="margin-left:12px;"></span>
+
+    <button id="org-cancel-tournament-btn" class="org-finish-btn org-finish-btn--cancel">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;">
+        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+      </svg>
+      Anuluj turniej
+    </button>
   </div>
+
+  <span id="org-finish-msg" class="org-form-msg" style="margin-top:8px;display:block;"></span>
 </div>
