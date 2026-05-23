@@ -1524,43 +1524,63 @@ def generate_americano_matches(tournament, participants_qs, config):
     """
     Generuje mecze dla turnieju Americano na podstawie liczby graczy i rund.
     Używa algorytmu "circle method" do rotacji graczy.
+    Obsługuje SNG (singiel) i DBL (debel).
     """
     num_participants = participants_qs.count()
-    if num_participants < 4 or num_participants % 4 != 0:
-        return 0, f"Nieprawidłowa liczba uczestników ({num_participants}). Musi być to wielokrotność 4 i co najmniej 4 graczy."
+    is_doubles = tournament.match_format == 'DBL'
+
+    if num_participants < 4:
+        return 0, f"Nieprawidłowa liczba uczestników ({num_participants}). Wymagane co najmniej 4."
+    if is_doubles and num_participants % 4 != 0:
+        return 0, f"Americano debel wymaga wielokrotności 4 uczestników (masz {num_participants})."
+    if not is_doubles and num_participants % 2 != 0:
+        return 0, f"Americano singiel wymaga parzystej liczby uczestników (masz {num_participants})."
 
     TournamentsMatch.objects.filter(tournament=tournament).delete()
 
-    num_courts = num_participants // 4
     matches_to_create = []
 
     if config.scheduling_type == 'DYNAMIC':
-        # Tryb Mexicano: generujemy tylko jedną rundę na podstawie rankingu (seed)
+        # Tryb Mexicano: generujemy tylko rundę 1 na podstawie seed
         participants = list(participants_qs.order_by('seed_number'))
-        num_rounds = 1 # Tylko jedna runda
-        message = f"Wygenerowano 1. rundę ({len(participants) // 4} meczów) dla trybu Mexicano na podstawie rankingu."
-        
-        # Dzielimy graczy na mecze
-        for i in range(num_courts):
-            match_index = i + 1
-            # Gracze są brani po kolei z posortowanej listy
-            p1, p2, p3, p4 = participants[i*4 : (i+1)*4]
-            # Tworzymy mecz: (1,4) vs (2,3) - standardowe parowanie w Mexicano
-            matches_to_create.append(
-                TournamentsMatch(
-                    tournament=tournament,
-                    participant1=p1, participant2=p4, # Team A
-                    participant3=p2, participant4=p3, # Team B
-                    round_number=1,
-                    match_index=match_index,
-                    status=TournamentsMatch.Status.WAITING.value
+        if is_doubles:
+            num_matches = num_participants // 4
+            message = f"Wygenerowano 1. rundę ({num_matches} meczów debel) dla trybu Mexicano."
+            for i in range(num_matches):
+                p1, p2, p3, p4 = participants[i * 4:(i + 1) * 4]
+                matches_to_create.append(
+                    TournamentsMatch(
+                        tournament=tournament,
+                        participant1=p1, participant2=p4,
+                        participant3=p2, participant4=p3,
+                        round_number=1,
+                        match_index=i + 1,
+                        status=TournamentsMatch.Status.WAITING.value,
+                    )
                 )
-            )
+        else:
+            num_matches = num_participants // 2
+            message = f"Wygenerowano 1. rundę ({num_matches} meczów singiel) dla trybu Mexicano."
+            for i in range(num_matches):
+                p1 = participants[i * 2]
+                p2 = participants[i * 2 + 1]
+                matches_to_create.append(
+                    TournamentsMatch(
+                        tournament=tournament,
+                        participant1=p1, participant2=p2,
+                        participant3=None, participant4=None,
+                        round_number=1,
+                        match_index=i + 1,
+                        status=TournamentsMatch.Status.WAITING.value,
+                    )
+                )
     else:
-        # Tryb Americano (STATIC): generujemy wszystkie rundy losowo
+        # Tryb Americano (STATIC): generujemy wszystkie rundy losowo — tylko DBL
+        # (SNG STATIC używa generate_americano_matches_static z bracket.py przez API)
         participants = list(participants_qs)
         random.shuffle(participants)
         num_rounds = config.number_of_rounds
+        num_courts = num_participants // 4
         message = f"Wygenerowano losowo {num_rounds} rund ({num_rounds * num_courts} meczów) dla trybu Americano."
 
         # Algorytm rotacji: jeden gracz jest stały, reszta się obraca
@@ -1581,11 +1601,11 @@ def generate_americano_matches(tournament, participants_qs, config):
                 matches_to_create.append(
                     TournamentsMatch(
                         tournament=tournament,
-                        participant1=p1, participant2=p4, # Team A
-                        participant3=p2, participant4=p3, # Team B
+                        participant1=p1, participant2=p4,
+                        participant3=p2, participant4=p3,
                         round_number=round_number,
                         match_index=match_index,
-                        status=TournamentsMatch.Status.WAITING.value
+                        status=TournamentsMatch.Status.WAITING.value,
                     )
                 )
             # Rotacja graczy (bez ostatniego) na następną rundę
@@ -1598,6 +1618,7 @@ def generate_americano_matches(tournament, participants_qs, config):
 def generate_next_mexicano_round(tournament, config, standings_list):
     """
     Generuje następną rundę dla turnieju w trybie Mexicano na podstawie aktualnej tabeli.
+    Obsługuje SNG (singiel) i DBL (debel).
     """
     current_max_round = tournament.matches.aggregate(max_round=Max('round_number')).get('max_round') or 0
     next_round_number = current_max_round + 1
@@ -1607,31 +1628,52 @@ def generate_next_mexicano_round(tournament, config, standings_list):
 
     participants = [s['participant'] for s in standings_list]
     num_participants = len(participants)
+    is_doubles = tournament.match_format == 'DBL'
 
     if num_participants < 4:
         return 0, f"Za mało uczestników ({num_participants}) — potrzeba co najmniej 4."
-    if num_participants % 4 != 0:
-        return 0, f"Liczba uczestników ({num_participants}) musi być wielokrotnością 4 — reszta {num_participants % 4} graczy nie może być przypisana do meczu."
 
-    num_courts = num_participants // 4
+    if is_doubles:
+        if num_participants % 4 != 0:
+            return 0, f"Mexicano debel wymaga wielokrotności 4 uczestników (masz {num_participants})."
+        num_matches = num_participants // 4
+    else:
+        if num_participants % 2 != 0:
+            return 0, f"Mexicano singiel wymaga parzystej liczby uczestników (masz {num_participants})."
+        num_matches = num_participants // 2
+
     matches_to_create = []
 
-    for i in range(num_courts):
-        match_index = i + 1
-        # Gracze są brani po kolei z posortowanej listy
-        p1, p2, p3, p4 = participants[i*4 : (i+1)*4]
-        # Tworzymy mecz: (1,4) vs (2,3) - standardowe parowanie w Mexicano
-        matches_to_create.append(
-            TournamentsMatch(
-                tournament=tournament,
-                participant1=p1, participant2=p4, # Team A
-                participant3=p2, participant4=p3, # Team B
-                round_number=next_round_number,
-                match_index=match_index,
-                status=TournamentsMatch.Status.WAITING.value
+    if is_doubles:
+        # Debel: grupy po 4, konwencja Team A = (p1,p4) vs Team B = (p2,p3)
+        for i in range(num_matches):
+            p1, p2, p3, p4 = participants[i * 4:(i + 1) * 4]
+            matches_to_create.append(
+                TournamentsMatch(
+                    tournament=tournament,
+                    participant1=p1, participant2=p4,
+                    participant3=p2, participant4=p3,
+                    round_number=next_round_number,
+                    match_index=i + 1,
+                    status=TournamentsMatch.Status.WAITING.value,
+                )
             )
-        )
-    
+    else:
+        # Singiel: parowanie 1v2, 3v4, ... (top vs top, mid vs mid)
+        for i in range(num_matches):
+            p1 = participants[i * 2]
+            p2 = participants[i * 2 + 1]
+            matches_to_create.append(
+                TournamentsMatch(
+                    tournament=tournament,
+                    participant1=p1, participant2=p2,
+                    participant3=None, participant4=None,
+                    round_number=next_round_number,
+                    match_index=i + 1,
+                    status=TournamentsMatch.Status.WAITING.value,
+                )
+            )
+
     created_matches = TournamentsMatch.objects.bulk_create(matches_to_create)
     message = f"Automatycznie wygenerowano {len(created_matches)} meczów dla rundy {next_round_number}."
     return len(created_matches), message
