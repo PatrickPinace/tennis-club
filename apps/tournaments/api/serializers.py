@@ -266,6 +266,14 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             cfg = getattr(obj, 'round_robin_config', None)
             if cfg:
                 return RoundRobinConfigSerializer(cfg).data
+        if obj.tournament_type == 'SGL':
+            cfg = getattr(obj, 'elimination_config', None)
+            if cfg:
+                return {
+                    'sets_to_win': cfg.sets_to_win,
+                    'initial_seeding': cfg.initial_seeding,
+                    'third_place_match': cfg.third_place_match,
+                }
         if obj.tournament_type == 'AMR':
             cfg = getattr(obj, 'americano_config', None)
             if cfg:

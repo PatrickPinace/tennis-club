@@ -231,6 +231,7 @@ export interface AmrConfig {
 
 export interface SglConfig {
   sets_to_win: number;
+  initial_seeding: 'RANDOM' | 'SEEDING';
   third_place_match: boolean;
 }
 

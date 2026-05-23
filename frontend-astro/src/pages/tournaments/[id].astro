@@ -300,6 +300,25 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             </div>
           </div>
 
+          <!-- ── Konfiguracja drabinki (zwijana) ─────────────────────────── -->
+          {tournament.config && (
+            <details class="tc-card td-config-card">
+              <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
+                <span class="tc-card-title">Zasady</span>
+                <span style="font-size:0.78rem; color:var(--text-dim);">▾ rozwiń</span>
+              </summary>
+              <div class="td-config-body">
+                <div class="td-config-grid">
+                  <div>
+                    <div class="td-config-row"><span>Rozstawienie</span><strong>{(tournament.config as any).initial_seeding === 'RANDOM' ? 'Losowe' : 'Według rankingu (seed)'}</strong></div>
+                    <div class="td-config-row"><span>Mecz o 3. miejsce</span><strong>{(tournament.config as any).third_place_match ? 'Tak' : 'Nie'}</strong></div>
+                    <div class="td-config-row"><span>Format meczu</span><strong>Do {(tournament.config as any).sets_to_win} wygranych setów</strong></div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
+
           <!-- SSR data dla JS -->
           {tournament && (
             <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
