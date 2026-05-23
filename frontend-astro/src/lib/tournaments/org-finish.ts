@@ -8,7 +8,7 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
   if (finishHandlersBound) return;
   finishHandlersBound = true;
 
-  const panel = document.getElementById('org-panel') as HTMLElement;
+  const panel = (document.getElementById('org-panel-amr') ?? document.getElementById('org-panel')) as HTMLElement;
   const triggerWrap   = document.getElementById('org-finish-trigger-wrap') as HTMLElement;
   const confirmBox    = document.getElementById('org-finish-confirm') as HTMLElement;
   const finishBtn     = document.getElementById('org-finish-btn') as HTMLButtonElement;
@@ -113,7 +113,8 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
 }
 
 export function initFinishButton(cfg: OrgPanelConfig, loadStandings: () => Promise<void>) {
-  const panel = document.getElementById('org-panel') as HTMLElement | null;
+  // AMR uses org-panel-amr, others use org-panel
+  const panel = document.getElementById('org-panel-amr') ?? document.getElementById('org-panel') as HTMLElement | null;
   if (!panel) return;
   const finishSection = document.getElementById('org-finish-section') as HTMLElement | null;
   if (!finishSection) return;

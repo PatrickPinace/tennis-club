@@ -166,6 +166,7 @@ export interface ReservationEntry {
   start_time: string;   // ISO datetime
   end_time: string;     // ISO datetime
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+  series_id: string | null;  // UUID serii dla rezerwacji cyklicznych, null = pojedyncza
 }
 
 // ── Tournament Detail ───────────────────────────────────────────────────────
@@ -221,6 +222,17 @@ export interface RRConfig {
   tie_breaker_priority: string;
 }
 
+export interface AmrConfig {
+  scheduling_type: 'STATIC' | 'DYNAMIC';
+  number_of_rounds: number;
+  points_per_match: number;
+}
+
+export interface SglConfig {
+  sets_to_win: number;
+  third_place_match: boolean;
+}
+
 export interface TournamentDetail {
   id: number;
   name: string;
@@ -236,7 +248,7 @@ export interface TournamentDetail {
   created_by_username: string;
   participant_count: number;
   participants: Participant[];
-  config: RRConfig | null;
+  config: RRConfig | AmrConfig | SglConfig | null;
   matches: TournamentMatch[];
   standings: RRStandingRow[] | null;
   matches_progress: { done: number; total: number } | null;

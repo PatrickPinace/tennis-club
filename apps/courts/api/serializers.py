@@ -8,7 +8,7 @@ class MyReservationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reservation
-        fields = ['id', 'court_name', 'facility_name', 'start_time', 'end_time', 'status']
+        fields = ['id', 'court_name', 'facility_name', 'start_time', 'end_time', 'status', 'series_id']
 
     def get_court_name(self, obj):
         if obj.court:
