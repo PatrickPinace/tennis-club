@@ -158,6 +158,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
           <span class="tc-badge tc-badge-primary">{isRoundRobin ? 'Liga (Round Robin)' : isSingleElimination ? 'Eliminacja pojedyncza' : isMexicano ? 'Mexicano' : isAmericano ? 'Americano' : (tournament.tournament_type ?? '—')}</span>
           <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format}</span>
           {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
+          {!tournament.is_ranked && <span class="tc-badge tc-badge-neutral" style="opacity:0.7;">Towarzyski</span>}
         </div>
         <div class="td-info-meta">
           {(tournament.start_date || tournament.end_date) && (

@@ -21,7 +21,8 @@ def _build_filters(match_type, season):
     ft = (
         Q(tournament__status=Tournament.Status.FINISHED.value) &
         Q(tournament__end_date__isnull=False) &
-        Q(tournament__match_format=match_type)
+        Q(tournament__match_format=match_type) &
+        Q(tournament__is_ranked=True)
     )
     if season:
         ft &= Q(tournament__end_date__year=season)

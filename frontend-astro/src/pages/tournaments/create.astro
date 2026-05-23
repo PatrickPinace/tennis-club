@@ -105,6 +105,16 @@ if (!currentUser) {
           </div>
         </div>
 
+        <div class="cr-row" style="margin-top:4px;">
+          <div class="cr-field">
+            <label class="cr-checkbox-label">
+              <input type="checkbox" id="cr-is-ranked" checked>
+              <span>Turniej rankingowy</span>
+            </label>
+            <span class="cr-hint">Odznacz, jeśli to turniej towarzyski — wyniki nie będą wliczane do globalnego rankingu.</span>
+          </div>
+        </div>
+
         <div class="cr-row">
           <div class="cr-field">
             <label class="cr-label" for="cr-start">Data rozpoczęcia</label>
@@ -316,7 +326,8 @@ const descEl    = document.getElementById('cr-desc') as HTMLTextAreaElement;
 const typeEl    = document.getElementById('cr-type') as HTMLSelectElement;
 const typeNote  = document.getElementById('cr-type-note') as HTMLElement;
 const formatEl  = document.getElementById('cr-format') as HTMLSelectElement;
-const rankEl    = document.getElementById('cr-rank') as HTMLSelectElement;
+const rankEl      = document.getElementById('cr-rank') as HTMLSelectElement;
+const isRankedEl  = document.getElementById('cr-is-ranked') as HTMLInputElement;
 const startEl   = document.getElementById('cr-start') as HTMLInputElement;
 const endEl     = document.getElementById('cr-end') as HTMLInputElement;
 
@@ -459,6 +470,7 @@ function buildSummary() {
         ${row('Typ', TYPE_LABELS[typeEl.value] ?? typeEl.value)}
         ${row('Format', FORMAT_LABELS[formatEl.value] ?? formatEl.value)}
         ${row('Ranga', rankEl.value)}
+        ${row('Rankingowy', isRankedEl.checked ? 'Tak' : 'Nie (towarzyski)')}
         ${descEl.value.trim() ? row('Opis', descEl.value.trim()) : ''}
         ${row('Data rozpoczęcia', startEl.value ? formatDate(startEl.value) : '—')}
         ${row('Data zakończenia', endEl.value ? formatDate(endEl.value) : '—')}
@@ -526,11 +538,12 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
     await fetch(`${API}/api/auth/csrf/`, { credentials: 'include' });
 
     // 1. POST /api/tournaments/create/
-    const body: Record<string, string | number> = {
+    const body: Record<string, string | number | boolean> = {
       name:            nameEl.value.trim(),
       tournament_type: typeEl.value,
       match_format:    formatEl.value,
       rank:            Number(rankEl.value),
+      is_ranked:       isRankedEl.checked,
       description:     descEl.value.trim(),
     };
     if (startEl.value) body.start_date = startEl.value;

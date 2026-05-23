@@ -1211,6 +1211,9 @@ class TournamentCreateView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # ── is_ranked (domyślnie True; False = turniej towarzyski bez wpływu na ranking) ──
+        is_ranked = bool(data.get('is_ranked', True))
+
         # ── Utwórz turniej ────────────────────────────────────────────────────
         tournament = Tournament.objects.create(
             name=name,
@@ -1218,6 +1221,7 @@ class TournamentCreateView(APIView):
             tournament_type=tournament_type,
             match_format=match_format,
             rank=rank,
+            is_ranked=is_ranked,
             start_date=start_date,
             end_date=end_date,
             status=Tournament.Status.DRAFT,
