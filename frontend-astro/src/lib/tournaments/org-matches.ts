@@ -276,6 +276,7 @@ async function handleScoreSubmit(
         await cbs.loadBracket();
       } else if (cfg.isAMR) {
         await cbs.loadAmericanoStandings();
+        document.dispatchEvent(new CustomEvent('amr-match-scored'));
       } else {
         await cbs.loadStandings();
       }
@@ -389,7 +390,7 @@ export function applyMatchFilter(
                 winner_name: null };
               renderMatches(cfg, state);
             }
-            if (cfg.isSGL) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); } else { await cbs.loadStandings(); }
+            if (cfg.isSGL) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); document.dispatchEvent(new CustomEvent('amr-match-scored')); } else { await cbs.loadStandings(); }
           } else {
             if (msgEl) { msgEl.textContent = d.detail ?? 'Błąd anulowania.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
             btn.disabled = false;
