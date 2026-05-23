@@ -80,7 +80,7 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = TournamentsMatch
         fields = [
-            'id', 'round_number', 'match_index', 'status',
+            'id', 'round_number', 'match_index', 'bracket_type', 'status',
             'participant1_id', 'participant2_id',
             'participant3_id', 'participant4_id',
             'participant1_name', 'participant2_name',

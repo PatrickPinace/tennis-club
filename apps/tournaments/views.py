@@ -1860,9 +1860,12 @@ def advance_double_elimination(tournament, match):
     pass 
     # (Pełna implementacja poniżej w bloku kodu, zastępując ten placeholder)
 
-def get_or_create_match(tournament, round_num, match_idx):
+def get_or_create_match(tournament, round_num, match_idx, bracket_type=None):
+    if bracket_type is None:
+        bracket_type = TournamentsMatch.BracketType.WINNERS
     match, created = TournamentsMatch.objects.get_or_create(
         tournament=tournament,
+        bracket_type=bracket_type,
         round_number=round_num,
         match_index=match_idx,
         defaults={'status': TournamentsMatch.Status.WAITING.value}

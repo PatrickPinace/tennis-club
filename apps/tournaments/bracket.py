@@ -104,6 +104,7 @@ def advance_winner_in_bracket(match, tournament) -> bool:
     with transaction.atomic():
         next_match, created = TournamentsMatch.objects.select_for_update().get_or_create(
             tournament=tournament,
+            bracket_type=TournamentsMatch.BracketType.WINNERS,
             round_number=next_round,
             match_index=next_index,
             defaults={
@@ -198,6 +199,7 @@ def _ensure_third_place_match(tournament, total_rounds: int):
     # Mecz o 3. miejsce: round_number=total_rounds, match_index=2
     third_match, created = TournamentsMatch.objects.get_or_create(
         tournament=tournament,
+        bracket_type=TournamentsMatch.BracketType.WINNERS,
         round_number=total_rounds,
         match_index=2,
         defaults={
