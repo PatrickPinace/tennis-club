@@ -379,6 +379,124 @@ def build_bracket_data(tournament) -> list[dict]:
     return rounds_out
 
 
+def build_dbe_bracket_data(tournament) -> dict:
+    """
+    Buduje strukturę drabinki DBE dla endpointu GET /bracket/.
+
+    Zwraca słownik:
+    {
+      "type": "dbe",
+      "winners": [ { "round": int, "round_label": str, "matches": [...] }, ... ],
+      "losers":  [ { "round": int, "round_label": str, "matches": [...] }, ... ],
+      "grand_final": { "round": 1, "round_label": "Wielki Finał", "matches": [...] } | null,
+    }
+
+    match shape identyczny jak w build_bracket_data() (dla SGL).
+    """
+    from apps.tournaments.models import TournamentsMatch
+    BT = TournamentsMatch.BracketType
+
+    all_matches = (
+        TournamentsMatch.objects
+        .filter(tournament=tournament)
+        .select_related('participant1__user', 'participant2__user', 'winner')
+        .order_by('bracket_type', 'round_number', 'match_index')
+    )
+
+    def participant_data(p):
+        if p is None:
+            return None
+        return {
+            'id': p.pk,
+            'display_name': p.display_name,
+            'seed_number': p.seed_number,
+            'user_id': p.user_id,
+        }
+
+    def score_str(m):
+        parts = []
+        for i in range(1, 4):
+            s1 = getattr(m, f'set{i}_p1_score')
+            s2 = getattr(m, f'set{i}_p2_score')
+            if s1 is not None and s2 is not None:
+                parts.append(f'{s1}:{s2}')
+        return ' '.join(parts) if parts else None
+
+    def match_dict(m):
+        is_bye = m.participant2 is None and m.status == TournamentsMatch.Status.COMPLETED.value
+        return {
+            'id': m.pk,
+            'match_index': m.match_index,
+            'bracket_type': m.bracket_type,
+            'status': m.status,
+            'status_display': m.get_status_display(),
+            'is_bye': is_bye,
+            'is_third_place': False,
+            'participant1': participant_data(m.participant1),
+            'participant2': participant_data(m.participant2),
+            'winner_id': m.winner_id,
+            'score': score_str(m),
+            'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
+        }
+
+    # Oblicz wb_total_rounds dla etykiet WB
+    wb_r1_count = sum(1 for m in all_matches if m.bracket_type == BT.WINNERS and m.round_number == 1)
+    bracket_size = wb_r1_count * 2 if wb_r1_count > 0 else 2
+    wb_total = int(math.log2(bracket_size)) if bracket_size >= 2 else 1
+    lb_total = 2 * (wb_total - 1)
+
+    def wb_round_label(rn: int) -> str:
+        if rn == wb_total:
+            return 'Finał WB'
+        if rn == wb_total - 1:
+            return 'Półfinał WB'
+        return f'WB Runda {rn}'
+
+    def lb_round_label(rn: int) -> str:
+        if rn == lb_total:
+            return 'Finał LB'
+        return f'LB Runda {rn}'
+
+    # Grupuj po bracket_type i round_number
+    wb_rounds: dict[int, list] = {}
+    lb_rounds: dict[int, list] = {}
+    gf_matches: list = []
+
+    for m in all_matches:
+        if m.bracket_type == BT.WINNERS:
+            wb_rounds.setdefault(m.round_number, []).append(m)
+        elif m.bracket_type == BT.LOSERS:
+            lb_rounds.setdefault(m.round_number, []).append(m)
+        elif m.bracket_type == BT.GRAND_FINAL:
+            gf_matches.append(m)
+
+    def build_rounds(rounds_dict: dict, label_fn) -> list[dict]:
+        result = []
+        for rn in sorted(rounds_dict.keys()):
+            matches = sorted(rounds_dict[rn], key=lambda x: x.match_index)
+            result.append({
+                'round': rn,
+                'round_label': label_fn(rn),
+                'matches': [match_dict(m) for m in matches],
+            })
+        return result
+
+    gf_section = None
+    if gf_matches:
+        gf_section = {
+            'round': 1,
+            'round_label': 'Wielki Finał',
+            'matches': [match_dict(m) for m in gf_matches],
+        }
+
+    return {
+        'type': 'dbe',
+        'winners': build_rounds(wb_rounds, wb_round_label),
+        'losers': build_rounds(lb_rounds, lb_round_label),
+        'grand_final': gf_section,
+    }
+
+
 # ── Double Elimination — advance logic ────────────────────────────────────────
 
 def _wb_total_rounds(tournament) -> int:

@@ -39,7 +39,10 @@ function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const p2 = isDoubles
     ? escHtml(`${m.participant2_name ?? 'BYE'} / ${m.participant3_name ?? 'BYE'}`)
     : escHtml(m.participant2_name ?? 'BYE');
-  const roundLabel = `R${m.round_number} M${m.match_index}`;
+  const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
+  const roundLabel = m.bracket_type === 'GF'
+    ? `GF M${m.match_index}`
+    : `${bracketPrefix}R${m.round_number} M${m.match_index}`;
 
   const statusBadge = m.status === 'CMP'
     ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`

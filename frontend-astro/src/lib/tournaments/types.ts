@@ -5,6 +5,7 @@ export type MatchData = {
   id: number;
   round_number: number;
   match_index: number;
+  bracket_type?: 'W' | 'L' | 'GF';
   status: string;
   participant1_id: number | null;
   participant2_id: number | null;
@@ -61,6 +62,7 @@ export type BracketRound = {
 export type BracketMatch = {
   id: number;
   match_index: number;
+  bracket_type?: 'W' | 'L' | 'GF';
   status: string;
   status_display: string;
   is_bye: boolean;
@@ -70,6 +72,14 @@ export type BracketMatch = {
   winner_id: number | null;
   score: string | null;
   scheduled_time: string | null;
+};
+
+/** DBE bracket API response (distinct from SGL flat list). */
+export type DBEBracketData = {
+  type: 'dbe';
+  winners: BracketRound[];
+  losers: BracketRound[];
+  grand_final: BracketRound | null;
 };
 
 export type UserItem = {
@@ -90,6 +100,7 @@ export type OrgPanelConfig = {
   pointsPerMatch: number;
   apiBase: string;
   isSGL: boolean;
+  isDBE: boolean;
   isAMR: boolean;
   locked: boolean;
   lockedHard: boolean;
