@@ -23,7 +23,7 @@ import { initViewToggle } from './org-view-toggle';
 
   const panel: HTMLElement = amrPanel
     ? amrPanel
-    : (document.querySelector<HTMLElement>(`[id="org-panel"][data-panel-type="${tType === 'SGL' ? 'SGL' : 'RND'}"]`) ?? anyPanel);
+    : (document.querySelector<HTMLElement>(`[id="org-panel"][data-panel-type="${tType === 'SGL' ? 'SGL' : tType === 'DBE' ? 'DBE' : 'RND'}"]`) ?? anyPanel);
 
   const tournamentId   = panel.dataset.tournamentId ?? '';
   const createdBy      = panel.dataset.createdBy ?? '';
@@ -32,6 +32,7 @@ import { initViewToggle } from './org-view-toggle';
   const pointsPerMatch = parseInt(panel.dataset.pointsPerMatch ?? '32', 10);
   const apiBase        = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
   const isSGL          = tType === 'SGL';
+  const isDBE          = tType === 'DBE';
   const isAMR          = tType === 'AMR';
 
   // 1. Auth check
@@ -59,7 +60,7 @@ import { initViewToggle } from './org-view-toggle';
 
   const cfg: OrgPanelConfig = {
     panel, tournamentId, createdBy, tStatus, tType,
-    setsToWin, pointsPerMatch, apiBase, isSGL, isAMR,
+    setsToWin, pointsPerMatch, apiBase, isSGL, isDBE, isAMR,
     locked, lockedHard,
   };
 
@@ -78,7 +79,7 @@ import { initViewToggle } from './org-view-toggle';
   };
 
   // Dispatch per tournament type
-  if (isSGL) {
+  if (isSGL || isDBE) {
     if (tStatus !== 'DRF' && tStatus !== 'REG') {
       await loadBracket(cfg);
     }

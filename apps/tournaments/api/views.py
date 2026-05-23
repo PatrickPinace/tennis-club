@@ -151,6 +151,7 @@ class RoundRobinMatchScoreView(APIView):
     SUPPORTED_TYPES = (
         Tournament.TournamentType.ROUND_ROBIN,
         Tournament.TournamentType.SINGLE_ELIMINATION,
+        Tournament.TournamentType.DOUBLE_ELIMINATION,
         Tournament.TournamentType.AMERICANO,
     )
 
@@ -356,10 +357,13 @@ class RoundRobinMatchScoreView(APIView):
                 set3_p1_score=None, set3_p2_score=None,
             )
 
-            # SGL: awansuj zwycięzcę do następnej rundy
+            # SGL/DBE: awansuj zwycięzcę do następnej rundy
             if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
                 from apps.tournaments.bracket import advance_winner_in_bracket
                 advance_winner_in_bracket(match, tournament)
+            elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_dbe_match
+                advance_dbe_match(match, tournament)
 
             return Response({
                 'match_id': match.pk,
@@ -558,13 +562,14 @@ class RoundRobinMatchScoreView(APIView):
             set3_p2_score=match.set3_p2_score,
         )
 
-        # SGL: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
-        if (
-            tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION
-            and match.status == TournamentsMatch.Status.COMPLETED.value
-        ):
-            from apps.tournaments.bracket import advance_winner_in_bracket
-            advance_winner_in_bracket(match, tournament)
+        # SGL/DBE: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
+        if match.status == TournamentsMatch.Status.COMPLETED.value:
+            if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_winner_in_bracket
+                advance_winner_in_bracket(match, tournament)
+            elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_dbe_match
+                advance_dbe_match(match, tournament)
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
@@ -672,34 +677,32 @@ class RoundRobinStandingsView(APIView):
 
 class TournamentBracketView(APIView):
     """
-    Struktura drabinki dla turnieju Single Elimination.
+    Struktura drabinki dla turnieju eliminacyjnego (SGL lub DBE).
     GET /api/tournaments/{pk}/bracket/
 
-    Auth: IsAuthenticatedOrReadOnly (publiczny odczyt, spójny z pozostałymi detail endpoints).
-    Tylko turnieje SGL — dla innych zwraca 404.
+    Auth: IsAuthenticatedOrReadOnly (publiczny odczyt).
+    Obsługuje SGL i DBE — dla innych typów zwraca 404.
 
-    Zwraca listę rund w kolejności od R1 do finału:
-    [
-      {
-        "round": 1,
-        "round_label": "Runda 1" | "Ćwierćfinał" | "Półfinał" | "Finał",
-        "matches": [
-          {
-            "id": int,
-            "match_index": int,
-            "status": "WAI" | "SCH" | "INP" | "CMP" | "WDR" | "CNC",
-            "status_display": str,
-            "is_bye": bool,
-            "is_third_place": bool,
-            "participant1": {"id", "display_name", "seed_number", "user_id"} | null,
-            "participant2": {"id", "display_name", "seed_number", "user_id"} | null,
-            "winner_id": int | null,
-            "score": "6:4 7:5" | null,
-            "scheduled_time": ISO str | null
-          }, ...
-        ]
-      }, ...
-    ]
+    SGL: zwraca listę rund (flat list):
+    [ { "round", "round_label", "matches": [...] }, ... ]
+
+    DBE: zwraca słownik z sekcjami:
+    {
+      "type": "dbe",
+      "winners": [ { "round", "round_label", "matches": [...] }, ... ],
+      "losers":  [ ... ],
+      "grand_final": { "round": 1, "round_label": "Wielki Finał", "matches": [...] } | null,
+    }
+
+    match shape (identyczny dla SGL i DBE):
+    {
+      "id": int, "match_index": int, "bracket_type": "W"|"L"|"GF",
+      "status": str, "status_display": str,
+      "is_bye": bool, "is_third_place": bool,
+      "participant1": {"id", "display_name", "seed_number", "user_id"} | null,
+      "participant2": ...,
+      "winner_id": int | null, "score": str | null, "scheduled_time": str | null
+    }
     """
     permission_classes = [IsAuthenticatedOrReadOnly]
 
@@ -709,15 +712,20 @@ class TournamentBracketView(APIView):
         except Tournament.DoesNotExist:
             return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if tournament.tournament_type != Tournament.TournamentType.SINGLE_ELIMINATION:
-            return Response(
-                {'detail': 'Endpoint /bracket/ obsługuje tylko turnieje Single Elimination (SGL).'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
+            from apps.tournaments.bracket import build_bracket_data
+            bracket = build_bracket_data(tournament)
+            return Response(bracket, status=status.HTTP_200_OK)
 
-        from apps.tournaments.bracket import build_bracket_data
-        bracket = build_bracket_data(tournament)
-        return Response(bracket, status=status.HTTP_200_OK)
+        if tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+            from apps.tournaments.bracket import build_dbe_bracket_data
+            bracket = build_dbe_bracket_data(tournament)
+            return Response(bracket, status=status.HTTP_200_OK)
+
+        return Response(
+            {'detail': 'Endpoint /bracket/ obsługuje tylko turnieje SGL i DBE.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
 
 
 class EliminationConfigUpdateView(APIView):
@@ -742,19 +750,23 @@ class EliminationConfigUpdateView(APIView):
         except Tournament.DoesNotExist:
             return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-        if tournament.tournament_type != Tournament.TournamentType.SINGLE_ELIMINATION:
+        if tournament.tournament_type not in (
+            Tournament.TournamentType.SINGLE_ELIMINATION,
+            Tournament.TournamentType.DOUBLE_ELIMINATION,
+        ):
             return Response(
-                {'detail': 'Endpoint /config/sgl/ obsługuje tylko turnieje SGL.'},
+                {'detail': 'Endpoint /config/sgl/ obsługuje tylko turnieje SGL i DBE.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if not (request.user.is_staff or tournament.created_by == request.user):
             return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
 
+        is_dbe = tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION
         from apps.tournaments.models import EliminationConfig
         config, _ = EliminationConfig.objects.get_or_create(
             tournament=tournament,
-            defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
+            defaults={'initial_seeding': 'SEEDING', 'third_place_match': False if is_dbe else True},
         )
 
         data = request.data
@@ -763,8 +775,10 @@ class EliminationConfigUpdateView(APIView):
             if seeding not in ('RANDOM', 'SEEDING'):
                 return Response({'detail': 'initial_seeding must be RANDOM or SEEDING.'}, status=status.HTTP_400_BAD_REQUEST)
             config.initial_seeding = seeding
-        if 'third_place_match' in data:
+        if 'third_place_match' in data and not is_dbe:
             config.third_place_match = bool(data['third_place_match'])
+        if is_dbe:
+            config.third_place_match = False  # DBE nie ma meczu o 3. miejsce
 
         config.save()
         return Response({
@@ -1266,10 +1280,10 @@ class TournamentStatusView(APIView):
 
     # Dozwolone przejścia dla zwykłego organizatora
     ALLOWED_TRANSITIONS = {
-        'DRF': ['REG'],
-        'REG': ['DRF', 'SCH'],
-        'SCH': ['REG', 'ACT'],
-        'ACT': ['FIN'],
+        'DRF': ['REG', 'CNC'],
+        'REG': ['DRF', 'SCH', 'CNC'],
+        'SCH': ['REG', 'ACT', 'CNC'],
+        'ACT': ['FIN', 'CNC'],
         'FIN': [],
         'CNC': [],
     }
@@ -1360,6 +1374,17 @@ class TournamentStatusView(APIView):
                             defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
+                    elif tournament.tournament_type == 'DBE':
+                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.models import EliminationConfig, TournamentsMatch as _TM
+                        config, _ = EliminationConfig.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={'initial_seeding': 'SEEDING', 'third_place_match': False},
+                        )
+                        match_count, gen_message = generate_elimination_matches_initial(
+                            tournament, participants_qs, config,
+                            bracket_type=_TM.BracketType.WINNERS,
+                        )
                     elif tournament.tournament_type == 'AMR':
                         from apps.tournaments.models import AmericanoConfig
                         config, _ = AmericanoConfig.objects.get_or_create(

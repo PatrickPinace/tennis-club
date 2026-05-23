@@ -1,4 +1,4 @@
-// Organizer finish tournament — confirm and POST /finish/.
+// Organizer finish/cancel tournament — confirm flows.
 import { escHtml, getCsrf } from './helpers';
 import type { OrgPanelConfig } from './types';
 
@@ -9,14 +9,23 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
   finishHandlersBound = true;
 
   const panel = (document.getElementById('org-panel-amr') ?? document.getElementById('org-panel')) as HTMLElement;
-  const triggerWrap   = document.getElementById('org-finish-trigger-wrap') as HTMLElement;
-  const confirmBox    = document.getElementById('org-finish-confirm') as HTMLElement;
-  const finishBtn     = document.getElementById('org-finish-btn') as HTMLButtonElement;
-  const yesBtn        = document.getElementById('org-finish-yes-btn') as HTMLButtonElement;
-  const cancelBtn     = document.getElementById('org-finish-cancel-btn') as HTMLButtonElement;
-  const msgEl         = document.getElementById('org-finish-msg') as HTMLElement;
 
+  // ── Finish flow elements ──────────────────────────────────────────────────
+  const triggerWrap    = document.getElementById('org-finish-trigger-wrap') as HTMLElement;
+  const finishConfirm  = document.getElementById('org-finish-confirm') as HTMLElement;
+  const finishBtn      = document.getElementById('org-finish-btn') as HTMLButtonElement;
+  const yesBtn         = document.getElementById('org-finish-yes-btn') as HTMLButtonElement;
+  const cancelBtn      = document.getElementById('org-finish-cancel-btn') as HTMLButtonElement;
+  const msgEl          = document.getElementById('org-finish-msg') as HTMLElement;
   const unplayedWarnEl = document.getElementById('org-finish-unplayed-warn') as HTMLElement | null;
+
+  // ── Cancel flow elements ──────────────────────────────────────────────────
+  const cancelTournamentBtn = document.getElementById('org-cancel-tournament-btn') as HTMLButtonElement | null;
+  const cancelConfirm       = document.getElementById('org-cancel-confirm') as HTMLElement | null;
+  const cancelYesBtn        = document.getElementById('org-cancel-yes-btn') as HTMLButtonElement | null;
+  const cancelBackBtn       = document.getElementById('org-cancel-back-btn') as HTMLButtonElement | null;
+
+  // ── Finish: open confirm ──────────────────────────────────────────────────
   finishBtn.addEventListener('click', () => {
     triggerWrap.style.display = 'none';
 
@@ -41,16 +50,18 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
       } catch (_) { unplayedWarnEl.style.display = 'none'; }
     }
 
-    confirmBox.style.display = 'block';
+    finishConfirm.style.display = 'block';
   });
 
+  // ── Finish: cancel confirm ────────────────────────────────────────────────
   cancelBtn.addEventListener('click', () => {
-    confirmBox.style.display = 'none';
-    triggerWrap.style.display = 'block';
+    finishConfirm.style.display = 'none';
+    triggerWrap.style.display = 'flex';
     msgEl.textContent = '';
     msgEl.className = 'org-form-msg';
   });
 
+  // ── Finish: confirm ───────────────────────────────────────────────────────
   yesBtn.addEventListener('click', async () => {
     yesBtn.disabled = true;
     yesBtn.textContent = 'Kończenie…';
@@ -65,7 +76,7 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
       const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        confirmBox.style.display = 'none';
+        finishConfirm.style.display = 'none';
         finishSection.style.cssText = 'padding:16px 20px 20px;border-top:1px solid var(--border);';
         const warnings: string[] = [];
         if (data.unplayed_count > 0) {
@@ -81,8 +92,7 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
             ${warnings.map(w => `<span class="org-finish-warning">${w}</span>`).join('')}
           </div>`;
 
-        const statusBadges = document.querySelectorAll<HTMLElement>('.tc-badge');
-        statusBadges.forEach(el => {
+        document.querySelectorAll<HTMLElement>('.tc-badge').forEach(el => {
           if (el.textContent?.trim() === 'Trwa') {
             el.textContent = 'Zakończony';
             el.className = 'tc-badge tc-badge-neutral';
@@ -93,19 +103,87 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
         setTimeout(() => loadStandings(), 1200);
 
       } else {
-        confirmBox.style.display = 'none';
-        triggerWrap.style.display = 'block';
+        finishConfirm.style.display = 'none';
+        triggerWrap.style.display = 'flex';
         yesBtn.disabled = false;
         yesBtn.textContent = 'Tak, zakończ turniej';
         msgEl.textContent = data.detail ?? 'Błąd serwera.';
         msgEl.className = 'org-form-msg org-form-msg--err';
       }
 
-    } catch (e) {
-      confirmBox.style.display = 'none';
-      triggerWrap.style.display = 'block';
+    } catch {
+      finishConfirm.style.display = 'none';
+      triggerWrap.style.display = 'flex';
       yesBtn.disabled = false;
       yesBtn.textContent = 'Tak, zakończ turniej';
+      msgEl.textContent = 'Błąd połączenia z API.';
+      msgEl.className = 'org-form-msg org-form-msg--err';
+    }
+  });
+
+  // ── Cancel tournament: open confirm ──────────────────────────────────────
+  cancelTournamentBtn?.addEventListener('click', () => {
+    triggerWrap.style.display = 'none';
+    if (cancelConfirm) cancelConfirm.style.display = 'block';
+  });
+
+  // ── Cancel tournament: back ───────────────────────────────────────────────
+  cancelBackBtn?.addEventListener('click', () => {
+    if (cancelConfirm) cancelConfirm.style.display = 'none';
+    triggerWrap.style.display = 'flex';
+    msgEl.textContent = '';
+    msgEl.className = 'org-form-msg';
+  });
+
+  // ── Cancel tournament: confirm ────────────────────────────────────────────
+  cancelYesBtn?.addEventListener('click', async () => {
+    if (!cancelYesBtn) return;
+    cancelYesBtn.disabled = true;
+    cancelYesBtn.textContent = 'Anulowanie…';
+
+    try {
+      const res = await fetch(`${cfg.apiBase}/api/tournaments/${cfg.tournamentId}/status/`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'CNC' }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        if (cancelConfirm) cancelConfirm.style.display = 'none';
+        finishSection.style.cssText = 'padding:16px 20px 20px;border-top:1px solid var(--border);';
+        finishSection.innerHTML = `
+          <div class="org-finish-success org-cancel-success">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+            <span>Turniej został anulowany.</span>
+          </div>`;
+
+        document.querySelectorAll<HTMLElement>('.tc-badge').forEach(el => {
+          const t = el.textContent?.trim();
+          if (t === 'Trwa' || t === 'Zaplanowany' || t === 'Rejestracja' || t === 'Szkic') {
+            el.textContent = 'Odwołany';
+            el.className = 'tc-badge tc-badge-neutral';
+          }
+        });
+
+        panel.dataset.tournamentStatus = 'CNC';
+
+      } else {
+        if (cancelConfirm) cancelConfirm.style.display = 'none';
+        triggerWrap.style.display = 'flex';
+        cancelYesBtn.disabled = false;
+        cancelYesBtn.textContent = 'Tak, anuluj turniej';
+        msgEl.textContent = data.detail ?? 'Błąd serwera.';
+        msgEl.className = 'org-form-msg org-form-msg--err';
+      }
+
+    } catch {
+      if (cancelConfirm) cancelConfirm.style.display = 'none';
+      triggerWrap.style.display = 'flex';
+      cancelYesBtn.disabled = false;
+      cancelYesBtn.textContent = 'Tak, anuluj turniej';
       msgEl.textContent = 'Błąd połączenia z API.';
       msgEl.className = 'org-form-msg org-form-msg--err';
     }
@@ -113,13 +191,23 @@ function bindFinishHandlers(finishSection: HTMLElement, cfg: OrgPanelConfig, loa
 }
 
 export function initFinishButton(cfg: OrgPanelConfig, loadStandings: () => Promise<void>) {
-  // AMR uses org-panel-amr, others use org-panel
   const panel = document.getElementById('org-panel-amr') ?? document.getElementById('org-panel') as HTMLElement | null;
   if (!panel) return;
   const finishSection = document.getElementById('org-finish-section') as HTMLElement | null;
   if (!finishSection) return;
-  if (panel.dataset.tournamentStatus === 'ACT') {
-    finishSection.style.display = 'block';
-    bindFinishHandlers(finishSection, cfg, loadStandings);
-  }
+
+  const tStatus = panel.dataset.tournamentStatus ?? '';
+  // Sekcja widoczna gdy turniej można jeszcze zakończyć lub anulować
+  const canFinish = tStatus === 'ACT';
+  const canCancel = tStatus === 'DRF' || tStatus === 'REG' || tStatus === 'SCH' || tStatus === 'ACT';
+
+  if (!canFinish && !canCancel) return;
+
+  finishSection.style.display = 'block';
+
+  // Schowaj "Zakończ turniej" jeśli status nie jest ACT
+  const finishBtn = document.getElementById('org-finish-btn') as HTMLButtonElement | null;
+  if (finishBtn && !canFinish) finishBtn.style.display = 'none';
+
+  bindFinishHandlers(finishSection, cfg, loadStandings);
 }

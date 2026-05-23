@@ -1,6 +1,9 @@
 """
-bracket.py — logika drabinki single elimination dla Tennis Club.
+bracket.py — logika drabinki eliminacyjnej dla Tennis Club.
 
+Obsługuje Single Elimination (SGL) i Double Elimination (DBE).
+
+━━━ Single Elimination ━━━
 Główna funkcja: advance_winner_in_bracket(match, tournament)
 Wywoływana po każdym CMP lub WDR meczu turnieju typu SGL.
 
@@ -15,11 +18,33 @@ Algorytm drabinki:
   - Jeśli obaj uczestnicy kolejnego meczu są już znani → mecz gotowy do rozegrania (WAI)
   - Mecz o 3. miejsce (opcjonalny): generowany osobno gdy obaj przegrani z półfinałów są znani
 
+━━━ Double Elimination ━━━
+Główna funkcja: advance_dbe_match(match, tournament)
+Wywoływana po każdym CMP lub WDR meczu turnieju typu DBE.
+
+Struktura DBE dla bracket_size B = 2^k (k = log2(B)):
+  Winners Bracket (bracket_type='W'):  k rund, R1..Rk
+  Losers Bracket (bracket_type='L'):   2*(k-1) rund, LR1..LR(2k-2)
+  Grand Final (bracket_type='GF'):     1 mecz, round_number=1, match_index=1
+
+Routing przegranych z WB do LB:
+  WB_Rn loser → LB round = 2*n - 1, index obliczany z pozycji w WB
+  Rundy LB "drop-in" (nieparzyste): przegrani WB wpadają z góry
+  Rundy LB "konsolidacja" (parzyste): czysto wewnętrzne mecze LB
+
+Indeksy LB:
+  LB_R1: przegrani WB_R1 meczu 2k-1 i 2k → LB_R1 mecz k (p1/p2)
+  LB parzyste (konsolidacja): zwycięzcy dwóch meczów → jeden mecz (ceil/2)
+  LB nieparzyste (drop-in): zwycięzca LB poprzedniej + przegrany WB tej samej rundy
+
+Grand Final:
+  Zwycięzca WB Final (WB ostatnia runda) i zwycięzca LB Final (ostatnia runda LB)
+  wchodzą do meczu GF. Bez bracket reset w MVP.
+
 Edge case'y obsługiwane:
   - BYE (participant2=None, winner=participant1): traktowane jak normalny awans
   - Re-edycja wyniku: advance jest idempotentny — nadpisuje slot tylko jeśli zmiana winnera
-  - Brak kolejnej rundy: tworzy pusty TournamentsMatch z WAI
-  - Mecze o 3. miejsce: generowane przez ensure_third_place_match() gdy obaj przegrani z SF znani
+  - Lazy creation: mecze LB i GF tworzone dopiero gdy obaj uczestnicy są znani
 """
 
 import logging
@@ -104,6 +129,7 @@ def advance_winner_in_bracket(match, tournament) -> bool:
     with transaction.atomic():
         next_match, created = TournamentsMatch.objects.select_for_update().get_or_create(
             tournament=tournament,
+            bracket_type=TournamentsMatch.BracketType.WINNERS,
             round_number=next_round,
             match_index=next_index,
             defaults={
@@ -198,6 +224,7 @@ def _ensure_third_place_match(tournament, total_rounds: int):
     # Mecz o 3. miejsce: round_number=total_rounds, match_index=2
     third_match, created = TournamentsMatch.objects.get_or_create(
         tournament=tournament,
+        bracket_type=TournamentsMatch.BracketType.WINNERS,
         round_number=total_rounds,
         match_index=2,
         defaults={
@@ -350,6 +377,458 @@ def build_bracket_data(tournament) -> list[dict]:
         })
 
     return rounds_out
+
+
+def build_dbe_bracket_data(tournament) -> dict:
+    """
+    Buduje strukturę drabinki DBE dla endpointu GET /bracket/.
+
+    Zwraca słownik:
+    {
+      "type": "dbe",
+      "winners": [ { "round": int, "round_label": str, "matches": [...] }, ... ],
+      "losers":  [ { "round": int, "round_label": str, "matches": [...] }, ... ],
+      "grand_final": { "round": 1, "round_label": "Wielki Finał", "matches": [...] } | null,
+    }
+
+    match shape identyczny jak w build_bracket_data() (dla SGL).
+    """
+    from apps.tournaments.models import TournamentsMatch
+    BT = TournamentsMatch.BracketType
+
+    all_matches = (
+        TournamentsMatch.objects
+        .filter(tournament=tournament)
+        .select_related('participant1__user', 'participant2__user', 'winner')
+        .order_by('bracket_type', 'round_number', 'match_index')
+    )
+
+    def participant_data(p):
+        if p is None:
+            return None
+        return {
+            'id': p.pk,
+            'display_name': p.display_name,
+            'seed_number': p.seed_number,
+            'user_id': p.user_id,
+        }
+
+    def score_str(m):
+        parts = []
+        for i in range(1, 4):
+            s1 = getattr(m, f'set{i}_p1_score')
+            s2 = getattr(m, f'set{i}_p2_score')
+            if s1 is not None and s2 is not None:
+                parts.append(f'{s1}:{s2}')
+        return ' '.join(parts) if parts else None
+
+    def match_dict(m):
+        is_bye = m.participant2 is None and m.status == TournamentsMatch.Status.COMPLETED.value
+        return {
+            'id': m.pk,
+            'match_index': m.match_index,
+            'bracket_type': m.bracket_type,
+            'status': m.status,
+            'status_display': m.get_status_display(),
+            'is_bye': is_bye,
+            'is_third_place': False,
+            'participant1': participant_data(m.participant1),
+            'participant2': participant_data(m.participant2),
+            'winner_id': m.winner_id,
+            'score': score_str(m),
+            'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
+        }
+
+    # Oblicz wb_total_rounds dla etykiet WB
+    wb_r1_count = sum(1 for m in all_matches if m.bracket_type == BT.WINNERS and m.round_number == 1)
+    bracket_size = wb_r1_count * 2 if wb_r1_count > 0 else 2
+    wb_total = int(math.log2(bracket_size)) if bracket_size >= 2 else 1
+    lb_total = 2 * (wb_total - 1)
+
+    def wb_round_label(rn: int) -> str:
+        if rn == wb_total:
+            return 'Finał WB'
+        if rn == wb_total - 1:
+            return 'Półfinał WB'
+        return f'WB Runda {rn}'
+
+    def lb_round_label(rn: int) -> str:
+        if rn == lb_total:
+            return 'Finał LB'
+        return f'LB Runda {rn}'
+
+    # Grupuj po bracket_type i round_number
+    wb_rounds: dict[int, list] = {}
+    lb_rounds: dict[int, list] = {}
+    gf_matches: list = []
+
+    for m in all_matches:
+        if m.bracket_type == BT.WINNERS:
+            wb_rounds.setdefault(m.round_number, []).append(m)
+        elif m.bracket_type == BT.LOSERS:
+            lb_rounds.setdefault(m.round_number, []).append(m)
+        elif m.bracket_type == BT.GRAND_FINAL:
+            gf_matches.append(m)
+
+    def build_rounds(rounds_dict: dict, label_fn) -> list[dict]:
+        result = []
+        for rn in sorted(rounds_dict.keys()):
+            matches = sorted(rounds_dict[rn], key=lambda x: x.match_index)
+            result.append({
+                'round': rn,
+                'round_label': label_fn(rn),
+                'matches': [match_dict(m) for m in matches],
+            })
+        return result
+
+    gf_section = None
+    if gf_matches:
+        gf_section = {
+            'round': 1,
+            'round_label': 'Wielki Finał',
+            'matches': [match_dict(m) for m in gf_matches],
+        }
+
+    return {
+        'type': 'dbe',
+        'winners': build_rounds(wb_rounds, wb_round_label),
+        'losers': build_rounds(lb_rounds, lb_round_label),
+        'grand_final': gf_section,
+    }
+
+
+# ── Double Elimination — advance logic ────────────────────────────────────────
+
+def _wb_total_rounds(tournament) -> int:
+    """
+    Liczba rund Winners Bracket = log2(bracket_size).
+    bracket_size = 2 * (liczba meczów R1 WB).
+    """
+    from apps.tournaments.models import TournamentsMatch
+    r1_count = TournamentsMatch.objects.filter(
+        tournament=tournament,
+        bracket_type=TournamentsMatch.BracketType.WINNERS,
+        round_number=1,
+    ).count()
+    if r1_count < 1:
+        return 1
+    bracket_size = r1_count * 2
+    return int(math.log2(bracket_size))
+
+
+def _lb_round_for_wb_drop(wb_round: int) -> int:
+    """
+    Runda LB do której trafia przegrany z danej rundy WB.
+
+    Standard DBE mapping:
+      WB_R1 → LB_R1  (2*1 - 1 = 1)
+      WB_R2 → LB_R3  (2*2 - 1 = 3)
+      WB_R3 → LB_R5  (2*3 - 1 = 5)
+      WB_Rn → LB_R(2n-1)
+    """
+    return 2 * wb_round - 1
+
+
+def _lb_drop_index(wb_index: int, wb_round: int, wb_total_rounds: int) -> int:
+    """
+    Indeks meczu w LB dla przegranego z meczu WB.
+
+    W WB_R1: pary (1,2)→LB_1, (3,4)→LB_2 itd.
+      lb_index = ceil(wb_index / 2)
+
+    W WB_Rn (n>1): jeden przegrany z każdego meczu WB wchodzi do LB
+      jako participant2 (z góry) w meczu o tym samym indeksie co WB.
+      lb_index = wb_index
+    """
+    if wb_round == 1:
+        return math.ceil(wb_index / 2)
+    return wb_index
+
+
+def _lb_drop_slot(wb_index: int, wb_round: int) -> str:
+    """
+    Który slot (participant1/participant2) zajmuje przegrany wpadający do LB.
+
+    W LB rundy drop-in (2n-1 dla n>1): przegrani WB zawsze wchodzą jako participant2
+    (zwycięzcy z poprzedniej rundy LB są już w participant1).
+
+    W LB_R1: para (wb_1,wb_2) → lb_1 — wb_index nieparzyste=p1, parzyste=p2.
+    """
+    if wb_round == 1:
+        return 'participant1' if wb_index % 2 == 1 else 'participant2'
+    return 'participant2'
+
+
+def _get_or_create_bracket_match(tournament, bracket_type, round_number, match_index, **defaults):
+    """
+    Lazy-create meczu w podanej drabince. Idempotentny.
+    Zwraca (match, created).
+    """
+    from apps.tournaments.models import TournamentsMatch
+    with transaction.atomic():
+        match, created = TournamentsMatch.objects.select_for_update().get_or_create(
+            tournament=tournament,
+            bracket_type=bracket_type,
+            round_number=round_number,
+            match_index=match_index,
+            defaults={
+                'status': TournamentsMatch.Status.WAITING.value,
+                **defaults,
+            },
+        )
+    return match, created
+
+
+def _set_match_slot(match, slot_field: str, participant) -> bool:
+    """
+    Ustaw slot uczestnika w meczu. Zwraca True jeśli nastąpiła zmiana.
+    Wywołujący musi zapisać mecz jeśli True.
+    """
+    current = getattr(match, slot_field)
+    if current != participant:
+        setattr(match, slot_field, participant)
+        return True
+    return False
+
+
+def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
+    """
+    Umieszcza przegranego z meczu WB w odpowiednim meczu losers bracket.
+
+    Przypadki:
+    - WB Final (round == wb_total_rounds): przegrany trafia do LB Final
+      (ostatnia runda LB = 2*(wb_total_rounds-1), match_index=1, slot=p2)
+    - Pozostałe rundy WB: oblicz LB round i index z mapowania standardowego DBE
+    """
+    from apps.tournaments.models import TournamentsMatch
+    BT = TournamentsMatch.BracketType
+
+    wb_round = match.round_number
+    wb_index = match.match_index
+
+    if wb_round == wb_total_rounds:
+        # WB Final loser → LB Final (slot participant2, zwycięzca LB konsolidacji już w p1)
+        lb_final_round = 2 * (wb_total_rounds - 1)
+        if lb_final_round < 1:
+            # Edge case: bracket_size=2 (1 mecz WB, brak LB) → brak LB
+            return
+        lb_match, created = _get_or_create_bracket_match(
+            tournament=match.tournament,
+            bracket_type=BT.LOSERS,
+            round_number=lb_final_round,
+            match_index=1,
+        )
+        changed = _set_match_slot(lb_match, 'participant2', loser)
+        if not created and changed:
+            lb_match.save(update_fields=['participant2'])
+        elif created:
+            lb_match.save(update_fields=['participant2'])
+        logger.info(
+            '[dbe] WB Final przegrany %s → LB Final (R%d/M1, slot p2), turniej id=%d.',
+            loser.display_name, lb_final_round, match.tournament.pk,
+        )
+        return
+
+    lb_round = _lb_round_for_wb_drop(wb_round)
+    lb_index = _lb_drop_index(wb_index, wb_round, wb_total_rounds)
+    lb_slot = _lb_drop_slot(wb_index, wb_round)
+
+    lb_match, created = _get_or_create_bracket_match(
+        tournament=match.tournament,
+        bracket_type=BT.LOSERS,
+        round_number=lb_round,
+        match_index=lb_index,
+    )
+    changed = _set_match_slot(lb_match, lb_slot, loser)
+    if not created and changed:
+        lb_match.save(update_fields=[lb_slot])
+    elif created:
+        lb_match.save(update_fields=[lb_slot])
+
+    logger.info(
+        '[dbe] WB_R%d/M%d przegrany %s → LB_R%d/M%d (slot %s), turniej id=%d.',
+        wb_round, wb_index, loser.display_name,
+        lb_round, lb_index, lb_slot, match.tournament.pk,
+    )
+
+
+def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
+    """
+    Przesuwa zwycięzcę meczu losers bracket do następnej rundy LB lub do Grand Final.
+
+    LB ma 2*(wb_total_rounds-1) rund.
+    Rundy LB parzyste (konsolidacja): ceil(index/2) w następnej rundzie, p1/p2 z indeksu
+    Rundy LB nieparzyste (drop-in): indeks zachowany → następna runda parzysta
+
+    Jeśli to była ostatnia runda LB → zwycięzca wchodzi do Grand Final jako p2.
+    """
+    from apps.tournaments.models import TournamentsMatch
+    BT = TournamentsMatch.BracketType
+
+    tournament = match.tournament
+    lb_round = match.round_number
+    lb_index = match.match_index
+    lb_final_round = 2 * (wb_total_rounds - 1)
+
+    if lb_round >= lb_final_round:
+        # LB Final zakończony → zwycięzca do Grand Final
+        _try_create_grand_final(tournament, winner_from_lb=winner, wb_total_rounds=wb_total_rounds)
+        return
+
+    # Awans w LB
+    next_lb_round = lb_round + 1
+
+    if lb_round % 2 == 0:
+        # Runda parzysta (konsolidacja) → następna runda nieparzysta (drop-in)
+        # Indeks zachowany — czekamy na przegranego WB
+        next_lb_index = lb_index
+        next_lb_slot = 'participant1'
+    else:
+        # Runda nieparzysta (drop-in lub R1) → następna parzysta (konsolidacja)
+        next_lb_index = math.ceil(lb_index / 2)
+        next_lb_slot = _participant_slot(lb_index)
+
+    lb_next, created = _get_or_create_bracket_match(
+        tournament=tournament,
+        bracket_type=BT.LOSERS,
+        round_number=next_lb_round,
+        match_index=next_lb_index,
+    )
+    changed = _set_match_slot(lb_next, next_lb_slot, winner)
+    if not created and changed:
+        lb_next.save(update_fields=[next_lb_slot])
+    elif created:
+        lb_next.save(update_fields=[next_lb_slot])
+
+    logger.info(
+        '[dbe] LB_R%d/M%d zwycięzca %s → LB_R%d/M%d (slot %s), turniej id=%d.',
+        lb_round, lb_index, winner.display_name,
+        next_lb_round, next_lb_index, next_lb_slot, tournament.pk,
+    )
+
+
+def _try_create_grand_final(tournament, winner_from_lb=None, winner_from_wb=None, wb_total_rounds: int = 0):
+    """
+    Tworzy lub aktualizuje mecz Grand Final.
+    Wywołana gdy znany jest zwycięzca WB Final lub LB Final.
+
+    Grand Final: bracket_type='GF', round_number=1, match_index=1
+      participant1 = zwycięzca WB
+      participant2 = zwycięzca LB
+    """
+    from apps.tournaments.models import TournamentsMatch
+    BT = TournamentsMatch.BracketType
+
+    gf_match, created = _get_or_create_bracket_match(
+        tournament=tournament,
+        bracket_type=BT.GRAND_FINAL,
+        round_number=1,
+        match_index=1,
+    )
+
+    changed = False
+    if winner_from_wb is not None:
+        if _set_match_slot(gf_match, 'participant1', winner_from_wb):
+            changed = True
+    if winner_from_lb is not None:
+        if _set_match_slot(gf_match, 'participant2', winner_from_lb):
+            changed = True
+
+    if created or changed:
+        update_fields = []
+        if winner_from_wb is not None:
+            update_fields.append('participant1')
+        if winner_from_lb is not None:
+            update_fields.append('participant2')
+        if update_fields:
+            gf_match.save(update_fields=update_fields)
+
+    logger.info(
+        '[dbe] Grand Final: p1=%s, p2=%s (turniej id=%d).',
+        gf_match.participant1.display_name if gf_match.participant1 else '?',
+        gf_match.participant2.display_name if gf_match.participant2 else '?',
+        tournament.pk,
+    )
+
+
+def advance_dbe_match(match, tournament):
+    """
+    Obsługuje awans po zakończeniu meczu DBE (CMP lub WDR).
+
+    Routing:
+    - bracket_type='W' (Winners Bracket):
+        zwycięzca → następny mecz WB (lub GF jeśli WB Final)
+        przegrany → odpowiedni mecz LB (lub LB Final jeśli WB Final)
+    - bracket_type='L' (Losers Bracket):
+        zwycięzca → następny mecz LB (lub GF jeśli LB Final)
+        przegrany → odpada (koniec turnieju dla tego uczestnika)
+    - bracket_type='GF' (Grand Final):
+        turniej zakończony — brak dalszego routingu
+
+    Idempotentna: może być wywołana wielokrotnie przy re-edycji wyniku.
+    """
+    from apps.tournaments.models import TournamentsMatch
+    BT = TournamentsMatch.BracketType
+
+    winner = match.winner
+    if winner is None:
+        return
+
+    loser = _get_loser(match)
+    wb_total = _wb_total_rounds(tournament)
+
+    if match.bracket_type == BT.GRAND_FINAL:
+        # Turniej zakończony — brak dalszego routingu
+        logger.info(
+            '[dbe] Grand Final zakończony. Zwycięzca: %s (turniej id=%d).',
+            winner.display_name, tournament.pk,
+        )
+        return
+
+    if match.bracket_type == BT.WINNERS:
+        wb_round = match.round_number
+        wb_index = match.match_index
+
+        if wb_round >= wb_total:
+            # WB Final: zwycięzca → GF, przegrany → LB Final
+            _try_create_grand_final(tournament, winner_from_wb=winner, wb_total_rounds=wb_total)
+            if loser:
+                _advance_loser_to_lb(match, loser, wb_total)
+        else:
+            # Zwykły mecz WB: zwycięzca → następny WB, przegrany → LB
+            next_round = wb_round + 1
+            next_index = _next_match_index(wb_index)
+            slot_field = _participant_slot(wb_index)
+
+            wb_next, created = _get_or_create_bracket_match(
+                tournament=tournament,
+                bracket_type=BT.WINNERS,
+                round_number=next_round,
+                match_index=next_index,
+            )
+            changed = _set_match_slot(wb_next, slot_field, winner)
+            if not created and changed:
+                wb_next.save(update_fields=[slot_field])
+            elif created:
+                wb_next.save(update_fields=[slot_field])
+
+            logger.info(
+                '[dbe] WB_R%d/M%d zwycięzca %s → WB_R%d/M%d (slot %s), turniej id=%d.',
+                wb_round, wb_index, winner.display_name,
+                next_round, next_index, slot_field, tournament.pk,
+            )
+
+            if loser:
+                _advance_loser_to_lb(match, loser, wb_total)
+
+    elif match.bracket_type == BT.LOSERS:
+        # LB: zwycięzca idzie dalej w LB lub do GF, przegrany odpada
+        _advance_winner_in_lb(match, winner, wb_total)
+        if loser:
+            logger.info(
+                '[dbe] LB_R%d/M%d przegrany %s odpada z turnieju id=%d.',
+                match.round_number, match.match_index, loser.display_name, tournament.pk,
+            )
 
 
 # ── Americano STATIC — generowanie meczów ─────────────────────────────────────

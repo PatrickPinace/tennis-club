@@ -1473,11 +1473,15 @@ def generate_round_robin_matches_initial(tournament, participants_qs):
     return len(created), f"Wygenerowano {len(created)} meczów."
 
 
-def generate_elimination_matches_initial(tournament, participants_qs, config):
+def generate_elimination_matches_initial(tournament, participants_qs, config, bracket_type=None):
     """
-    Generuje mecze pierwszej rundy dla turnieju pucharowego (Single Elimination),
-    uwzględniając rozstawienie (seeding) i wolne losy (byes).
+    Generuje mecze pierwszej rundy dla turnieju pucharowego (Single lub Double Elimination).
+    Parametr bracket_type określa typ drabinki ('W' dla Winners, domyślnie).
+    Uwzględnia rozstawienie (seeding) i wolne losy (byes).
     """
+    from apps.tournaments.models import TournamentsMatch as _TM
+    if bracket_type is None:
+        bracket_type = _TM.BracketType.WINNERS
     num_participants = participants_qs.count()
     if num_participants < 2:
         return 0, "Za mało uczestników (wymagane co najmniej 2), aby wygenerować drabinkę."
@@ -1545,23 +1549,40 @@ def generate_elimination_matches_initial(tournament, participants_qs, config):
             # p2_slot otrzymuje wolny los (bye)
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p2_slot, participant2=None,
+                bracket_type=bracket_type,
                 round_number=1, match_index=match_index, status=TournamentsMatch.Status.COMPLETED.value, winner=p2_slot
             ))
         elif p2_slot is None:
             # p1_slot otrzymuje wolny los (bye)
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p1_slot, participant2=None,
+                bracket_type=bracket_type,
                 round_number=1, match_index=match_index, status=TournamentsMatch.Status.COMPLETED.value, winner=p1_slot
             ))
         else:
             # Obaj gracze są obecni, utwórz standardowy mecz
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p1_slot, participant2=p2_slot,
+                bracket_type=bracket_type,
                 round_number=1, match_index=match_index, status=TournamentsMatch.Status.WAITING.value
             ))
         match_index += 1
 
     created_matches = TournamentsMatch.objects.bulk_create(matches_to_create)
+
+    # Advance graczy z meczów BYE (participant2=None, status=CMP) do R2.
+    # Musi być wywołane po bulk_create, gdy mecze mają już pk.
+    if num_byes > 0:
+        from apps.tournaments.models import TournamentsMatch as _TM2
+        if tournament.tournament_type == 'SGL':
+            from apps.tournaments.bracket import advance_winner_in_bracket
+            for m in _TM2.objects.filter(tournament=tournament, round_number=1, participant2=None, status=_TM2.Status.COMPLETED):
+                advance_winner_in_bracket(m, tournament)
+        elif tournament.tournament_type == 'DBE':
+            from apps.tournaments.bracket import advance_dbe_match
+            for m in _TM2.objects.filter(tournament=tournament, round_number=1, participant2=None, status=_TM2.Status.COMPLETED):
+                advance_dbe_match(m, tournament)
+
     return len(created_matches), f"Wygenerowano drabinkę dla {num_participants} uczestników ({len(matches_to_create)} meczów, {num_byes} wolnych losów)."
 
 
@@ -1860,9 +1881,12 @@ def advance_double_elimination(tournament, match):
     pass 
     # (Pełna implementacja poniżej w bloku kodu, zastępując ten placeholder)
 
-def get_or_create_match(tournament, round_num, match_idx):
+def get_or_create_match(tournament, round_num, match_idx, bracket_type=None):
+    if bracket_type is None:
+        bracket_type = TournamentsMatch.BracketType.WINNERS
     match, created = TournamentsMatch.objects.get_or_create(
         tournament=tournament,
+        bracket_type=bracket_type,
         round_number=round_num,
         match_index=match_idx,
         defaults={'status': TournamentsMatch.Status.WAITING.value}

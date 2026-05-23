@@ -236,6 +236,36 @@
     border: 1px solid var(--border);
   }
   .org-finish-btn--ghost:hover { background: var(--surface-hover); }
+  .org-finish-btn--cancel {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    opacity: 0.8;
+  }
+  .org-finish-btn--cancel:hover {
+    color: var(--text-muted);
+    border-color: var(--text-dim);
+    opacity: 1;
+  }
+
+  .org-finish-trigger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .org-cancel-confirm-box {
+    background: color-mix(in srgb, var(--text-dim) 5%, transparent);
+    border-color: var(--border);
+  }
+
+  .org-cancel-success {
+    background: color-mix(in srgb, var(--text-dim) 6%, transparent);
+    border-color: var(--border);
+    color: var(--text-muted);
+  }
 
   .org-finish-confirm-box {
     background: color-mix(in srgb, var(--danger, #ef4444) 6%, transparent);

@@ -77,6 +77,7 @@ if (!currentUser) {
             <select id="cr-type" class="cr-input cr-select">
               <option value="RND" selected>Liga (Round Robin)</option>
               <option value="SGL">Eliminacja pojedyncza</option>
+              <option value="DBE">Eliminacja podwójna</option>
               <option value="AMR">Americano / Mexicano</option>
             </select>
             <span id="cr-type-note" class="cr-hint">
@@ -274,6 +275,20 @@ if (!currentUser) {
           <span class="cr-hint" style="margin-top:-10px; margin-bottom:16px;">Przegrani z półfinałów rozegrają mecz o brązowy medal.</span>
         </div>
 
+        <!-- ── Sekcja DBE ── -->
+        <div id="wiz-dbe-config" style="display:none;">
+          <div class="cfg-group-label">Rozstawienie</div>
+          <div class="cr-field" style="max-width:340px;">
+            <label class="cr-label" for="dbe-seeding">Kolejność w drabince</label>
+            <select id="dbe-seeding" class="cr-input cr-select">
+              <option value="RANDOM">Losowe (brak rozstawienia)</option>
+              <option value="SEEDING">Według rozstawienia (seed_number)</option>
+            </select>
+            <span class="cr-hint">Przy losowym — uczestnik bez seed_number trafia na przypadkową pozycję.</span>
+          </div>
+          <p class="cr-hint" style="margin-top:8px;">Eliminacja podwójna — zawodnik odpada dopiero po dwóch przegranych. Brak meczu o 3. miejsce.</p>
+        </div>
+
         <div class="wiz-actions">
           <button type="button" id="wiz-back-2" class="tc-btn tc-btn-ghost">← Wstecz</button>
           <button type="button" id="wiz-next-2" class="tc-btn tc-btn-primary">Dalej →</button>
@@ -341,6 +356,7 @@ const cfgTiebreak  = document.getElementById('cfg-tiebreak') as HTMLSelectElemen
 const TYPE_LABELS: Record<string, string> = {
   RND: 'Liga (Round Robin)',
   SGL: 'Eliminacja pojedyncza',
+  DBE: 'Eliminacja podwójna',
   AMR: 'Americano / Mexicano',
 };
 const FORMAT_LABELS: Record<string, string> = { SNG: 'Singiel', DBL: 'Debel' };
@@ -385,8 +401,8 @@ document.getElementById('wiz-next-1')!.addEventListener('click', () => {
     return;
   }
 
-  // Krok 2: RND/SGL/AMR → konfiguracja, inne → pomiń
-  if (typeEl.value === 'RND' || typeEl.value === 'SGL' || typeEl.value === 'AMR') {
+  // Krok 2: RND/SGL/DBE/AMR → konfiguracja, inne → pomiń
+  if (typeEl.value === 'RND' || typeEl.value === 'SGL' || typeEl.value === 'DBE' || typeEl.value === 'AMR') {
     updatePane2ForType(typeEl.value);
     goTo(2);
   } else {
@@ -422,7 +438,7 @@ document.getElementById('wiz-next-2')!.addEventListener('click', () => {
 // ── Krok 3 – back ─────────────────────────────────────────────────────────────
 document.getElementById('wiz-back-3')!.addEventListener('click', () => {
   const t = typeEl.value;
-  if (t === 'RND' || t === 'SGL' || t === 'AMR') {
+  if (t === 'RND' || t === 'SGL' || t === 'DBE' || t === 'AMR') {
     updatePane2ForType(t);
     goTo(2);
   } else {
@@ -493,6 +509,14 @@ function buildSummary() {
         ${row('Rozstawienie', seedLabel)}
         ${row('Mecz o 3. miejsce', sglThird.checked ? 'Tak' : 'Nie')}
       </div>`;
+  } else if (typeEl.value === 'DBE') {
+    const dbeSeedLabel = dbeSeeding.options[dbeSeeding.selectedIndex]?.text ?? dbeSeeding.value;
+    html += `
+      <div class="sum-group">
+        <div class="sum-group-label">Eliminacja podwójna</div>
+        ${row('Rozstawienie', dbeSeedLabel)}
+        ${row('Mecz o 3. miejsce', 'Nie (niedostępne)')}
+      </div>`;
   } else if (typeEl.value === 'AMR') {
     const schedLabel = amrSched.value === 'DYNAMIC' ? 'Mexicano (dynamiczne parowanie)' : 'Americano (stały harmonogram)';
     html += `
@@ -560,7 +584,7 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
 
     const tournamentId: number = createData.id;
 
-    // 2a. POST EliminationConfig — tylko dla SGL
+    // 2a. POST EliminationConfig — SGL lub DBE
     if (typeEl.value === 'SGL') {
       const sglBody = {
         initial_seeding:    sglSeeding.value,
@@ -572,6 +596,22 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
           body: JSON.stringify(sglBody),
+        });
+        // Nie krytyczne — backend ma wartości domyślne
+      } catch { /* ignoruj */ }
+    }
+
+    if (typeEl.value === 'DBE') {
+      const dbeBody = {
+        initial_seeding: dbeSeeding.value,
+        // third_place_match zawsze False dla DBE — wymuszone przez backend
+      };
+      try {
+        await fetch(`${API}/api/tournaments/${tournamentId}/config/sgl/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify(dbeBody),
         });
         // Nie krytyczne — backend ma wartości domyślne
       } catch { /* ignoruj */ }
@@ -634,11 +674,13 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
 // ── Przełącz zawartość pane2 w zależności od typu ───────────────────────────
 const rrConfigDiv  = document.getElementById('wiz-rr-config')  as HTMLElement;
 const sglConfigDiv = document.getElementById('wiz-sgl-config') as HTMLElement;
+const dbeConfigDiv = document.getElementById('wiz-dbe-config') as HTMLElement;
 const amrConfigDiv = document.getElementById('wiz-amr-config') as HTMLElement;
 const pane2Title   = document.getElementById('wiz-pane2-title') as HTMLElement;
 const pane2Sub     = document.getElementById('wiz-pane2-sub')   as HTMLElement;
 const sglSeeding   = document.getElementById('sgl-seeding')    as HTMLSelectElement;
 const sglThird     = document.getElementById('sgl-third-place') as HTMLInputElement;
+const dbeSeeding   = document.getElementById('dbe-seeding')    as HTMLSelectElement;
 const amrRounds    = document.getElementById('amr-rounds')          as HTMLInputElement;
 const amrPpm       = document.getElementById('amr-ppm')             as HTMLInputElement;
 const amrSched     = document.getElementById('amr-scheduling-type') as HTMLSelectElement;
@@ -647,10 +689,14 @@ const amrSchedHint = document.getElementById('amr-scheduling-hint') as HTMLEleme
 function updatePane2ForType(type: string) {
   rrConfigDiv.style.display  = type === 'RND' ? '' : 'none';
   sglConfigDiv.style.display = type === 'SGL' ? '' : 'none';
+  dbeConfigDiv.style.display = type === 'DBE' ? '' : 'none';
   amrConfigDiv.style.display = type === 'AMR' ? '' : 'none';
   if (type === 'SGL') {
     pane2Title.textContent = 'Konfiguracja drabinki';
     pane2Sub.textContent   = 'Opcje eliminacji pojedynczej. Możesz je zmienić też po utworzeniu.';
+  } else if (type === 'DBE') {
+    pane2Title.textContent = 'Konfiguracja eliminacji podwójnej';
+    pane2Sub.textContent   = 'Zawodnik odpada dopiero po dwóch przegranych. Opcje rozstawienia jak w SGL.';
   } else if (type === 'AMR') {
     pane2Title.textContent = 'Konfiguracja Americano';
     pane2Sub.textContent   = 'Ustaw liczbę rund i pulę punktów na mecz. Harmonogram generowany automatycznie.';
@@ -675,6 +721,8 @@ typeEl.addEventListener('change', () => {
     typeNote.textContent = 'Panel zarządzania meczami i tabela ligowa dostępne dla Round Robin.';
   } else if (typeEl.value === 'SGL') {
     typeNote.textContent = 'Eliminacja pojedyncza — drabinka z awansem zwycięzców.';
+  } else if (typeEl.value === 'DBE') {
+    typeNote.textContent = 'Eliminacja podwójna — zawodnik odpada dopiero po dwóch przegranych (Winners + Losers Bracket).';
   } else if (typeEl.value === 'AMR') {
     typeNote.textContent = 'Americano / Mexicano — tryb (stały / dynamiczny) wybierasz w następnym kroku.';
   } else {

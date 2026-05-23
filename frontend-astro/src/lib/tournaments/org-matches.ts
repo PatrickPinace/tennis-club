@@ -39,7 +39,10 @@ function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const p2 = isDoubles
     ? escHtml(`${m.participant2_name ?? 'BYE'} / ${m.participant3_name ?? 'BYE'}`)
     : escHtml(m.participant2_name ?? 'BYE');
-  const roundLabel = `R${m.round_number} M${m.match_index}`;
+  const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
+  const roundLabel = m.bracket_type === 'GF'
+    ? `GF M${m.match_index}`
+    : `${bracketPrefix}R${m.round_number} M${m.match_index}`;
 
   const statusBadge = m.status === 'CMP'
     ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
@@ -73,6 +76,24 @@ function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     m.status === 'CNC' ? 'org-match--cancelled' : '',
     isPendingMatch ? 'org-match--pending' : '',
   ].filter(Boolean).join(' ');
+
+  // BYE — mecz bez drugiego uczestnika, zawsze read-only
+  const isBye = !m.participant2_id;
+  if (isBye) {
+    return `
+      <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
+        <div class="org-match-header">
+          <div class="org-match-meta">
+            <span class="org-match-label">${roundLabel}</span>
+            <span class="org-match-players">${p1}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
+          </div>
+          <div class="org-match-right">
+            ${statusBadge}
+            <span style="font-size:0.72rem;color:var(--text-dim);margin-left:4px;">wolny los</span>
+          </div>
+        </div>
+      </div>`;
+  }
 
   // Read-only for CNC or locked panel
   if (m.status === 'CNC' || cfg.locked) {

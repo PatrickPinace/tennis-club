@@ -176,6 +176,7 @@ export interface TournamentMatch {
   id: number;
   round_number: number;
   match_index: number;
+  bracket_type?: 'W' | 'L' | 'GF';
   status: string;
   participant1_id: number | null;
   participant2_id: number | null;

@@ -80,7 +80,7 @@ class TournamentMatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = TournamentsMatch
         fields = [
-            'id', 'round_number', 'match_index', 'status',
+            'id', 'round_number', 'match_index', 'bracket_type', 'status',
             'participant1_id', 'participant2_id',
             'participant3_id', 'participant4_id',
             'participant1_name', 'participant2_name',
@@ -266,7 +266,7 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
             cfg = getattr(obj, 'round_robin_config', None)
             if cfg:
                 return RoundRobinConfigSerializer(cfg).data
-        if obj.tournament_type == 'SGL':
+        if obj.tournament_type in ('SGL', 'DBE'):
             cfg = getattr(obj, 'elimination_config', None)
             if cfg:
                 return {

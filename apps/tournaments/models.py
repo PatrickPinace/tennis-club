@@ -555,7 +555,19 @@ class TournamentsMatch(models.Model):
         default=1,
         help_text='Indeks meczu w danej rundzie (np. Mecz 1, Mecz 2).'
     )
-    
+
+    class BracketType(models.TextChoices):
+        WINNERS = 'W', 'Winners'
+        LOSERS = 'L', 'Losers'
+        GRAND_FINAL = 'GF', 'Grand Final'
+
+    bracket_type = models.CharField(
+        max_length=2,
+        choices=BracketType.choices,
+        default=BracketType.WINNERS,
+        help_text='Typ drabinki: Winners (domyślny), Losers, Grand Final. Używane w Double Elimination.',
+    )
+
     class Status(models.TextChoices):
         WAITING = 'WAI', 'Oczekuje'
         SCHEDULED = 'SCH', 'Zaplanowany'
@@ -604,7 +616,7 @@ class TournamentsMatch(models.Model):
         verbose_name = 'Mecz Turniejowy'
         verbose_name_plural = 'Mecze Turniejowe'
         ordering = ['round_number', 'match_index']
-        unique_together = ('tournament', 'round_number', 'match_index') 
+        unique_together = ('tournament', 'bracket_type', 'round_number', 'match_index')
 
     def __str__(self):
         p1_name = self.participant1.display_name if self.participant1 else 'BYE'
