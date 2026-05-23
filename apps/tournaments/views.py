@@ -1473,11 +1473,15 @@ def generate_round_robin_matches_initial(tournament, participants_qs):
     return len(created), f"Wygenerowano {len(created)} meczów."
 
 
-def generate_elimination_matches_initial(tournament, participants_qs, config):
+def generate_elimination_matches_initial(tournament, participants_qs, config, bracket_type=None):
     """
-    Generuje mecze pierwszej rundy dla turnieju pucharowego (Single Elimination),
-    uwzględniając rozstawienie (seeding) i wolne losy (byes).
+    Generuje mecze pierwszej rundy dla turnieju pucharowego (Single lub Double Elimination).
+    Parametr bracket_type określa typ drabinki ('W' dla Winners, domyślnie).
+    Uwzględnia rozstawienie (seeding) i wolne losy (byes).
     """
+    from apps.tournaments.models import TournamentsMatch as _TM
+    if bracket_type is None:
+        bracket_type = _TM.BracketType.WINNERS
     num_participants = participants_qs.count()
     if num_participants < 2:
         return 0, "Za mało uczestników (wymagane co najmniej 2), aby wygenerować drabinkę."
@@ -1545,18 +1549,21 @@ def generate_elimination_matches_initial(tournament, participants_qs, config):
             # p2_slot otrzymuje wolny los (bye)
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p2_slot, participant2=None,
+                bracket_type=bracket_type,
                 round_number=1, match_index=match_index, status=TournamentsMatch.Status.COMPLETED.value, winner=p2_slot
             ))
         elif p2_slot is None:
             # p1_slot otrzymuje wolny los (bye)
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p1_slot, participant2=None,
+                bracket_type=bracket_type,
                 round_number=1, match_index=match_index, status=TournamentsMatch.Status.COMPLETED.value, winner=p1_slot
             ))
         else:
             # Obaj gracze są obecni, utwórz standardowy mecz
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p1_slot, participant2=p2_slot,
+                bracket_type=bracket_type,
                 round_number=1, match_index=match_index, status=TournamentsMatch.Status.WAITING.value
             ))
         match_index += 1

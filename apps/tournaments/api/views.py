@@ -1360,6 +1360,17 @@ class TournamentStatusView(APIView):
                             defaults={'initial_seeding': 'SEEDING', 'third_place_match': True},
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
+                    elif tournament.tournament_type == 'DBE':
+                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.models import EliminationConfig, TournamentsMatch as _TM
+                        config, _ = EliminationConfig.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={'initial_seeding': 'SEEDING', 'third_place_match': False},
+                        )
+                        match_count, gen_message = generate_elimination_matches_initial(
+                            tournament, participants_qs, config,
+                            bracket_type=_TM.BracketType.WINNERS,
+                        )
                     elif tournament.tournament_type == 'AMR':
                         from apps.tournaments.models import AmericanoConfig
                         config, _ = AmericanoConfig.objects.get_or_create(
