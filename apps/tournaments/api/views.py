@@ -151,6 +151,7 @@ class RoundRobinMatchScoreView(APIView):
     SUPPORTED_TYPES = (
         Tournament.TournamentType.ROUND_ROBIN,
         Tournament.TournamentType.SINGLE_ELIMINATION,
+        Tournament.TournamentType.DOUBLE_ELIMINATION,
         Tournament.TournamentType.AMERICANO,
     )
 
@@ -356,10 +357,13 @@ class RoundRobinMatchScoreView(APIView):
                 set3_p1_score=None, set3_p2_score=None,
             )
 
-            # SGL: awansuj zwycięzcę do następnej rundy
+            # SGL/DBE: awansuj zwycięzcę do następnej rundy
             if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
                 from apps.tournaments.bracket import advance_winner_in_bracket
                 advance_winner_in_bracket(match, tournament)
+            elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_dbe_match
+                advance_dbe_match(match, tournament)
 
             return Response({
                 'match_id': match.pk,
@@ -558,13 +562,14 @@ class RoundRobinMatchScoreView(APIView):
             set3_p2_score=match.set3_p2_score,
         )
 
-        # SGL: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
-        if (
-            tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION
-            and match.status == TournamentsMatch.Status.COMPLETED.value
-        ):
-            from apps.tournaments.bracket import advance_winner_in_bracket
-            advance_winner_in_bracket(match, tournament)
+        # SGL/DBE: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
+        if match.status == TournamentsMatch.Status.COMPLETED.value:
+            if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_winner_in_bracket
+                advance_winner_in_bracket(match, tournament)
+            elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+                from apps.tournaments.bracket import advance_dbe_match
+                advance_dbe_match(match, tournament)
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
