@@ -11,6 +11,7 @@ const classicUrl = (_classicBase ? _classicBase.replace(/\/$/, '') : '') + '/tou
 
 interface Props {
   greeting?: string;   // "Witaj z powrotem, Marcin!" — opcjonalny heading w treści
+  greetingSub?: string; // "pon · 25 maja 2026 · 14:32" — linia pod greeting
   showSearch?: boolean;
   showCta?: boolean;
   ctaLabel?: string;
@@ -20,6 +21,7 @@ interface Props {
 }
 const {
   greeting,
+  greetingSub,
   showSearch = true,
   showCta = true,
   ctaLabel = '+ Nowa Rezerwacja',
@@ -47,7 +49,10 @@ const {
     </button>
 
     {greeting && (
-      <h1 class="topbar__greeting">{greeting}</h1>
+      <div class="topbar__greeting-wrap">
+        <h1 class="topbar__greeting">{greeting}</h1>
+        {greetingSub && <div class="topbar__greeting-sub">{greetingSub}</div>}
+      </div>
     )}
   </div>
 
@@ -200,6 +205,13 @@ const {
     min-width: 0; flex-shrink: 1;
   }
 
+  .topbar__greeting-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
   .topbar__greeting {
     font-size: 1.35rem;
     font-weight: 800;
@@ -207,6 +219,13 @@ const {
     letter-spacing: -0.025em;
     white-space: nowrap;
     line-height: 1;
+  }
+
+  .topbar__greeting-sub {
+    font-size: 0.78rem;
+    color: var(--tc-muted);
+    font-weight: 500;
+    white-space: nowrap;
   }
 
   .topbar__hamburger {
@@ -481,7 +500,7 @@ const {
 
   @media (max-width: 640px) {
     .topbar__inner { padding: 0 14px; gap: 8px; }
-    .topbar__greeting { display: none; }
+    .topbar__greeting-wrap { display: none; }
     .topbar__search { display: none; }
     .topbar__cta { display: none; }
     .topbar__classic-link { display: none; }

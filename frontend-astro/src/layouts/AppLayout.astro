@@ -10,6 +10,7 @@ import { getCurrentUser, type CurrentUser } from '@/lib/api';
 interface Props {
   title?: string;
   greeting?: string;
+  greetingSub?: string;
   showSearch?: boolean;
   showCta?: boolean;
   ctaLabel?: string;
@@ -21,6 +22,7 @@ interface Props {
 const {
   title = 'Tennis Club',
   greeting,
+  greetingSub,
   showSearch = true,
   showCta = true,
   ctaLabel,
@@ -65,6 +67,7 @@ const currentPath = Astro.url.pathname;
   <div class="app-main">
     <Topbar
       greeting={greeting}
+      greetingSub={greetingSub}
       showSearch={showSearch}
       showCta={showCta}
       ctaLabel={ctaLabel}
