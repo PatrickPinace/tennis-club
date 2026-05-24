@@ -1545,7 +1545,10 @@ def generate_elimination_matches_initial(tournament, participants_qs, config, br
         p1_slot = final_bracket_slots[i]
         p2_slot = final_bracket_slots[i+1]
 
-        if p1_slot is None:
+        if p1_slot is None and p2_slot is None:
+            # Oboje BYE — mecz pomijamy całkowicie (nie ma kogo awansować)
+            continue
+        elif p1_slot is None:
             # p2_slot otrzymuje wolny los (bye)
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p2_slot, participant2=None,

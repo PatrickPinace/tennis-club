@@ -77,15 +77,15 @@ function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     isPendingMatch ? 'org-match--pending' : '',
   ].filter(Boolean).join(' ');
 
-  // BYE — mecz bez drugiego uczestnika, zawsze read-only
-  const isBye = !m.participant2_id;
+  // BYE — mecz bez jednego z uczestników (może być p1 lub p2), zawsze read-only
+  const isBye = !m.participant1_id || !m.participant2_id;
   if (isBye) {
     return `
       <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
         <div class="org-match-header">
           <div class="org-match-meta">
             <span class="org-match-label">${roundLabel}</span>
-            <span class="org-match-players">${p1}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
+            <span class="org-match-players">${m.participant1_id ? p1 : p2}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
           </div>
           <div class="org-match-right">
             ${statusBadge}

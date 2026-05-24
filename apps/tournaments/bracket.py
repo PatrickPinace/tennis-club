@@ -591,6 +591,46 @@ def _set_match_slot(match, slot_field: str, participant) -> bool:
     return False
 
 
+def _auto_complete_if_bye(bracket_match, tournament):
+    """
+    Jeśli jeden ze slotów meczu to BYE (None), auto-zakończ mecz i wywołaj advance.
+
+    Przypadki:
+    - participant1=None, participant2=X → winner=X, status=CMP
+    - participant1=X, participant2=None → winner=X, status=CMP
+    - oboje None → błąd logiczny, pomijamy
+    - oboje znani → normalny mecz, nic nie robimy
+
+    Po auto-CMP wywołuje advance_dbe_match rekurencyjnie, aby dalej propagować awans.
+    """
+    from apps.tournaments.models import TournamentsMatch
+    p1 = bracket_match.participant1
+    p2 = bracket_match.participant2
+
+    if p1 is not None and p2 is not None:
+        return  # Oboje znani — normalny mecz
+    if p1 is None and p2 is None:
+        return  # Brak obu — mecz jeszcze nie gotowy
+
+    winner = p1 if p1 is not None else p2
+    if bracket_match.status == TournamentsMatch.Status.COMPLETED.value and bracket_match.winner == winner:
+        # Już auto-zakończony — idempotentny
+        return
+
+    bracket_match.status = TournamentsMatch.Status.COMPLETED.value
+    bracket_match.winner = winner
+    bracket_match.save(update_fields=['status', 'winner'])
+
+    logger.info(
+        '[dbe] Auto-BYE: mecz [%s] R%d/M%d → CMP, winner=%s (turniej id=%d).',
+        bracket_match.bracket_type, bracket_match.round_number, bracket_match.match_index,
+        winner.display_name, tournament.pk,
+    )
+
+    # Propaguj awans rekurencyjnie
+    advance_dbe_match(bracket_match, tournament)
+
+
 def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
     """
     Umieszcza przegranego z meczu WB w odpowiednim meczu losers bracket.
@@ -627,6 +667,8 @@ def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
             '[dbe] WB Final przegrany %s → LB Final (R%d/M1, slot p2), turniej id=%d.',
             loser.display_name, lb_final_round, match.tournament.pk,
         )
+        lb_match.refresh_from_db()
+        _auto_complete_if_bye(lb_match, match.tournament)
         return
 
     lb_round = _lb_round_for_wb_drop(wb_round)
@@ -650,6 +692,8 @@ def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
         wb_round, wb_index, loser.display_name,
         lb_round, lb_index, lb_slot, match.tournament.pk,
     )
+    lb_match.refresh_from_db()
+    _auto_complete_if_bye(lb_match, match.tournament)
 
 
 def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
@@ -705,6 +749,8 @@ def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
         lb_round, lb_index, winner.display_name,
         next_lb_round, next_lb_index, next_lb_slot, tournament.pk,
     )
+    lb_next.refresh_from_db()
+    _auto_complete_if_bye(lb_next, tournament)
 
 
 def _try_create_grand_final(tournament, winner_from_lb=None, winner_from_wb=None, wb_total_rounds: int = 0):
