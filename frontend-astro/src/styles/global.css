@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -18,8 +18,8 @@
   --sidebar-active-bg: #22c55e;   /* pełne zielone tło aktywnego linku (jak na makiecie) */
   --sidebar-active-text: #000000;
   --sidebar-hover-bg: rgba(255,255,255,0.06);
-  --sidebar-width:  240px;
-  --topbar-height:  68px;
+  --sidebar-width:  220px;
+  --topbar-height:  64px;
 }
 
 /* ── Dark theme (default) ─────────────────────────────────────────────────── */
@@ -57,6 +57,44 @@
 
   --topbar-bg: rgba(15,17,23,0.92);
   --content-bg: #0f1117;
+
+  /* ── Tokeny redesign (tc-theme dark) ──────────────────────────────────────
+     Używane przez nowe strony (dashboard v2, rankings, matches, reservations).
+     Stare tokeny powyżej pozostają dla kompatybilności z istniejącymi stronami.
+     ───────────────────────────────────────────────────────────────────────── */
+  --tc-bg:               #08090b;
+  --tc-sidebar-bg:       #0c0e11;
+  --tc-sidebar-border:   #1a1d21;
+  --tc-card-bg:          #101316;
+  --tc-card-bg-2:        #0e1114;
+  --tc-card-border:      #1c2025;
+  --tc-card-border-soft: #15181c;
+  --tc-chip-bg:          #1c2025;
+  --tc-overlay:          rgba(255,255,255,0.04);
+
+  --tc-ink:   #f5f6f7;
+  --tc-sub:   #9aa0a6;
+  --tc-muted: #6b7280;
+  --tc-faint: #3a3f47;
+
+  --tc-hot: #ff6b35;
+  --tc-win: #22c55e;
+
+  /* Akcent: limonka (tennis ball) — domyślny */
+  --tc-accent:        #c8f161;
+  --tc-accent-ink:    #08090b;
+  --tc-accent-soft:   rgba(200,241,97,0.10);
+  --tc-accent-border: rgba(200,241,97,0.30);
+  --tc-accent-glow:   rgba(200,241,97,0.45);
+
+  --tc-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  --tc-input-bg: #101316;
+
+  /* Density tokens */
+  --tc-row-pad:    12px;
+  --tc-card-pad:   20px;
+  --tc-gap:        12px;
+  --tc-header-pad: 14px;
 }
 
 /* ── Light theme ──────────────────────────────────────────────────────────── */
@@ -93,6 +131,40 @@
 
   --topbar-bg: rgba(255,255,255,0.95);
   --content-bg: #f4f6f9;
+
+  /* ── Tokeny redesign (tc-theme light) ────────────────────────────────────── */
+  --tc-bg:               #fafaf9;
+  --tc-sidebar-bg:       #ffffff;
+  --tc-sidebar-border:   #ececea;
+  --tc-card-bg:          #ffffff;
+  --tc-card-bg-2:        #fbfbfa;
+  --tc-card-border:      #e7e6e3;
+  --tc-card-border-soft: #f4f4f3;
+  --tc-chip-bg:          #f4f4f3;
+  --tc-overlay:          rgba(0,0,0,0.03);
+
+  --tc-ink:   #18181b;
+  --tc-sub:   #52525b;
+  --tc-muted: #71717a;
+  --tc-faint: #c4c4c1;
+
+  --tc-hot: #b91c1c;
+  --tc-win: #16a34a;
+
+  /* Akcent: limonka light */
+  --tc-accent:        #5a7d22;
+  --tc-accent-ink:    #ffffff;
+  --tc-accent-soft:   rgba(90,125,34,0.08);
+  --tc-accent-border: rgba(90,125,34,0.25);
+  --tc-accent-glow:   rgba(90,125,34,0.35);
+
+  --tc-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  --tc-input-bg: #ffffff;
+
+  --tc-row-pad:    12px;
+  --tc-card-pad:   20px;
+  --tc-gap:        12px;
+  --tc-header-pad: 14px;
 }
 
 /* ── Shared ─────────────────────────────────────────────────────────────────── */
@@ -108,6 +180,7 @@
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono-plex: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
