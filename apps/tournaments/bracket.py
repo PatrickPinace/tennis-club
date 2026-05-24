@@ -864,6 +864,9 @@ def advance_dbe_match(match, tournament):
                 next_round, next_index, slot_field, tournament.pk,
             )
 
+            wb_next.refresh_from_db()
+            _auto_complete_if_bye(wb_next, tournament)
+
             if loser:
                 _advance_loser_to_lb(match, loser, wb_total)
 

@@ -438,63 +438,63 @@ class RoundRobinMatchScoreView(APIView):
                 winner = None  # remis gemowy — standings liczą gemy, nie wymagają winnera
             new_status = TournamentsMatch.Status.COMPLETED.value
         else:
-            # ── Walidacja gemów per set (RND / SGL) ──────────────────────────────
-            config_for_validation = getattr(tournament, 'round_robin_config', None)
-            if config_for_validation is None:
-                from apps.tournaments.models import RoundRobinConfig as _RRC
-                config_for_validation, _ = _RRC.objects.get_or_create(tournament=tournament)
+            is_elimination = tournament.tournament_type in (
+                Tournament.TournamentType.SINGLE_ELIMINATION,
+                Tournament.TournamentType.DOUBLE_ELIMINATION,
+            )
 
-            gps = config_for_validation.games_per_set   # np. 6
-            sts = config_for_validation.sets_to_win      # np. 2
+            if is_elimination:
+                # SGL/DBE: używamy EliminationConfig.sets_to_win; pomijamy walidację gemową
+                # (format wynikowy jest swobodny — organizator wpisuje wynik setów)
+                try:
+                    from apps.tournaments.models import EliminationConfig as _EC
+                    elim_cfg = _EC.objects.get(tournament=tournament)
+                    sets_to_win = elim_cfg.sets_to_win
+                except Exception:
+                    sets_to_win = 2  # bezpieczny default
+            else:
+                # ── Walidacja gemów per set (RND) ─────────────────────────────────
+                config_for_validation = getattr(tournament, 'round_robin_config', None)
+                if config_for_validation is None:
+                    from apps.tournaments.models import RoundRobinConfig as _RRC
+                    config_for_validation, _ = _RRC.objects.get_or_create(tournament=tournament)
 
-            # Sety 1 i 2: standardowy set gemowy (max gps+2 z przewagą, albo gps:gps → tie-break)
-            for i in (1, 2):
-                s1 = fields[f'set{i}_p1']
-                s2 = fields[f'set{i}_p2']
-                if s1 is None or s2 is None:
-                    continue
-                hi, lo = max(s1, s2), min(s1, s2)
-                # Maksymalna dozwolona wartość: gps+1 (np. 7 przy 6-gemowym secie z tie-breakiem)
-                # lub gps+N gdy system "przewaga" — akceptujemy do gps+10 żeby nie ograniczać
-                max_gems = gps + 10
-                if hi > max_gems:
-                    return Response(
-                        {'detail': f'Set {i}: wynik {hi} przekracza dozwolone max ({max_gems} gemów).'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                # Zwycięzca seta musi mieć ≥ gps gemów
-                if hi < gps:
-                    return Response(
-                        {'detail': f'Set {i}: zwycięzca musi mieć co najmniej {gps} gemów (max({s1}, {s2}) = {hi}).'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                # Przy remisie gps:gps → OK (tie-break)
-                # Przy wygranym gps:x → x musi być ≤ gps-2 lub gps-1 (jeśli 7:5 lub 7:6)
-                # Uproszczona reguła: jeśli hi == gps, to lo może być gps (remis, tie-break)
-                # jeśli hi > gps, to różnica musi być ≥ 2 LUB hi == gps+1 (np. 7:6 jest OK)
-                if hi > gps and (hi - lo) < 2 and hi != gps + 1:
-                    return Response(
-                        {'detail': f'Set {i}: wynik {s1}:{s2} jest nieprawidłowy (za mała przewaga).'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                gps = config_for_validation.games_per_set   # np. 6
+                sets_to_win = config_for_validation.sets_to_win
 
-            # ── Walidacja super tie-breaka (set 3: min 10 pkt, przewaga ≥ 2) ─────
-            s3p1, s3p2 = fields['set3_p1'], fields['set3_p2']
-            if s3p1 is not None and s3p2 is not None:
-                is_stb = s3p1 >= 10 or s3p2 >= 10
-                if is_stb and abs(s3p1 - s3p2) < 2:
-                    return Response(
-                        {'detail': 'Super tie-break wymaga przewagi co najmniej 2 punktów.'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                # Sety 1 i 2: standardowy set gemowy
+                for i in (1, 2):
+                    s1 = fields[f'set{i}_p1']
+                    s2 = fields[f'set{i}_p2']
+                    if s1 is None or s2 is None:
+                        continue
+                    hi, lo = max(s1, s2), min(s1, s2)
+                    max_gems = gps + 10
+                    if hi > max_gems:
+                        return Response(
+                            {'detail': f'Set {i}: wynik {hi} przekracza dozwolone max ({max_gems} gemów).'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if hi < gps:
+                        return Response(
+                            {'detail': f'Set {i}: zwycięzca musi mieć co najmniej {gps} gemów (max({s1}, {s2}) = {hi}).'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    if hi > gps and (hi - lo) < 2 and hi != gps + 1:
+                        return Response(
+                            {'detail': f'Set {i}: wynik {s1}:{s2} jest nieprawidłowy (za mała przewaga).'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
 
-            # ── Wyznacz zwycięzcę (identyczna logika jak TournamentsMatchForm) ───
-            config = getattr(tournament, 'round_robin_config', None)
-            if config is None:
-                from apps.tournaments.models import RoundRobinConfig
-                config, _ = RoundRobinConfig.objects.get_or_create(tournament=tournament)
-
-            sets_to_win = config.sets_to_win
+                # ── Walidacja super tie-breaka (set 3: min 10 pkt, przewaga ≥ 2) ─
+                s3p1, s3p2 = fields['set3_p1'], fields['set3_p2']
+                if s3p1 is not None and s3p2 is not None:
+                    is_stb = s3p1 >= 10 or s3p2 >= 10
+                    if is_stb and abs(s3p1 - s3p2) < 2:
+                        return Response(
+                            {'detail': 'Super tie-break wymaga przewagi co najmniej 2 punktów.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
             p1_sets = 0
             p2_sets = 0
 

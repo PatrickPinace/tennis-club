@@ -1529,13 +1529,24 @@ def generate_elimination_matches_initial(tournament, participants_qs, config, br
         # Jeśli rozstawienie jest wyłączone, wszyscy są traktowani jako nierozstawieni
         all_participants = list(participants_qs)
         random.shuffle(all_participants)
-        
-        # Wypełnij sloty uczestnikami, a resztę wolnymi losami
-        temp_slots = all_participants + [None] * num_byes
-        
-        # Mieszanie dystrybuuje uczestników i wolne losy całkowicie losowo
-        random.shuffle(temp_slots)
-        final_bracket_slots = temp_slots
+
+        # Rozmieszaj BYE tak, żeby żadna para (i, i+1) nie miała obu slotów None
+        # (BYE-vs-BYE psuje spójność match_index w routingu ceil(index/2)).
+        # Strategia: każdy BYE trafia do osobnej pary (slot_b), zawsze jest gracz w slot_a.
+        # Pary z BYE: ostatnie num_byes par (losowa kolejność graczy zachowana przez shuffle).
+        final_bracket_slots = [None] * bracket_size
+        num_pairs = bracket_size // 2
+        pairs_with_bye = set(range(num_pairs - num_byes, num_pairs))
+        player_idx = 0
+        for pair in range(num_pairs):
+            slot_a = pair * 2
+            slot_b = pair * 2 + 1
+            final_bracket_slots[slot_a] = all_participants[player_idx]
+            player_idx += 1
+            if pair not in pairs_with_bye:
+                final_bracket_slots[slot_b] = all_participants[player_idx]
+                player_idx += 1
+            # else: slot_b pozostaje None (BYE)
 
     matches_to_create = []
     match_index = 1

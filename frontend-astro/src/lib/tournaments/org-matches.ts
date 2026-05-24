@@ -313,7 +313,7 @@ async function handleScoreSubmit(
   }
 }
 
-export function renderMatches(cfg: OrgPanelConfig, state: MatchState) {
+export function renderMatches(cfg: OrgPanelConfig, state: MatchState, cbs?: MatchCallbacks) {
   const container = document.getElementById('org-matches-list');
   if (!container) return;
 
@@ -321,7 +321,7 @@ export function renderMatches(cfg: OrgPanelConfig, state: MatchState) {
   if (!matchesEl) { container.innerHTML = '<div class="org-matches-empty">Brak danych meczów.</div>'; return; }
   try { state.allMatches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { return; }
 
-  applyMatchFilter(cfg, state);
+  applyMatchFilter(cfg, state, cbs);
 }
 
 export function applyMatchFilter(
@@ -374,7 +374,7 @@ export function applyMatchFilter(
         const detail = await res.json();
         const el = document.getElementById('ssr-matches-data');
         if (el) el.textContent = JSON.stringify(detail.matches ?? []);
-        renderMatches(cfg, state);
+        renderMatches(cfg, state, cbs);
       } catch { /* silent degradation */ }
     };
 
