@@ -691,6 +691,27 @@ def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
         lb_round, lb_index, lb_slot, match.tournament.pk,
     )
 
+    # Structural BYE in LB drop-in rounds: when WB BYEs reduce the effective bracket size,
+    # some LB matches never receive one of their participants.
+    # For LB R1: p2 slot may be empty if the partner WB R1 match was a BYE.
+    # For LB R3+: p1 slot may be empty if the corresponding LB consolidation match never existed.
+    # In both cases, auto-complete the LB match so the single player can advance.
+    lb_match.refresh_from_db()
+    if lb_round == 1:
+        # LB R1: check if partner WB R1 loser will ever arrive (other slot)
+        _auto_complete_if_bye(lb_match, match.tournament)
+    else:
+        # LB R3+ (odd drop-in): p1 comes from LB (lb_round-1)/same_index.
+        # If that consolidation match doesn't exist, p1 will never arrive.
+        feeder_exists = TournamentsMatch.objects.filter(
+            tournament=match.tournament,
+            bracket_type=BT.LOSERS,
+            round_number=lb_round - 1,
+            match_index=lb_index,
+        ).exists()
+        if not feeder_exists:
+            _auto_complete_if_bye(lb_match, match.tournament)
+
 
 def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
     """
@@ -745,6 +766,26 @@ def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
         lb_round, lb_index, winner.display_name,
         next_lb_round, next_lb_index, next_lb_slot, tournament.pk,
     )
+
+    # Structural BYE propagation: when advancing into a consolidation round (even LB round),
+    # the other slot is fed by the partner LB match from the previous odd round.
+    # If that partner match never existed (because its WB R1 feeders were all BYEs),
+    # the slot will never be filled → auto-complete the next LB match now.
+    if next_lb_round % 2 == 0:
+        # Determine which LB match feeds the other slot
+        if next_lb_slot == 'participant1':
+            partner_lb_index = lb_index + 1  # even index partner
+        else:
+            partner_lb_index = lb_index - 1  # odd index partner
+        partner_exists = TournamentsMatch.objects.filter(
+            tournament=tournament,
+            bracket_type=BT.LOSERS,
+            round_number=lb_round,
+            match_index=partner_lb_index,
+        ).exists()
+        if not partner_exists:
+            lb_next.refresh_from_db()
+            _auto_complete_if_bye(lb_next, tournament)
 
 
 def _try_create_grand_final(tournament, winner_from_lb=None, winner_from_wb=None, wb_total_rounds: int = 0):
