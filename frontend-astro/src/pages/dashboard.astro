@@ -85,7 +85,7 @@ const stats = [
     label: 'Ranking Klubowy',
     value: '—',
     detail: 'Brak danych rankingowych',
-    accent: 'neutral',
+    accent: 'gold',
   },
   {
     id: 'tournaments',
@@ -95,7 +95,7 @@ const stats = [
       ? `${tournaments[0]?.date ?? ''} · ${tournaments[0]?.statusLabel ?? ''}`
       : 'Brak nadchodzących turniejów',
     icon: 'trophy',
-    accent: 'neutral',
+    accent: 'indigo',
   },
 ];
 
@@ -686,12 +686,33 @@ const quickActions = [
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
   }
-  /* Subtelny akcent tylko dla karty rezerwacji — mały pasek od góry przez shadow */
+  /* Subtelne akcenty kart — pasek od góry przez inset shadow */
   .stat-card--primary {
     box-shadow: var(--shadow-card), inset 0 2px 0 0 rgba(34,197,94,0.45);
   }
   .stat-card--primary:hover {
     box-shadow: var(--shadow-md), inset 0 2px 0 0 rgba(34,197,94,0.45);
+  }
+  /* Ostatni mecz — niebieski */
+  .stat-card--success {
+    box-shadow: var(--shadow-card), inset 0 2px 0 0 rgba(59,130,246,0.45);
+  }
+  .stat-card--success:hover {
+    box-shadow: var(--shadow-md), inset 0 2px 0 0 rgba(59,130,246,0.45);
+  }
+  /* Ranking — złoty/bursztynowy */
+  .stat-card--gold {
+    box-shadow: var(--shadow-card), inset 0 2px 0 0 rgba(245,158,11,0.45);
+  }
+  .stat-card--gold:hover {
+    box-shadow: var(--shadow-md), inset 0 2px 0 0 rgba(245,158,11,0.45);
+  }
+  /* Turnieje — indigo */
+  .stat-card--indigo {
+    box-shadow: var(--shadow-card), inset 0 2px 0 0 rgba(99,102,241,0.45);
+  }
+  .stat-card--indigo:hover {
+    box-shadow: var(--shadow-md), inset 0 2px 0 0 rgba(99,102,241,0.45);
   }
 
   .stat-card__header {
