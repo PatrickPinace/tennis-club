@@ -135,9 +135,22 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
       <h2 class="player-name">{displayName}</h2>
       <span class="player-role">{roleLabel}</span>
 
-      {points !== null && (
-        <div class="player-level">
-          <span class="level-badge">{Math.round(Number(points)).toLocaleString('pl-PL')} pkt SNG</span>
+      {(rSng !== null || rDbl !== null) && (
+        <div class="player-rankings">
+          {rSng !== null && (
+            <div class="player-ranking-row">
+              <span class="player-ranking-type">SNG</span>
+              <span class="player-ranking-pos">#{rSng.position ?? '—'}</span>
+              <span class="player-ranking-pts">{rSng.points !== null ? Math.round(Number(rSng.points)).toLocaleString('pl-PL') : '—'} pkt</span>
+            </div>
+          )}
+          {rDbl !== null && (
+            <div class="player-ranking-row">
+              <span class="player-ranking-type">DBL</span>
+              <span class="player-ranking-pos">#{rDbl.position ?? '—'}</span>
+              <span class="player-ranking-pts">{rDbl.points !== null ? Math.round(Number(rDbl.points)).toLocaleString('pl-PL') : '—'} pkt</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -251,14 +264,14 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
         )}
       </section>
 
-      <!-- Statystyki DBL (jeśli są) -->
+      <!-- Ranking deblowy (jeśli są dane) -->
       {rDbl !== null && (
         <section>
           <div class="section-header">
             <h3 class="section-title">Ranking deblowy</h3>
             <span class="section-source">Punkty z turniejów DBL · sezon 2026</span>
           </div>
-          <div class="stats-grid stats-grid--3">
+          <div class="stats-grid">
             <div class="stat-tile tc-card">
               <div class="stat-tile__value">{nd(rDbl.position)}</div>
               <div class="stat-tile__label">Pozycja rankingowa</div>
@@ -273,7 +286,36 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
               </div>
               <div class="stat-tile__label">Win rate</div>
             </div>
+            <div class="stat-tile tc-card">
+              <div class="stat-tile__value">{nd(rDbl.matches_played)}</div>
+              <div class="stat-tile__label">Mecze</div>
+            </div>
           </div>
+
+          {rDbl.matches_played !== null && rDbl.matches_played > 0 && (
+            <div class="wl-bar-wrap tc-card">
+              <div class="wl-bar-header">
+                <span class="wl-wins">{nd(rDbl.matches_won)} zwycięstw</span>
+                <span class="wl-played">{nd(rDbl.matches_played)} meczów</span>
+                <span class="wl-losses">{nd(rDbl.matches_lost)} porażek</span>
+              </div>
+              <div class="wl-bar"
+                role="progressbar"
+                aria-valuenow={rDbl.win_rate ?? 0}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div class="wl-bar__fill wl-bar__fill--win"  style={`width:${rDbl.win_rate ?? 0}%`}></div>
+                <div class="wl-bar__fill wl-bar__fill--loss" style={`width:${100 - (rDbl.win_rate ?? 0)}%`}></div>
+              </div>
+              {(rDbl.sets_won != null || rDbl.sets_lost != null) && (
+                <div class="wl-bar-sub">
+                  <span>Sety wygrane: {nd(rDbl.sets_won)}</span>
+                  <span>Sety przegrane: {nd(rDbl.sets_lost)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </section>
       )}
 
@@ -327,7 +369,9 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 
       <!-- Ostatnie mecze -->
       <section>
-        <h3 class="section-title">Ostatnie mecze</h3>
+        <div class="section-header">
+          <h3 class="section-title">Ostatnie mecze</h3>
+        </div>
 
         {recentMatches.length === 0 ? (
           <div class="no-data-box tc-card">
@@ -376,7 +420,9 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 
       <!-- Informacje o koncie -->
       <section>
-        <h3 class="section-title">Konto</h3>
+        <div class="section-header">
+          <h3 class="section-title">Konto</h3>
+        </div>
         <div class="tc-card account-info">
           <div class="account-row">
             <span class="account-label">Login</span>
@@ -462,13 +508,25 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   padding: 2px 10px; border-radius: 999px; font-weight: 600;
 }
 
-.player-level { margin: 4px 0; }
-.level-badge {
-  font-size: 0.72rem; font-weight: 700;
-  background: #f0fdf4; color: #15803d;
-  border: 1px solid #bbf7d0;
-  padding: 2px 10px; border-radius: 6px;
-  text-transform: uppercase; letter-spacing: 0.04em;
+.player-rankings {
+  display: flex; flex-direction: column; gap: 5px;
+  width: 100%; margin: 4px 0;
+}
+.player-ranking-row {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.75rem; justify-content: center;
+}
+.player-ranking-type {
+  font-weight: 700; font-size: 0.65rem;
+  background: rgba(34,197,94,0.1); color: #16a34a;
+  padding: 1px 6px; border-radius: 4px;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.player-ranking-pos {
+  font-weight: 700; color: var(--text);
+}
+.player-ranking-pts {
+  color: var(--text-muted);
 }
 
 .player-meta {
@@ -481,12 +539,6 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   font-size: 0.78rem; color: var(--text-muted);
 }
 .player-meta svg { flex-shrink: 0; color: #94a3b8; }
-
-.player-readonly-note {
-  font-size: 0.7rem; color: var(--text-dim);
-  margin: 4px 0 0;
-  font-style: italic;
-}
 
 /* ── Section header ──────────────────────────────────────────── */
 .section-header {
