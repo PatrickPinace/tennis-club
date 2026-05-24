@@ -282,15 +282,23 @@ const iAmParticipant = iAmP1 || iAmP2;
             <div class="edit-set-group">
               <div class="edit-set-label">Set {s}{s === 1 ? ' *' : ''}</div>
               <div class="edit-set-inputs">
-                <input class="edit-set-input" type="number" min="0" max="99"
-                  name={`p1_set${s}`}
-                  value={s === 1 ? String(match.p1_set1 ?? '') : s === 2 ? String(match.p1_set2 ?? '') : String(match.p1_set3 ?? '')}
-                  placeholder="—">
+                <div class="edit-spinner">
+                  <button type="button" class="edit-spin-btn edit-spin-up" tabindex="-1">▲</button>
+                  <input class="edit-set-input" type="number" min="0" max="99"
+                    name={`p1_set${s}`}
+                    value={s === 1 ? String(match.p1_set1 ?? '') : s === 2 ? String(match.p1_set2 ?? '') : String(match.p1_set3 ?? '')}
+                    placeholder="—">
+                  <button type="button" class="edit-spin-btn edit-spin-down" tabindex="-1">▼</button>
+                </div>
                 <span class="edit-set-sep">:</span>
-                <input class="edit-set-input" type="number" min="0" max="99"
-                  name={`p2_set${s}`}
-                  value={s === 1 ? String(match.p2_set1 ?? '') : s === 2 ? String(match.p2_set2 ?? '') : String(match.p2_set3 ?? '')}
-                  placeholder="—">
+                <div class="edit-spinner">
+                  <button type="button" class="edit-spin-btn edit-spin-up" tabindex="-1">▲</button>
+                  <input class="edit-set-input" type="number" min="0" max="99"
+                    name={`p2_set${s}`}
+                    value={s === 1 ? String(match.p2_set1 ?? '') : s === 2 ? String(match.p2_set2 ?? '') : String(match.p2_set3 ?? '')}
+                    placeholder="—">
+                  <button type="button" class="edit-spin-btn edit-spin-down" tabindex="-1">▼</button>
+                </div>
               </div>
             </div>
           ))}
@@ -456,12 +464,28 @@ const iAmParticipant = iAmP1 || iAmP2;
   .edit-set-inputs {
     display: flex; align-items: center; gap: 6px;
   }
-  .edit-set-input {
-    width: 56px; padding: 6px 8px; border: 1px solid var(--border);
-    border-radius: 6px; background: var(--surface-2); color: var(--text);
-    font-size: 0.95rem; text-align: center;
+  .edit-spinner {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
   }
-  .edit-set-input:focus { outline: none; border-color: var(--primary); }
+  .edit-set-input {
+    width: 48px; height: 36px; text-align: center;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--surface-2); color: var(--text);
+    font-size: 1rem; font-weight: 700;
+    -moz-appearance: textfield;
+  }
+  .edit-set-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(34,197,94,0.15); }
+  .edit-set-input::-webkit-outer-spin-button,
+  .edit-set-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .edit-spin-btn {
+    width: 48px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; border: 1px solid var(--border); border-radius: 4px;
+    background: var(--surface-2); color: var(--text-muted);
+    cursor: pointer; transition: background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  .edit-spin-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .edit-spin-btn:active { transform: scale(0.94); }
   .edit-set-sep { color: var(--text-dim); font-weight: 700; }
 
 
@@ -565,6 +589,22 @@ const iAmParticipant = iAmP1 || iAmP2;
 </style>
 
 <script define:vars={{ matchId, canEdit }}>
+// ── Spinner buttons ────────────────────────────────────────────────────────
+document.querySelectorAll('.edit-spin-up').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = btn.nextElementSibling;
+    const val = parseInt(input.value || '0', 10);
+    input.value = String(isNaN(val) ? 1 : Math.min(val + 1, 99));
+  });
+});
+document.querySelectorAll('.edit-spin-down').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const input = btn.previousElementSibling;
+    const val = parseInt(input.value || '0', 10);
+    input.value = String(isNaN(val) ? 0 : Math.max(val - 1, 0));
+  });
+});
+
 // ── Edit form ──────────────────────────────────────────────────────────────
 if (canEdit) {
   const toggleBtn  = document.getElementById('edit-toggle-btn');
