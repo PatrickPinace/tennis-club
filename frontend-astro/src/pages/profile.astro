@@ -187,11 +187,14 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 
       <!-- Statystyki SNG -->
       <section>
-        <h3 class="section-title">Statystyki singiel (SNG)</h3>
+        <div class="section-header">
+          <h3 class="section-title">Ranking singlowy</h3>
+          <span class="section-source">Punkty z turniejów SNG · sezon 2026</span>
+        </div>
 
         {rSng === null ? (
           <div class="no-data-box tc-card">
-            Brak danych rankingowych — rozegraj swój pierwszy mecz singlowy.
+            Brak danych rankingowych — weź udział w turnieju singlowym, żeby pojawić się w rankingu.
           </div>
         ) : (
           <>
@@ -253,7 +256,10 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
       <!-- Statystyki DBL (jeśli są) -->
       {rDbl !== null && (
         <section>
-          <h3 class="section-title">Statystyki debel (DBL)</h3>
+          <div class="section-header">
+            <h3 class="section-title">Ranking deblowy</h3>
+            <span class="section-source">Punkty z turniejów DBL · sezon 2026</span>
+          </div>
           <div class="stats-grid stats-grid--3">
             <div class="stat-tile tc-card">
               <div class="stat-tile__value">{nd(rDbl.position)}</div>
@@ -261,11 +267,11 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
             </div>
             <div class="stat-tile tc-card">
               <div class="stat-tile__value">{rDbl.points !== null ? Math.round(Number(rDbl.points)).toLocaleString('pl-PL') : '—'}</div>
-              <div class="stat-tile__label">Punkty</div>
+              <div class="stat-tile__label">Punkty rankingowe</div>
             </div>
             <div class="stat-tile tc-card">
               <div class="stat-tile__value">
-                {nd(rDbl.win_rate)}{rDbl.win_rate !== null && <span class="stat-tile__unit">%</span>}
+                {rDbl.win_rate !== null ? Math.round(Number(rDbl.win_rate)) : '—'}{rDbl.win_rate !== null && <span class="stat-tile__unit">%</span>}
               </div>
               <div class="stat-tile__label">Win rate</div>
             </div>
@@ -274,8 +280,11 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
       )}
 
       <!-- Statystyki turniejowe -->
-      <section>
-        <h3 class="section-title">Statystyki turniejowe</h3>
+      <section class="section--tournament">
+        <div class="section-header">
+          <h3 class="section-title">Udział w turniejach</h3>
+          <span class="section-source">Wszystkie typy turniejów · nie wlicza się do rankingu punktowego</span>
+        </div>
 
         {tStats === null || tStats.tournaments_played === 0 ? (
           <div class="no-data-box tc-card">
@@ -308,10 +317,10 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
               </div>
               <div class="stat-tile tc-card">
                 <div class="stat-tile__value">
-                  {tStats.win_rate !== null ? tStats.win_rate : '—'}
+                  {tStats.win_rate !== null ? Math.round(Number(tStats.win_rate)) : '—'}
                   {tStats.win_rate !== null && <span class="stat-tile__unit">%</span>}
                 </div>
-                <div class="stat-tile__label">Win rate (turnieje)</div>
+                <div class="stat-tile__label">Win rate</div>
               </div>
             </div>
           </>
@@ -369,36 +378,27 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 
       <!-- Informacje o koncie -->
       <section>
-        <h3 class="section-title">Informacje o koncie</h3>
+        <h3 class="section-title">Konto</h3>
         <div class="tc-card account-info">
           <div class="account-row">
             <span class="account-label">Login</span>
             <span class="account-value">{user?.username ?? '—'}</span>
           </div>
           <div class="account-row">
-            <span class="account-label">E-mail</span>
-            <span class="account-value">{user?.email || '—'}</span>
-          </div>
-          <div class="account-row">
-            <span class="account-label">Imię i nazwisko</span>
-            <span class="account-value">{displayName}</span>
-          </div>
-          <div class="account-row">
-            <span class="account-label">Miasto</span>
-            <span class="account-value">{user?.city || '—'}</span>
-          </div>
-          <div class="account-row">
             <span class="account-label">Data urodzenia</span>
             <span class="account-value">{user?.birth_date ? formatDatePL(user.birth_date) : '—'}</span>
-          </div>
-          <div class="account-row">
-            <span class="account-label">Członek od</span>
-            <span class="account-value">{memberSince}</span>
           </div>
           <div class="account-row">
             <span class="account-label">Rola</span>
             <span class="account-value">{roleLabel}</span>
           </div>
+          <div class="account-row">
+            <span class="account-label">Członek od</span>
+            <span class="account-value">{memberSince}</span>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <a href={url('/profile/edit')} class="tc-btn tc-btn-ghost tc-btn-sm">Edytuj profil →</a>
         </div>
       </section>
 
@@ -489,12 +489,31 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   font-style: italic;
 }
 
-/* ── Section title ───────────────────────────────────────────── */
+/* ── Section header ──────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
 .section-title {
   font-size: 0.85rem; font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase; letter-spacing: 0.06em;
-  margin: 0 0 12px;
+  margin: 0;
+}
+.section-source {
+  font-size: 0.72rem; color: var(--text-dim); font-weight: 400;
+}
+
+/* ── Tournament section tint ─────────────────────────────────── */
+.section--tournament {
+  padding: 18px 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.section--tournament .stats-grid { margin-bottom: 0; }
+.section--tournament .no-data-box {
+  background: transparent; border: none; padding: 4px 0 0;
 }
 
 /* ── Stats grid ──────────────────────────────────────────────── */
