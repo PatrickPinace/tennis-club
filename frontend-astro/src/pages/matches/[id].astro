@@ -80,6 +80,17 @@ const team2 = [match.p2, match.p4].filter(Boolean) as NonNullable<MatchHistoryEn
 
 const canEdit = match.can_edit ?? false;
 
+// is_tournament + link do turnieju
+const isTournament = match.is_tournament ?? false;
+const tournamentId = match.tournament_id ?? null;
+
+// score_status / reported_by
+const scoreStatus   = match.score_status ?? null;     // 'PENDING' | 'CONFIRMED' | null
+const reportedBy    = match.reported_by   ?? null;
+
+// Czy zalogowany user jest uczestnikiem ale nie może edytować (np. mecz turniejowy)
+const iAmParticipant = iAmP1 || iAmP2;
+
 ---
 
 <AppLayout
@@ -98,7 +109,7 @@ const canEdit = match.can_edit ?? false;
     </nav>
     {canEdit && (
       <button id="edit-toggle-btn" class="tc-btn tc-btn-secondary tc-btn-sm" type="button">
-        ✏ Edytuj wynik
+        Edytuj wynik
       </button>
     )}
   </div>
@@ -107,7 +118,13 @@ const canEdit = match.can_edit ?? false;
   <div class={`match-header tc-card ${resultClass}`}>
     <div class="match-header__top">
       <div class="match-header__badges">
-        <span class="tc-badge tc-badge-neutral">{typeLabel}</span>
+        {isTournament
+          ? (tournamentId
+              ? <a href={`/tournaments/${tournamentId}`} class="tc-badge tc-badge-primary match-badge-link">Turniejowy</a>
+              : <span class="tc-badge tc-badge-primary">Turniejowy</span>
+            )
+          : <span class="tc-badge tc-badge-neutral">Towarzyski</span>
+        }
         <span class="tc-badge tc-badge-neutral">{formatLabel}</span>
       </div>
       {resultLabel && (
@@ -132,7 +149,11 @@ const canEdit = match.can_edit ?? false;
             </div>
           </div>
         ))}
-        {p1Won && <div class="match-team__crown" aria-label="Zwycięzca">🏆</div>}
+        {p1Won && (
+          <div class="match-team__crown" aria-label="Zwycięzca">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          </div>
+        )}
       </div>
 
       <!-- Wynik setów -->
@@ -148,7 +169,6 @@ const canEdit = match.can_edit ?? false;
             <span class="match-score__empty">—</span>
           )}
         </div>
-        <div class="match-score__label">{scoreStr}</div>
       </div>
 
       <!-- Drużyna 2 -->
@@ -164,11 +184,30 @@ const canEdit = match.can_edit ?? false;
             </div>
           </div>
         ))}
-        {p2Won && <div class="match-team__crown" aria-label="Zwycięzca">🏆</div>}
+        {p2Won && (
+          <div class="match-team__crown" aria-label="Zwycięzca">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+          </div>
+        )}
       </div>
     </div>
 
     <div class="match-header__date">{fmtDate(match.match_date)}</div>
+
+    {(scoreStatus || reportedBy) && (
+      <div class="match-header__meta">
+        {scoreStatus && (
+          <span class={`match-status-chip match-status-chip--${scoreStatus === 'CONFIRMED' ? 'ok' : 'pending'}`}>
+            {scoreStatus === 'CONFIRMED' ? 'Wynik potwierdzony' : 'Oczekuje potwierdzenia'}
+          </span>
+        )}
+        {reportedBy && (
+          <span class="match-meta-item">
+            Wpisał: <strong>{userName(reportedBy)}</strong>
+          </span>
+        )}
+      </div>
+    )}
   </div>
 
 
@@ -219,6 +258,18 @@ const canEdit = match.can_edit ?? false;
     </div>
   )}
 
+  <!-- Info gdy uczestnik nie może edytować (P3) -->
+  {!canEdit && iAmParticipant && (
+    <div class="match-noedit-info">
+      {isTournament
+        ? 'Wynik meczu turniejowego jest zarządzany przez organizatora — nie możesz go edytować.'
+        : scoreStatus === 'CONFIRMED'
+          ? 'Wynik został potwierdzony i nie można go już zmienić.'
+          : 'Edycja wyniku jest w tej chwili niedostępna.'
+      }
+    </div>
+  )}
+
   <!-- Formularz edycji wyniku (widoczny tylko gdy can_edit, toggle) -->
   {canEdit && (
     <div id="edit-form-card" class="tc-card" style="margin-top:20px; display:none;">
@@ -244,8 +295,9 @@ const canEdit = match.can_edit ?? false;
             </div>
           ))}
         </div>
+        <p class="edit-form-hint">* Set 1 jest wymagany. Sety 2–3 wypełnij tylko jeśli były rozegrane.</p>
         <div style="margin-top:14px; display:flex; align-items:center; gap:10px;">
-          <button type="submit" class="tc-btn tc-btn-primary tc-btn-sm">Zapisz</button>
+          <button type="submit" class="tc-btn tc-btn-primary tc-btn-sm">Zapisz wynik</button>
           <button type="button" id="edit-cancel-btn" class="tc-btn tc-btn-ghost tc-btn-sm">Anuluj</button>
           <span id="edit-form-msg" style="font-size:0.82rem;"></span>
         </div>
@@ -365,10 +417,6 @@ const canEdit = match.can_edit ?? false;
 
   .match-score__empty { font-size: 1.6rem; color: var(--text-dim); }
 
-  .match-score__label {
-    font-size: 0.75rem; color: var(--text-muted); font-weight: 500;
-  }
-
   .match-header__date {
     font-size: 0.82rem; color: var(--text-muted);
     text-align: center; margin-top: 10px;
@@ -416,6 +464,55 @@ const canEdit = match.can_edit ?? false;
   .edit-set-input:focus { outline: none; border-color: var(--primary); }
   .edit-set-sep { color: var(--text-dim); font-weight: 700; }
 
+
+  /* ── Match meta (status, reported_by) ───────────────────────────────── */
+  .match-header__meta {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+
+  .match-status-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 99px;
+    font-size: 0.73rem; font-weight: 600;
+  }
+  .match-status-chip--ok {
+    background: rgba(34,197,94,0.1); color: #22c55e;
+  }
+  .match-status-chip--pending {
+    background: rgba(245,158,11,0.1); color: var(--warning);
+  }
+
+  .match-meta-item { color: var(--text-muted); font-size: 0.78rem; }
+  .match-meta-item strong { color: var(--text); }
+
+  /* ── Tournament badge link ───────────────────────────────────────────── */
+  .match-badge-link {
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .match-badge-link:hover { opacity: 0.8; }
+
+  /* ── No-edit info banner ─────────────────────────────────────────────── */
+  .match-noedit-info {
+    margin-top: 20px;
+    padding: 10px 14px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 0.82rem; color: var(--text-muted);
+  }
+
+  /* ── Edit form hint ──────────────────────────────────────────────────── */
+  .edit-form-hint {
+    margin-top: 10px; margin-bottom: 0;
+    font-size: 0.75rem; color: var(--text-dim);
+  }
+
+  /* ── Crown icon ──────────────────────────────────────────────────────── */
+  .match-team__crown svg { color: #fbbf24; }
 
   /* ── Mobile ──────────────────────────────────────────────────────────── */
   @media (max-width: 640px) {
