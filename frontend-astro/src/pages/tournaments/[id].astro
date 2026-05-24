@@ -254,6 +254,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   <div class="org-loading">Ładowanie uczestników…</div>
                 </div>
                 <div class="org-add-row">
+                  <!-- Singiel -->
                   <div id="org-add-sng-wrap">
                     <div class="org-add-search-wrap">
                       <div class="org-add-input-wrap">
@@ -266,6 +267,47 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                       <button id="org-add-user-btn" class="org-add-btn" type="button">+ Dodaj</button>
                     </div>
                     <div id="org-user-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                  </div>
+
+                  <!-- Debel: stały skład pary (kapitan + partner) -->
+                  <div id="org-add-dbl-row" style="display:none;">
+                    <div class="org-dbl-players-row">
+                      <div class="org-dbl-player-col">
+                        <div class="org-dbl-player-label">Gracz 1 (kapitan)</div>
+                        <div class="org-add-input-wrap">
+                          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                          </svg>
+                          <input id="org-add-p1-search" class="org-add-input" type="text"
+                            placeholder="Szukaj gracza 1…" autocomplete="off">
+                        </div>
+                        <div id="org-p1-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                      </div>
+                      <div class="org-dbl-sep" aria-hidden="true">/</div>
+                      <div class="org-dbl-player-col">
+                        <div class="org-dbl-player-label">Gracz 2 (partner)</div>
+                        <div class="org-add-input-wrap">
+                          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                          </svg>
+                          <input id="org-add-p2-search" class="org-add-input" type="text"
+                            placeholder="Szukaj gracza 2…" autocomplete="off">
+                        </div>
+                        <div id="org-p2-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                      </div>
+                    </div>
+                    <div class="org-dbl-name-row">
+                      <label class="org-dbl-name-label" for="org-add-dbl-name">Nazwa pary</label>
+                      <input id="org-add-dbl-name" class="org-add-input" type="text"
+                        placeholder="np. Kowalski / Nowak (uzupełniane automatycznie)"
+                        style="width:100%;" autocomplete="off">
+                      <span class="org-dbl-name-hint">Możesz zmienić nazwę ręcznie</span>
+                    </div>
+                    <div style="margin-top:8px;">
+                      <button id="org-add-dbl-btn" class="org-add-btn" type="button">
+                        + Dodaj parę
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
@@ -383,6 +425,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   <div class="org-loading">Ładowanie uczestników…</div>
                 </div>
                 <div class="org-add-row">
+                  <!-- Singiel -->
                   <div id="org-add-sng-wrap">
                     <div class="org-add-search-wrap">
                       <div class="org-add-input-wrap">
@@ -395,6 +438,47 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                       <button id="org-add-user-btn" class="org-add-btn" type="button">+ Dodaj</button>
                     </div>
                     <div id="org-user-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                  </div>
+
+                  <!-- Debel: stały skład pary (kapitan + partner) -->
+                  <div id="org-add-dbl-row" style="display:none;">
+                    <div class="org-dbl-players-row">
+                      <div class="org-dbl-player-col">
+                        <div class="org-dbl-player-label">Gracz 1 (kapitan)</div>
+                        <div class="org-add-input-wrap">
+                          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                          </svg>
+                          <input id="org-add-p1-search" class="org-add-input" type="text"
+                            placeholder="Szukaj gracza 1…" autocomplete="off">
+                        </div>
+                        <div id="org-p1-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                      </div>
+                      <div class="org-dbl-sep" aria-hidden="true">/</div>
+                      <div class="org-dbl-player-col">
+                        <div class="org-dbl-player-label">Gracz 2 (partner)</div>
+                        <div class="org-add-input-wrap">
+                          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                          </svg>
+                          <input id="org-add-p2-search" class="org-add-input" type="text"
+                            placeholder="Szukaj gracza 2…" autocomplete="off">
+                        </div>
+                        <div id="org-p2-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+                      </div>
+                    </div>
+                    <div class="org-dbl-name-row">
+                      <label class="org-dbl-name-label" for="org-add-dbl-name">Nazwa pary</label>
+                      <input id="org-add-dbl-name" class="org-add-input" type="text"
+                        placeholder="np. Kowalski / Nowak (uzupełniane automatycznie)"
+                        style="width:100%;" autocomplete="off">
+                      <span class="org-dbl-name-hint">Możesz zmienić nazwę ręcznie</span>
+                    </div>
+                    <div style="margin-top:8px;">
+                      <button id="org-add-dbl-btn" class="org-add-btn" type="button">
+                        + Dodaj parę
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
