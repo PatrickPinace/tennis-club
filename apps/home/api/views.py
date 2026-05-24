@@ -193,7 +193,7 @@ class DashboardSummaryView(APIView):
                         'participant1__user', 'participant2__user',
                         'participant3__user', 'participant4__user',
                     )
-                    .order_by('-scheduled_time')[:10]
+                    .order_by('-tournament__created_at', '-id')[:10]
                 )
                 for tm in t_matches:
                     # Ustal stronę gracza i wynik
@@ -227,9 +227,11 @@ class DashboardSummaryView(APIView):
                     if score_str:
                         detail += f' · {score_str}'
 
-                    ts = tm.scheduled_time.isoformat() if tm.scheduled_time else None
-                    if not ts:
-                        continue  # bez timestamp pomiń
+                    ts = (
+                        tm.scheduled_time.isoformat()
+                        if tm.scheduled_time
+                        else tm.tournament.created_at.isoformat()
+                    )
 
                     activity_events.append({
                         'type': 'match',
