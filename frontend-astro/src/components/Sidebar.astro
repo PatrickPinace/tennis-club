@@ -22,11 +22,10 @@ const initials = displayName
   .join('') || 'U';
 const roleLabel = currentUser?.is_staff ? 'Administrator' : (currentUser ? 'Członek' : '—');
 
-// Link do wersji klasycznej Django — ta sama logika co w Topbar.astro
-const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
-const classicUrl = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
-  ? _djangoApiUrl.replace(/\/$/, '') + '/tournaments'
-  : '/tournaments';
+// Link do wersji klasycznej Django — ta sama logika co w Topbar.astro.
+// PUBLIC_CLASSIC_URL: w dev = http://localhost:8000, w prod puste (Caddy routuje /tournaments → Django).
+const _classicBase = import.meta.env.PUBLIC_CLASSIC_URL ?? '';
+const classicUrl = (_classicBase ? _classicBase.replace(/\/$/, '') : '') + '/tournaments';
 
 const navItems = [
   {

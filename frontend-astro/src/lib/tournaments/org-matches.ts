@@ -77,15 +77,15 @@ function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     isPendingMatch ? 'org-match--pending' : '',
   ].filter(Boolean).join(' ');
 
-  // BYE — mecz bez drugiego uczestnika, zawsze read-only
-  const isBye = !m.participant2_id;
+  // BYE — mecz bez jednego z uczestników (może być p1 lub p2), zawsze read-only
+  const isBye = !m.participant1_id || !m.participant2_id;
   if (isBye) {
     return `
       <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
         <div class="org-match-header">
           <div class="org-match-meta">
             <span class="org-match-label">${roundLabel}</span>
-            <span class="org-match-players">${p1}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
+            <span class="org-match-players">${m.participant1_id ? p1 : p2}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
           </div>
           <div class="org-match-right">
             ${statusBadge}
@@ -293,7 +293,7 @@ async function handleScoreSubmit(
         msgEl.className = 'org-form-msg org-form-msg--ok';
       }
       await refreshMatchesData();
-      if (cfg.isSGL) {
+      if (cfg.isSGL || cfg.isDBE) {
         await cbs.loadBracket();
       } else if (cfg.isAMR) {
         await cbs.loadAmericanoStandings();
@@ -313,7 +313,7 @@ async function handleScoreSubmit(
   }
 }
 
-export function renderMatches(cfg: OrgPanelConfig, state: MatchState) {
+export function renderMatches(cfg: OrgPanelConfig, state: MatchState, cbs?: MatchCallbacks) {
   const container = document.getElementById('org-matches-list');
   if (!container) return;
 
@@ -321,7 +321,7 @@ export function renderMatches(cfg: OrgPanelConfig, state: MatchState) {
   if (!matchesEl) { container.innerHTML = '<div class="org-matches-empty">Brak danych meczów.</div>'; return; }
   try { state.allMatches = JSON.parse(matchesEl.textContent ?? '[]'); } catch { return; }
 
-  applyMatchFilter(cfg, state);
+  applyMatchFilter(cfg, state, cbs);
 }
 
 export function applyMatchFilter(
@@ -333,7 +333,7 @@ export function applyMatchFilter(
   if (!container) return;
 
   if (!state.allMatches.length) {
-    container.innerHTML = '<div class="org-matches-empty">Brak zaplanowanych meczów.</div>';
+    container.innerHTML = '<div class="org-matches-empty">Mecze zostaną zaplanowane po zamknięciu zapisów.</div>';
     return;
   }
 
@@ -374,7 +374,7 @@ export function applyMatchFilter(
         const detail = await res.json();
         const el = document.getElementById('ssr-matches-data');
         if (el) el.textContent = JSON.stringify(detail.matches ?? []);
-        renderMatches(cfg, state);
+        renderMatches(cfg, state, cbs);
       } catch { /* silent degradation */ }
     };
 
@@ -411,7 +411,7 @@ export function applyMatchFilter(
                 winner_name: null };
               renderMatches(cfg, state);
             }
-            if (cfg.isSGL) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); document.dispatchEvent(new CustomEvent('amr-match-scored')); } else { await cbs.loadStandings(); }
+            if (cfg.isSGL || cfg.isDBE) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); document.dispatchEvent(new CustomEvent('amr-match-scored')); } else { await cbs.loadStandings(); }
           } else {
             if (msgEl) { msgEl.textContent = d.detail ?? 'Błąd anulowania.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
             btn.disabled = false;

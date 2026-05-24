@@ -1529,13 +1529,24 @@ def generate_elimination_matches_initial(tournament, participants_qs, config, br
         # Jeśli rozstawienie jest wyłączone, wszyscy są traktowani jako nierozstawieni
         all_participants = list(participants_qs)
         random.shuffle(all_participants)
-        
-        # Wypełnij sloty uczestnikami, a resztę wolnymi losami
-        temp_slots = all_participants + [None] * num_byes
-        
-        # Mieszanie dystrybuuje uczestników i wolne losy całkowicie losowo
-        random.shuffle(temp_slots)
-        final_bracket_slots = temp_slots
+
+        # Rozmieszaj BYE tak, żeby żadna para (i, i+1) nie miała obu slotów None
+        # (BYE-vs-BYE psuje spójność match_index w routingu ceil(index/2)).
+        # Strategia: każdy BYE trafia do osobnej pary (slot_b), zawsze jest gracz w slot_a.
+        # Pary z BYE: ostatnie num_byes par (losowa kolejność graczy zachowana przez shuffle).
+        final_bracket_slots = [None] * bracket_size
+        num_pairs = bracket_size // 2
+        pairs_with_bye = set(range(num_pairs - num_byes, num_pairs))
+        player_idx = 0
+        for pair in range(num_pairs):
+            slot_a = pair * 2
+            slot_b = pair * 2 + 1
+            final_bracket_slots[slot_a] = all_participants[player_idx]
+            player_idx += 1
+            if pair not in pairs_with_bye:
+                final_bracket_slots[slot_b] = all_participants[player_idx]
+                player_idx += 1
+            # else: slot_b pozostaje None (BYE)
 
     matches_to_create = []
     match_index = 1
@@ -1545,7 +1556,10 @@ def generate_elimination_matches_initial(tournament, participants_qs, config, br
         p1_slot = final_bracket_slots[i]
         p2_slot = final_bracket_slots[i+1]
 
-        if p1_slot is None:
+        if p1_slot is None and p2_slot is None:
+            # Oboje BYE — mecz pomijamy całkowicie (nie ma kogo awansować)
+            continue
+        elif p1_slot is None:
             # p2_slot otrzymuje wolny los (bye)
             matches_to_create.append(TournamentsMatch(
                 tournament=tournament, participant1=p2_slot, participant2=None,
@@ -1814,72 +1828,12 @@ def generate_next_elimination_round(tournament, completed_round_number):
     return len(created_matches), f"Automatycznie wygenerowano {len(created_matches)} meczów dla rundy {next_round_number}."
 
 
-def advance_double_elimination(tournament, match):
-    """
-    Obsługuje logikę awansu w turnieju podwójnej eliminacji.
-    Tworzy lub aktualizuje mecze w drabince wygranych (WB), przegranych (LB) oraz Wielkim Finale.
-    """
-    if not match.winner:
-        return
-
-    # Ustalenie parametrów drabinki
-    # Zakładamy, że runda 1 to start WB.
-    # Drabinka przegranych (LB) ma specyficzną numerację rund.
-    
-    # Sprawdźmy, czy mecz jest w drabince wygranych (WB) czy przegranych (LB)
-    # W typowej implementacji DB w bazie:
-    # WB Rundy: 1, 2, 3...
-    # LB Rundy: Często numeruje się je osobno, ale tutaj musimy je rozróżnić.
-    # Przyjmijmy konwencję:
-    # WB to rundy, gdzie match.round_number > 0 (standardowo).
-    # Ale jak odróżnić LB?
-    # W tym podejściu będziemy dynamicznie sprawdzać ścieżkę.
-    # Dla uproszczenia w jednym modelu: 
-    # Przyjmijmy, że 'round_number' jest globalny, ale musimy wiedzieć czy to WB czy LB.
-    # W DB często stosuje się ujemne numery rund dla LB lub flagę. 
-    # Ponieważ nie mamy pola 'bracket_type', użyjemy prostej heurystyki lub dodatkowego pola w modelu (którego nie mamy).
-    # Zamiast tego, zaimplementujmy logikę opartą na "Loser drops to...".
-    
-    # --- UPROSZCZENIE DLA TEGO MODELU ---
-    # Ponieważ nie mamy pola "bracket_type", musimy śledzić mecze po ich ID lub relacjach.
-    # Jednak najprościej jest zdefiniować, że mecze tworzone przez "spadkowiczów" są w LB.
-    # Aby to działało w obecnym modelu, musimy wiedzieć, czy aktualny mecz był w WB czy LB.
-    # Możemy to wywnioskować: Jeśli mecz był w R1, to na pewno WB.
-    # Jeśli nie, to trudniej.
-    # ALE: W widoku details_double_elimination rozdzieliliśmy mecze na WB i LB w szablonie? 
-    # W poprzednim kroku (szablon) użyliśmy jednej listy.
-    # Zróbmy tak: Dodajmy pole `is_losers_bracket` do modelu TournamentsMatch w przyszłości.
-    # TERAZ: Użyjemy konwencji logicznej.
-    
-    # Algorytm "Standard Double Elimination":
-    # WB Round R -> Winner -> WB Round R+1
-    # WB Round R -> Loser -> LB Round L (zależne od R)
-    
-    # LB Round L -> Winner -> LB Round L+1
-    # LB Round L -> Loser -> Eliminated
-
-    # Aby wiedzieć czy jesteśmy w WB czy LB bez dodatkowego pola:
-    # Sprawdzamy historię meczu? Nie.
-    # Zastosujmy "Hack": W Double Elimination, runda WB zawsze ma potęgę 2 meczów (np. 8, 4, 2, 1).
-    # Rundy LB mają inną strukturę.
-    # Jednak najbezpieczniej jest, jeśli `generate_double_elimination_matches_initial` oznaczy mecze.
-    # Skoro nie możemy zmienić modelu teraz, załóżmy, że mecze są tworzone dynamicznie.
-    
-    # --- IMPLEMENTACJA ---
-    # Będziemy przekazywać informację o typie drabinki w `match_index`? Nie, to ryzykowne.
-    # Zaufajmy strukturze:
-    # Jeśli mecz jest w WB, przegrany spada do LB.
-    # Jeśli mecz jest w LB, przegrany odpada.
-    
-    # Jak rozpoznać WB vs LB?
-    # WB R1 to Runda 1.
-    # Każdy mecz, do którego trafia ZWYCIĘZCA z WB, jest w WB.
-    # Każdy mecz, do którego trafia PRZEGRANY z WB, jest w LB.
-    # Każdy mecz, do którego trafia ZWYCIĘZCA z LB, jest w LB (chyba że to finał LB -> Grand Final).
-    
-    # Potrzebujemy pomocniczej funkcji, która znajdzie docelowy mecz.
-    pass 
-    # (Pełna implementacja poniżej w bloku kodu, zastępując ten placeholder)
+# ---------------------------------------------------------------------------
+# LEGACY DBE — używane wyłącznie przez Django template views (nie przez Astro/DRF).
+# Produkcyjna ścieżka DBE: apps/tournaments/bracket.py + api/views.py.
+# Konwencja indeksowania: WB match_index < 1000, LB match_index >= 1000.
+# Nie modyfikować bez uprzedniego sprawdzenia wpływu na szablony Django.
+# ---------------------------------------------------------------------------
 
 def get_or_create_match(tournament, round_num, match_idx, bracket_type=None):
     if bracket_type is None:
@@ -1893,9 +1847,11 @@ def get_or_create_match(tournament, round_num, match_idx, bracket_type=None):
     )
     return match
 
+# LEGACY DBE — generator dla Django template views. Produkcja: api/views.py → generate_elimination_matches_initial().
 def generate_double_elimination_matches_initial(tournament, participants_qs, config):
     """
-    Generuje początkową drabinkę (WB Runda 1) dla Double Elimination.
+    Legacy generator drabinki DBE — używany wyłącznie przez Django template view generate_matches().
+    Produkcyjna ścieżka: api/views.py → generate_elimination_matches_initial() + bracket.advance_dbe_match().
     """
     # 1. Generujemy standardową drabinkę pucharową jako WB Runda 1
     count, msg = generate_elimination_matches_initial(tournament, participants_qs, config)
@@ -2744,13 +2700,12 @@ def add_reaction(request, match_pk):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
-# --- Implementacja logiki Advance dla Double Elimination (nadpisanie placeholdera) ---
+# LEGACY DBE — advance logic (Django template views only, not used by Astro/DRF).
 def advance_double_elimination(tournament, match):
     """
-    Logika awansu dla Double Elimination z wykorzystaniem konwencji indeksowania:
-    WB: match_index < 1000
-    LB: match_index >= 1000
-    Grand Final: Specjalna runda (max WB round + 1)
+    Legacy advance dla DBE używany przez Django template views.
+    Konwencja: WB match_index < 1000, LB match_index >= 1000, GF round_number = 99.
+    Produkcyjna ścieżka: apps/tournaments/bracket.advance_dbe_match().
     """
     if not match.winner:
         return

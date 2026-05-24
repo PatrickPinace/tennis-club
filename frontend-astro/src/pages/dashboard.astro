@@ -314,10 +314,10 @@ const quickActions = [
     <!-- RIGHT: ostatnie mecze + turnieje + statystyki -->
     <div class="dashboard-col-side">
 
-      <!-- 1. Ostatnie mecze — feed (SSR fallback + JS live update) -->
+      <!-- 1. Ostatnia aktywność — feed (SSR fallback + JS live update) -->
       <section class="tc-card" aria-labelledby="activity-heading">
         <div class="tc-card-header">
-          <h2 class="tc-card-title" id="activity-heading">Ostatnie mecze</h2>
+          <h2 class="tc-card-title" id="activity-heading">Ostatnia aktywność</h2>
         </div>
 
         {recentActivity.length === 0 ? (
@@ -355,7 +355,7 @@ const quickActions = [
 
         <div class="tc-card-footer">
           <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm" style="width:100%;justify-content:center;">
-            Wszystkie mecze →
+            Historia meczów →
           </a>
         </div>
       </section>
