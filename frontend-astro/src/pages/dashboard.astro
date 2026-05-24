@@ -470,10 +470,12 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         const m = d.last_match;
         const card = document.querySelector('[data-card-id="last-match"]');
         if (card) {
+          // Sety z API — format "my:opp my:opp" oddzielone spacją
+          const sets = (m.score ?? '').split(' ').map((s: string) => s.trim()).filter(Boolean);
+
           // Wynik setowy jako duży numer (np. "2:1")
           const scoreEl = card.querySelector('.stat-card__value') as HTMLElement | null;
           if (scoreEl) {
-            const sets = (m.score ?? '').split(',').map((s: string) => s.trim()).filter(Boolean);
             const setsWon = sets.filter((s: string) => {
               const [a, b] = s.split(':').map(Number);
               return a > b;
@@ -494,12 +496,11 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
           const nameEl = card.querySelector('.stat-card__detail') as HTMLElement | null;
           if (nameEl) nameEl.textContent = m.opponent ?? '';
 
-          // Meta (ranking + data)
+          // Meta (data)
           const metaEl = document.getElementById('lm-meta');
           if (metaEl) metaEl.textContent = m.date ?? '';
 
-          // Sety
-          const sets = (m.score ?? '').split(',').map((s: string) => s.trim()).filter(Boolean);
+          // Sety (już zparsowane wyżej)
           ['lm-set1', 'lm-set2', 'lm-set3'].forEach((id, i) => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -731,7 +732,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .lm-score {
-    font-size: 5.5rem;
+    font-size: 6.5rem;
     font-weight: 800;
     color: var(--tc-ink);
     letter-spacing: -0.04em;
@@ -752,7 +753,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .lm-opponent__name {
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     font-weight: 600;
     color: var(--tc-ink);
     margin-bottom: 4px;
@@ -796,7 +797,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .lm-set__score {
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     font-weight: 700;
     color: var(--tc-ink);
     font-variant-numeric: tabular-nums;
@@ -817,7 +818,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .rk-position {
-    font-size: 6rem;
+    font-size: 7rem;
     font-weight: 800;
     color: var(--tc-accent);
     line-height: 1;
@@ -825,7 +826,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .rk-label {
-    font-size: 0.94rem;
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--tc-muted);
     margin-bottom: 18px;
@@ -855,7 +856,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .rk-stat__value {
-    font-size: 1.1rem;
+    font-size: 1.35rem;
     font-weight: 700;
     color: var(--tc-ink);
     font-variant-numeric: tabular-nums;
@@ -972,7 +973,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .bento-total__value {
-    font-size: 1.5rem;
+    font-size: 1.9rem;
     font-weight: 800;
     color: var(--tc-ink);
     line-height: 1;
@@ -1369,7 +1370,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .stats-strip__stat {}
 
   .stats-strip__value {
-    font-size: 1.7rem;
+    font-size: 2.1rem;
     font-weight: 800;
     color: var(--tc-ink);
     line-height: 1;
@@ -1472,9 +1473,9 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     .bento-stats {
       flex: 1 1 100%;
     }
-    .lm-score { font-size: 3.5rem; }
+    .lm-score { font-size: 4rem; }
     .lm-body { gap: 16px; }
-    .rk-position { font-size: 3rem; }
+    .rk-position { font-size: 4rem; }
     .reservation-inner { flex-wrap: wrap; }
     .reservation-btn { width: 100%; justify-content: center; }
     .main-grid { gap: 12px; }
