@@ -294,30 +294,21 @@ class DBEByeDistributionTest(TestCase):
         self.assertEqual(r1_indices, expected, f'Dziury w match_index: {r1_indices}')
 
     def test_5_players_no_stranded_wai(self):
-        """5 uczestników → po generacji brak WB meczów WAI z brakującym uczestnikiem.
+        """5 uczestników → po generacji brak meczów WAI bez żadnego uczestnika (obie strony None).
 
-        GF WAI (czeka na LB finalistę) jest poprawne — testujemy tylko WB i LB.
+        Mecz WAI z jednym uczestnikiem (czeka na drugiego) jest poprawny.
+        Stranded = mecz WAI gdzie OBOJE uczestnicy są None — taki mecz nigdy nie może być rozegrany.
         """
         t, count = self._run_generation(5, 'p5s')
-        # WAI mecze z pustym slotem, z wyłączeniem GF (który czeka na LB finalistę)
         stranded = TournamentsMatch.objects.filter(
             tournament=t,
             status=TournamentsMatch.Status.WAITING.value,
-        ).exclude(
-            bracket_type=TournamentsMatch.BracketType.GRAND_FINAL,
-        ).filter(
             participant1=None,
-        ) | TournamentsMatch.objects.filter(
-            tournament=t,
-            status=TournamentsMatch.Status.WAITING.value,
-        ).exclude(
-            bracket_type=TournamentsMatch.BracketType.GRAND_FINAL,
-        ).filter(
             participant2=None,
         )
         self.assertEqual(
             stranded.count(), 0,
-            f'Stranded WAI mecze (non-GF): {list(stranded.values("bracket_type","round_number","match_index","participant1","participant2"))}',
+            f'Stranded WAI mecze (oboje None): {list(stranded.values("bracket_type","round_number","match_index"))}',
         )
 
     def test_7_players_no_bye_vs_bye(self):
@@ -356,26 +347,17 @@ class DBEByeDistributionTest(TestCase):
         self.assertEqual(count, 4)
 
     def test_7_players_no_stranded_wai(self):
-        """7 uczestników → po generacji brak WB/LB meczów WAI z brakującym uczestnikiem."""
+        """7 uczestników → po generacji brak meczów WAI bez żadnego uczestnika (obie strony None)."""
         t, count = self._run_generation(7, 'p7s')
         stranded = TournamentsMatch.objects.filter(
             tournament=t,
             status=TournamentsMatch.Status.WAITING.value,
-        ).exclude(
-            bracket_type=TournamentsMatch.BracketType.GRAND_FINAL,
-        ).filter(
             participant1=None,
-        ) | TournamentsMatch.objects.filter(
-            tournament=t,
-            status=TournamentsMatch.Status.WAITING.value,
-        ).exclude(
-            bracket_type=TournamentsMatch.BracketType.GRAND_FINAL,
-        ).filter(
             participant2=None,
         )
         self.assertEqual(
             stranded.count(), 0,
-            f'Stranded WAI mecze (non-GF): {list(stranded.values("bracket_type","round_number","match_index","participant1","participant2"))}',
+            f'Stranded WAI mecze (oboje None): {list(stranded.values("bracket_type","round_number","match_index"))}',
         )
 
     def test_5_players_bye_advance_creates_r2(self):
