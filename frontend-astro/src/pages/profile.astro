@@ -115,9 +115,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 >
   <PageHeader
     title={displayName}
-    subtitle={user
-      ? `Członek od ${memberSince} · ${ranking !== null ? `Ranking SNG #${ranking}` : 'Brak danych rankingowych'}`
-      : 'Ładowanie danych…'}
+    subtitle={user ? `Członek od ${memberSince} · ${roleLabel}` : 'Ładowanie danych…'}
   />
 
   {saved && (
