@@ -605,7 +605,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
           const scoreHtml = ev.score
             ? `<span class="activity-item__sep">·</span><span class="activity-item__score">${ev.score}</span>`
             : '';
-          return `<li class="activity-item">
+          return `<li class="activity-item" data-timestamp="${ev.timestamp}">
             <div class="activity-dot ${dotClass}" aria-hidden="true"></div>
             <div class="activity-item__body">
               <div class="activity-item__title">${titleHtml}</div>
@@ -628,81 +628,19 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
           return ul;
         };
 
-        // Funkcja renderująca dla danego okresu
-        function renderForPeriod(period: string) {
-          const now = Date.now();
-          let fromMs: number;
-          if (period === 'today') {
-            const d0 = new Date(); d0.setHours(0, 0, 0, 0);
-            fromMs = d0.getTime();
-          } else if (period === 'week') {
-            fromMs = now - 7 * 86_400_000;
-          } else {
-            fromMs = now - 30 * 86_400_000;
-          }
-
-          const filtered = d.activity.filter(
-            (ev: {timestamp: string}) => new Date(ev.timestamp).getTime() >= fromMs
-          );
-
-          // Pobierz lub utwórz empty element (raz — potem reużywamy)
-          const getOrCreateEmpty = (): HTMLElement => {
-            const existing = document.getElementById('activity-feed-empty');
-            if (existing) return existing as HTMLElement;
-            const div = document.createElement('div');
-            div.id = 'activity-feed-empty';
-            div.className = 'dash-empty-block';
-            div.innerHTML = `<p class="dash-empty-block__title">Brak aktywności</p><p class="dash-empty-block__sub">Tu pojawią się Twoje ostatnie mecze i akcje.</p>`;
-            const footer2 = section?.querySelector('.activity-footer');
-            if (footer2 && section) section.insertBefore(div, footer2);
-            return div;
-          };
-
-          if (filtered.length === 0) {
-            if (listEl) listEl.style.display = 'none';
-            const empty = getOrCreateEmpty();
-            const titleEl = empty.querySelector<HTMLElement>('.dash-empty-block__title');
-            const subEl   = empty.querySelector<HTMLElement>('.dash-empty-block__sub');
-            if (period === 'today') {
-              if (titleEl) titleEl.textContent = 'Brak aktywności dziś';
-              if (subEl)   subEl.textContent   = 'Nic się nie wydarzyło jeszcze dzisiaj.';
-            } else if (period === 'week') {
-              if (titleEl) titleEl.textContent = 'Brak aktywności w tym tygodniu';
-              if (subEl)   subEl.textContent   = 'Tu pojawią się Twoje mecze i akcje z ostatnich 7 dni.';
-            } else {
-              if (titleEl) titleEl.textContent = 'Brak aktywności w tym miesiącu';
-              if (subEl)   subEl.textContent   = 'Tu pojawią się Twoje mecze i akcje z ostatnich 30 dni.';
-            }
-            empty.style.display = '';
-            if (footerCountEl) footerCountEl.innerHTML = '<strong>0</strong> wpisów';
-          } else {
-            // Ukryj empty (zarówno SSR jak i dynamicznie stworzony)
-            document.getElementById('activity-feed-empty')?.style.setProperty('display', 'none');
-            const target = getOrCreateList();
-            target.innerHTML = filtered.map(buildItemHtml).join('');
-            target.style.display = '';
-            if (footerCountEl) {
-              const n = filtered.length;
-              const label = n === 1 ? 'wpis' : 'wpisów';
-              footerCountEl.innerHTML = `<strong>${n}</strong> ${label}`;
-            }
-          }
-        }
-
-        // Przekaż dane i renderFn do systemu filtrów
-        if (typeof (window as any).__initActivityFiltersWithData === 'function') {
-          (window as any).__initActivityFiltersWithData(d.activity, renderForPeriod);
+        // Render wszystkich wpisów z API do DOM (z data-timestamp)
+        if (d.activity.length === 0) {
+          if (listEl) listEl.style.display = 'none';
+          if (emptyEl) emptyEl.style.display = '';
         } else {
-          // Fallback — render bez filtrowania
-          if (d.activity.length === 0) {
-            if (listEl) listEl.style.display = 'none';
-            if (emptyEl) emptyEl.style.display = '';
-          } else {
-            if (emptyEl) emptyEl.style.display = 'none';
-            const target = getOrCreateList();
-            target.innerHTML = d.activity.map(buildItemHtml).join('');
-            target.style.display = '';
-          }
+          if (emptyEl) emptyEl.style.display = 'none';
+          const target = getOrCreateList();
+          target.innerHTML = d.activity.map(buildItemHtml).join('');
+          target.style.display = '';
+        }
+        // Przekaż do systemu filtrów — po renderze DOM filtry działają przez data-timestamp
+        if (typeof (window as any).__initActivityFiltersWithData === 'function') {
+          (window as any).__initActivityFiltersWithData(d.activity);
         }
       }
 
@@ -723,26 +661,8 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     }
   })();
 
-  // ── Activity filters — smart auto-fallback + filtrowanie po timestamp ───────
+  // ── Activity filters — filtrowanie po data-timestamp w DOM ─────────────────
   (function initActivityFilters() {
-    // Przechowuje wszystkie wpisy z API (uzupełniane po fetch)
-    let allActivity: Array<{type:string;timestamp:string;title:string;detail:string;href?:string;result:string}> = [];
-
-    // Zapisz referencję do renderowania listy (uzupełni się po fetch)
-    // Ta funkcja jest wywoływana również ręcznie przy kliknięciu filtra
-    let renderFn: ((period: string) => void) | null = null;
-
-    function msFor(period: string): number {
-      if (period === 'today') {
-        // od początku dzisiejszego dnia (00:00)
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        return Date.now() - now.getTime();
-      }
-      if (period === 'week')  return 7 * 86_400_000;
-      if (period === 'month') return 30 * 86_400_000;
-      return Infinity;
-    }
 
     function setActiveFilter(period: string) {
       document.querySelectorAll('.activity-seg__btn').forEach(b => {
@@ -820,13 +740,12 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
       }
     }
 
-    // Podpięcie kliknięć — renderFn z API (preferowane) lub SSR DOM fallback
+    // Podpięcie kliknięć
     document.querySelectorAll<HTMLButtonElement>('.activity-seg__btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const period = btn.dataset.filter ?? 'today';
         setActiveFilter(period);
-        if (renderFn) renderFn(period);
-        else renderSsrForPeriod(period);
+        renderSsrForPeriod(period);
       });
     });
 
@@ -853,16 +772,14 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
       renderSsrForPeriod(best);
     })();
 
-    // Eksportuj inicjalizację do użycia przez initDashboardSummary
+    // Wywołane przez initDashboardSummary po wyrenderowaniu DOM z API
+    // DOM już zawiera <li data-timestamp> — filtruj przez renderSsrForPeriod
     (window as any).__initActivityFiltersWithData = function(
-      items: typeof allActivity,
-      render: (period: string) => void
+      items: Array<{timestamp: string}>
     ) {
-      allActivity = items;
-      renderFn = render;
       const period = bestPeriod(items);
       setActiveFilter(period);
-      render(period);
+      renderSsrForPeriod(period);
     };
   })();
 </script>

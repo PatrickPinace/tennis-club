@@ -252,7 +252,7 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
               <div class="tr-row__tournament">
                 <div class="tr-row__name-line">
                   <span class="tr-row__name">{t.name}</span>
-                  {joined && <span class="tr-row__joined-badge">JESTEŚ W ŚRODKU</span>}
+                  {joined && <span class="tr-row__joined-badge">Zapisano</span>}
                 </div>
                 <div class="tr-row__date">
                   {t.status === 'ACT' ? 'Trwa' : t.status === 'FIN' ? 'Zakończony' : fmtDate(t.start_date) ? `Trwa od ${fmtDate(t.start_date)}` : '—'}
@@ -586,11 +586,12 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
 
   .tr-card__header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--tc-card-border);
+    flex-wrap: wrap;
   }
 
   .tr-card__title-wrap {

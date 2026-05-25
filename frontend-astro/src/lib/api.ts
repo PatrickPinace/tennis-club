@@ -294,11 +294,11 @@ export const TOURNAMENT_STATUS_LABEL: Record<string, string> = {
 
 export const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
   RND: 'Round Robin',
-  SGL: 'Eliminacja pojedyncza',
-  DBE: 'Eliminacja podwójna',
+  SGL: 'Eliminacja',
+  DBE: 'Elim. podwójna',
   LDR: 'Drabinka',
   AMR: 'Americano',
-  SWS: 'System szwajcarski',
+  SWS: 'Szwajcarski',
 };
 
 // ── Konfiguracja ──────────────────────────────────────────────────────────────

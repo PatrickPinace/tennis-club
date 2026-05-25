@@ -233,6 +233,37 @@ const achievements: Achievement[] = [
     desc: 'Ukończono 10 turniejów',
     unlocked: (tStats?.tournaments_finished ?? 0) >= 10,
   },
+  {
+    icon: '🎾',
+    title: 'Debiut',
+    desc: 'Pierwszy rozegrany mecz',
+    unlocked: matchHistory.length > 0,
+  },
+  {
+    icon: '📈',
+    title: 'Seria 5',
+    desc: '5 wygranych z rzędu',
+    unlocked: (() => {
+      let streak = 0;
+      for (const m of matchHistory) {
+        if (m.user === 'user-win') { streak++; if (streak >= 5) return true; }
+        else streak = 0;
+      }
+      return false;
+    })(),
+  },
+  {
+    icon: '🤝',
+    title: 'Regularny',
+    desc: 'Rozegrano 25 meczów',
+    unlocked: matchHistory.length >= 25,
+  },
+  {
+    icon: '🏟️',
+    title: 'Uczestnik',
+    desc: 'Wzięto udział w turnieju',
+    unlocked: (tStats?.tournaments_played ?? 0) > 0,
+  },
 ];
 
 const unlockedCount = achievements.filter(a => a.unlocked).length;

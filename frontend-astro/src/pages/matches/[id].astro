@@ -127,11 +127,6 @@ const iAmParticipant = iAmP1 || iAmP2;
         }
         <span class="tc-badge tc-badge-neutral">{formatLabel}</span>
       </div>
-      {resultLabel && (
-        <span class={`match-result-badge match-result-badge--${myResult}`}>
-          {resultLabel}
-        </span>
-      )}
     </div>
 
     <!-- Sędziowanie: gracze vs wynik -->
@@ -152,8 +147,13 @@ const iAmParticipant = iAmP1 || iAmP2;
         {p1Won && <span class="team-won-badge">Wygrali ✓</span>}
       </div>
 
-      <!-- Wynik setów -->
+      <!-- Wynik setów + badge "Twoja wygrana/porażka" na środku -->
       <div class="match-score">
+        {resultLabel && (
+          <span class={`match-result-badge match-result-badge--${myResult}`}>
+            {resultLabel}
+          </span>
+        )}
         <div class="match-score__sets">
           {sets.length > 0 ? sets.map(([a, b], i) => (
             <div class="match-score__set">
