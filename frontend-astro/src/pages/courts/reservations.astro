@@ -1,15 +1,14 @@
 ---
-// courts/reservations.astro — moje rezerwacje kortów + grafik dostępności (SSR)
+// courts/reservations.astro — rezerwacje kortów (SSR)
+// Layout wg prototypu astro6.jpeg — stat cards + day picker + siatka godzinowa + moje rezerwacje
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
-import PageHeader from '@/components/PageHeader.astro';
 import { getCurrentUser, getMyReservations, type ReservationEntry } from '@/lib/api';
 import { url } from '@/lib/url';
 
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
 
-// SSR fetch — równolegle
 const [currentUser, rawReservations] = await Promise.all([
   getCurrentUser(sessionCookie),
   getMyReservations(sessionCookie),
@@ -19,7 +18,7 @@ if (!currentUser) {
   return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/courts/reservations')));
 }
 
-// Właściciel / staff — pobierz oczekujące rezerwacje do zatwierdzenia
+// Manager / staff — pobierz oczekujące rezerwacje
 interface PendingEntry {
   id: number;
   court_name: string | null;
@@ -29,10 +28,8 @@ interface PendingEntry {
   status: string;
   user_name: string;
 }
-const isManager = currentUser.is_staff;  // rozszerzalne o facility.owner w przyszłości
+const isManager = currentUser.is_staff;
 
-// Dla is_staff pobieramy pending SSR; dla właściciela facility też (backend filtruje)
-// Dla zwykłego usera nie fetchujemy w ogóle
 let pendingReservations: PendingEntry[] = [];
 if (isManager) {
   try {
@@ -42,26 +39,21 @@ if (isManager) {
       redirect: 'manual',
     });
     if (pr.ok) pendingReservations = await pr.json();
-  } catch { /* graceful — sekcja będzie pusta */ }
+  } catch { /* graceful */ }
 }
 
-// Pomocnik formatowania daty i godziny z ISO datetime
+// Formatowanie
 function fmtDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
-  } catch { return iso; }
+  try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' }); }
+  catch { return iso; }
 }
 function fmtTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-  } catch { return iso; }
+  try { return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }); }
+  catch { return iso; }
 }
 function fmtDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('pl-PL', {
-      weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
-  } catch { return iso; }
+  try { return new Date(iso).toLocaleString('pl-PL', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  catch { return iso; }
 }
 
 const myReservations = rawReservations.map((r: ReservationEntry) => ({
@@ -76,242 +68,198 @@ const myReservations = rawReservations.map((r: ReservationEntry) => ({
   seriesId: (r as any).series_id ?? null,
 }));
 
-// Konfiguracja statusu — jedna centralna definicja używana w SSR i JS
-// badge: klasa CSS badge | hint: tekst pomocniczy | canCancel: czy pokazujemy "Anuluj"
 function resStatusConfig(status: string, isFuture: boolean) {
-  if (status === 'confirmed') return {
-    badgeClass: 'tc-badge-success',
-    badgeLabel: 'Zatwierdzona',
-    hint: 'Rezerwacja potwierdzona przez właściciela.',
-    canCancel: isFuture,
-  };
-  if (status === 'rejected') return {
-    badgeClass: 'tc-badge-danger',
-    badgeLabel: 'Odrzucona',
-    hint: 'Rezerwacja została odrzucona przez właściciela.',
-    canCancel: false,
-  };
-  // PENDING (domyślnie)
-  return {
-    badgeClass: 'tc-badge-warning',
-    badgeLabel: 'Oczekuje',
-    hint: isFuture
-      ? 'Czeka na decyzję właściciela obiektu.'
-      : 'Właściciel nie podjął decyzji przed terminem.',
-    canCancel: isFuture,
-  };
+  if (status === 'confirmed') return { badgeClass: 'rv-badge--confirmed', badgeLabel: 'potwierdzona', canCancel: isFuture };
+  if (status === 'rejected')  return { badgeClass: 'rv-badge--rejected',  badgeLabel: 'odrzucona',     canCancel: false };
+  return { badgeClass: 'rv-badge--pending', badgeLabel: 'oczekuje', canCancel: isFuture };
 }
 
-// Stałe dla grafiku (używane też w JS)
-const GRID_START = 8;   // 08:00
-const GRID_END   = 21;  // ostatni slot 20:30
-const SLOT_PX    = 30;  // px na 30 min
-const GRID_ROWS  = (GRID_END - GRID_START) * 2; // liczba slotów 30-min
+// Stałe grafiku
+const GRID_START = 8;
+const GRID_END   = 21;
+const SLOT_PX    = 30;
+const GRID_ROWS  = (GRID_END - GRID_START) * 2;
 const GRID_H_PX  = GRID_ROWS * SLOT_PX;
-const hours      = Array.from({ length: GRID_END - GRID_START }, (_, i) => GRID_START + i);
+const todayIso   = new Date().toISOString().slice(0, 10);
 
-// Dzisiejsza data jako default dla grafiku
-const todayIso = new Date().toISOString().slice(0, 10);
+// Day picker — 7 dni od dziś
+const now = new Date();
+const dayNames = ['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'];
+const dayNamesShort = ['niedz.','pon','wt','śr','czw','pt','sob'];
+const days: { iso: string; label: string; sub: string; isToday: boolean }[] = [];
+for (let i = 0; i < 7; i++) {
+  const d = new Date(now);
+  d.setDate(d.getDate() + i);
+  const iso = d.toISOString().slice(0, 10);
+  days.push({
+    iso,
+    label: i === 0 ? 'Dziś' : dayNames[d.getDay()],
+    sub: `${dayNamesShort[d.getDay()]} ${d.getDate()}`,
+    isToday: i === 0,
+  });
+}
+
+const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
 ---
 
 <AppLayout
   title="Rezerwacje kortów"
+  greeting="Rezerwacje"
+  greetingSub="Twoje korty na ten tydzień"
   showSearch={false}
-  showCta={false}
-  currentUser={currentUser}
+  showCta={true}
+  ctaLabel="+ Nowa rezerwacja"
+  ctaHref={url('/courts/reservations')}
 >
 
-  <PageHeader
-    eyebrow="Korty"
-    title="Rezerwacje kortów"
-    centered={true}
-  />
+  <!-- Stat cards -->
+  <div class="rv-stats">
+    <div class="rv-stat rv-stat--accent">
+      <div class="rv-stat__label">WOLNE SLOTY DZIŚ</div>
+      <div class="rv-stat__val" style="color:var(--tc-accent)" id="rv-free-slots">—</div>
+      <div class="rv-stat__sub" id="rv-free-slots-sub">ładowanie…</div>
+    </div>
+    <div class="rv-stat">
+      <div class="rv-stat__label">TWOJE REZERWACJE</div>
+      <div class="rv-stat__val">{futureReservations.length}</div>
+      <div class="rv-stat__sub">na ten tydzień</div>
+    </div>
+    <div class="rv-stat">
+      <div class="rv-stat__label">KORTY OTWARTE</div>
+      <div class="rv-stat__val" id="rv-courts-count">—</div>
+      <div class="rv-stat__sub" id="rv-courts-sub">ładowanie…</div>
+    </div>
+    <div class="rv-stat">
+      <div class="rv-stat__label">TWOJE ZUŻYTE GODZINY</div>
+      <div class="rv-stat__val">{myReservations.length}</div>
+      <div class="rv-stat__sub">rezerwacji łącznie</div>
+    </div>
+  </div>
 
-  <!-- Sekcja managera — widoczna tylko dla is_staff / właściciela obiektu -->
-  {isManager && (
-    <section class="owner-section tc-card" aria-labelledby="owner-heading" id="owner-section">
-      <div class="tc-card-header">
-        <h2 class="tc-card-title" id="owner-heading">Oczekujące rezerwacje</h2>
-        <span class="owner-section__badge" id="owner-pending-count">
-          {pendingReservations.length > 0 ? `${pendingReservations.length} oczekuje` : 'Brak oczekujących'}
-        </span>
+  <!-- Day picker -->
+  <div class="rv-days" id="rv-day-picker">
+    {days.map((d, i) => (
+      <button
+        class={`rv-day${i === 0 ? ' rv-day--active' : ''}`}
+        data-date={d.iso}
+      >
+        <span class="rv-day__label">{d.label}</span>
+        <span class="rv-day__sub">{d.isToday ? `${dayNamesShort[now.getDay()]} ${now.getDate()}` : d.sub}</span>
+      </button>
+    ))}
+  </div>
+
+  <!-- Manager panel — widoczny tylko dla staff -->
+  {isManager && pendingReservations.length > 0 && (
+    <section class="rv-manager" id="owner-section">
+      <div class="rv-manager__header">
+        <span class="rv-manager__title">Oczekujące rezerwacje</span>
+        <span class="rv-manager__badge" id="owner-pending-count">{pendingReservations.length} oczekuje</span>
       </div>
-
       <div id="owner-pending-list">
-        {pendingReservations.length === 0 ? (
-          <div class="owner-empty">
-            <span aria-hidden="true">✓</span>
-            Wszystkie rezerwacje są obsłużone.
-          </div>
-        ) : (
-          <div class="owner-res-list">
-            {pendingReservations.map(r => (
-              <div class="owner-res-row" data-res-id={r.id}>
-                <div class="owner-res-row__info">
-                  <div class="owner-res-row__who">{r.user_name}</div>
-                  <div class="owner-res-row__what">
-                    {r.court_name ?? 'Kort'}
-                    {r.facility_name && <span class="owner-res-row__facility"> · {r.facility_name}</span>}
-                  </div>
-                  <div class="owner-res-row__when">
-                    {fmtDateTime(r.start_time)}–{fmtTime(r.end_time)}
-                  </div>
-                </div>
-                <div class="owner-res-row__actions">
-                  <button class="tc-btn tc-btn-success tc-btn-sm owner-approve-btn" data-res-id={r.id}>
-                    Zatwierdź
-                  </button>
-                  <button class="tc-btn tc-btn-ghost tc-btn-sm owner-reject-btn" data-res-id={r.id}>
-                    Odrzuć
-                  </button>
-                </div>
+        <div class="owner-res-list">
+          {pendingReservations.map(r => (
+            <div class="rv-manager-row" data-res-id={r.id}>
+              <div class="rv-manager-row__info">
+                <div class="rv-manager-row__who">{r.user_name}</div>
+                <div class="rv-manager-row__what">{r.court_name ?? 'Kort'}{r.facility_name && ` · ${r.facility_name}`}</div>
+                <div class="rv-manager-row__when">{fmtDateTime(r.start_time)}–{fmtTime(r.end_time)}</div>
               </div>
-            ))}
-          </div>
-        )}
+              <div class="rv-manager-row__actions">
+                <button class="tr-btn-primary owner-approve-btn" data-res-id={r.id} style="padding:6px 14px;font-size:0.78rem;">Zatwierdź</button>
+                <button class="rv-action-ghost owner-reject-btn" data-res-id={r.id}>Odrzuć</button>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )}
 
-  <!-- Moje rezerwacje — szybki podgląd -->
-  <section class="my-res-section" aria-labelledby="my-res-heading">
-    <h2 class="section-label" id="my-res-heading">Moje rezerwacje</h2>
+  <!-- Siatka dostępności kortów -->
+  <section class="rv-grid-card">
+    <div class="rv-grid-header">
+      <span class="rv-grid-title">DOSTĘPNOŚĆ KORTÓW</span>
+      <div class="rv-legend">
+        <div class="rv-legend__item"><div class="rv-legend__swatch rv-legend__swatch--mine"></div>Twoje</div>
+        <div class="rv-legend__item"><div class="rv-legend__swatch rv-legend__swatch--free"></div>Wolne</div>
+        <div class="rv-legend__item"><div class="rv-legend__swatch rv-legend__swatch--taken"></div>Zajęte</div>
+        <div class="rv-legend__item"><div class="rv-legend__swatch rv-legend__swatch--past"></div>Minione</div>
+      </div>
+    </div>
+
+    <!-- States -->
+    <div id="cal-loading" class="rv-state" style="display:none;">Ładowanie grafiku…</div>
+    <div id="cal-empty" class="rv-state" style="display:none;">Brak obiektów z włączoną rezerwacją online.</div>
+    <div id="cal-error" class="rv-state rv-state--error" style="display:none;"><span id="cal-error-msg">Nie udało się załadować grafiku.</span></div>
+
+    <!-- Siatka — renderowana przez JS -->
+    <div class="rv-grid-scroll">
+      <div id="cal-wrap" style="display:none;">
+        <div id="cal-grid" class="rv-grid-table"></div>
+      </div>
+    </div>
+
+    <div class="rv-grid-footer">
+      <div class="rv-grid-footer__hint">
+        Kliknij dowolny <strong>wolny slot</strong>, aby zarezerwować kort.
+      </div>
+      <button class="tr-btn-primary" id="rv-new-res-btn" style="padding:8px 18px;font-size:0.84rem;">+ Nowa rezerwacja</button>
+    </div>
+  </section>
+
+  <!-- Moje rezerwacje -->
+  <section class="rv-my-card">
+    <div class="rv-my-header">
+      <div class="rv-my-header__left">
+        <span class="rv-card-dot" aria-hidden="true"></span>
+        <span class="rv-my-title">MOJE REZERWACJE</span>
+        <span class="rv-my-badge">{futureReservations.length}</span>
+      </div>
+    </div>
 
     <div id="my-res-list">
-      {myReservations.length === 0 ? (
-        <div class="my-res-empty">
-          <span class="my-res-empty__icon" aria-hidden="true">📅</span>
-          <div class="my-res-empty__text">Nie masz żadnych rezerwacji.</div>
-        </div>
+      {futureReservations.length === 0 ? (
+        <div class="rv-empty-row">Nie masz nadchodzących rezerwacji.</div>
       ) : (
-        <div class="my-res-grid">
-          {myReservations.map(r => {
-            const isFuture = new Date(r.endIso) > new Date();
-            const cfg = resStatusConfig(r.status, isFuture);
-            return (
-              <div class={`my-res-card my-res-card--${r.status}`} data-res-id={r.id} data-series-id={r.seriesId ?? ''}>
-                <div class="my-res-card__left">
-                  <div class="my-res-card__court">
-                    {r.court}
-                    {r.seriesId && <span class="my-res-series-badge">↻ Seria</span>}
-                  </div>
-                  {r.facility && <div class="my-res-card__facility">{r.facility}</div>}
-                  <div class="my-res-card__time">{r.date} · {r.time}</div>
-                  <div class="my-res-card__hint">{cfg.hint}</div>
-                </div>
-                <div class="my-res-card__right">
-                  <span class={`tc-badge ${cfg.badgeClass}`}>{cfg.badgeLabel}</span>
-                  {cfg.canCancel && (
-                    <button class="my-res-cancel-btn" data-res-id={r.id} aria-label="Anuluj rezerwację">
-                      Anuluj
-                    </button>
-                  )}
-                </div>
+        futureReservations.map(r => {
+          const isFuture = new Date(r.endIso) > now;
+          const cfg = resStatusConfig(r.status, isFuture);
+          return (
+            <div class="rv-res-row" data-res-id={r.id} data-series-id={r.seriesId ?? ''}>
+              <span class="rv-res-dot" aria-hidden="true"></span>
+              <div class="rv-res-info">
+                <div class="rv-res-when">{r.date} · {r.time}</div>
+                <div class="rv-res-detail">{r.status === 'confirmed' ? 'Singiel' : 'Oczekuje'}</div>
               </div>
-            );
-          })}
-        </div>
+              <div class="rv-res-court">{r.court}{r.facility ? ` · ${r.facility}` : ''}</div>
+              <span class={`rv-badge ${cfg.badgeClass}`}>{cfg.badgeLabel}</span>
+              {cfg.canCancel && (
+                <button class="rv-cancel-btn my-res-cancel-btn" data-res-id={r.id} data-series-id={r.seriesId ?? ''}>Anuluj</button>
+              )}
+            </div>
+          );
+        })
       )}
     </div>
   </section>
 
-  <!-- Grafik kortów — dynamicznie ładowany przez JS -->
-  <section class="calendar-section tc-card" aria-labelledby="calendar-heading">
-    <div class="tc-card-header">
-      <h2 class="tc-card-title" id="calendar-heading">Grafik kortów</h2>
-      <div class="calendar-nav">
-        <button id="cal-prev" class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Poprzedni dzień">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
-          </svg>
-        </button>
-
-        <!-- Przycisk daty — input wewnątrz żeby picker otwierał się pod buttonem -->
-        <button type="button" id="cal-date-btn" class="cal-date-btn" aria-label="Wybierz datę z kalendarza">
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
-          </svg>
-          <span id="cal-date-label" class="cal-date-btn__label">—</span>
-          <input id="cal-date-input" type="date" aria-label="Wybierz datę grafiku"
-            style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0;" />
-        </button>
-
-        <button id="cal-today" class="tc-btn tc-btn-ghost tc-btn-sm" aria-label="Przejdź do dzisiaj">Dziś</button>
-
-        <button id="cal-next" class="tc-btn tc-btn-ghost tc-btn-sm tc-btn-icon" aria-label="Następny dzień">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- Skeleton / loading / empty states -->
-    <div id="cal-loading" class="cal-state" style="display:none;">
-      <span class="cal-state__icon" aria-hidden="true">⏳</span>
-      <span>Ładowanie grafiku…</span>
-    </div>
-    <div id="cal-empty" class="cal-state" style="display:none;">
-      <span class="cal-state__icon" aria-hidden="true">🎾</span>
-      <span>Brak obiektów z włączoną rezerwacją online.</span>
-    </div>
-    <div id="cal-error" class="cal-state cal-state--error" style="display:none;">
-      <span class="cal-state__icon" aria-hidden="true">⚠</span>
-      <span id="cal-error-msg">Nie udało się załadować grafiku.</span>
-    </div>
-
-    <!-- Kontener na dynamiczny grid — wypełniany przez JS -->
-    <!-- calendar-wrap-outer: scroll shadow hint (opacity 1 gdy grid szerszy niż kontener) -->
-    <div class="calendar-wrap-outer">
-      <div id="cal-wrap" class="calendar-wrap" style="overflow-x:auto; display:none;">
-        <div id="cal-grid" class="calendar-grid"></div>
-      </div>
-    </div>
-
-    <!-- Legenda -->
-    <div class="tc-card-footer">
-      <div class="cal-legend">
-        <div class="cal-legend__item">
-          <div class="cal-legend__dot cal-legend__dot--own" aria-hidden="true"></div>
-          Moja rezerwacja
-        </div>
-        <div class="cal-legend__item">
-          <div class="cal-legend__dot cal-legend__dot--other" aria-hidden="true"></div>
-          Zarezerwowane
-        </div>
-        <div class="cal-legend__item">
-          <div class="cal-legend__dot cal-legend__dot--free" aria-hidden="true"></div>
-          Wolny slot
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Toast sukcesu / błędu -->
+  <!-- Toast -->
   <div id="res-toast" class="res-toast" style="display:none;" role="alert" aria-live="polite"></div>
 
-  <!-- Popup potwierdzenia rezerwacji -->
+  <!-- Popup rezerwacji -->
   <div id="res-popup" class="res-popup-backdrop" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="res-popup-title">
     <div class="res-popup">
-
-      <!-- Nagłówek -->
       <div class="res-popup__header">
-        <div class="res-popup__icon" aria-hidden="true">🎾</div>
         <div>
           <div class="res-popup__title" id="res-popup-title">Rezerwacja kortu</div>
           <div class="res-popup__subtitle">Sprawdź szczegóły i potwierdź</div>
         </div>
         <button id="res-popup-close" class="res-popup__close" aria-label="Zamknij">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
-          </svg>
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
         </button>
       </div>
-
-      <!-- Detale rezerwacji — wypełniane przez JS -->
       <div id="res-popup-detail" class="res-popup__detail"></div>
-
-      <!-- Opcja cykliczna -->
       <div class="res-popup__recurring" id="res-popup-recurring-wrap">
         <label class="recurring-toggle">
           <input type="checkbox" id="res-recurring-check" />
@@ -325,767 +273,463 @@ const todayIso = new Date().toISOString().slice(0, 10);
             <option value="4" selected>4 tygodnie</option>
             <option value="6">6 tygodni</option>
             <option value="8">8 tygodni</option>
-            <option value="10">10 tygodni</option>
             <option value="12">12 tygodni</option>
           </select>
         </div>
       </div>
-
-      <!-- Info o statusie PENDING -->
       <div class="res-popup__notice">
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-        </svg>
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
         Rezerwacja będzie oczekiwać na zatwierdzenie przez właściciela obiektu.
       </div>
-
-      <!-- Akcje -->
       <div class="res-popup__actions">
-        <button id="res-popup-confirm" class="tc-btn tc-btn-primary tc-btn-sm">
+        <button id="res-popup-confirm" class="tr-btn-primary" style="flex:1;padding:10px 18px;">
           <span id="res-popup-confirm-label">Zarezerwuj</span>
         </button>
-        <button id="res-popup-cancel" class="tc-btn tc-btn-ghost tc-btn-sm">Anuluj</button>
+        <button id="res-popup-cancel" class="rv-action-ghost">Anuluj</button>
       </div>
-
-      <!-- Komunikat błędu / sukcesu inline -->
       <div id="res-popup-msg" class="res-popup__msg" style="display:none;" role="alert"></div>
     </div>
   </div>
 
+  <!-- Ukryty date input dla nawigacji kalendarza -->
+  <input id="cal-date-input" type="date" style="position:absolute;width:0;height:0;opacity:0;pointer-events:none;" />
+
 </AppLayout>
 
 <style is:global>
-  /* ── courts/reservations.astro ─────────────────────────────────────────── */
-  /* is:global wymagane bo część klas (.calendar-*, .cal-res*) tworzonych przez JS */
+  /* ══════════════════════════════════════════════════════════════════════════
+     REZERWACJE — layout wg prototypu astro6.jpeg, tokeny --tc-*
+     ══════════════════════════════════════════════════════════════════════════ */
 
-  /* ── Owner section ─────────────────────────────────────────────────────── */
-  .owner-section { margin-bottom: 24px; }
-
-  .owner-section__badge {
-    font-size: 0.72rem; font-weight: 700;
-    padding: 3px 10px;
-    border-radius: 99px;
-    background: rgba(234,179,8,0.12);
-    color: #92400e;
-    border: 1px solid rgba(234,179,8,0.3);
+  /* ── Stat cards ──────────────────────────────────────────────────────────── */
+  .rv-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
   }
-  [data-theme="dark"] .owner-section__badge { color: #fbbf24; }
 
-  .owner-empty {
-    display: flex; align-items: center; gap: 8px;
+  .rv-stat {
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 14px;
     padding: 18px 20px;
-    font-size: 0.875rem; color: var(--text-muted);
+    display: flex; flex-direction: column; gap: 6px;
+    transition: background 0.25s, border-color 0.25s;
+  }
+  .rv-stat--accent { border-color: var(--tc-accent-border); }
+  .rv-stat__label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--tc-muted); }
+  .rv-stat__val { font-size: 2rem; font-weight: 800; color: var(--tc-ink); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+  .rv-stat__sub { font-size: 0.72rem; color: var(--tc-muted); }
+
+  /* ── Day picker ──────────────────────────────────────────────────────────── */
+  .rv-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 12px;
   }
 
-  .owner-res-list { display: flex; flex-direction: column; }
+  .rv-day {
+    padding: 12px 8px;
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .rv-day:hover { border-color: var(--tc-accent-border); }
 
-  .owner-res-row {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 16px;
+  .rv-day--active {
+    background: var(--tc-accent);
+    border-color: var(--tc-accent);
+    color: var(--tc-accent-ink);
+    box-shadow: 0 4px 16px var(--tc-accent-glow);
+  }
+
+  .rv-day__label { display: block; font-size: 0.78rem; font-weight: 600; }
+  .rv-day__sub { display: block; font-size: 1.15rem; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+
+  .rv-day--active .rv-day__label,
+  .rv-day--active .rv-day__sub { color: var(--tc-accent-ink); }
+  .rv-day__label { color: var(--tc-sub); }
+  .rv-day__sub { color: var(--tc-ink); }
+
+  /* ── Grid card (siatka dostępności) ─────────────────────────────────────── */
+  .rv-grid-card {
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    transition: background 0.25s, border-color 0.25s;
+    overflow: hidden;
+  }
+
+  .rv-grid-header {
+    display: flex; justify-content: space-between; align-items: center;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--tc-card-border);
+  }
+
+  .rv-grid-title {
+    font-size: 0.78rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--tc-ink);
+  }
+
+  .rv-legend { display: flex; align-items: center; gap: 14px; }
+  .rv-legend__item { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--tc-muted); }
+  .rv-legend__swatch { width: 12px; height: 12px; border-radius: 3px; }
+  .rv-legend__swatch--mine { background: var(--tc-accent); }
+  .rv-legend__swatch--free { background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); }
+  .rv-legend__swatch--taken { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); }
+  .rv-legend__swatch--past { background: var(--tc-chip-bg); }
+
+  /* States */
+  .rv-state { padding: 32px 20px; text-align: center; font-size: 0.84rem; color: var(--tc-muted); }
+  .rv-state--error { color: var(--tc-hot); }
+
+  /* Grid scroll container */
+  .rv-grid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* ── Siatka godzinowa (pozioma tabela: korty × godziny) ────────────────── */
+  .rv-grid-table { min-width: 900px; }
+
+  /* Nagłówki godzin */
+  .rv-hour-header {
+    display: grid;
+    border-bottom: 1px solid var(--tc-card-border);
+    background: var(--tc-card-bg-2);
+  }
+  .rv-hour-header__label {
+    padding: 10px 4px; text-align: center;
+    font-family: var(--font-mono-plex);
+    font-size: 0.72rem; font-weight: 500;
+    color: var(--tc-muted);
+    border-right: 1px solid var(--tc-card-border-soft);
+  }
+  .rv-hour-header__court {
+    padding: 12px 16px;
+    font-size: 0.6rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.14em; color: var(--tc-faint);
+    border-right: 1px solid var(--tc-card-border);
+  }
+
+  /* Wiersz kortu */
+  .rv-court-row {
+    display: grid;
+    border-bottom: 1px solid var(--tc-card-border-soft);
+  }
+  .rv-court-row:last-child { border-bottom: none; }
+
+  .rv-court-label {
+    padding: 14px 16px;
+    border-right: 1px solid var(--tc-card-border);
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  }
+  .rv-court-label__name { font-size: 0.84rem; font-weight: 600; color: var(--tc-ink); }
+  .rv-court-label__surface { font-size: 0.68rem; color: var(--tc-muted); }
+
+  /* Sloty */
+  .rv-slot {
+    display: grid; place-items: center;
+    min-height: 50px;
+    border-right: 1px solid var(--tc-card-border-soft);
+    transition: background 0.1s;
+    cursor: default;
+    font-size: 0.72rem; font-weight: 700;
+  }
+
+  .rv-slot--free { cursor: pointer; color: var(--tc-faint); }
+  .rv-slot--free:hover { background: var(--tc-accent-soft); color: var(--tc-accent); }
+
+  .rv-slot--mine { background: var(--tc-accent); color: var(--tc-accent-ink); font-size: 0.62rem; letter-spacing: 0.08em; cursor: pointer; }
+  .rv-slot--mine:hover { opacity: 0.9; }
+
+  .rv-slot--taken { background: rgba(239,68,68,0.1); color: var(--tc-hot); }
+
+  .rv-slot--past { background: var(--tc-chip-bg); color: transparent; cursor: not-allowed; }
+
+  .rv-slot--drag { background: var(--tc-accent-soft) !important; border-color: var(--tc-accent-border) !important; }
+
+  /* Footer */
+  .rv-grid-footer {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--tc-card-border);
+  }
+  .rv-grid-footer__hint { font-size: 0.78rem; color: var(--tc-muted); }
+  .rv-grid-footer__hint strong { color: var(--tc-ink); }
+
+  /* ── Moje rezerwacje ───────────────────────────────────────────────────── */
+  .rv-my-card {
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 14px;
+    transition: background 0.25s, border-color 0.25s;
+  }
+
+  .rv-my-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--tc-card-border);
+  }
+
+  .rv-my-header__left { display: flex; align-items: center; gap: 8px; }
+
+  .rv-card-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tc-accent); flex-shrink: 0; }
+
+  .rv-my-title {
+    font-size: 0.78rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--tc-ink); margin: 0;
+  }
+  .rv-my-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px;
+    background: var(--tc-chip-bg); color: var(--tc-muted);
+    font-size: 0.72rem; font-weight: 700;
+  }
+
+  .rv-res-row {
+    display: grid;
+    grid-template-columns: 12px 1fr 1fr auto auto;
+    gap: 16px; padding: 14px 20px;
+    align-items: center;
+    border-bottom: 1px solid var(--tc-card-border-soft);
     transition: background 0.1s;
   }
-  .owner-res-row:last-child { border-bottom: none; }
-  .owner-res-row:hover { background: var(--surface-2, rgba(128,128,128,0.04)); }
+  .rv-res-row:last-child { border-bottom: none; }
+  .rv-res-row:hover { background: var(--tc-overlay); }
 
-  .owner-res-row__info { flex: 1; min-width: 0; }
-  .owner-res-row__who {
-    font-weight: 700; font-size: 0.875rem; color: var(--text);
-    margin-bottom: 2px;
-  }
-  .owner-res-row__what {
-    font-size: 0.82rem; color: var(--text-muted); margin-bottom: 2px;
-  }
-  .owner-res-row__facility { opacity: 0.7; }
-  .owner-res-row__when {
-    font-size: 0.78rem; color: var(--text-dim);
+  .rv-res-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--tc-accent); box-shadow: 0 0 6px var(--tc-accent);
   }
 
-  .owner-res-row__actions {
-    display: flex; gap: 8px; flex-shrink: 0;
-  }
+  .rv-res-when { font-size: 0.875rem; font-weight: 600; color: var(--tc-ink); }
+  .rv-res-detail { font-size: 0.72rem; color: var(--tc-muted); margin-top: 2px; }
+  .rv-res-court { font-size: 0.84rem; color: var(--tc-sub); }
 
-  /* tc-btn-success — jeśli nie ma w globalnych */
-  .tc-btn-success {
-    background: #22c55e; color: #fff; border: none;
+  .rv-badge {
+    font-size: 0.68rem; font-weight: 700;
+    padding: 3px 10px; border-radius: 99px;
+    display: inline-flex; align-items: center; gap: 4px;
   }
-  .tc-btn-success:hover { background: #16a34a; }
-  .tc-btn-success:disabled { background: #86efac; cursor: not-allowed; }
+  .rv-badge--confirmed { background: var(--tc-accent-soft); border: 1px solid var(--tc-accent-border); color: var(--tc-accent); }
+  .rv-badge--confirmed::before { content: '●'; font-size: 0.5rem; }
+  .rv-badge--pending { background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); color: #ca8a04; }
+  .rv-badge--rejected { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--tc-hot); }
 
-  /* ── My reservations ───────────────────────────────────────────────────── */
-  .my-res-section { margin-bottom: 24px; }
-
-  .section-label {
-    font-size: 0.72rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--text-muted); margin-bottom: 10px; padding-left: 2px;
-  }
-
-  .my-res-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 12px;
-  }
-
-  .my-res-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 16px 18px;
-    display: flex; justify-content: space-between; align-items: flex-start;
-    gap: 12px;
-    box-shadow: var(--shadow-card);
-    transition: box-shadow 0.15s;
-  }
-  .my-res-card:hover { box-shadow: var(--shadow-md); }
-  .my-res-card--confirmed { border-left: 3px solid #22c55e; }
-  .my-res-card--pending   { border-left: 3px solid var(--warning); }
-  .my-res-card--rejected  { border-left: 3px solid var(--danger, #dc2626); opacity: 0.75; }
-
-  .my-res-card__court {
-    font-weight: 700; font-size: 0.9rem; color: var(--text);
-    margin-bottom: 3px;
-  }
-  .my-res-card__time {
-    font-size: 0.8rem; color: var(--text-muted); margin-bottom: 2px;
-  }
-  .my-res-card__facility {
-    font-size: 0.75rem; color: var(--text-dim); margin-bottom: 2px;
-  }
-  .my-res-card__hint {
-    font-size: 0.72rem; color: var(--text-dim); margin-top: 4px; line-height: 1.4;
-  }
-
-  .my-res-empty {
-    display: flex; align-items: center; gap: 10px;
-    padding: 20px 16px;
-    background: var(--surface);
-    border: 1px dashed var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-muted);
-    font-size: 0.875rem;
-  }
-  .my-res-empty__icon { font-size: 1.25rem; flex-shrink: 0; }
-
-  .my-res-card__right {
-    display: flex; flex-direction: column; align-items: flex-end;
-    flex-shrink: 0; gap: 6px;
-  }
-
-  /* Przycisk Anuluj na karcie rezerwacji */
-  .my-res-cancel-btn {
+  .rv-cancel-btn {
     background: none; border: none; cursor: pointer;
-    font-size: 0.72rem; font-weight: 600;
-    color: var(--text-dim);
-    padding: 2px 0;
-    text-decoration: underline;
-    transition: color 0.12s;
+    font-size: 0.78rem; font-weight: 600; color: var(--tc-muted);
+    padding: 4px 0; transition: color 0.12s; font-family: var(--font-sans);
   }
-  .my-res-cancel-btn:hover { color: var(--danger, #dc2626); }
+  .rv-cancel-btn:hover { color: var(--tc-hot); }
 
-  /* Inline confirm — pojawia się po kliknięciu "Anuluj" */
-  .my-res-inline-confirm {
-    display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
-    animation: fadeIn 0.12s ease;
-  }
-  .my-res-inline-confirm__label {
-    font-size: 0.72rem; font-weight: 600; color: var(--danger, #dc2626);
-    white-space: nowrap;
-  }
-  .my-res-inline-confirm .tc-btn { font-size: 0.72rem; padding: 3px 10px; }
+  .rv-empty-row { padding: 32px 20px; text-align: center; font-size: 0.84rem; color: var(--tc-muted); }
 
-  /* tc-btn-danger — jeśli nie ma w globalnych stylach */
-  .tc-btn-danger {
-    background: var(--danger, #dc2626); color: #fff; border: none;
+  /* ── Manager ───────────────────────────────────────────────────────────── */
+  .rv-manager {
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+    border-radius: 14px; margin-bottom: 12px;
   }
-  .tc-btn-danger:hover { background: #b91c1c; }
+  .rv-manager__header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 20px; border-bottom: 1px solid var(--tc-card-border);
+  }
+  .rv-manager__title { font-size: 0.88rem; font-weight: 700; color: var(--tc-ink); }
+  .rv-manager__badge {
+    font-size: 0.72rem; font-weight: 700; padding: 3px 10px; border-radius: 99px;
+    background: rgba(234,179,8,0.12); color: #ca8a04; border: 1px solid rgba(234,179,8,0.3);
+  }
+  .rv-manager-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    padding: 14px 20px; border-bottom: 1px solid var(--tc-card-border-soft);
+  }
+  .rv-manager-row:last-child { border-bottom: none; }
+  .rv-manager-row__who { font-weight: 700; font-size: 0.875rem; color: var(--tc-ink); }
+  .rv-manager-row__what { font-size: 0.78rem; color: var(--tc-muted); margin-top: 2px; }
+  .rv-manager-row__when { font-size: 0.72rem; color: var(--tc-faint); margin-top: 2px; }
+  .rv-manager-row__actions { display: flex; gap: 8px; flex-shrink: 0; }
 
-  /* tc-badge-danger — czerwony badge dla REJECTED */
-  .tc-badge-danger {
-    background: rgba(239,68,68,0.1);
-    color: var(--danger, #dc2626);
-    border: 1px solid rgba(239,68,68,0.25);
+  .rv-action-ghost {
+    background: none; border: 1px solid var(--tc-card-border);
+    border-radius: 6px; padding: 6px 14px; font-size: 0.78rem; font-weight: 600;
+    color: var(--tc-muted); cursor: pointer; font-family: var(--font-sans);
+    transition: background 0.15s, color 0.15s;
   }
-  [data-theme="dark"] .tc-badge-danger {
-    background: rgba(239,68,68,0.15);
-    color: #f87171;
-    border-color: rgba(239,68,68,0.3);
-  }
+  .rv-action-ghost:hover { background: var(--tc-overlay); color: var(--tc-ink); }
 
-  /* ── Calendar states ───────────────────────────────────────────────────── */
-  .calendar-section { margin-top: 0; }
-
-  .cal-state {
-    display: flex; align-items: center; gap: 10px;
-    padding: 24px 20px;
-    font-size: 0.875rem; color: var(--text-muted);
+  /* ── Shared button (reused from tournaments) ───────────────────────────── */
+  .tr-btn-primary {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 8px 18px; border-radius: 8px;
+    background: var(--tc-accent); color: var(--tc-accent-ink);
+    font-size: 0.84rem; font-weight: 700; border: none;
+    text-decoration: none; cursor: pointer; font-family: var(--font-sans);
+    transition: opacity 0.15s;
   }
-  .cal-state--error { color: var(--danger); }
-  .cal-state__icon { font-size: 1.25rem; flex-shrink: 0; }
-
-  /* ── Calendar nav ──────────────────────────────────────────────────────── */
-  .calendar-nav {
-    display: flex; align-items: center; gap: 8px;
-  }
-  /* ── Nawigacja daty ──────────────────────────────────────────────────────── */
-  .calendar-nav { gap: 6px; }
-
-  /* Przycisk daty — wygląda jak button, zawiera ukryty input[date] */
-  .cal-date-btn {
-    position: relative;
-    display: inline-flex; align-items: center; gap: 7px;
-    cursor: pointer;
-    padding: 5px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm, 6px);
-    background: var(--surface);
-    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
-    white-space: nowrap;
-  }
-  .cal-date-btn:hover {
-    background: var(--surface-2, rgba(128,128,128,0.07));
-    border-color: var(--primary, #22c55e);
-    box-shadow: 0 0 0 2px rgba(34,197,94,0.12);
-  }
-  .cal-date-btn svg { color: var(--text-muted); flex-shrink: 0; pointer-events: none; }
-
-  .cal-date-btn__label {
-    font-size: 0.85rem; font-weight: 600; color: var(--text);
-    pointer-events: none;
-  }
-
-  /* Input daty — schowany wizualnie przez inline style, otwierany przez showPicker() */
-
-  .calendar-wrap { padding-bottom: 4px; }
-  .calendar-grid { min-width: 560px; }
-
-  /* Nagłówki kortów */
-  .calendar-header {
-    display: grid;
-    grid-template-columns: 56px repeat(var(--courts), 1fr);
-    border-bottom: 1px solid var(--border);
-    position: sticky; top: 0; z-index: 2;
-    background: var(--surface);
-  }
-
-  .calendar-time-col { flex-shrink: 0; width: 56px; }
-
-  .calendar-court-header {
-    padding: 10px 8px;
-    text-align: center;
-    font-size: 0.78rem; font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.05em;
-    border-left: 1px solid var(--border);
-  }
-
-  /* Body: godziny × korty */
-  .calendar-body {
-    display: grid;
-    grid-template-columns: 56px repeat(var(--courts), 1fr);
-  }
-
-  .calendar-time-col { display: flex; flex-direction: column; }
-
-  .calendar-hour-label {
-    display: flex; align-items: flex-start;
-    padding: 0 8px 0 4px; padding-top: 4px;
-    font-size: 0.7rem; color: var(--text-dim);
-    font-weight: 500; flex-shrink: 0;
-  }
-
-  /* Kolumna kortu */
-  .calendar-court-col {
-    border-left: 1px solid var(--border);
-    position: relative;
-  }
-
-  .calendar-slot-line {
-    border-bottom: 1px solid var(--border);
-    box-sizing: border-box;
-  }
-  .calendar-slot-line--hour { border-bottom-color: var(--border); }
-  .calendar-slot-line--half { border-bottom-style: dashed; border-bottom-color: rgba(128,128,128,0.25); }
-
-  /* Rezerwacje */
-  .cal-res {
-    position: absolute;
-    left: 3px; right: 3px;
-    border-radius: 6px;
-    padding: 4px 6px;
-    overflow: hidden;
-    font-size: 0.72rem;
-    transition: filter 0.12s, transform 0.12s;
-    z-index: 1;
-  }
-  .cal-res:hover { filter: brightness(1.08); transform: scaleX(1.01); z-index: 2; }
-
-  .cal-res--own {
-    background: rgba(34,197,94,0.2);
-    border: 1.5px solid #22c55e;
-    color: #16a34a;
-  }
-  [data-theme="dark"] .cal-res--own {
-    background: rgba(34,197,94,0.18);
-    color: #4ade80; border-color: #22c55e;
-  }
-
-  .cal-res--other {
-    background: rgba(59,130,246,0.15);
-    border: 1.5px solid rgba(59,130,246,0.4);
-    color: #2563eb;
-  }
-  [data-theme="dark"] .cal-res--other {
-    background: rgba(59,130,246,0.2);
-    color: #93c5fd; border-color: rgba(59,130,246,0.5);
-  }
-
-  .cal-res__time {
-    font-size: 0.65rem; font-weight: 600; opacity: 0.75; margin-bottom: 1px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .cal-res__label {
-    font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-
-  /* Legenda */
-  .cal-legend { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-  .cal-legend__item {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 0.78rem; color: var(--text-muted);
-  }
-  .cal-legend__dot {
-    width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
-  }
-  .cal-legend__dot--own   { background: rgba(34,197,94,0.4); border: 1px solid #22c55e; }
-  .cal-legend__dot--other { background: rgba(59,130,246,0.3); border: 1px solid rgba(59,130,246,0.5); }
-  .cal-legend__dot--free  { background: var(--surface-2); border: 1px solid var(--border); }
-
-  /* ── Miniony slot (dziś, w przeszłości) — nieklikalny ────────────────── */
-  .cal-slot-past {
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 4px,
-      rgba(128,128,128,0.07) 4px,
-      rgba(128,128,128,0.07) 8px
-    );
-    cursor: not-allowed;
-  }
-  [data-theme="dark"] .cal-slot-past {
-    background: repeating-linear-gradient(
-      -45deg,
-      transparent,
-      transparent 4px,
-      rgba(255,255,255,0.04) 4px,
-      rgba(255,255,255,0.04) 8px
-    );
-  }
-
-  /* ── Free slot hover + drag ───────────────────────────────────────────── */
-  .cal-slot-free {
-    position: relative;
-    cursor: ns-resize;
-    transition: background 0.08s;
-    box-sizing: border-box;
-    user-select: none;
-  }
-  .cal-slot-free:hover {
-    background: rgba(34,197,94,0.08);
-  }
-  /* Tooltip "przeciągnij lub kliknij" — tylko gdy nie ma aktywnego drag */
-  .cal-slot-free:hover::after {
-    content: '↕ Przeciągnij lub kliknij';
-    position: absolute;
-    top: 50%; left: 50%; transform: translate(-50%, -50%);
-    font-size: 0.6rem; font-weight: 700; color: #16a34a;
-    white-space: nowrap; pointer-events: none;
-    z-index: 3;
-  }
-  /* Zaznaczony zakres drag */
-  .cal-slot-drag {
-    background: rgba(34,197,94,0.22) !important;
-    border-color: rgba(34,197,94,0.5) !important;
-  }
-  .cal-slot-drag::after { display: none !important; }
-
-  [data-theme="dark"] .cal-slot-free:hover { background: rgba(34,197,94,0.12); }
-  [data-theme="dark"] .cal-slot-free:hover::after { color: #4ade80; }
-  [data-theme="dark"] .cal-slot-drag { background: rgba(34,197,94,0.28) !important; }
+  .tr-btn-primary:hover { opacity: 0.88; }
+  .tr-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── Popup ─────────────────────────────────────────────────────────────── */
   .res-popup-backdrop {
     position: fixed; inset: 0; z-index: 50;
     background: rgba(0,0,0,0.4);
     display: flex; align-items: center; justify-content: center;
-    padding: 16px;
-    animation: fadeIn 0.15s ease;
+    padding: 16px; animation: fadeIn 0.15s ease;
   }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .res-popup {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg, 12px);
-    padding: 0;
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+    border-radius: 14px; padding: 0;
     width: 100%; max-width: 400px;
     box-shadow: 0 12px 40px rgba(0,0,0,0.22);
-    animation: slideUp 0.18s ease;
-    overflow: hidden;
+    animation: slideUp 0.18s ease; overflow: hidden;
   }
   @keyframes slideUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
 
-  /* Nagłówek popupu */
   .res-popup__header {
-    display: flex; align-items: flex-start; gap: 12px;
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    padding: 20px 20px 16px; border-bottom: 1px solid var(--tc-card-border);
   }
-  .res-popup__icon {
-    font-size: 1.5rem; flex-shrink: 0; line-height: 1;
-    margin-top: 2px;
-  }
-  .res-popup__header > div:nth-child(2) { flex: 1; min-width: 0; }
-  .res-popup__title {
-    font-size: 0.95rem; font-weight: 700; color: var(--text);
-    line-height: 1.3;
-  }
-  .res-popup__subtitle {
-    font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;
-  }
+  .res-popup__title { font-size: 0.95rem; font-weight: 700; color: var(--tc-ink); }
+  .res-popup__subtitle { font-size: 0.78rem; color: var(--tc-muted); margin-top: 2px; }
   .res-popup__close {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-muted); padding: 2px; flex-shrink: 0;
-    border-radius: 4px; transition: background 0.12s, color 0.12s;
-    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; cursor: pointer; color: var(--tc-muted);
+    padding: 2px; border-radius: 4px; display: flex; transition: color 0.12s;
   }
-  .res-popup__close:hover { background: var(--surface-2); color: var(--text); }
+  .res-popup__close:hover { color: var(--tc-ink); }
 
-  /* Detale — wypełniane przez JS jako structured HTML */
-  .res-popup__detail {
-    padding: 16px 20px 0;
-  }
+  .res-popup__detail { padding: 16px 20px 0; }
   .res-popup__row {
     display: flex; align-items: center; gap: 10px;
-    padding: 7px 0;
-    border-bottom: 1px solid var(--border);
+    padding: 7px 0; border-bottom: 1px solid var(--tc-card-border-soft);
     font-size: 0.875rem;
   }
   .res-popup__row:last-child { border-bottom: none; }
-  .res-popup__row-icon {
-    width: 16px; text-align: center; flex-shrink: 0;
-    color: var(--text-dim); font-size: 0.85rem;
-  }
-  .res-popup__row-label {
-    color: var(--text-muted); font-size: 0.78rem; min-width: 52px; flex-shrink: 0;
-  }
-  .res-popup__row-value {
-    color: var(--text); font-weight: 600;
-  }
+  .res-popup__row-label { color: var(--tc-muted); font-size: 0.78rem; min-width: 52px; }
+  .res-popup__row-value { color: var(--tc-ink); font-weight: 600; }
   .res-popup__duration {
-    display: inline-block;
-    background: var(--surface-2, rgba(128,128,128,0.1));
+    display: inline-block; background: var(--tc-chip-bg);
     border-radius: 4px; padding: 1px 6px;
-    font-size: 0.72rem; font-weight: 700;
-    color: var(--text-muted); margin-left: 6px;
+    font-size: 0.72rem; font-weight: 700; color: var(--tc-muted); margin-left: 6px;
   }
+  .res-popup__row-icon { width: 16px; text-align: center; color: var(--tc-faint); font-size: 0.85rem; }
 
-  /* Notice PENDING */
   .res-popup__notice {
     display: flex; align-items: flex-start; gap: 8px;
     margin: 14px 20px 0;
-    background: rgba(234,179,8,0.08);
-    border: 1px solid rgba(234,179,8,0.25);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;
+    background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25);
+    border-radius: 8px; padding: 10px 12px;
+    font-size: 0.78rem; color: var(--tc-muted); line-height: 1.5;
   }
   .res-popup__notice svg { flex-shrink: 0; margin-top: 1px; color: #ca8a04; }
+  .res-popup__actions { display: flex; gap: 10px; padding: 16px 20px 20px; }
 
-  /* Akcje */
-  .res-popup__actions {
-    display: flex; gap: 10px;
-    padding: 16px 20px 20px;
-  }
-  .res-popup__actions .tc-btn:first-child { flex: 1; }
-
-  /* Komunikat błędu inline */
   .res-popup__msg {
-    margin: 0 20px 16px;
-    padding: 9px 12px;
-    border-radius: 7px;
-    font-size: 0.82rem; font-weight: 600;
-    display: flex; align-items: flex-start; gap: 7px;
-    line-height: 1.4;
+    margin: 0 20px 16px; padding: 9px 12px; border-radius: 7px;
+    font-size: 0.82rem; font-weight: 600; line-height: 1.4;
   }
-  .res-popup__msg--error {
-    background: rgba(239,68,68,0.08);
-    border: 1px solid rgba(239,68,68,0.25);
-    color: var(--danger, #dc2626);
+  .res-popup__msg--error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: var(--tc-hot); }
+  .res-popup__msg--conflict { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.3); color: #ca8a04; }
+
+  .res-popup__recurring { padding: 14px 20px 0; }
+  .recurring-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+  .recurring-toggle input { width: 16px; height: 16px; accent-color: var(--tc-accent); cursor: pointer; }
+  .recurring-toggle__label { font-size: 0.82rem; font-weight: 600; color: var(--tc-muted); }
+  .recurring-weeks-row {
+    display: flex; align-items: center; gap: 10px; margin-top: 10px;
+    padding: 10px 12px; background: var(--tc-overlay); border: 1px solid var(--tc-card-border);
+    border-radius: 8px;
   }
-  .res-popup__msg--conflict {
-    background: rgba(234,179,8,0.08);
-    border: 1px solid rgba(234,179,8,0.3);
-    color: #92400e;
+  .recurring-weeks-label { font-size: 0.78rem; color: var(--tc-muted); white-space: nowrap; }
+  .recurring-weeks-select {
+    flex: 1; padding: 4px 8px; border: 1px solid var(--tc-card-border);
+    border-radius: 6px; background: var(--tc-input-bg); color: var(--tc-ink);
+    font-size: 0.82rem; font-family: var(--font-sans);
   }
-  [data-theme="dark"] .res-popup__msg--conflict { color: #fbbf24; }
 
   /* ── Toast ─────────────────────────────────────────────────────────────── */
   .res-toast {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    z-index: 60;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 18px;
-    font-size: 0.875rem; font-weight: 600;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.18);
-    color: var(--text);
-    max-width: calc(100vw - 32px);
-    white-space: normal; text-align: center;
-    display: flex; align-items: center; gap: 8px;
-    animation: toastIn 0.2s ease;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 60;
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+    border-radius: 10px; padding: 12px 18px;
+    font-size: 0.875rem; font-weight: 600; box-shadow: var(--tc-shadow);
+    color: var(--tc-ink); display: flex; align-items: center; gap: 8px;
   }
-  @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
-  .res-toast--success { border-left: 3px solid #22c55e; }
-  .res-toast--success .res-toast__icon { color: #16a34a; }
-  .res-toast--error   { border-left: 3px solid var(--danger, #dc2626); }
-  .res-toast--error .res-toast__icon   { color: var(--danger, #dc2626); }
+  .res-toast--success { border-left: 3px solid var(--tc-accent); }
+  .res-toast--error { border-left: 3px solid var(--tc-hot); }
   .res-toast__icon { font-size: 1rem; flex-shrink: 0; }
-  [data-theme="dark"] .res-toast--success .res-toast__icon { color: #4ade80; }
 
-  /* ── Responsive ────────────────────────────────────────────────────────── */
+  /* ── Inline cancel confirm (reused from old) ───────────────────────────── */
+  .my-res-inline-confirm {
+    display: flex; align-items: center; gap: 6px; animation: fadeIn 0.12s ease;
+  }
+  .my-res-inline-confirm__label { font-size: 0.72rem; font-weight: 600; color: var(--tc-hot); white-space: nowrap; }
 
-  /* ── 768px — tablet / duży telefon ──────────────────────────────── */
-  @media (max-width: 768px) {
-    .my-res-grid { grid-template-columns: 1fr; }
-
-    /* Owner: wiersz stackuje się pionowo — info nad przyciskami */
-    .owner-res-row {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 14px 16px;
-    }
-    .owner-res-row__actions {
-      width: 100%;
-      justify-content: flex-end;
-    }
-
-    /* tc-card header — tytuł + badge zawijają się */
-    .tc-card-header {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    /* Legenda grafiku — ciaśniejsza */
-    .cal-legend { gap: 10px; }
+  /* ══════════════════════════════════════════════════════════════════════════
+     RESPONSIVE
+     ══════════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 1024px) {
+    .rv-stats { grid-template-columns: repeat(2, 1fr); }
+    .rv-days { grid-template-columns: repeat(4, 1fr); }
+    .rv-res-row { grid-template-columns: 10px 1fr auto auto; }
+    .rv-res-court { display: none; }
+    .rv-legend { display: none; }
+    .rv-grid-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .rv-manager-row { flex-direction: column; align-items: flex-start; gap: 10px; }
   }
 
-  /* ── 480px — telefon ──────────────────────────────────────────────── */
-  @media (max-width: 480px) {
-    /* Karty rezerwacji — lewa kolumna pełna szerokość, prawa poniżej */
-    .my-res-card {
-      flex-direction: column;
-      gap: 10px;
-      padding: 14px 14px;
-    }
-    .my-res-card__right {
-      flex-direction: row;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      flex-shrink: unset;
-    }
-    /* Inline confirm na full-width karcie */
-    .my-res-inline-confirm {
-      flex-direction: row;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 6px;
-      width: 100%;
-      justify-content: space-between;
-    }
-    .my-res-inline-confirm__label { white-space: normal; }
-
-    /* Owner: przyciski pełna szerokość na bardzo wąskim */
-    .owner-res-row__actions {
-      flex-direction: column;
-      gap: 6px;
-    }
-    .owner-res-row__actions .tc-btn {
-      width: 100%;
-      justify-content: center;
-      min-height: 38px; /* wygodny dotyk */
-    }
-
-    /* Sekcja owner — mniejszy padding */
-    .owner-section .tc-card-header { padding: 14px 14px; }
-
-    /* Nawigacja grafiku — wraparound zamiast overflow */
-    .calendar-nav {
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 4px;
-    }
-    .cal-date-btn {
-      padding: 5px 9px;
-    }
-    .cal-date-btn__label {
-      /* Skróć etykietę daty — browser i tak da krótkie locale */
-      max-width: 130px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Przycisk anuluj — większy area dotyku */
-    .my-res-cancel-btn {
-      padding: 6px 2px;
-      min-height: 32px;
-    }
-
-    /* Popup — wypełnij cały ekran na mini telefonie */
+  @media (max-width: 640px) {
+    .rv-stats { gap: 8px; }
+    .rv-stat { padding: 14px 16px; }
+    .rv-stat__val { font-size: 1.6rem; }
+    .rv-days { grid-template-columns: repeat(3, 1fr); gap: 4px; }
+    .rv-day { padding: 10px 8px; }
+    .rv-day__sub { font-size: 1rem; }
+    .rv-res-row { grid-template-columns: 10px 1fr auto; gap: 10px; padding: 12px 16px; }
+    .rv-badge { display: none; }
+    .rv-grid-footer { flex-direction: column; gap: 10px; align-items: stretch; }
+    .rv-grid-footer .tr-btn-primary { text-align: center; }
     .res-popup-backdrop { padding: 8px; align-items: flex-end; }
-    .res-popup {
-      border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
-
-    /* Toast — full width na wąskim */
-    .res-toast {
-      left: 16px; right: 16px;
-      transform: none;
-      bottom: 16px;
-      max-width: none;
-    }
-    @keyframes toastIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Legenda grafiku — pionowo */
-    .cal-legend { flex-direction: column; gap: 6px; }
+    .res-popup { border-radius: 14px 14px 0 0; max-height: 90vh; overflow-y: auto; }
   }
-
-  /* ── Series badge na karcie rezerwacji ────────────────────────────── */
-  .my-res-series-badge {
-    display: inline-block;
-    font-size: 0.62rem; font-weight: 700;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: rgba(99,102,241,0.1);
-    color: #6366f1;
-    border: 1px solid rgba(99,102,241,0.25);
-    margin-left: 6px;
-    vertical-align: middle;
-    letter-spacing: 0.02em;
-  }
-  [data-theme="dark"] .my-res-series-badge {
-    background: rgba(99,102,241,0.18);
-    color: #a5b4fc;
-    border-color: rgba(99,102,241,0.35);
-  }
-
-  /* ── Popup: sekcja recurring ───────────────────────────────────────── */
-  .res-popup__recurring {
-    padding: 14px 20px 0;
-  }
-  .recurring-toggle {
-    display: flex; align-items: center; gap: 8px;
-    cursor: pointer; user-select: none;
-  }
-  .recurring-toggle input[type="checkbox"] {
-    width: 16px; height: 16px;
-    accent-color: var(--primary, #22c55e);
-    cursor: pointer; flex-shrink: 0;
-  }
-  .recurring-toggle__label {
-    font-size: 0.82rem; font-weight: 600; color: var(--text-muted);
-  }
-  .recurring-weeks-row {
-    display: flex; align-items: center; gap: 10px;
-    margin-top: 10px;
-    padding: 10px 12px;
-    background: rgba(99,102,241,0.06);
-    border: 1px solid rgba(99,102,241,0.18);
-    border-radius: 8px;
-  }
-  .recurring-weeks-label {
-    font-size: 0.78rem; color: var(--text-muted); white-space: nowrap;
-  }
-  .recurring-weeks-select {
-    flex: 1; padding: 4px 8px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--surface);
-    color: var(--text);
-    font-size: 0.82rem;
-  }
-
-  /* ── Grafik — świadomy poziomy scroll ─────────────────────────────── */
-  /* .calendar-grid { min-width: 560px } zostawiamy — grafik z natury jest szeroki.
-     .calendar-wrap { overflow-x: auto } już jest inline. Dodajemy visual hint. */
-  .calendar-wrap {
-    /* Smooth scrolling, overflow-x ustawiony inline w HTML */
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-  }
-  /* Scroll shadow hint po prawej stronie gdy grid przewija się */
-  .calendar-wrap-outer {
-    position: relative;
-  }
-  .calendar-wrap-outer::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0; bottom: 0;
-    width: 24px;
-    background: linear-gradient(to right, transparent, var(--surface));
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-  .calendar-wrap-outer.is-scrollable::after { opacity: 1; }
 </style>
 
 <script define:vars={{ GRID_START, GRID_END, SLOT_PX, GRID_H_PX, todayIso }}>
-// ── Grafik kortów — dynamiczny render z API + create reservation ───────────
+// ── Grafik kortów — render horyzontalny (prototyp astro6) + reservation logic ──
 
-const SLOT_COUNT = (GRID_END - GRID_START) * 2;
+const HOURS = [];
+for (let h = GRID_START; h < GRID_END; h++) HOURS.push(`${String(h).padStart(2,'0')}:00`);
 
 let currentDate = todayIso;
 let facilityId  = null;
+let pendingSlot = null;
 
-// Aktualnie wybrany slot do rezerwacji
-let pendingSlot = null; // { courtId, courtName, date, startTime, endTime }
-
-// DOM refs — grafik
 const loading   = document.getElementById('cal-loading');
 const empty     = document.getElementById('cal-empty');
 const errorBox  = document.getElementById('cal-error');
 const errorMsg  = document.getElementById('cal-error-msg');
 const calWrap   = document.getElementById('cal-wrap');
 const calGrid   = document.getElementById('cal-grid');
-const dateLabel = document.getElementById('cal-date-label');
 const dateInput = document.getElementById('cal-date-input');
 
-// DOM refs — popup
 const popup        = document.getElementById('res-popup');
 const popupDetail  = document.getElementById('res-popup-detail');
 const popupConfirm = document.getElementById('res-popup-confirm');
 const popupCancel  = document.getElementById('res-popup-cancel');
 const popupMsg     = document.getElementById('res-popup-msg');
+const toast        = document.getElementById('res-toast');
 
-// DOM refs — toast
-const toast = document.getElementById('res-toast');
+// ── Utils ────────────────────────────────────────────────────────────────────
 
-// ── Utils ──────────────────────────────────────────────────────────────────
-
-function getCsrf() {
-  const m = document.cookie.match(/csrftoken=([^;]+)/);
-  return m ? m[1] : '';
-}
+function getCsrf() { const m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; }
 
 function showState(which) {
   loading.style.display  = which === 'loading' ? '' : 'none';
@@ -1095,42 +739,29 @@ function showState(which) {
 }
 
 function fmtDateLabel(iso) {
-  try {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('pl-PL', {
-      weekday: 'long', day: 'numeric', month: 'long'
-    });
-  } catch { return iso; }
+  try { return new Date(iso + 'T12:00:00').toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' }); }
+  catch { return iso; }
 }
 
-function addDays(iso, n) {
-  const d = new Date(iso + 'T12:00:00');
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
-}
-
-// Czas końca slotu +30 min
 function slotEnd(startTime) {
   const [h, m] = startTime.split(':').map(Number);
-  const total  = h * 60 + m + 30;
+  const total = h * 60 + m + 30;
   return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
 }
 
-// ── Toast ──────────────────────────────────────────────────────────────────
-
+// ── Toast ────────────────────────────────────────────────────────────────────
 const TOAST_ICONS = { success: '✓', error: '✕', warning: '⚠' };
-
 let toastTimer = null;
 function showToast(msg, type = 'success') {
   const icon = TOAST_ICONS[type] ?? '';
-  toast.innerHTML = `<span class="res-toast__icon" aria-hidden="true">${icon}</span><span>${msg}</span>`;
+  toast.innerHTML = `<span class="res-toast__icon">${icon}</span><span>${msg}</span>`;
   toast.className = `res-toast res-toast--${type}`;
   toast.style.display = '';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 4000);
 }
 
-// ── Popup ──────────────────────────────────────────────────────────────────
-
+// ── Popup ────────────────────────────────────────────────────────────────────
 function durationMin(start, end) {
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
@@ -1138,10 +769,7 @@ function durationMin(start, end) {
 }
 
 function openPopup(slot) {
-  // Blokada dat przeszłych — nie powinno się zdarzać, ale jako obrona
   if (slot.date < todayIso) return;
-
-  // Blokada slotów z przeszłości dla dzisiejszego dnia
   if (slot.date === todayIso) {
     const now = new Date();
     const [sh, sm] = slot.startTime.split(':').map(Number);
@@ -1151,69 +779,40 @@ function openPopup(slot) {
   }
 
   pendingSlot = slot;
+  const dur = durationMin(slot.startTime, slot.endTime);
+  const dateStr = fmtDateLabel(slot.date);
 
-  const dur      = durationMin(slot.startTime, slot.endTime);
-  const dateStr  = fmtDateLabel(slot.date);
-
-  // Strukturalne detale — czytelne wiersze
   popupDetail.innerHTML = `
-    <div class="res-popup__row">
-      <span class="res-popup__row-icon" aria-hidden="true">🎾</span>
-      <span class="res-popup__row-label">Kort</span>
-      <span class="res-popup__row-value">${slot.courtName}</span>
-    </div>
-    <div class="res-popup__row">
-      <span class="res-popup__row-icon" aria-hidden="true">📅</span>
-      <span class="res-popup__row-label">Data</span>
-      <span class="res-popup__row-value">${dateStr}</span>
-    </div>
-    <div class="res-popup__row">
-      <span class="res-popup__row-icon" aria-hidden="true">⏰</span>
-      <span class="res-popup__row-label">Godzina</span>
-      <span class="res-popup__row-value">
-        ${slot.startTime}–${slot.endTime}
-        <span class="res-popup__duration">${dur} min</span>
-      </span>
-    </div>
+    <div class="res-popup__row"><span class="res-popup__row-icon">🎾</span><span class="res-popup__row-label">Kort</span><span class="res-popup__row-value">${slot.courtName}</span></div>
+    <div class="res-popup__row"><span class="res-popup__row-icon">📅</span><span class="res-popup__row-label">Data</span><span class="res-popup__row-value">${dateStr}</span></div>
+    <div class="res-popup__row"><span class="res-popup__row-icon">⏰</span><span class="res-popup__row-label">Godzina</span><span class="res-popup__row-value">${slot.startTime}–${slot.endTime}<span class="res-popup__duration">${dur} min</span></span></div>
   `;
 
-  // Reset stanu
-  popupMsg.style.display = 'none';
-  popupMsg.innerHTML     = '';
-  popupConfirm.disabled  = false;
+  popupMsg.style.display = 'none'; popupMsg.innerHTML = '';
+  popupConfirm.disabled = false;
   document.getElementById('res-popup-confirm-label').textContent = 'Zarezerwuj';
-
-  // Reset recurring
-  const recurringCheck = document.getElementById('res-recurring-check');
-  const weeksRow       = document.getElementById('res-recurring-weeks-row');
-  if (recurringCheck) recurringCheck.checked = false;
-  if (weeksRow) weeksRow.style.display = 'none';
-
+  const rc = document.getElementById('res-recurring-check');
+  const wr = document.getElementById('res-recurring-weeks-row');
+  if (rc) rc.checked = false;
+  if (wr) wr.style.display = 'none';
   popup.style.display = '';
-  // Focus trap — focus na przycisk Zarezerwuj
   setTimeout(() => popupConfirm?.focus(), 50);
 }
 
-// Toggle recurring sekcji w popupie
 document.getElementById('res-recurring-check')?.addEventListener('change', function () {
-  const weeksRow = document.getElementById('res-recurring-weeks-row');
-  if (weeksRow) weeksRow.style.display = this.checked ? '' : 'none';
+  const wr = document.getElementById('res-recurring-weeks-row');
+  if (wr) wr.style.display = this.checked ? '' : 'none';
 });
 
-function closePopup() {
-  popup.style.display = 'none';
-  pendingSlot = null;
-}
-
+function closePopup() { popup.style.display = 'none'; pendingSlot = null; }
 function showPopupError(msg, isConflict = false) {
-  popupMsg.innerHTML     = `<span aria-hidden="true">${isConflict ? '⚠' : '✕'}</span><span>${msg}</span>`;
-  popupMsg.className     = `res-popup__msg res-popup__msg--${isConflict ? 'conflict' : 'error'}`;
+  popupMsg.innerHTML = `<span>${isConflict ? '⚠' : '✕'}</span><span>${msg}</span>`;
+  popupMsg.className = `res-popup__msg res-popup__msg--${isConflict ? 'conflict' : 'error'}`;
   popupMsg.style.display = '';
-  popupConfirm.disabled  = false;
+  popupConfirm.disabled = false;
   document.getElementById('res-popup-confirm-label').textContent = 'Zarezerwuj';
 }
 
-// Zamknięcie: X button, klik tła, Escape
 document.getElementById('res-popup-close')?.addEventListener('click', closePopup);
 popupCancel?.addEventListener('click', closePopup);
 popup?.addEventListener('click', e => { if (e.target === popup) closePopup(); });
@@ -1221,561 +820,266 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && popup?.sty
 
 popupConfirm?.addEventListener('click', async () => {
   if (!pendingSlot) return;
-  popupConfirm.disabled  = true;
-
-  const recurringCheck = document.getElementById('res-recurring-check');
-  const weeksSelect    = document.getElementById('res-recurring-weeks');
-  const isRecurring    = recurringCheck?.checked ?? false;
-  const weeks          = isRecurring ? parseInt(weeksSelect?.value ?? '4', 10) : null;
-
+  popupConfirm.disabled = true;
+  const rc = document.getElementById('res-recurring-check');
+  const ws = document.getElementById('res-recurring-weeks');
+  const isRecurring = rc?.checked ?? false;
+  const weeks = isRecurring ? parseInt(ws?.value ?? '4', 10) : null;
   document.getElementById('res-popup-confirm-label').textContent = isRecurring ? 'Rezerwuję serię…' : 'Rezerwuję…';
   popupMsg.style.display = 'none';
 
-  const body = {
-    court_id:   pendingSlot.courtId,
-    date:       pendingSlot.date,
-    start_time: pendingSlot.startTime,
-    end_time:   pendingSlot.endTime,
-    ...(isRecurring && { recurring: true, weeks }),
-  };
+  const body = { court_id: pendingSlot.courtId, date: pendingSlot.date, start_time: pendingSlot.startTime, end_time: pendingSlot.endTime, ...(isRecurring && { recurring: true, weeks }) };
 
   try {
-    const res = await fetch('/api/courts/reserve/', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': getCsrf(),
-      },
-      body: JSON.stringify(body),
-    });
-
+    const res = await fetch('/api/courts/reserve/', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
-
-    if (res.ok) {
-      closePopup();
-      const msg = isRecurring
-        ? `Seria ${data.count} rezerwacji złożona — oczekuje na zatwierdzenie.`
-        : 'Rezerwacja złożona — oczekuje na zatwierdzenie przez właściciela.';
-      showToast(msg, 'success');
-      await Promise.all([loadTimeline(), reloadMyReservations()]);
-    } else if (res.status === 409) {
-      showPopupError(data.detail || 'Ten slot jest już zajęty. Wybierz inny termin.', true);
-    } else if (res.status === 400) {
-      showPopupError(data.detail || 'Nieprawidłowe dane rezerwacji.');
-    } else {
-      showPopupError(data.detail || `Błąd serwera (${res.status}). Spróbuj ponownie.`);
-    }
-  } catch {
-    showPopupError('Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.');
-  }
+    if (res.ok) { closePopup(); showToast(isRecurring ? `Seria ${data.count} rezerwacji złożona.` : 'Rezerwacja złożona — oczekuje na zatwierdzenie.', 'success'); await Promise.all([loadTimeline(), reloadMyReservations()]); }
+    else if (res.status === 409) showPopupError(data.detail || 'Ten slot jest już zajęty.', true);
+    else if (res.status === 400) showPopupError(data.detail || 'Nieprawidłowe dane.');
+    else showPopupError(data.detail || `Błąd serwera (${res.status}).`);
+  } catch { showPopupError('Brak połączenia z serwerem.'); }
 });
 
-// ── Reload "Moje rezerwacje" bez page refresh ──────────────────────────────
-
+// ── Reload my reservations ──────────────────────────────────────────────────
 async function reloadMyReservations() {
   try {
-    const res  = await fetch('/api/courts/reservations/', { credentials: 'include' });
+    const res = await fetch('/api/courts/reservations/', { credentials: 'include' });
     if (!res.ok) return;
     const list = await res.json();
     renderMyReservations(list);
-  } catch { /* nie rób nic — sekcja pozostaje jak była */ }
+  } catch {}
 }
 
-function fmtDateShort(iso) {
-  try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; }
-}
-function fmtTimeStr(iso) {
-  try { return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }); } catch { return iso; }
-}
+function fmtDateShort(iso) { try { return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return iso; } }
+function fmtTimeStr(iso) { try { return new Date(iso).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }); } catch { return iso; } }
 
 function renderMyReservations(list) {
   const section = document.getElementById('my-res-list');
   if (!section) return;
-
-  if (!list || list.length === 0) {
-    section.innerHTML = `
-      <div class="my-res-empty">
-        <span class="my-res-empty__icon" aria-hidden="true">📅</span>
-        <div class="my-res-empty__text">Nie masz żadnych rezerwacji.</div>
-      </div>`;
-    return;
-  }
-
   const now = new Date();
-  section.innerHTML = `<div class="my-res-grid">${list.map(r => {
-    const status    = r.status.toLowerCase();
-    const dateStr   = fmtDateShort(r.start_time);
-    const timeStr   = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
-    const isFuture  = new Date(r.end_time) > now;
-
-    let badgeClass, badgeLabel, hint, canCancel;
-    if (status === 'confirmed') {
-      badgeClass = 'tc-badge-success'; badgeLabel = 'Zatwierdzona';
-      hint = 'Rezerwacja potwierdzona przez właściciela.';
-      canCancel = isFuture;
-    } else if (status === 'rejected') {
-      badgeClass = 'tc-badge-danger'; badgeLabel = 'Odrzucona';
-      hint = 'Rezerwacja została odrzucona przez właściciela.';
-      canCancel = false;
-    } else {
-      badgeClass = 'tc-badge-warning'; badgeLabel = 'Oczekuje';
-      hint = isFuture
-        ? 'Czeka na decyzję właściciela obiektu.'
-        : 'Właściciel nie podjął decyzji przed terminem.';
-      canCancel = isFuture;
-    }
-
-    const seriesId  = r.series_id ?? null;
-    const seriesBadge = seriesId
-      ? `<span class="my-res-series-badge">↻ Seria</span>`
-      : '';
-    const badge     = `<span class="tc-badge ${badgeClass}">${badgeLabel}</span>`;
-    const cancelBtn = canCancel
-      ? `<button class="my-res-cancel-btn" data-res-id="${r.id}" data-series-id="${seriesId ?? ''}" aria-label="Anuluj rezerwację">Anuluj</button>`
-      : '';
-    return `
-      <div class="my-res-card my-res-card--${status}" data-res-id="${r.id}" data-series-id="${seriesId ?? ''}">
-        <div class="my-res-card__left">
-          <div class="my-res-card__court">${r.court_name ?? 'Kort'}${seriesBadge}</div>
-          ${r.facility_name ? `<div class="my-res-card__facility">${r.facility_name}</div>` : ''}
-          <div class="my-res-card__time">${dateStr} · ${timeStr}</div>
-          <div class="my-res-card__hint">${hint}</div>
-        </div>
-        <div class="my-res-card__right">${badge}${cancelBtn}</div>
-      </div>`;
-  }).join('')}</div>`;
+  const future = (list || []).filter(r => new Date(r.end_time) > now);
+  if (future.length === 0) { section.innerHTML = `<div class="rv-empty-row">Nie masz nadchodzących rezerwacji.</div>`; return; }
+  section.innerHTML = future.map(r => {
+    const status = r.status.toLowerCase();
+    const dt = fmtDateShort(r.start_time);
+    const tm = `${fmtTimeStr(r.start_time)}–${fmtTimeStr(r.end_time)}`;
+    const isFuture = new Date(r.end_time) > now;
+    let bc, bl, cc;
+    if (status === 'confirmed') { bc = 'rv-badge--confirmed'; bl = 'potwierdzona'; cc = isFuture; }
+    else if (status === 'rejected') { bc = 'rv-badge--rejected'; bl = 'odrzucona'; cc = false; }
+    else { bc = 'rv-badge--pending'; bl = 'oczekuje'; cc = isFuture; }
+    const sid = r.series_id ?? '';
+    return `<div class="rv-res-row" data-res-id="${r.id}" data-series-id="${sid}">
+      <span class="rv-res-dot"></span>
+      <div class="rv-res-info"><div class="rv-res-when">${dt} · ${tm}</div></div>
+      <div class="rv-res-court">${r.court_name ?? 'Kort'}${r.facility_name ? ' · ' + r.facility_name : ''}</div>
+      <span class="rv-badge ${bc}">${bl}</span>
+      ${cc ? `<button class="rv-cancel-btn my-res-cancel-btn" data-res-id="${r.id}" data-series-id="${sid}">Anuluj</button>` : ''}
+    </div>`;
+  }).join('');
+  // Update badge
+  const badge = document.querySelector('.rv-my-badge');
+  if (badge) badge.textContent = String(future.length);
 }
 
-// ── Anulowanie rezerwacji ──────────────────────────────────────────────────
-//
-// Flow: klik "Anuluj" → przycisk zmienia się w "Potwierdź / Cofnij" (inline confirm)
-//       → klik "Potwierdź" → DELETE /api/courts/reservations/<id>/
-//       → sukces: reload listy + reload timeline | błąd: toast
-
-let cancelConfirmId = null; // ID rezerwacji w trybie inline-confirm
+// ── Cancel logic ────────────────────────────────────────────────────────────
+let cancelConfirmId = null;
 
 document.getElementById('my-res-list').addEventListener('click', async e => {
-  const btn = e.target.closest('.my-res-cancel-btn, .my-res-confirm-btn, .my-res-undo-btn');
+  const btn = e.target.closest('.my-res-cancel-btn, .my-res-confirm-btn, .my-res-undo-btn, .my-res-confirm-series-btn');
   if (!btn) return;
-
   const resId = parseInt(btn.dataset.resId, 10);
 
-  // ── "Anuluj" → przejdź w tryb inline-confirm ──────────────────────────
   if (btn.classList.contains('my-res-cancel-btn')) {
-    // Cofnij poprzedni inline-confirm jeśli jest inny
-    if (cancelConfirmId && cancelConfirmId !== resId) {
-      resetCancelState(cancelConfirmId);
-    }
+    if (cancelConfirmId && cancelConfirmId !== resId) resetCancelState(cancelConfirmId);
     cancelConfirmId = resId;
-    const card = document.querySelector(`[data-res-id="${resId}"]`);
-    if (!card) return;
-    const right    = card.querySelector('.my-res-card__right');
-    const seriesId = card.dataset.seriesId || '';
-
-    // Schowaj oryginalny badge + przycisk Anuluj, pokaż inline confirm
-    right.querySelectorAll('.tc-badge, .my-res-cancel-btn').forEach(el => el.style.display = 'none');
-
-    // Jeśli rezerwacja należy do serii — daj wybór: tylko ta / cała seria
-    const seriesButtons = seriesId
-      ? `<button class="my-res-confirm-series-btn tc-btn tc-btn-danger tc-btn-sm" data-res-id="${resId}" data-series-id="${seriesId}">Anuluj całą serię</button>
-         <button class="my-res-confirm-btn tc-btn tc-btn-ghost tc-btn-sm" data-res-id="${resId}" style="font-size:0.7rem;">Tylko tę</button>`
-      : `<button class="my-res-confirm-btn tc-btn tc-btn-danger tc-btn-sm" data-res-id="${resId}">Tak, anuluj</button>`;
-
-    right.insertAdjacentHTML('beforeend', `
-      <div class="my-res-inline-confirm" data-confirm-id="${resId}">
-        <span class="my-res-inline-confirm__label">${seriesId ? 'Anulować:' : 'Na pewno anulować?'}</span>
-        ${seriesButtons}
-        <button class="my-res-undo-btn tc-btn tc-btn-ghost tc-btn-sm" data-res-id="${resId}">Cofnij</button>
-      </div>
-    `);
+    const row = document.querySelector(`.rv-res-row[data-res-id="${resId}"]`);
+    if (!row) return;
+    row.querySelectorAll('.rv-badge, .rv-cancel-btn').forEach(el => el.style.display = 'none');
+    const sid = row.dataset.seriesId || '';
+    const seriesBtn = sid ? `<button class="my-res-confirm-series-btn tr-btn-primary" data-res-id="${resId}" data-series-id="${sid}" style="padding:4px 10px;font-size:0.72rem;">Całą serię</button><button class="my-res-confirm-btn rv-action-ghost" data-res-id="${resId}" style="font-size:0.7rem;padding:4px 8px;">Tylko tę</button>` : `<button class="my-res-confirm-btn tr-btn-primary" data-res-id="${resId}" style="padding:4px 10px;font-size:0.72rem;background:var(--tc-hot);">Tak, anuluj</button>`;
+    row.insertAdjacentHTML('beforeend', `<div class="my-res-inline-confirm" data-confirm-id="${resId}"><span class="my-res-inline-confirm__label">${sid ? 'Anulować:' : 'Na pewno?'}</span>${seriesBtn}<button class="my-res-undo-btn rv-action-ghost" data-res-id="${resId}" style="padding:4px 8px;font-size:0.7rem;">Cofnij</button></div>`);
     return;
   }
 
-  // ── "Cofnij" → wróć do normalnego stanu ──────────────────────────────
-  if (btn.classList.contains('my-res-undo-btn')) {
-    resetCancelState(resId);
-    cancelConfirmId = null;
-    return;
-  }
+  if (btn.classList.contains('my-res-undo-btn')) { resetCancelState(resId); cancelConfirmId = null; return; }
 
-  // ── "Tylko tę / Tak, anuluj" → DELETE pojedynczej rezerwacji ─────────
   if (btn.classList.contains('my-res-confirm-btn')) {
-    btn.disabled = true;
-    btn.textContent = 'Anulowanie…';
-
+    btn.disabled = true; btn.textContent = '…';
     try {
-      const res = await fetch(`/api/courts/reservations/${resId}/`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'X-CSRFToken': getCsrf() },
-      });
-
-      if (res.ok || res.status === 204) {
-        cancelConfirmId = null;
-        showToast('Rezerwacja została anulowana.', 'success');
-        await Promise.all([reloadMyReservations(), loadTimeline()]);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.detail || `Nie udało się anulować (błąd ${res.status}).`, 'error');
-        resetCancelState(resId);
-        cancelConfirmId = null;
-      }
-    } catch {
-      showToast('Brak połączenia z serwerem. Spróbuj ponownie.', 'error');
-      resetCancelState(resId);
-      cancelConfirmId = null;
-    }
+      const res = await fetch(`/api/courts/reservations/${resId}/`, { method: 'DELETE', credentials: 'include', headers: { 'X-CSRFToken': getCsrf() } });
+      if (res.ok || res.status === 204) { cancelConfirmId = null; showToast('Rezerwacja anulowana.', 'success'); await Promise.all([reloadMyReservations(), loadTimeline()]); }
+      else { const d = await res.json().catch(() => ({})); showToast(d.detail || 'Błąd.', 'error'); resetCancelState(resId); cancelConfirmId = null; }
+    } catch { showToast('Brak połączenia.', 'error'); resetCancelState(resId); cancelConfirmId = null; }
   }
 
-  // ── "Anuluj całą serię" → DELETE przyszłych rezerwacji serii ─────────
   if (btn.classList.contains('my-res-confirm-series-btn')) {
     const seriesId = btn.dataset.seriesId;
-    btn.disabled = true;
-    btn.textContent = 'Anulowanie serii…';
-
+    btn.disabled = true; btn.textContent = '…';
     try {
-      const res = await fetch(`/api/courts/series/${seriesId}/`, {
-        method: 'DELETE',
-        credentials: 'include',
-        headers: { 'X-CSRFToken': getCsrf() },
-      });
-
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        cancelConfirmId = null;
-        showToast(`Anulowano ${data.cancelled ?? ''} przyszłych rezerwacji serii.`, 'success');
-        await Promise.all([reloadMyReservations(), loadTimeline()]);
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.detail || `Nie udało się anulować serii (błąd ${res.status}).`, 'error');
-        resetCancelState(resId);
-        cancelConfirmId = null;
-      }
-    } catch {
-      showToast('Brak połączenia z serwerem. Spróbuj ponownie.', 'error');
-      resetCancelState(resId);
-      cancelConfirmId = null;
-    }
+      const res = await fetch(`/api/courts/series/${seriesId}/`, { method: 'DELETE', credentials: 'include', headers: { 'X-CSRFToken': getCsrf() } });
+      if (res.ok) { const d = await res.json().catch(() => ({})); cancelConfirmId = null; showToast(`Anulowano ${d.cancelled ?? ''} rezerwacji.`, 'success'); await Promise.all([reloadMyReservations(), loadTimeline()]); }
+      else { showToast('Błąd.', 'error'); resetCancelState(resId); cancelConfirmId = null; }
+    } catch { showToast('Brak połączenia.', 'error'); resetCancelState(resId); cancelConfirmId = null; }
   }
 });
 
 function resetCancelState(resId) {
-  const card = document.querySelector(`[data-res-id="${resId}"]`);
-  if (!card) return;
-  const right = card.querySelector('.my-res-card__right');
-  right.querySelector('.my-res-inline-confirm')?.remove();
-  right.querySelectorAll('.tc-badge, .my-res-cancel-btn').forEach(el => el.style.display = '');
+  const row = document.querySelector(`.rv-res-row[data-res-id="${resId}"]`);
+  if (!row) return;
+  row.querySelector('.my-res-inline-confirm')?.remove();
+  row.querySelectorAll('.rv-badge, .rv-cancel-btn').forEach(el => el.style.display = '');
 }
 
-// ── Owner: zatwierdzanie / odrzucanie rezerwacji ───────────────────────────
-
+// ── Owner approve/reject ────────────────────────────────────────────────────
 const ownerList = document.getElementById('owner-pending-list');
-
 if (ownerList) {
   ownerList.addEventListener('click', async e => {
     const btn = e.target.closest('.owner-approve-btn, .owner-reject-btn');
     if (!btn) return;
-
-    const resId  = parseInt(btn.dataset.resId, 10);
+    const resId = parseInt(btn.dataset.resId, 10);
     const action = btn.classList.contains('owner-approve-btn') ? 'approve' : 'reject';
-    const row    = ownerList.querySelector(`[data-res-id="${resId}"]`);
-
-    // Zablokuj oba przyciski w wierszu
+    const row = ownerList.querySelector(`[data-res-id="${resId}"]`);
     row?.querySelectorAll('button').forEach(b => { b.disabled = true; });
     btn.textContent = action === 'approve' ? 'Zatwierdzam…' : 'Odrzucam…';
-
     try {
-      const res = await fetch(`/api/courts/reservations/${resId}/status/`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCsrf(),
-        },
-        body: JSON.stringify({ action }),
-      });
-
-      if (res.ok) {
-        const label = action === 'approve' ? 'Rezerwacja zatwierdzona.' : 'Rezerwacja odrzucona.';
-        showToast(label, action === 'approve' ? 'success' : 'warning');
-        // Usuń wiersz z listy
-        row?.remove();
-        // Aktualizuj licznik badge
-        updateOwnerCount();
-        // Odśwież timeline żeby zwolniony slot był widoczny (przy odrzuceniu)
-        await loadTimeline();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.detail || `Błąd ${res.status}.`, 'error');
-        row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
-        btn.textContent = action === 'approve' ? 'Zatwierdź' : 'Odrzuć';
-      }
-    } catch {
-      showToast('Brak połączenia z serwerem.', 'error');
-      row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
-      btn.textContent = action === 'approve' ? 'Zatwierdź' : 'Odrzuć';
-    }
+      const res = await fetch(`/api/courts/reservations/${resId}/status/`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() }, body: JSON.stringify({ action }) });
+      if (res.ok) { showToast(action === 'approve' ? 'Zatwierdzona.' : 'Odrzucona.', action === 'approve' ? 'success' : 'warning'); row?.remove(); updateOwnerCount(); await loadTimeline(); }
+      else { showToast('Błąd.', 'error'); row?.querySelectorAll('button').forEach(b => { b.disabled = false; }); }
+    } catch { showToast('Brak połączenia.', 'error'); row?.querySelectorAll('button').forEach(b => { b.disabled = false; }); }
   });
 }
 
 function updateOwnerCount() {
-  const rows  = ownerList?.querySelectorAll('.owner-res-row') ?? [];
-  const count = rows.length;
+  const rows = ownerList?.querySelectorAll('.rv-manager-row') ?? [];
   const badge = document.getElementById('owner-pending-count');
-  if (!badge) return;
-
-  if (count === 0) {
-    badge.textContent = 'Brak oczekujących';
-    // Pokaż empty state
-    const list = ownerList?.querySelector('.owner-res-list');
-    if (list) {
-      list.innerHTML = `
-        <div class="owner-empty">
-          <span aria-hidden="true">✓</span>
-          Wszystkie rezerwacje są obsłużone.
-        </div>`;
-    }
-  } else {
-    badge.textContent = `${count} oczekuje`;
-  }
+  if (badge) badge.textContent = rows.length > 0 ? `${rows.length} oczekuje` : 'Brak';
+  if (rows.length === 0) { const ol = ownerList?.querySelector('.owner-res-list'); if (ol) ol.innerHTML = '<div class="rv-empty-row">Wszystkie obsłużone.</div>'; }
 }
 
-// ── Grid render ────────────────────────────────────────────────────────────
+// ── Grid render (horizontal: courts = rows, hours = columns) ────────────────
 
 function renderGrid(data) {
   const courts = data.courts;
   if (!courts || courts.length === 0) { showState('empty'); return; }
 
-  calGrid.style.setProperty('--courts', courts.length);
+  const cols = HOURS.length;
+  const colTemplate = `120px repeat(${cols}, minmax(58px, 1fr))`;
 
-  const html = `
-    <div class="calendar-header">
-      <div class="calendar-time-col"></div>
-      ${courts.map(c => `<div class="calendar-court-header">${c.name}</div>`).join('')}
-    </div>
-    <div class="calendar-body">
-      <div class="calendar-time-col">
-        ${Array.from({length: GRID_END - GRID_START}, (_, i) => {
-          const h = GRID_START + i;
-          return `<div class="calendar-hour-label" style="height:${SLOT_PX * 2}px;">${String(h).padStart(2,'0')}:00</div>`;
-        }).join('')}
-      </div>
-      ${courts.map(court => {
-        const slots = court.slots;
+  // Update stat cards
+  const freeEl = document.getElementById('rv-free-slots');
+  const freeSub = document.getElementById('rv-free-slots-sub');
+  const courtsEl = document.getElementById('rv-courts-count');
+  const courtsSub = document.getElementById('rv-courts-sub');
 
-        // Buduj bloki ciągłych rezerwacji
-        const blocks = [];
-        let cur = null;
-        for (let i = 0; i < slots.length; i++) {
-          const s    = slots[i];
-          const type = s.is_mine ? 'own' : (s.status !== 'FREE' ? 'other' : 'free');
-          if (cur && cur.type === type && cur.type !== 'free') {
-            cur.count++;
-          } else {
-            if (cur && cur.type !== 'free') blocks.push(cur);
-            cur = { type, startIdx: i, count: 1, time: s.time };
-          }
+  let totalFree = 0, totalSlots = 0;
+  courts.forEach(c => {
+    c.slots.forEach(s => { totalSlots++; if (s.status === 'FREE' && !s.is_mine) totalFree++; });
+  });
+  if (freeEl) freeEl.textContent = String(totalFree);
+  if (freeSub) freeSub.textContent = `z ${totalSlots} dostępnych`;
+  if (courtsEl) courtsEl.textContent = String(courts.length);
+  if (courtsSub) {
+    // Count by surface if available
+    courtsSub.textContent = `dostępne korty`;
+  }
+
+  // Build hour header
+  let html = `<div class="rv-hour-header" style="display:grid;grid-template-columns:${colTemplate};">`;
+  html += `<div class="rv-hour-header__court">KORT</div>`;
+  HOURS.forEach(h => { html += `<div class="rv-hour-header__label">${h}</div>`; });
+  html += `</div>`;
+
+  // Build court rows
+  const nowForSlots = new Date();
+  const isToday = currentDate === todayIso;
+
+  courts.forEach(court => {
+    html += `<div class="rv-court-row" style="display:grid;grid-template-columns:${colTemplate};">`;
+    html += `<div class="rv-court-label"><div class="rv-court-label__name">${court.name}</div><div class="rv-court-label__surface">${court.surface ?? ''}</div></div>`;
+
+    // Slots: court.slots is an array of 30-min slots. Group consecutive pairs into 1h visual cells for HOURS.
+    // Each HOUR maps to 2 × 30-min slots. Show the merged state.
+    HOURS.forEach((h, hi) => {
+      const idx1 = hi * 2;     // first 30-min slot
+      const idx2 = hi * 2 + 1; // second 30-min slot
+      const s1 = court.slots[idx1];
+      const s2 = court.slots[idx2];
+
+      if (!s1) { html += `<div class="rv-slot rv-slot--past"></div>`; return; }
+
+      // Determine state per slot
+      function slotState(s) {
+        if (!s) return 'past';
+        if (s.is_mine) return 'mine';
+        if (s.status !== 'FREE') return 'taken';
+        // Check if past
+        if (isToday) {
+          const [sh, sm] = s.time.split(':').map(Number);
+          const slotStart = new Date(todayIso + 'T00:00:00');
+          slotStart.setHours(sh, sm, 0, 0);
+          if (slotStart <= nowForSlots) return 'past';
         }
-        if (cur && cur.type !== 'free') blocks.push(cur);
+        return 'free';
+      }
 
-        // Linie tła + klikalne wolne sloty
-        const nowForSlots   = new Date();
-        const isToday       = currentDate === todayIso;
-        const lines = Array.from({length: SLOT_COUNT}, (_, i) => {
-          const isHour = i % 2 === 0;
-          const slot   = slots[i];
-          const isFree = slot && slot.status === 'FREE';
-          if (isFree) {
-            const endTime = slotEnd(slot.time);
-            // Na dzisiaj — zablokuj sloty które już minęły
-            if (isToday) {
-              const [sh, sm] = slot.time.split(':').map(Number);
-              const slotStart = new Date(todayIso + 'T00:00:00');
-              slotStart.setHours(sh, sm, 0, 0);
-              if (slotStart <= nowForSlots) {
-                return `<div class="calendar-slot-line cal-slot-past ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}" style="height:${SLOT_PX}px;" aria-hidden="true"></div>`;
-              }
-            }
-            return `<div class="calendar-slot-line cal-slot-free ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}"
-              style="height:${SLOT_PX}px;"
-              data-court-id="${court.id}"
-              data-court-name="${court.name}"
-              data-start="${slot.time}"
-              data-end="${endTime}"
-              role="button" tabindex="0"
-              aria-label="Zarezerwuj ${court.name} ${slot.time}–${endTime}">
-            </div>`;
-          }
-          return `<div class="calendar-slot-line ${isHour ? 'calendar-slot-line--hour' : 'calendar-slot-line--half'}" style="height:${SLOT_PX}px;" aria-hidden="true"></div>`;
-        }).join('');
+      const st1 = slotState(s1);
+      const st2 = s2 ? slotState(s2) : 'past';
 
-        // Bloki zajętych rezerwacji
-        const resHtml = blocks.map(b => {
-          const top    = b.startIdx * SLOT_PX;
-          const height = b.count * SLOT_PX - 2;
-          const endH   = GRID_START + Math.floor((b.startIdx + b.count) / 2);
-          const endM   = ((b.startIdx + b.count) % 2) * 30;
-          const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
-          const label  = b.type === 'own' ? 'Twoja rezerwacja' : 'Zarezerwowane';
-          return `<div class="cal-res cal-res--${b.type}" style="top:${top}px; height:${height}px;">
-            <div class="cal-res__time">${b.time}–${endStr}</div>
-            <div class="cal-res__label">${label}</div>
-          </div>`;
-        }).join('');
+      // If both halves are same state, show one cell
+      // If different, still show one cell with dominant state
+      let st = st1;
+      if (st1 === 'mine' || st2 === 'mine') st = 'mine';
+      else if (st1 === 'taken' || st2 === 'taken') st = 'taken';
+      else if (st1 === 'past' && st2 === 'past') st = 'past';
+      else if (st1 === 'free' || st2 === 'free') st = 'free';
 
-        return `<div class="calendar-court-col" style="height:${GRID_H_PX}px;">${lines}${resHtml}</div>`;
-      }).join('')}
-    </div>
-  `;
+      const label = st === 'mine' ? 'TY' : st === 'taken' ? '×' : st === 'free' ? '+' : '';
+
+      if (st === 'free') {
+        const startTime = s1.time;
+        const endTime = s2 ? slotEnd(s2.time) : slotEnd(s1.time);
+        html += `<div class="rv-slot rv-slot--free" data-court-id="${court.id}" data-court-name="${court.name}" data-start="${startTime}" data-end="${endTime}" role="button" tabindex="0" title="Wolne — kliknij aby zarezerwować">${label}</div>`;
+      } else if (st === 'mine') {
+        const startTime = s1.time;
+        const endTime = s2 ? slotEnd(s2.time) : slotEnd(s1.time);
+        html += `<div class="rv-slot rv-slot--mine" data-court-id="${court.id}" data-court-name="${court.name}" data-start="${startTime}" data-end="${endTime}" title="Twoja rezerwacja">${label}</div>`;
+      } else {
+        html += `<div class="rv-slot rv-slot--${st}" title="${st === 'taken' ? 'Zajęty' : 'Minione'}">${label}</div>`;
+      }
+    });
+    html += `</div>`;
+  });
 
   calGrid.innerHTML = html;
   showState('grid');
-  // Odśwież hint scrolla po wyrenderowaniu gridu
-  requestAnimationFrame(() => window.__calScrollHintUpdate?.());
 
-  // ── Drag-to-select na wolnych slotach ─────────────────────────────────────
-  // Stan drag
-  let dragCourtId   = null;
-  let dragCourtName = null;
-  let dragStartEl   = null;
-  let dragEndEl     = null;
-  let isDragging    = false;
-
-  // Wszystkie wolne sloty w danej kolumnie kortu (po court-id)
-  function freeSlotsByCourt(courtId) {
-    return [...calGrid.querySelectorAll(`.cal-slot-free[data-court-id="${courtId}"]`)];
-  }
-
-  // Podświetl zakres slotów od startEl do endEl w obrębie jednego kortu
-  function highlightRange(courtId, startEl, endEl) {
-    const all     = freeSlotsByCourt(courtId);
-    const startI  = all.indexOf(startEl);
-    const endI    = all.indexOf(endEl);
-    if (startI === -1 || endI === -1) return;
-    const lo = Math.min(startI, endI);
-    const hi = Math.max(startI, endI);
-
-    // Sprawdź czy wszystkie sloty w zakresie są FREE (brak przeszkód między nimi)
-    // — sloty zajęte nie mają klasy cal-slot-free więc przeskok oznacza blok zajęty
-    const colEl  = startEl.closest('.calendar-court-col');
-    const allInCol = [...colEl.querySelectorAll('.calendar-slot-line')];
-    const startGlobal = allInCol.indexOf(startEl);
-    const endGlobal   = allInCol.indexOf(endEl);
-    const loG = Math.min(startGlobal, endGlobal);
-    const hiG = Math.max(startGlobal, endGlobal);
-    let   hasBlocked = false;
-    for (let i = loG; i <= hiG; i++) {
-      if (!allInCol[i].classList.contains('cal-slot-free')) { hasBlocked = true; break; }
-    }
-
-    // Czyść poprzednie podświetlenie
-    all.forEach(el => el.classList.remove('cal-slot-drag'));
-
-    if (!hasBlocked) {
-      for (let i = lo; i <= hi; i++) all[i].classList.add('cal-slot-drag');
-      return !hasBlocked;
-    }
-    return false;
-  }
-
-  function clearHighlight() {
-    calGrid.querySelectorAll('.cal-slot-drag').forEach(el => el.classList.remove('cal-slot-drag'));
-  }
-
-  // Otwórz popup z zakresem od startEl do endEl
-  function openFromDrag(courtId, courtName, startEl, endEl) {
-    const colEl      = startEl.closest('.calendar-court-col');
-    const allInCol   = [...colEl.querySelectorAll('.calendar-slot-line')];
-    const startGlobal = allInCol.indexOf(startEl);
-    const endGlobal   = allInCol.indexOf(endEl);
-    const loEl = startGlobal <= endGlobal ? startEl : endEl;
-    const hiEl = startGlobal <= endGlobal ? endEl   : startEl;
-
-    const startTime = loEl.dataset.start;
-    // endTime = hiEl.dataset.end (tj. +30 min od hiEl.dataset.start)
-    const endTime   = hiEl.dataset.end;
-
-    openPopup({ courtId: parseInt(courtId, 10), courtName, date: currentDate, startTime, endTime });
-  }
-
-  // Event delegation na calGrid
-  calGrid.addEventListener('mousedown', e => {
-    const el = e.target.closest('.cal-slot-free');
-    if (!el) return;
-    e.preventDefault(); // zapobiegaj zaznaczaniu tekstu
-    isDragging    = true;
-    dragCourtId   = el.dataset.courtId;
-    dragCourtName = el.dataset.courtName;
-    dragStartEl   = el;
-    dragEndEl     = el;
-    el.classList.add('cal-slot-drag');
-  });
-
-  calGrid.addEventListener('mouseover', e => {
-    if (!isDragging) return;
-    const el = e.target.closest('.cal-slot-free');
-    if (!el || el.dataset.courtId !== dragCourtId) return;
-    dragEndEl = el;
-    highlightRange(dragCourtId, dragStartEl, dragEndEl);
-  });
-
-  document.addEventListener('mouseup', e => {
-    if (!isDragging) return;
-    isDragging = false;
-
-    const el = e.target.closest?.('.cal-slot-free');
-    // Jeśli mouseup na tym samym slocie co start — prosty klik (30 min)
-    if (dragStartEl === dragEndEl) {
-      clearHighlight();
+  // Click handlers for free slots
+  calGrid.querySelectorAll('.rv-slot--free').forEach(el => {
+    el.addEventListener('click', () => {
       openPopup({
-        courtId:   parseInt(dragCourtId, 10),
-        courtName: dragCourtName,
-        date:      currentDate,
-        startTime: dragStartEl.dataset.start,
-        endTime:   dragStartEl.dataset.end,
+        courtId: parseInt(el.dataset.courtId, 10),
+        courtName: el.dataset.courtName,
+        date: currentDate,
+        startTime: el.dataset.start,
+        endTime: el.dataset.end,
       });
-    } else {
-      // Drag — sprawdź czy zakres jest spójny (brak zajętych slotów)
-      const ok = highlightRange(dragCourtId, dragStartEl, dragEndEl);
-      clearHighlight();
-      if (ok !== false) {
-        openFromDrag(dragCourtId, dragCourtName, dragStartEl, dragEndEl);
-      }
-      // jeśli ok === false (był zajęty slot w środku) — nie otwieraj popupu
-    }
-
-    dragStartEl = dragEndEl = dragCourtId = dragCourtName = null;
-  });
-
-  // Keyboard: Enter/Space na slocie = pojedynczy 30-min slot
-  calGrid.querySelectorAll('.cal-slot-free').forEach(el => {
+    });
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        openPopup({
-          courtId:   parseInt(el.dataset.courtId, 10),
-          courtName: el.dataset.courtName,
-          date:      currentDate,
-          startTime: el.dataset.start,
-          endTime:   el.dataset.end,
-        });
+        el.click();
       }
     });
   });
 }
 
-// ── Timeline load ──────────────────────────────────────────────────────────
-
+// ── Timeline load ────────────────────────────────────────────────────────────
 async function loadTimeline() {
   if (!facilityId) { showState('empty'); return; }
   showState('loading');
-  dateLabel.textContent = fmtDateLabel(currentDate);
-
   try {
-    const res = await fetch(`/api/courts/timeline/${facilityId}/?date=${currentDate}`, {
-      credentials: 'include',
-    });
+    const res = await fetch(`/api/courts/timeline/${facilityId}/?date=${currentDate}`, { credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     renderGrid(data);
@@ -1785,14 +1089,25 @@ async function loadTimeline() {
   }
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────
+// ── Day picker ──────────────────────────────────────────────────────────────
+document.querySelectorAll('#rv-day-picker .rv-day').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#rv-day-picker .rv-day').forEach(b => b.classList.remove('rv-day--active'));
+    btn.classList.add('rv-day--active');
+    currentDate = btn.dataset.date;
+    loadTimeline();
+  });
+});
 
+// "Nowa rezerwacja" button scrolls to grid and selects today
+document.getElementById('rv-new-res-btn')?.addEventListener('click', () => {
+  // Just scroll to grid top
+  document.querySelector('.rv-grid-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
   showState('loading');
-  if (dateInput) dateInput.value = currentDate;
-  if (todayBtn) todayBtn.style.display = 'none'; // startujemy od dziś — zbędny
-  dateLabel.textContent = fmtDateLabel(currentDate);
-
   try {
     const res = await fetch('/api/courts/facilities/', { credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1801,65 +1116,10 @@ async function init() {
     facilityId = facilities[0].id;
     await loadTimeline();
   } catch (e) {
-    errorMsg.textContent = `Nie udało się załadować listy obiektów. (${e.message})`;
+    errorMsg.textContent = `Nie udało się załadować obiektów. (${e.message})`;
     showState('error');
   }
 }
 
-// ── Centralna zmiana daty — synchronizuje picker + etykietę + fetch ───────────
-
-const todayBtn  = document.getElementById('cal-today');
-const dateBtnEl = document.getElementById('cal-date-btn');
-
-// Blokada przeszłych dat — min=dziś na inpucie
-if (dateInput) dateInput.min = todayIso;
-
-async function setDate(iso) {
-  // Odrzuć daty z przeszłości (zabezpieczenie np. przy prev < dziś)
-  if (iso < todayIso) iso = todayIso;
-  currentDate = iso;
-  if (dateInput) dateInput.value = iso;
-  if (todayBtn) todayBtn.style.display = (iso === todayIso) ? 'none' : '';
-  await loadTimeline();
-}
-
-// Prev: nie cofaj poniżej dzisiaj
-document.getElementById('cal-prev')?.addEventListener('click', () => {
-  const prev = addDays(currentDate, -1);
-  if (prev >= todayIso) setDate(prev);
-});
-document.getElementById('cal-next')?.addEventListener('click', () => setDate(addDays(currentDate, 1)));
-todayBtn?.addEventListener('click', () => setDate(todayIso));
-
-// Klik w przycisk daty → showPicker() na ukrytym inpucie
-dateBtnEl?.addEventListener('click', () => {
-  if (!dateInput) return;
-  try {
-    dateInput.showPicker();
-  } catch {
-    // Fallback dla starszych przeglądarek — klik bezpośredni
-    dateInput.click();
-  }
-});
-
-dateInput?.addEventListener('change', () => {
-  if (dateInput.value) setDate(dateInput.value);
-});
-
 init();
-
-// ── Scroll shadow — wizualny hint że grid można przewijać ─────────────────
-(function () {
-  const outer = calWrap?.closest('.calendar-wrap-outer');
-  if (!outer || !calWrap) return;
-
-  function updateScrollHint() {
-    const canScroll = calWrap.scrollWidth > calWrap.clientWidth;
-    const atEnd     = calWrap.scrollLeft + calWrap.clientWidth >= calWrap.scrollWidth - 4;
-    outer.classList.toggle('is-scrollable', canScroll && !atEnd);
-  }
-
-  calWrap.addEventListener('scroll', updateScrollHint, { passive: true });
-  window.__calScrollHintUpdate = updateScrollHint;
-})();
 </script>
