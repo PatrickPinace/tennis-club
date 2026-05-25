@@ -78,6 +78,7 @@ function formatDate(iso: string): string {
 
 type MatchRow = {
   id: number | string;
+  matchIdNum: number | null;
   result: 'win' | 'loss' | 'draw';
   resultLabel: string;
   resultLetter: string;
@@ -126,12 +127,26 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
     (m.user === 'user-win' && m.win === 'p1') ||
     (m.user === 'user-loss' && m.win === 'p2');
 
-  const typeLabel = m.description
-    ? m.description.charAt(0) + m.description.slice(1).toLowerCase()
-    : 'Mecz';
+  const isTournament = m.is_tournament ?? false;
+  const tournamentId = m.tournament_id ?? null;
+
+  // Dla turniejowych: wyciągnij nazwę turnieju z description ("Turniej: NazwaTurnieju" → "Turniej: NazwaTurnieju")
+  // Dla towarzyskich: "TOWARZYSKIE" → "Towarzyski"
+  let typeLabel: string;
+  if (isTournament && m.description && m.description.startsWith('Turniej:')) {
+    typeLabel = m.description; // już sformatowane: "Turniej: Liga Klubowa"
+  } else if (isTournament) {
+    typeLabel = 'Turniejowy';
+  } else {
+    typeLabel = 'Towarzyski';
+  }
+
+  // Href: turniejowe → strona turnieju, towarzyskie → strona meczu (tylko numeryczne id)
+  const matchIdNum = typeof m.id === 'number' ? m.id : null;
 
   return {
     id: m.id,
+    matchIdNum,
     result: r.result,
     resultLabel: r.label,
     resultLetter: r.letter,
@@ -143,18 +158,18 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
     format: m.match_double ? 'DBL' : 'SNG',
     formatLabel: m.match_double ? 'Debel' : 'Singiel',
     typeLabel,
-    isTournament: m.is_tournament ?? false,
-    tournamentId: m.tournament_id ?? null,
+    isTournament,
+    tournamentId,
   };
 }
 
 // ── Fallback demo — gdy API niedostępne lub niezalogowany ───────────────────
 const demoMatches: MatchRow[] = [
-  { id: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',       opponentInitials: 'TB', date: '21 paź 2026', score: '6:3, 7:5',       setsScore: '2:0', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski', isTournament: false, tournamentId: null },
-  { id: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',   opponentInitials: 'AK', date: '15 paź 2026', score: '4:6, 5:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Turniejowy', isTournament: true,  tournamentId: null },
-  { id: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',      opponentInitials: 'RN', date: '8 paź 2026',  score: '6:1, 6:4',       setsScore: '2:0', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Turniejowy', isTournament: true,  tournamentId: null },
-  { id: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski', opponentInitials: 'PW', date: '1 paź 2026',  score: '7:5, 4:6, 10:8', setsScore: '2:1', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski', isTournament: false, tournamentId: null },
-  { id: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',     opponentInitials: 'MW', date: '18 wrz 2026', score: '3:6, 6:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski', isTournament: false, tournamentId: null },
+  { id: 1, matchIdNum: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',       opponentInitials: 'TB', date: '21 paź 2026', score: '6:3, 7:5',       setsScore: '2:0', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
+  { id: 2, matchIdNum: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',   opponentInitials: 'AK', date: '15 paź 2026', score: '4:6, 5:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
+  { id: 3, matchIdNum: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',      opponentInitials: 'RN', date: '8 paź 2026',  score: '6:1, 6:4',       setsScore: '2:0', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
+  { id: 4, matchIdNum: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski', opponentInitials: 'PW', date: '1 paź 2026',  score: '7:5, 4:6, 10:8', setsScore: '2:1', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
+  { id: 5, matchIdNum: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',     opponentInitials: 'MW', date: '18 wrz 2026', score: '3:6, 6:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
 ];
 
 const matches: MatchRow[] = isLive ? rawMatches.map(mapMatch) : demoMatches;
@@ -175,7 +190,7 @@ if (matches.length > 0) {
     else break;
   }
 }
-const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'L' : 'D';
+const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : 'R';
 ---
 
 <AppLayout
@@ -272,7 +287,7 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'L' : '
             class="m-row"
             data-result={m.result}
             data-format={m.format}
-            href={m.isTournament && m.tournamentId ? url(`/tournaments/${m.tournamentId}`) : url(`/matches/${m.id}`)}
+            href={m.isTournament && m.tournamentId ? url(`/tournaments/${m.tournamentId}`) : m.matchIdNum ? url(`/matches/${m.matchIdNum}`) : '#'}
           >
             <div class={`m-result-badge m-result-badge--${m.result}`}>{m.resultLetter}</div>
             <div class="m-opponent">

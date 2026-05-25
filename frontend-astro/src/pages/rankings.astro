@@ -374,9 +374,10 @@ const podiumNumbers = [2, 1, 3];
   });
 </script>
 
-<style>
+<style is:global>
   /* ══════════════════════════════════════════════════════════════════════════
      RANKINGS — layout wg prototypu astro4.jpeg
+     is:global wymagane bo JS podmienia innerHTML (buildRow/buildPodiumCard)
      ══════════════════════════════════════════════════════════════════════════ */
 
   /* ── Moja pozycja (zielona karta - gdy zalogowany) ─────────────────────── */

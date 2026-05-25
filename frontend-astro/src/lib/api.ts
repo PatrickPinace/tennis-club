@@ -558,7 +558,8 @@ export async function getUserProfile(
 export async function getMatchHistory(
   sessionCookie?: string
 ): Promise<MatchHistoryEntry[]> {
-  const data = await apiFetch<MatchHistoryEntry[]>('/api/matches/history/', { sessionCookie });
+  // date_range=all wyłącza limit_matches=15 i zwraca pełną historię
+  const data = await apiFetch<MatchHistoryEntry[]>('/api/matches/history/?date_range=all', { sessionCookie });
   return data ?? [];
 }
 

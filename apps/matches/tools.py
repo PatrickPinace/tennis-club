@@ -615,8 +615,9 @@ def prepare_filters(request):
     filters = {}
     if match_double in ['1', 'true']:
         filters["match_double"] = 1
-    else:
+    elif match_double in ['0', 'false']:
         filters["match_double"] = 0
+    # brak parametru = brak filtra (pokaż singiel i debel)
 
     if opponent_id:
         filters["friend_id"] = int(opponent_id)

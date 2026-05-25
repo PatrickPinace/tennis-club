@@ -113,7 +113,9 @@ def get_tournament_matches_as_friendly(user, filters=None):
             'p1_set3': match.set3_p1_score or 0, 'p2_set3': match.set3_p2_score or 0,
             'match_double': is_double,
             'description': f"Turniej: {match.tournament.name}",
-            'match_date': match.scheduled_time.date() if match.scheduled_time else match.tournament.start_date.date(),
+            'match_date': (match.scheduled_time.date() if match.scheduled_time
+                           else match.tournament.start_date.date() if match.tournament.start_date
+                           else timezone.now().date()),
             'match_id': match.id, # Dodanie osobnego ID do URL
             'tournament_id': match.tournament.id, # Dodanie ID turnieju do URL
             'is_tournament': True, # Dodatkowa flaga do identyfikacji w szablonach

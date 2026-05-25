@@ -231,7 +231,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
       <span class="tr-th">TYP</span>
       <span class="tr-th tr-th--r">UCZESTNICY</span>
       <span class="tr-th">STATUS</span>
-      <span class="tr-th tr-th--r">AKCJA</span>
     </div>
 
     <div class="tr-tbody" id="tr-tbody">
@@ -243,8 +242,9 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
           const joined = myTournamentIds.has(t.id);
           const fillPct = t.participant_count > 0 ? Math.min(100, Math.round(t.participant_count / Math.max(t.participant_count, 8) * 100)) : 0;
           return (
-            <div
+            <a
               class="tr-row"
+              href={url(`/tournaments/${t.id}`)}
               data-status={t.status}
               data-joined={joined ? 'true' : 'false'}
             >
@@ -270,16 +270,7 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
                 {(sm.color === 'accent' || sm.color === 'win') && <span class="tr-row__status-dot"></span>}
                 {sm.label}
               </div>
-              <div class="tr-row__action">
-                {joined ? (
-                  <a href={url(`/tournaments/${t.id}`)} class="tr-action-link">Otwórz →</a>
-                ) : t.status === 'REG' ? (
-                  <a href={url(`/tournaments/${t.id}`)} class="tr-action-link tr-action-link--outline">Dołącz</a>
-                ) : (
-                  <a href={url(`/tournaments/${t.id}`)} class="tr-action-link">Szczegóły</a>
-                )}
-              </div>
-            </div>
+            </a>
           );
         })
       )}
@@ -664,7 +655,7 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   /* ── Table head ────────────────────────────────────────────────────────── */
   .tr-thead {
     display: grid;
-    grid-template-columns: 36px 1fr 180px 130px 110px 100px;
+    grid-template-columns: 36px 1fr 160px 120px 110px;
     gap: 12px;
     padding: 8px 20px;
     font-size: 0.6rem;
@@ -680,8 +671,10 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   /* ── Table rows ────────────────────────────────────────────────────────── */
   .tr-row {
     display: grid;
-    grid-template-columns: 36px 1fr 180px 130px 110px 100px;
+    grid-template-columns: 36px 1fr 160px 120px 110px;
     gap: 12px;
+    text-decoration: none;
+    color: inherit;
     padding: 14px 20px;
     align-items: center;
     border-bottom: 1px solid var(--tc-card-border-soft);
@@ -803,30 +796,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     box-shadow: 0 0 4px currentColor;
   }
 
-  /* Action */
-  .tr-row__action { text-align: right; }
-
-  .tr-action-link {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: var(--tc-muted);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-
-  .tr-action-link:hover { color: var(--tc-accent); }
-
-  .tr-action-link--outline {
-    padding: 4px 12px;
-    border: 1px solid var(--tc-card-border);
-    border-radius: 6px;
-    color: var(--tc-ink);
-  }
-
-  .tr-action-link--outline:hover {
-    border-color: var(--tc-accent-border);
-    color: var(--tc-accent);
-  }
 
   /* ── Empty state ───────────────────────────────────────────────────────── */
   .tr-empty {
@@ -884,7 +853,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     .tr-seg { padding: 3px 8px; font-size: 0.68rem; }
 
     .tr-row__status { display: none; }
-    .tr-row__action { display: none; }
     .tr-row {
       grid-template-columns: 1fr;
     }

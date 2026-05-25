@@ -96,10 +96,12 @@ const recentActivity = matchHistoryRaw.slice(0, 3).map(m => {
   const result = isWin ? 'win' : isDraw ? 'neutral' : 'loss';
   const label  = isWin ? 'Wygrana' : isDraw ? 'Remis' : 'Porażka';
   const fmt    = m.match_double ? 'Debel' : 'Singiel';
+  const score  = matchScore(m);
   return {
     type:   'match',
     title:  `${label} vs ${matchOpponent(m)}`,
-    desc:   `${fmt} · ${matchScore(m)}`,
+    desc:   fmt,
+    score,
     time:   activityDate(m.match_date),
     result,
   };
@@ -140,14 +142,14 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     <div class="dash-card bento-last-match" data-card-id="last-match">
       <div class="lm-header">
         <div class="bento-label">OSTATNI MECZ</div>
-        <span class="lm-badge stat-card__footer" id="lm-badge"></span>
+        <span class="lm-badge" id="lm-badge"></span>
       </div>
 
       <div class="lm-body">
-        <div class="stat-card__value lm-score">—</div>
+        <div class="lm-score">—</div>
         <div class="lm-opponent">
           <div class="lm-opponent__prefix">przeciwko</div>
-          <div class="stat-card__detail lm-opponent__name">Brak danych</div>
+          <div class="lm-opponent__name">Brak danych</div>
           <div class="lm-opponent__meta" id="lm-meta"></div>
         </div>
       </div>
@@ -172,11 +174,10 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     <div class="dash-card bento-ranking" data-card-id="ranking">
       <div class="bento-label">RANKING KLUBOWY</div>
       <div class="rk-main">
-        <div class="stat-card__value rk-position">—</div>
+        <div class="rk-position">—</div>
         <div class="rk-label">miejsce</div>
       </div>
-      <div class="stat-card__detail rk-trend"></div>
-      <div class="stat-card__footer"></div>
+      <div class="rk-trend"></div>
       <div class="rk-bottom">
         <div class="rk-stat">
           <span class="rk-stat__label">PUNKTY</span>
@@ -215,9 +216,9 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         {matchesPlayed > 0 ? (
           <div class="bento-form-blocks" aria-label="Forma (ostatnie mecze)">
             {matchHistoryRaw.slice(0, 8).map(m => {
-              const r = m.user === 'user-win' ? 'W' : m.user === 'user-loss' ? 'L' : 'D';
+              const r = m.user === 'user-win' ? 'W' : m.user === 'user-loss' ? 'P' : 'R';
               return (
-                <div class={`form-block form-block--${r === 'W' ? 'win' : r === 'L' ? 'loss' : 'neutral'}`} title={r === 'W' ? 'Wygrana' : r === 'L' ? 'Porażka' : 'Remis'}>{r}</div>
+                <div class={`form-block form-block--${r === 'W' ? 'win' : r === 'P' ? 'loss' : 'neutral'}`} title={r === 'W' ? 'Wygrana' : r === 'P' ? 'Porażka' : 'Remis'}>{r}</div>
               );
             })}
           </div>
@@ -310,10 +311,10 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
       <div class="dash-card" aria-labelledby="activity-heading">
         <div class="dash-section-header">
           <h2 class="dash-section-title" id="activity-heading">Aktywność</h2>
-          <div class="activity-filters" role="group" aria-label="Filtruj aktywność">
-            <button class="activity-filter activity-filter--active" data-filter="today" type="button">Dziś</button>
-            <button class="activity-filter" data-filter="week" type="button">Tydzień</button>
-            <button class="activity-filter" data-filter="month" type="button">Miesiąc</button>
+          <div class="activity-seg" role="group" aria-label="Filtruj aktywność">
+            <button class="activity-seg__btn activity-seg__btn--active" data-filter="today" type="button">Dziś</button>
+            <button class="activity-seg__btn" data-filter="week" type="button">Tydzień</button>
+            <button class="activity-seg__btn" data-filter="month" type="button">Miesiąc</button>
           </div>
         </div>
 
@@ -335,12 +336,18 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
           <ul id="activity-feed-list" class="activity-list" role="list">
             {recentActivity.map(item => (
               <li class="activity-item">
-                <div class={`activity-item__icon activity-item__icon--${item.result}`} aria-hidden="true">
-                  <div class={`activity-dot activity-dot--${item.result}`}></div>
-                </div>
+                <div class={`activity-dot activity-dot--${item.result}`} aria-hidden="true"></div>
                 <div class="activity-item__body">
                   <div class="activity-item__title">{item.title}</div>
-                  <div class="activity-item__desc">{item.desc}</div>
+                  <div class="activity-item__desc">
+                    {item.desc}
+                    {item.score && item.score !== '—' && (
+                      <>
+                        <span class="activity-item__sep">·</span>
+                        <span class="activity-item__score">{item.score}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div class="activity-item__time">{item.time}</div>
               </li>
@@ -470,44 +477,58 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         const m = d.last_match;
         const card = document.querySelector('[data-card-id="last-match"]');
         if (card) {
-          // Sety z API — format "my:opp my:opp" oddzielone spacją
+          // Sety z API — format "gem1a:gem1b gem2a:gem2b ..." oddzielone spacją
           const sets = (m.score ?? '').split(' ').map((s: string) => s.trim()).filter(Boolean);
 
-          // Wynik setowy jako duży numer (np. "2:1")
-          const scoreEl = card.querySelector('.stat-card__value') as HTMLElement | null;
+          // Wynik setowy (ile setów wygranych) jako duży numer
+          const scoreEl = card.querySelector('.lm-score') as HTMLElement | null;
           if (scoreEl) {
             const setsWon = sets.filter((s: string) => {
               const [a, b] = s.split(':').map(Number);
               return a > b;
             }).length;
             const setsLost = sets.length - setsWon;
-            scoreEl.innerHTML = `${setsWon}<span style="color:var(--tc-faint)">:</span><span style="color:var(--tc-muted)">${setsLost}</span>`;
+            scoreEl.innerHTML = `${setsWon}<span class="lm-score__colon">:</span><span class="lm-score__loss">${setsLost}</span>`;
           }
 
-          // Badge
+          // Badge — wygrana/porażka
           const badge = document.getElementById('lm-badge');
           if (badge) {
-            badge.textContent = m.won ? '\u25CF Wygrana' : '\u25CF Pora\u017cka';
+            badge.textContent = m.won ? '● Wygrana' : '● Porażka';
             badge.style.background = m.won ? 'var(--tc-accent-soft)' : 'rgba(239,68,68,0.1)';
             badge.style.color = m.won ? 'var(--tc-accent)' : 'var(--tc-hot)';
+            badge.style.padding = '3px 10px';
+            badge.style.borderRadius = '99px';
+            badge.style.fontSize = '0.72rem';
+            badge.style.fontWeight = '700';
           }
 
           // Przeciwnik
-          const nameEl = card.querySelector('.stat-card__detail') as HTMLElement | null;
+          const nameEl = card.querySelector('.lm-opponent__name') as HTMLElement | null;
           if (nameEl) nameEl.textContent = m.opponent ?? '';
 
-          // Meta (data)
+          // Meta (data) — sformatowana czytelnie
           const metaEl = document.getElementById('lm-meta');
-          if (metaEl) metaEl.textContent = m.date ?? '';
+          if (metaEl && m.date) {
+            try {
+              const dt = new Date(m.date);
+              metaEl.textContent = dt.toLocaleDateString('pl-PL', {
+                day: 'numeric', month: 'long', year: 'numeric'
+              });
+            } catch {
+              metaEl.textContent = m.date;
+            }
+          }
 
-          // Sety (już zparsowane wyżej)
+          // Sety — gem scores z kolorami (wygrany set = accent)
           ['lm-set1', 'lm-set2', 'lm-set3'].forEach((id, i) => {
             const el = document.getElementById(id);
             if (!el) return;
             const setDiv = el.closest('.lm-set');
             if (sets[i]) {
-              const [a, b] = sets[i].split(':');
-              el.innerHTML = `<span style="font-weight:700">${a}</span> <span style="color:var(--tc-faint)">—</span> <span style="font-weight:700;color:var(--tc-muted)">${b}</span>`;
+              const [a, b] = sets[i].split(':').map(Number);
+              const myWon = a > b;
+              el.innerHTML = `<span class="${myWon ? 'lm-set__my--win' : ''}">${a}</span> <span class="lm-set__dash">—</span> <span class="lm-set__opp">${b}</span>`;
               if (setDiv) setDiv.classList.remove('lm-set--empty');
             }
           });
@@ -519,18 +540,22 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         const rk = d.ranking;
         const card = document.querySelector('[data-card-id="ranking"]');
         if (card) {
-          // Pozycja — duży numer
-          const posEl = card.querySelector('.stat-card__value') as HTMLElement | null;
+          // Pozycja — duży numer (selektor rk-position)
+          const posEl = card.querySelector('.rk-position') as HTMLElement | null;
           if (posEl) posEl.textContent = String(rk.position);
 
-          // Trend
-          const trendEl = card.querySelector('.stat-card__detail') as HTMLElement | null;
-          if (trendEl && rk.change) {
-            const up = rk.change > 0;
-            trendEl.innerHTML = `<span style="color:var(--tc-ink);font-weight:600">${up ? '\u2191' : '\u2193'} ${Math.abs(rk.change)} pozycje</span> w tym tygodniu`;
+          // Trend pod numerem: punkty i win_rate (API nie zwraca change)
+          const trendEl = card.querySelector('.rk-trend') as HTMLElement | null;
+          if (trendEl) {
+            const parts: string[] = [];
+            if (rk.matches_played !== null) parts.push(`${rk.matches_played} meczów`);
+            if (rk.matches_won !== null) parts.push(`${rk.matches_won} wygranych`);
+            if (parts.length > 0) {
+              trendEl.textContent = parts.join(' · ');
+            }
           }
 
-          // Punkty i skuteczność
+          // Punkty i skuteczność — bottom bar
           const pointsEl = document.getElementById('rk-points');
           if (pointsEl && rk.points !== null) pointsEl.textContent = String(Math.round(rk.points));
           const wrEl = document.getElementById('rk-winrate');
@@ -538,89 +563,145 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         }
       }
 
-      // ── Activity feed ─────────────────────────────────────────────
+      // ── Activity feed — z filtrowaniem po timestamp ──────────────
       if (Array.isArray(d.activity)) {
-        const emptyEl  = document.getElementById('activity-feed-empty');
-        const listEl   = document.getElementById('activity-feed-list');
-        const section  = emptyEl?.closest('[aria-labelledby="activity-heading"]') ?? listEl?.closest('[aria-labelledby="activity-heading"]');
+        const emptyEl = document.getElementById('activity-feed-empty');
+        const listEl  = document.getElementById('activity-feed-list');
+        const section = emptyEl?.closest('[aria-labelledby="activity-heading"]') ?? listEl?.closest('[aria-labelledby="activity-heading"]');
+        const footerCountEl = section?.querySelector<HTMLElement>('.activity-footer__count');
 
         function relativeTime(iso: string): string {
           try {
-            const d = new Date(iso);
-            const diff = Math.floor((Date.now() - d.getTime()) / 86400000);
-            if (diff === 0) return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+            const dt = new Date(iso);
+            const diff = Math.floor((Date.now() - dt.getTime()) / 86400000);
+            if (diff === 0) return dt.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
             if (diff === 1) return 'wczoraj';
             if (diff < 7)  return `${diff} dni temu`;
-            return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+            return dt.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
           } catch { return ''; }
         }
 
         function iconSvg(result: string): string {
           if (result === 'win' || result === 'loss') {
-            // piłka — mecz
             return `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/></svg>`;
           }
           if (result === 'tournament_join') {
-            // trofeum — turniej
             return `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>`;
           }
-          // kalendarz — rezerwacja
           return `<svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>`;
         }
 
-        if (d.activity.length === 0) {
-          // Pokaż empty state, ukryj listę SSR
-          if (listEl) listEl.style.display = 'none';
-          if (emptyEl) {
-            emptyEl.style.display = '';
-          } else if (section) {
-            // Utwórz empty state jeśli SSR go nie wyrenderował (był SSR z danymi)
+        function buildItemHtml(ev: {type:string;timestamp:string;title:string;detail:string;score?:string;href?:string;result:string}): string {
+          const dotClass = ev.result === 'win'
+            ? 'activity-dot--win'
+            : ev.result === 'loss'
+              ? 'activity-dot--loss'
+              : 'activity-dot--neutral';
+          const titleHtml = ev.href
+            ? `<a href="${ev.href}" class="activity-item__title-link">${ev.title}</a>`
+            : `<span>${ev.title}</span>`;
+          // detail + score w mono
+          const scoreHtml = ev.score
+            ? `<span class="activity-item__sep">·</span><span class="activity-item__score">${ev.score}</span>`
+            : '';
+          return `<li class="activity-item">
+            <div class="activity-dot ${dotClass}" aria-hidden="true"></div>
+            <div class="activity-item__body">
+              <div class="activity-item__title">${titleHtml}</div>
+              <div class="activity-item__desc">${ev.detail}${scoreHtml}</div>
+            </div>
+            <div class="activity-item__time">${relativeTime(ev.timestamp)}</div>
+          </li>`;
+        }
+
+        // Pobierz lub utwórz element listy
+        const getOrCreateList = () => {
+          if (listEl) return listEl;
+          const ul = document.createElement('ul');
+          ul.id = 'activity-feed-list';
+          ul.className = 'activity-list';
+          ul.setAttribute('role', 'list');
+          const footer = section?.querySelector('.activity-footer');
+          if (footer && section) section.insertBefore(ul, footer);
+          else if (emptyEl?.parentNode) emptyEl.parentNode.insertBefore(ul, emptyEl);
+          return ul;
+        };
+
+        // Funkcja renderująca dla danego okresu
+        function renderForPeriod(period: string) {
+          const now = Date.now();
+          let fromMs: number;
+          if (period === 'today') {
+            const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+            fromMs = d0.getTime();
+          } else if (period === 'week') {
+            fromMs = now - 7 * 86_400_000;
+          } else {
+            fromMs = now - 30 * 86_400_000;
+          }
+
+          const filtered = d.activity.filter(
+            (ev: {timestamp: string}) => new Date(ev.timestamp).getTime() >= fromMs
+          );
+
+          // Pobierz lub utwórz empty element (raz — potem reużywamy)
+          const getOrCreateEmpty = (): HTMLElement => {
+            const existing = document.getElementById('activity-feed-empty');
+            if (existing) return existing as HTMLElement;
             const div = document.createElement('div');
             div.id = 'activity-feed-empty';
             div.className = 'dash-empty-block';
-            div.innerHTML = `
-              <p class="dash-empty-block__title">Brak aktywności</p>
-              <p class="dash-empty-block__sub">Tu pojawią się Twoje ostatnie mecze i akcje.</p>
-            `;
-            const footer = section.querySelector('.dash-card-footer');
-            if (footer) section.insertBefore(div, footer);
+            div.innerHTML = `<p class="dash-empty-block__title">Brak aktywności</p><p class="dash-empty-block__sub">Tu pojawią się Twoje ostatnie mecze i akcje.</p>`;
+            const footer2 = section?.querySelector('.activity-footer');
+            if (footer2 && section) section.insertBefore(div, footer2);
+            return div;
+          };
+
+          if (filtered.length === 0) {
+            if (listEl) listEl.style.display = 'none';
+            const empty = getOrCreateEmpty();
+            const titleEl = empty.querySelector<HTMLElement>('.dash-empty-block__title');
+            const subEl   = empty.querySelector<HTMLElement>('.dash-empty-block__sub');
+            if (period === 'today') {
+              if (titleEl) titleEl.textContent = 'Brak aktywności dziś';
+              if (subEl)   subEl.textContent   = 'Nic się nie wydarzyło jeszcze dzisiaj.';
+            } else if (period === 'week') {
+              if (titleEl) titleEl.textContent = 'Brak aktywności w tym tygodniu';
+              if (subEl)   subEl.textContent   = 'Tu pojawią się Twoje mecze i akcje z ostatnich 7 dni.';
+            } else {
+              if (titleEl) titleEl.textContent = 'Brak aktywności w tym miesiącu';
+              if (subEl)   subEl.textContent   = 'Tu pojawią się Twoje mecze i akcje z ostatnich 30 dni.';
+            }
+            empty.style.display = '';
+            if (footerCountEl) footerCountEl.innerHTML = '<strong>0</strong> wpisów';
+          } else {
+            // Ukryj empty (zarówno SSR jak i dynamicznie stworzony)
+            document.getElementById('activity-feed-empty')?.style.setProperty('display', 'none');
+            const target = getOrCreateList();
+            target.innerHTML = filtered.map(buildItemHtml).join('');
+            target.style.display = '';
+            if (footerCountEl) {
+              const n = filtered.length;
+              const label = n === 1 ? 'wpis' : 'wpisów';
+              footerCountEl.innerHTML = `<strong>${n}</strong> ${label}`;
+            }
           }
+        }
+
+        // Przekaż dane i renderFn do systemu filtrów
+        if (typeof (window as any).__initActivityFiltersWithData === 'function') {
+          (window as any).__initActivityFiltersWithData(d.activity, renderForPeriod);
         } else {
-          // Ukryj SSR empty state
-          if (emptyEl) emptyEl.style.display = 'none';
-
-          // Zbuduj lub zaktualizuj listę
-          const target = listEl ?? (() => {
-            const ul = document.createElement('ul');
-            ul.id = 'activity-feed-list';
-            ul.className = 'activity-list';
-            ul.setAttribute('role', 'list');
-            const footer = section?.querySelector('.dash-card-footer');
-            if (footer && section) section.insertBefore(ul, footer);
-            else if (emptyEl?.parentNode) emptyEl.parentNode.insertBefore(ul, emptyEl);
-            return ul;
-          })();
-
-          target.innerHTML = d.activity.map((ev: {type:string;timestamp:string;title:string;detail:string;href?:string;result:string}) => {
-            const iconClass = ev.result === 'win'
-              ? 'activity-item__icon--win'
-              : ev.result === 'loss'
-                ? 'activity-item__icon--loss'
-                : 'activity-item__icon--neutral';
-            const iconType = ev.type === 'tournament_join' ? 'tournament_join' : ev.result;
-            const titleHtml = ev.href
-              ? `<a href="${ev.href}" class="activity-item__title-link">${ev.title}</a>`
-              : `<span>${ev.title}</span>`;
-            return `<li class="activity-item">
-              <div class="activity-item__icon ${iconClass}" aria-hidden="true">${iconSvg(iconType)}</div>
-              <div class="activity-item__body">
-                <div class="activity-item__title">${titleHtml}</div>
-                <div class="activity-item__desc">${ev.detail}</div>
-              </div>
-              <div class="activity-item__time">${relativeTime(ev.timestamp)}</div>
-            </li>`;
-          }).join('');
-          target.style.display = '';
+          // Fallback — render bez filtrowania
+          if (d.activity.length === 0) {
+            if (listEl) listEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = '';
+          } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            const target = getOrCreateList();
+            target.innerHTML = d.activity.map(buildItemHtml).join('');
+            target.style.display = '';
+          }
         }
       }
 
@@ -641,13 +722,67 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     }
   })();
 
-  // ── Activity filters (vanilla JS chip toggle) ────────────────────────────
-  document.querySelectorAll<HTMLButtonElement>('.activity-filter').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.activity-filter').forEach(b => b.classList.remove('activity-filter--active'));
-      btn.classList.add('activity-filter--active');
+  // ── Activity filters — smart auto-fallback + filtrowanie po timestamp ───────
+  (function initActivityFilters() {
+    // Przechowuje wszystkie wpisy z API (uzupełniane po fetch)
+    let allActivity: Array<{type:string;timestamp:string;title:string;detail:string;href?:string;result:string}> = [];
+
+    // Zapisz referencję do renderowania listy (uzupełni się po fetch)
+    // Ta funkcja jest wywoływana również ręcznie przy kliknięciu filtra
+    let renderFn: ((period: string) => void) | null = null;
+
+    function msFor(period: string): number {
+      if (period === 'today') {
+        // od początku dzisiejszego dnia (00:00)
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        return Date.now() - now.getTime();
+      }
+      if (period === 'week')  return 7 * 86_400_000;
+      if (period === 'month') return 30 * 86_400_000;
+      return Infinity;
+    }
+
+    function setActiveFilter(period: string) {
+      document.querySelectorAll('.activity-seg__btn').forEach(b => {
+        b.classList.toggle('activity-seg__btn--active', (b as HTMLButtonElement).dataset.filter === period);
+      });
+    }
+
+    function bestPeriod(items: typeof allActivity): string {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayMs = todayStart.getTime();
+      const weekMs  = Date.now() - 7 * 86_400_000;
+      const monthMs = Date.now() - 30 * 86_400_000;
+
+      if (items.some(ev => new Date(ev.timestamp).getTime() >= todayMs)) return 'today';
+      if (items.some(ev => new Date(ev.timestamp).getTime() >= weekMs))  return 'week';
+      if (items.some(ev => new Date(ev.timestamp).getTime() >= monthMs)) return 'month';
+      return 'month'; // pokaż miesięczny (może być pusty — pokaże empty state)
+    }
+
+    // Podpięcie kliknięć — filtry działają tylko gdy mamy dane z API
+    document.querySelectorAll<HTMLButtonElement>('.activity-seg__btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const period = btn.dataset.filter ?? 'today';
+        setActiveFilter(period);
+        if (renderFn) renderFn(period);
+      });
     });
-  });
+
+    // Eksportuj inicjalizację do użycia przez initDashboardSummary
+    (window as any).__initActivityFiltersWithData = function(
+      items: typeof allActivity,
+      render: (period: string) => void
+    ) {
+      allActivity = items;
+      renderFn = render;
+      const period = bestPeriod(items);
+      setActiveFilter(period);
+      render(period);
+    };
+  })();
 </script>
 
 <style>
@@ -741,6 +876,20 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     font-variant-numeric: tabular-nums;
   }
 
+  .lm-score__colon { color: var(--tc-faint); }
+  .lm-score__loss  { color: var(--tc-muted); }
+
+  .lm-set__score {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--tc-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .lm-set__my--win { color: var(--tc-accent) !important; }
+  .lm-set__dash { color: var(--tc-faint); margin: 0 4px; }
+  .lm-set__opp { font-weight: 700; color: var(--tc-muted); }
+
   .lm-opponent {
     flex: 1;
     min-width: 0;
@@ -753,15 +902,17 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .lm-opponent__name {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--tc-ink);
     margin-bottom: 4px;
+    line-height: 1.2;
   }
 
   .lm-opponent__meta {
-    font-size: 0.72rem;
+    font-size: 0.73rem;
     color: var(--tc-muted);
+    margin-top: 2px;
   }
 
   .lm-sets {
@@ -826,16 +977,18 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   .rk-label {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--tc-muted);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--tc-sub);
     margin-bottom: 18px;
   }
 
   .rk-trend {
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     color: var(--tc-muted);
-    margin-top: 4px;
+    margin-top: 6px;
+    line-height: 1.4;
+    min-height: 1em;
   }
 
   .rk-bottom {
@@ -1251,33 +1404,37 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     flex-shrink: 0;
   }
 
-  /* ── Activity filters ──────────────────────────────────────────────────── */
-  .activity-filters {
+  /* ── Activity segment control ──────────────────────────────────────────── */
+  .activity-seg {
     display: flex;
-    gap: 4px;
+    padding: 2px;
+    background: var(--tc-chip-bg);
+    border-radius: 7px;
+    gap: 0;
   }
 
-  .activity-filter {
-    padding: 4px 10px;
-    border-radius: 99px;
-    border: 1px solid var(--tc-card-border-soft);
+  .activity-seg__btn {
+    padding: 4px 11px;
+    border-radius: 5px;
+    border: none;
     background: transparent;
     color: var(--tc-muted);
     font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
   }
 
-  .activity-filter:hover {
-    background: var(--tc-overlay);
+  .activity-seg__btn:hover {
     color: var(--tc-sub);
   }
 
-  .activity-filter--active {
-    background: var(--tc-chip-bg);
+  .activity-seg__btn--active {
+    background: var(--tc-card-bg);
     color: var(--tc-ink);
-    border-color: var(--tc-card-border);
+    box-shadow: var(--tc-shadow);
   }
 
   /* ── Activity dot (SSR items use dot, JS items use icon) ────────────────── */
@@ -1510,36 +1667,37 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .activity-item {
     display: flex;
     align-items: flex-start;
-    gap: 11px;
+    gap: 12px;
     padding: 12px 20px;
     border-bottom: 1px solid var(--tc-card-border-soft);
     transition: background 0.12s;
+    cursor: default;
   }
 
   .activity-item:last-child { border-bottom: none; }
   .activity-item:hover { background: var(--tc-overlay); }
 
-  .activity-item__icon {
-    width: 28px;
-    height: 28px;
+  /* dot — mały 6px kółko jak w prototypie */
+  .activity-dot {
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    display: grid;
-    place-items: center;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: 6px;
   }
 
-  .activity-item__icon--win     { background: var(--tc-accent-soft); color: var(--tc-win); }
-  .activity-item__icon--loss    { background: rgba(239, 68, 68, 0.1); color: var(--tc-hot); }
-  .activity-item__icon--neutral { background: var(--tc-overlay);      color: var(--tc-muted); }
+  .activity-dot--win     { background: var(--tc-accent); box-shadow: 0 0 6px var(--tc-accent-glow); }
+  .activity-dot--loss    { background: var(--tc-hot); }
+  .activity-dot--neutral { background: var(--tc-faint); }
 
   .activity-item__body { flex: 1; min-width: 0; }
 
   .activity-item__title {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 0.84rem;
+    font-weight: 500;
     color: var(--tc-ink);
     margin-bottom: 2px;
+    line-height: 1.35;
   }
 
   .activity-item__title-link {
@@ -1550,19 +1708,29 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .activity-item__title-link:hover { color: var(--tc-accent); }
 
   .activity-item__desc {
-    font-size: 0.78rem;
-    color: var(--tc-sub);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.73rem;
+    color: var(--tc-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
   }
 
-  .activity-item__time {
+  .activity-item__score {
+    font-family: var(--font-mono-plex, 'IBM Plex Mono', monospace);
     font-size: 0.72rem;
-    color: var(--tc-muted);
+    font-weight: 600;
+    color: var(--tc-ink);
+  }
+
+  .activity-item__sep { color: var(--tc-faint); }
+
+  .activity-item__time {
+    font-size: 0.68rem;
+    color: var(--tc-faint);
     white-space: nowrap;
     flex-shrink: 0;
-    margin-top: 2px;
+    margin-top: 4px;
+    font-family: var(--font-mono-plex, 'IBM Plex Mono', monospace);
   }
 
   @media (max-width: 640px) {

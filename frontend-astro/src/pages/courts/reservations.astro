@@ -136,7 +136,16 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
     </div>
   </div>
 
-  <!-- Day picker -->
+  <!-- Day picker z nawigacją tygodniową -->
+  <div class="rv-week-nav">
+    <button class="rv-week-btn" id="rv-week-prev" aria-label="Poprzedni tydzień">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+    </button>
+    <span class="rv-week-label" id="rv-week-label"></span>
+    <button class="rv-week-btn" id="rv-week-next" aria-label="Następny tydzień">
+      <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+    </button>
+  </div>
   <div class="rv-days" id="rv-day-picker">
     {days.map((d, i) => (
       <button
@@ -202,7 +211,7 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
 
     <div class="rv-grid-footer">
       <div class="rv-grid-footer__hint">
-        Kliknij dowolny <strong>wolny slot</strong>, aby zarezerwować kort.
+        Kliknij lub <strong>przeciągnij myszą</strong> po wolnych slotach, aby wybrać zakres godzin.
       </div>
       <button class="tr-btn-primary" id="rv-new-res-btn" style="padding:8px 18px;font-size:0.84rem;">+ Nowa rezerwacja</button>
     </div>
@@ -322,6 +331,25 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
   .rv-stat__val { font-size: 2rem; font-weight: 800; color: var(--tc-ink); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
   .rv-stat__sub { font-size: 0.72rem; color: var(--tc-muted); }
 
+  /* ── Week nav ────────────────────────────────────────────────────────────── */
+  .rv-week-nav {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .rv-week-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+    color: var(--tc-sub); cursor: pointer; transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .rv-week-btn:hover { border-color: var(--tc-accent-border); color: var(--tc-accent); }
+  .rv-week-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .rv-week-label {
+    font-size: 0.82rem; font-weight: 600; color: var(--tc-sub);
+    flex: 1; text-align: center;
+  }
+
   /* ── Day picker ──────────────────────────────────────────────────────────── */
   .rv-days {
     display: grid;
@@ -404,11 +432,16 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
     background: var(--tc-card-bg-2);
   }
   .rv-hour-header__label {
-    padding: 10px 4px; text-align: center;
+    padding: 10px 2px; text-align: center;
     font-family: var(--font-mono-plex);
-    font-size: 0.72rem; font-weight: 500;
+    font-size: 0.68rem; font-weight: 500;
     color: var(--tc-muted);
     border-right: 1px solid var(--tc-card-border-soft);
+    white-space: nowrap; overflow: hidden;
+  }
+  .rv-hour-header__label--half {
+    border-left: 1px dashed var(--tc-card-border-soft);
+    color: transparent;
   }
   .rv-hour-header__court {
     padding: 12px 16px;
@@ -435,11 +468,12 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
   /* Sloty */
   .rv-slot {
     display: grid; place-items: center;
-    min-height: 50px;
+    min-height: 46px;
     border-right: 1px solid var(--tc-card-border-soft);
     transition: background 0.1s;
     cursor: default;
-    font-size: 0.72rem; font-weight: 700;
+    font-size: 0.65rem; font-weight: 700;
+    user-select: none;
   }
 
   .rv-slot--free { cursor: pointer; color: var(--tc-faint); }
@@ -452,7 +486,20 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
 
   .rv-slot--past { background: var(--tc-chip-bg); color: transparent; cursor: not-allowed; }
 
-  .rv-slot--drag { background: var(--tc-accent-soft) !important; border-color: var(--tc-accent-border) !important; }
+  /* Slot co 30 min — separator wizualny między :00 a :30 */
+  .rv-slot--hour { border-left: 1px solid var(--tc-card-border-soft); }
+  .rv-slot--half { border-left: 1px dashed var(--tc-card-border-soft); }
+
+  /* Drag highlight */
+  .rv-slot--drag {
+    background: var(--tc-accent-soft) !important;
+    outline: 2px solid var(--tc-accent) !important;
+    outline-offset: -1px;
+    cursor: col-resize !important;
+  }
+
+  /* Przeszły dzień w day pickerze */
+  .rv-day--past { opacity: 0.4; cursor: not-allowed; }
 
   /* Footer */
   .rv-grid-footer {
@@ -703,14 +750,29 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
 </style>
 
 <script define:vars={{ GRID_START, GRID_END, SLOT_PX, GRID_H_PX, todayIso }}>
-// ── Grafik kortów — render horyzontalny (prototyp astro6) + reservation logic ──
+// ── Grafik kortów — sloty co 30 min, drag-to-select, nawigacja tygodniowa ──
 
-const HOURS = [];
-for (let h = GRID_START; h < GRID_END; h++) HOURS.push(`${String(h).padStart(2,'0')}:00`);
+// Wszystkie sloty co 30 min (26 slotów na 8:00–21:00)
+const SLOTS = [];
+for (let h = GRID_START; h < GRID_END; h++) {
+  SLOTS.push(`${String(h).padStart(2,'0')}:00`);
+  SLOTS.push(`${String(h).padStart(2,'0')}:30`);
+}
+
+function addMinutes(time, min) {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + min;
+  return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
+}
+
+function timeToMin(t) { const [h, m] = t.split(':').map(Number); return h * 60 + m; }
 
 let currentDate = todayIso;
 let facilityId  = null;
 let pendingSlot = null;
+
+// Drag state
+let dragState = null; // { courtId, courtName, startIdx, endIdx }
 
 const loading   = document.getElementById('cal-loading');
 const empty     = document.getElementById('cal-empty');
@@ -718,7 +780,6 @@ const errorBox  = document.getElementById('cal-error');
 const errorMsg  = document.getElementById('cal-error-msg');
 const calWrap   = document.getElementById('cal-wrap');
 const calGrid   = document.getElementById('cal-grid');
-const dateInput = document.getElementById('cal-date-input');
 
 const popup        = document.getElementById('res-popup');
 const popupDetail  = document.getElementById('res-popup-detail');
@@ -743,10 +804,14 @@ function fmtDateLabel(iso) {
   catch { return iso; }
 }
 
-function slotEnd(startTime) {
-  const [h, m] = startTime.split(':').map(Number);
-  const total = h * 60 + m + 30;
-  return `${String(Math.floor(total / 60)).padStart(2,'0')}:${String(total % 60).padStart(2,'0')}`;
+function isSlotPast(time) {
+  if (currentDate > todayIso) return false;
+  if (currentDate < todayIso) return true;
+  const now = new Date();
+  const [sh, sm] = time.split(':').map(Number);
+  const slotMs = new Date(todayIso + 'T00:00:00');
+  slotMs.setHours(sh, sm, 0, 0);
+  return slotMs <= now;
 }
 
 // ── Toast ────────────────────────────────────────────────────────────────────
@@ -762,24 +827,12 @@ function showToast(msg, type = 'success') {
 }
 
 // ── Popup ────────────────────────────────────────────────────────────────────
-function durationMin(start, end) {
-  const [sh, sm] = start.split(':').map(Number);
-  const [eh, em] = end.split(':').map(Number);
-  return (eh * 60 + em) - (sh * 60 + sm);
-}
-
 function openPopup(slot) {
-  if (slot.date < todayIso) return;
-  if (slot.date === todayIso) {
-    const now = new Date();
-    const [sh, sm] = slot.startTime.split(':').map(Number);
-    const slotStart = new Date(todayIso + 'T00:00:00');
-    slotStart.setHours(sh, sm, 0, 0);
-    if (slotStart <= now) return;
-  }
+  if (currentDate < todayIso) return;
+  if (isSlotPast(slot.startTime)) return;
 
   pendingSlot = slot;
-  const dur = durationMin(slot.startTime, slot.endTime);
+  const dur = timeToMin(slot.endTime) - timeToMin(slot.startTime);
   const dateStr = fmtDateLabel(slot.date);
 
   popupDetail.innerHTML = `
@@ -877,7 +930,6 @@ function renderMyReservations(list) {
       ${cc ? `<button class="rv-cancel-btn my-res-cancel-btn" data-res-id="${r.id}" data-series-id="${sid}">Anuluj</button>` : ''}
     </div>`;
   }).join('');
-  // Update badge
   const badge = document.querySelector('.rv-my-badge');
   if (badge) badge.textContent = String(future.length);
 }
@@ -957,95 +1009,65 @@ function updateOwnerCount() {
   if (rows.length === 0) { const ol = ownerList?.querySelector('.owner-res-list'); if (ol) ol.innerHTML = '<div class="rv-empty-row">Wszystkie obsłużone.</div>'; }
 }
 
-// ── Grid render (horizontal: courts = rows, hours = columns) ────────────────
+// ── Grid render — sloty co 30 min, drag-to-select ───────────────────────────
+
+function slotStateFor(s) {
+  if (!s) return 'past';
+  if (s.is_mine) return 'mine';
+  if (s.status !== 'FREE') return 'taken';
+  if (isSlotPast(s.time)) return 'past';
+  return 'free';
+}
 
 function renderGrid(data) {
   const courts = data.courts;
   if (!courts || courts.length === 0) { showState('empty'); return; }
 
-  const cols = HOURS.length;
-  const colTemplate = `120px repeat(${cols}, minmax(58px, 1fr))`;
+  const cols = SLOTS.length;
+  // Label kolumny co godzinę, nie co 30 min — ale każdy slot osobny
+  const colTemplate = `120px repeat(${cols}, minmax(34px, 1fr))`;
 
-  // Update stat cards
-  const freeEl = document.getElementById('rv-free-slots');
-  const freeSub = document.getElementById('rv-free-slots-sub');
-  const courtsEl = document.getElementById('rv-courts-count');
-  const courtsSub = document.getElementById('rv-courts-sub');
-
+  // Stat cards
   let totalFree = 0, totalSlots = 0;
-  courts.forEach(c => {
-    c.slots.forEach(s => { totalSlots++; if (s.status === 'FREE' && !s.is_mine) totalFree++; });
-  });
+  courts.forEach(c => { c.slots.forEach(s => { totalSlots++; if (s.status === 'FREE' && !s.is_mine) totalFree++; }); });
+  const freeEl = document.getElementById('rv-free-slots');
   if (freeEl) freeEl.textContent = String(totalFree);
+  const freeSub = document.getElementById('rv-free-slots-sub');
   if (freeSub) freeSub.textContent = `z ${totalSlots} dostępnych`;
+  const courtsEl = document.getElementById('rv-courts-count');
   if (courtsEl) courtsEl.textContent = String(courts.length);
-  if (courtsSub) {
-    // Count by surface if available
-    courtsSub.textContent = `dostępne korty`;
-  }
+  const courtsSub = document.getElementById('rv-courts-sub');
+  if (courtsSub) courtsSub.textContent = `dostępne korty`;
 
-  // Build hour header
+  // Nagłówek godzin — etykieta tylko dla :00, pusta dla :30
   let html = `<div class="rv-hour-header" style="display:grid;grid-template-columns:${colTemplate};">`;
   html += `<div class="rv-hour-header__court">KORT</div>`;
-  HOURS.forEach(h => { html += `<div class="rv-hour-header__label">${h}</div>`; });
+  SLOTS.forEach(t => {
+    const isHour = t.endsWith(':00');
+    html += `<div class="rv-hour-header__label rv-hour-header__label--${isHour ? 'full' : 'half'}">${isHour ? t : ''}</div>`;
+  });
   html += `</div>`;
 
-  // Build court rows
-  const nowForSlots = new Date();
-  const isToday = currentDate === todayIso;
-
+  // Wiersze kortów
   courts.forEach(court => {
-    html += `<div class="rv-court-row" style="display:grid;grid-template-columns:${colTemplate};">`;
+    html += `<div class="rv-court-row" style="display:grid;grid-template-columns:${colTemplate};" data-court-id="${court.id}">`;
     html += `<div class="rv-court-label"><div class="rv-court-label__name">${court.name}</div><div class="rv-court-label__surface">${court.surface ?? ''}</div></div>`;
 
-    // Slots: court.slots is an array of 30-min slots. Group consecutive pairs into 1h visual cells for HOURS.
-    // Each HOUR maps to 2 × 30-min slots. Show the merged state.
-    HOURS.forEach((h, hi) => {
-      const idx1 = hi * 2;     // first 30-min slot
-      const idx2 = hi * 2 + 1; // second 30-min slot
-      const s1 = court.slots[idx1];
-      const s2 = court.slots[idx2];
-
-      if (!s1) { html += `<div class="rv-slot rv-slot--past"></div>`; return; }
-
-      // Determine state per slot
-      function slotState(s) {
-        if (!s) return 'past';
-        if (s.is_mine) return 'mine';
-        if (s.status !== 'FREE') return 'taken';
-        // Check if past
-        if (isToday) {
-          const [sh, sm] = s.time.split(':').map(Number);
-          const slotStart = new Date(todayIso + 'T00:00:00');
-          slotStart.setHours(sh, sm, 0, 0);
-          if (slotStart <= nowForSlots) return 'past';
-        }
-        return 'free';
-      }
-
-      const st1 = slotState(s1);
-      const st2 = s2 ? slotState(s2) : 'past';
-
-      // If both halves are same state, show one cell
-      // If different, still show one cell with dominant state
-      let st = st1;
-      if (st1 === 'mine' || st2 === 'mine') st = 'mine';
-      else if (st1 === 'taken' || st2 === 'taken') st = 'taken';
-      else if (st1 === 'past' && st2 === 'past') st = 'past';
-      else if (st1 === 'free' || st2 === 'free') st = 'free';
-
-      const label = st === 'mine' ? 'TY' : st === 'taken' ? '×' : st === 'free' ? '+' : '';
+    court.slots.forEach((s, idx) => {
+      const st = slotStateFor(s);
+      const endTime = addMinutes(s.time, 30);
+      const isHalfHour = s.time.endsWith(':30');
+      const extraClass = isHalfHour ? ' rv-slot--half' : ' rv-slot--hour';
+      const label = st === 'mine' ? 'TY' : st === 'taken' ? '×' : '';
 
       if (st === 'free') {
-        const startTime = s1.time;
-        const endTime = s2 ? slotEnd(s2.time) : slotEnd(s1.time);
-        html += `<div class="rv-slot rv-slot--free" data-court-id="${court.id}" data-court-name="${court.name}" data-start="${startTime}" data-end="${endTime}" role="button" tabindex="0" title="Wolne — kliknij aby zarezerwować">${label}</div>`;
+        html += `<div class="rv-slot rv-slot--free${extraClass}" data-court-id="${court.id}" data-court-name="${court.name}" data-slot-idx="${idx}" data-start="${s.time}" data-end="${endTime}" role="button" tabindex="0" title="${s.time}–${endTime}"></div>`;
       } else if (st === 'mine') {
-        const startTime = s1.time;
-        const endTime = s2 ? slotEnd(s2.time) : slotEnd(s1.time);
-        html += `<div class="rv-slot rv-slot--mine" data-court-id="${court.id}" data-court-name="${court.name}" data-start="${startTime}" data-end="${endTime}" title="Twoja rezerwacja">${label}</div>`;
+        html += `<div class="rv-slot rv-slot--mine${extraClass}" title="Twoja rezerwacja ${s.time}">${label}</div>`;
+      } else if (st === 'taken') {
+        html += `<div class="rv-slot rv-slot--taken${extraClass}" title="Zajęty ${s.time}">${label}</div>`;
       } else {
-        html += `<div class="rv-slot rv-slot--${st}" title="${st === 'taken' ? 'Zajęty' : 'Minione'}">${label}</div>`;
+        html += `<div class="rv-slot rv-slot--past${extraClass}"></div>`;
       }
     });
     html += `</div>`;
@@ -1053,25 +1075,116 @@ function renderGrid(data) {
 
   calGrid.innerHTML = html;
   showState('grid');
+  attachSlotHandlers(courts);
+}
 
-  // Click handlers for free slots
+// ── Drag-to-select ───────────────────────────────────────────────────────────
+
+function attachSlotHandlers(courts) {
+  // Klawiatura — Enter/Space na wolnym slocie
   calGrid.querySelectorAll('.rv-slot--free').forEach(el => {
-    el.addEventListener('click', () => {
-      openPopup({
-        courtId: parseInt(el.dataset.courtId, 10),
-        courtName: el.dataset.courtName,
-        date: currentDate,
-        startTime: el.dataset.start,
-        endTime: el.dataset.end,
-      });
-    });
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        el.click();
+        openPopup({ courtId: +el.dataset.courtId, courtName: el.dataset.courtName, date: currentDate, startTime: el.dataset.start, endTime: el.dataset.end });
       }
     });
   });
+
+  // Drag-to-select na każdym wierszu kortu
+  calGrid.querySelectorAll('.rv-court-row[data-court-id]').forEach(row => {
+    const courtId   = +row.dataset.courtId;
+    const courtName = row.querySelector('.rv-court-label__name')?.textContent ?? '';
+    const freeSlots = Array.from(row.querySelectorAll('.rv-slot--free'));
+
+    if (freeSlots.length === 0) return;
+
+    let isDragging = false;
+    let dragStartIdx = -1;
+    let dragEndIdx   = -1;
+
+    function getSlotIdx(el) { return freeSlots.indexOf(el); }
+
+    function highlightRange(a, b) {
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      freeSlots.forEach((s, i) => {
+        s.classList.toggle('rv-slot--drag', i >= lo && i <= hi);
+      });
+    }
+
+    function clearHighlight() {
+      freeSlots.forEach(s => s.classList.remove('rv-slot--drag'));
+    }
+
+    // Sprawdź czy zakres zawiera tylko wolne sloty na tym korcie
+    function rangeIsFree(a, b) {
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      // Pobierz wszystkie sloty (nie tylko free) z tego wiersza
+      const allSlots = Array.from(row.querySelectorAll('.rv-slot[data-slot-idx]'));
+      for (let i = lo; i <= hi; i++) {
+        const s = freeSlots[i];
+        if (!s) return false;
+      }
+      return true;
+    }
+
+    // mousedown — start drag
+    row.addEventListener('mousedown', e => {
+      const el = e.target.closest('.rv-slot--free');
+      if (!el) return;
+      e.preventDefault();
+      isDragging = true;
+      dragStartIdx = getSlotIdx(el);
+      dragEndIdx   = dragStartIdx;
+      highlightRange(dragStartIdx, dragEndIdx);
+    });
+
+    // mousemove — extend selection
+    row.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      const el = e.target.closest('.rv-slot--free');
+      if (!el) return;
+      const idx = getSlotIdx(el);
+      if (idx === -1) return;
+      dragEndIdx = idx;
+      highlightRange(dragStartIdx, dragEndIdx);
+    });
+
+    // mouseup — finish drag
+    row.addEventListener('mouseup', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      clearHighlight();
+      if (dragStartIdx === -1) return;
+
+      const lo = Math.min(dragStartIdx, dragEndIdx);
+      const hi = Math.max(dragStartIdx, dragEndIdx);
+
+      const startEl = freeSlots[lo];
+      const endEl   = freeSlots[hi];
+      if (!startEl || !endEl) return;
+
+      openPopup({
+        courtId,
+        courtName,
+        date: currentDate,
+        startTime: startEl.dataset.start,
+        endTime: endEl.dataset.end,
+      });
+      dragStartIdx = -1; dragEndIdx = -1;
+    });
+  });
+
+  // mouseleave — cancel drag without opening popup
+  calGrid.addEventListener('mouseleave', () => {
+    if (!dragState) return;
+    calGrid.querySelectorAll('.rv-slot--drag').forEach(s => s.classList.remove('rv-slot--drag'));
+  });
+
+  // mouseup poza gridem — cancel
+  document.addEventListener('mouseup', () => {
+    calGrid.querySelectorAll('.rv-slot--drag').forEach(s => s.classList.remove('rv-slot--drag'));
+  }, { once: false });
 }
 
 // ── Timeline load ────────────────────────────────────────────────────────────
@@ -1089,24 +1202,108 @@ async function loadTimeline() {
   }
 }
 
-// ── Day picker ──────────────────────────────────────────────────────────────
-document.querySelectorAll('#rv-day-picker .rv-day').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#rv-day-picker .rv-day').forEach(b => b.classList.remove('rv-day--active'));
-    btn.classList.add('rv-day--active');
-    currentDate = btn.dataset.date;
-    loadTimeline();
+// ── Week navigation ──────────────────────────────────────────────────────────
+
+const dayNamesLong  = ['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'];
+const dayNamesShort = ['niedz.','pon.','wt.','śr.','czw.','pt.','sob.'];
+const monthNames    = ['stycznia','lutego','marca','kwietnia','maja','czerwca','lipca','sierpnia','września','października','listopada','grudnia'];
+
+// Offset tygodni od bieżącego (0 = ten tydzień)
+let weekOffset = 0;
+
+function isoFromDate(d) { return d.toISOString().slice(0, 10); }
+
+function addDays(iso, n) {
+  const d = new Date(iso + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return isoFromDate(d);
+}
+
+function buildWeekDays(offset) {
+  const today = new Date();
+  const todayStr = isoFromDate(today);
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offset * 7 + i);
+    const iso = isoFromDate(d);
+    const isToday = iso === todayStr;
+    days.push({
+      iso,
+      label: isToday ? 'Dziś' : dayNamesLong[d.getDay()],
+      sub: `${dayNamesShort[d.getDay()]} ${d.getDate()}`,
+      isToday,
+      isPast: iso < todayStr,
+    });
+  }
+  return days;
+}
+
+function renderWeekNav() {
+  const days = buildWeekDays(weekOffset);
+  const picker = document.getElementById('rv-day-picker');
+  if (!picker) return;
+
+  // Aktywna data — jeśli obecna data jest w tym tygodniu, zachowaj, inaczej pierwszy dzień tygodnia
+  const weekDates = days.map(d => d.iso);
+  if (!weekDates.includes(currentDate)) {
+    // Wybierz pierwszy nieprzeszły dzień tygodnia
+    const first = days.find(d => !d.isPast) ?? days[0];
+    currentDate = first.iso;
+  }
+
+  picker.innerHTML = days.map(d => `
+    <button class="rv-day${d.iso === currentDate ? ' rv-day--active' : ''}${d.isPast ? ' rv-day--past' : ''}" data-date="${d.iso}" ${d.isPast ? 'disabled' : ''}>
+      <span class="rv-day__label">${d.label}</span>
+      <span class="rv-day__sub">${d.sub}</span>
+    </button>
+  `).join('');
+
+  // Etykieta tygodnia
+  const first = days[0], last = days[6];
+  const firstD = new Date(first.iso + 'T12:00:00');
+  const lastD  = new Date(last.iso  + 'T12:00:00');
+  const label  = weekOffset === 0 ? 'Ten tydzień'
+    : `${firstD.getDate()} ${monthNames[firstD.getMonth()]} – ${lastD.getDate()} ${monthNames[lastD.getMonth()]}`;
+  const weekLabel = document.getElementById('rv-week-label');
+  if (weekLabel) weekLabel.textContent = label;
+
+  // Prev button disabled dla przeszłych tygodni
+  const prevBtn = document.getElementById('rv-week-prev');
+  if (prevBtn) prevBtn.disabled = weekOffset <= 0;
+
+  // Obsługa kliknięć
+  picker.querySelectorAll('.rv-day:not([disabled])').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentDate = btn.dataset.date;
+      picker.querySelectorAll('.rv-day').forEach(b => b.classList.remove('rv-day--active'));
+      btn.classList.add('rv-day--active');
+      loadTimeline();
+    });
   });
+}
+
+document.getElementById('rv-week-prev')?.addEventListener('click', () => {
+  if (weekOffset <= 0) return;
+  weekOffset--;
+  renderWeekNav();
+  loadTimeline();
 });
 
-// "Nowa rezerwacja" button scrolls to grid and selects today
+document.getElementById('rv-week-next')?.addEventListener('click', () => {
+  weekOffset++;
+  renderWeekNav();
+  loadTimeline();
+});
+
+// "Nowa rezerwacja" button scrolls to grid
 document.getElementById('rv-new-res-btn')?.addEventListener('click', () => {
-  // Just scroll to grid top
   document.querySelector('.rv-grid-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 async function init() {
+  renderWeekNav();
   showState('loading');
   try {
     const res = await fetch('/api/courts/facilities/', { credentials: 'include' });
