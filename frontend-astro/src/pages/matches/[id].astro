@@ -329,19 +329,19 @@ const iAmParticipant = iAmP1 || iAmP2;
 
   .breadcrumb {
     display: flex; align-items: center; gap: 6px;
-    font-size: 0.8rem; color: var(--text-muted);
+    font-size: 0.8rem; color: var(--tc-sub);
     margin-bottom: 20px;
   }
-  .breadcrumb__link { color: var(--primary); text-decoration: none; }
+  .breadcrumb__link { color: var(--tc-accent); text-decoration: none; }
   .breadcrumb__link:hover { text-decoration: underline; }
-  .breadcrumb__sep { color: var(--text-dim); }
-  .breadcrumb__current { color: var(--text); font-weight: 500; }
+  .breadcrumb__sep { color: var(--tc-muted); }
+  .breadcrumb__current { color: var(--tc-ink); font-weight: 500; }
 
   /* ── Match header card ───────────────────────────────────────────────── */
   .match-header { padding: 24px 28px; }
 
-  .result--win  { border-left: 3px solid #22c55e; }
-  .result--loss { border-left: 3px solid var(--danger); }
+  .result--win  { border-left: 3px solid var(--tc-win); }
+  .result--loss { border-left: 3px solid var(--tc-hot); }
 
   .match-header__top {
     display: flex; align-items: center; justify-content: space-between;
@@ -353,8 +353,8 @@ const iAmParticipant = iAmP1 || iAmP2;
     font-size: 0.78rem; font-weight: 700;
     padding: 4px 12px; border-radius: 99px;
   }
-  .match-result-badge--win  { background: rgba(34,197,94,0.12); color: #22c55e; }
-  .match-result-badge--loss { background: rgba(239,68,68,0.1);  color: var(--danger); }
+  .match-result-badge--win  { background: rgba(34,197,94,0.12); color: var(--tc-win); }
+  .match-result-badge--loss { background: rgba(239,68,68,0.1);  color: var(--tc-hot); }
 
   /* ── Scoreboard ──────────────────────────────────────────────────────── */
   .match-scoreboard {
@@ -373,7 +373,7 @@ const iAmParticipant = iAmP1 || iAmP2;
     text-align: right;
   }
   .match-team--winner .match-team__name {
-    font-weight: 700; color: var(--text);
+    font-weight: 700; color: var(--tc-ink);
   }
 
   .match-team__player {
@@ -384,7 +384,7 @@ const iAmParticipant = iAmP1 || iAmP2;
   }
 
   .match-team__name {
-    font-size: 0.95rem; color: var(--text-muted);
+    font-size: 0.95rem; color: var(--tc-sub);
     display: flex; align-items: center; gap: 6px;
   }
 
@@ -394,14 +394,14 @@ const iAmParticipant = iAmP1 || iAmP2;
 
   .me-badge {
     font-size: 0.65rem; font-weight: 700;
-    background: rgba(34,197,94,0.15); color: #22c55e;
+    background: rgba(34,197,94,0.15); color: var(--tc-win);
     padding: 1px 6px; border-radius: 99px;
   }
 
   .tc-avatar--me {
-    border: 1.5px solid #22c55e;
+    border: 1.5px solid var(--tc-win);
     background: rgba(34,197,94,0.15);
-    color: #22c55e;
+    color: var(--tc-win);
   }
 
   /* ── Score display ───────────────────────────────────────────────────── */
@@ -419,24 +419,24 @@ const iAmParticipant = iAmP1 || iAmP2;
     font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;
   }
 
-  .set-gem--win  { color: var(--text); }
-  .set-gem--loss { color: var(--text-dim); }
-  .set-sep       { color: var(--text-dim); font-size: 1.2rem; }
+  .set-gem--win  { color: var(--tc-ink); }
+  .set-gem--loss { color: var(--tc-muted); }
+  .set-sep       { color: var(--tc-muted); font-size: 1.2rem; }
 
-  .match-score__empty { font-size: 1.6rem; color: var(--text-dim); }
+  .match-score__empty { font-size: 1.6rem; color: var(--tc-muted); }
 
   .match-header__date {
-    font-size: 0.82rem; color: var(--text-muted);
+    font-size: 0.82rem; color: var(--tc-sub);
     text-align: center; margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--tc-card-border);
   }
 
   /* ── Sets table ──────────────────────────────────────────────────────── */
   .sets-table-wrap { overflow-x: auto; }
   .sets-table { min-width: 400px; }
   .col-num { text-align: right; }
-  .font-bold { font-weight: 700; color: var(--text); }
+  .font-bold { font-weight: 700; color: var(--tc-ink); }
 
   .row--winner td { background: rgba(34,197,94,0.03); }
 
@@ -459,7 +459,7 @@ const iAmParticipant = iAmP1 || iAmP2;
     display: flex; flex-direction: column; gap: 6px;
   }
   .edit-set-label {
-    font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+    font-size: 0.75rem; font-weight: 600; color: var(--tc-sub); text-transform: uppercase; letter-spacing: 0.04em;
   }
   .edit-set-inputs {
     display: flex; align-items: center; gap: 6px;
@@ -469,32 +469,32 @@ const iAmParticipant = iAmP1 || iAmP2;
   }
   .edit-set-input {
     width: 48px; height: 36px; text-align: center;
-    border: 1px solid var(--border); border-radius: 6px;
-    background: var(--surface-2); color: var(--text);
-    font-size: 1rem; font-weight: 700;
+    border: 1px solid var(--tc-card-border); border-radius: 6px;
+    background: var(--tc-chip-bg); color: var(--tc-ink);
+    font-size: 1rem; font-weight: 700; font-family: var(--font-mono);
     -moz-appearance: textfield;
   }
-  .edit-set-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(34,197,94,0.15); }
+  .edit-set-input:focus { outline: none; border-color: var(--tc-accent); box-shadow: 0 0 0 2px var(--tc-accent-soft); }
   .edit-set-input::-webkit-outer-spin-button,
   .edit-set-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .edit-spin-btn {
     width: 48px; height: 20px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.6rem; border: 1px solid var(--border); border-radius: 4px;
-    background: var(--surface-2); color: var(--text-muted);
+    font-size: 0.6rem; border: 1px solid var(--tc-card-border); border-radius: 4px;
+    background: var(--tc-chip-bg); color: var(--tc-sub);
     cursor: pointer; transition: background 0.1s, color 0.1s, border-color 0.1s;
   }
-  .edit-spin-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .edit-spin-btn:hover { background: var(--tc-accent); color: var(--tc-accent-ink); border-color: var(--tc-accent); }
   .edit-spin-btn:active { transform: scale(0.94); }
-  .edit-set-sep { color: var(--text-dim); font-weight: 700; }
+  .edit-set-sep { color: var(--tc-muted); font-weight: 700; }
 
 
   /* ── Match meta (status, reported_by) ───────────────────────────────── */
   .match-header__meta {
     display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
     margin-top: 10px; padding-top: 10px;
-    border-top: 1px solid var(--border);
-    font-size: 0.78rem; color: var(--text-muted);
+    border-top: 1px solid var(--tc-card-border);
+    font-size: 0.78rem; color: var(--tc-sub);
   }
 
   .match-status-chip {
@@ -503,14 +503,14 @@ const iAmParticipant = iAmP1 || iAmP2;
     font-size: 0.73rem; font-weight: 600;
   }
   .match-status-chip--ok {
-    background: rgba(34,197,94,0.1); color: #22c55e;
+    background: rgba(34,197,94,0.1); color: var(--tc-win);
   }
   .match-status-chip--pending {
-    background: rgba(245,158,11,0.1); color: var(--warning);
+    background: rgba(245,158,11,0.1); color: var(--tc-warn);
   }
 
-  .match-meta-item { color: var(--text-muted); font-size: 0.78rem; }
-  .match-meta-item strong { color: var(--text); }
+  .match-meta-item { color: var(--tc-sub); font-size: 0.78rem; }
+  .match-meta-item strong { color: var(--tc-ink); }
 
   /* ── Tournament badge link ───────────────────────────────────────────── */
   .match-badge-link {
@@ -523,16 +523,16 @@ const iAmParticipant = iAmP1 || iAmP2;
   .match-noedit-info {
     margin-top: 20px;
     padding: 10px 14px;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
     border-radius: var(--radius-md);
-    font-size: 0.82rem; color: var(--text-muted);
+    font-size: 0.82rem; color: var(--tc-sub);
   }
 
   /* ── Edit form hint ──────────────────────────────────────────────────── */
   .edit-form-hint {
     margin-top: 10px; margin-bottom: 0;
-    font-size: 0.75rem; color: var(--text-dim);
+    font-size: 0.75rem; color: var(--tc-muted);
   }
 
   /* ── Crown icon ──────────────────────────────────────────────────────── */
@@ -569,8 +569,8 @@ const iAmParticipant = iAmP1 || iAmP2;
 
     /* Wynik setów — wyśrodkowany separator między drużynami */
     .match-score {
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
+      border-top: 1px solid var(--tc-card-border);
+      border-bottom: 1px solid var(--tc-card-border);
       padding: 10px 0;
     }
     .match-score__set { font-size: 1.3rem; }
