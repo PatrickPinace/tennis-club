@@ -54,7 +54,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
 
     {notifications.length === 0 ? (
       <div class="notif-empty">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--text-dim);margin-bottom:12px;">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" style="color:var(--tc-muted);margin-bottom:12px;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
         <p class="notif-empty__title">Brak powiadomień</p>
@@ -222,16 +222,16 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center;
     padding: 64px 24px;
-    background: var(--surface);
-    border: 1px solid var(--border);
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
     border-radius: var(--radius-md);
   }
   .notif-empty__title {
-    font-size: 1rem; font-weight: 700; color: var(--text);
+    font-size: 1rem; font-weight: 700; color: var(--tc-ink);
     margin: 0 0 8px;
   }
   .notif-empty__sub {
-    font-size: 0.85rem; color: var(--text-muted);
+    font-size: 0.85rem; color: var(--tc-sub);
     max-width: 320px; line-height: 1.5; margin: 0;
   }
 
@@ -245,26 +245,27 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
   .notif-toolbar {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--tc-card-border);
     gap: 12px;
     flex-wrap: wrap;
   }
   .notif-toolbar__count {
-    font-size: 0.82rem; color: var(--text-muted);
+    font-size: 0.82rem; color: var(--tc-sub);
   }
   .notif-read-all-btn {
     padding: 5px 14px; height: 30px;
     font-size: 0.78rem; font-weight: 600;
     background: transparent;
-    color: var(--primary);
-    border: 1px solid var(--primary);
+    color: var(--tc-accent);
+    border: 1px solid var(--tc-accent-border);
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.12s, color 0.12s;
   }
   .notif-read-all-btn:hover {
-    background: var(--primary);
-    color: #fff;
+    background: var(--tc-accent);
+    color: var(--tc-accent-ink);
+    border-color: var(--tc-accent);
   }
 
   /* List */
@@ -276,12 +277,12 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
   .notif-item {
     display: flex; align-items: flex-start; gap: 12px;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--tc-card-border);
     transition: background 0.1s;
     position: relative;
   }
   .notif-item:last-child { border-bottom: none; }
-  .notif-item:hover { background: var(--surface-hover); }
+  .notif-item:hover { background: var(--tc-overlay); }
 
   /* Unread indicator dot */
   .notif-item__dot {
@@ -292,12 +293,12 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     background: transparent;
   }
   .notif-item--unread {
-    background: color-mix(in srgb, var(--primary) 4%, transparent);
-    border-left: 3px solid var(--primary);
+    background: var(--tc-accent-soft);
+    border-left: 3px solid var(--tc-accent);
     padding-left: 17px;
   }
   .notif-item--unread .notif-item__dot {
-    background: var(--primary);
+    background: var(--tc-accent);
   }
 
   .notif-item__body {
@@ -307,7 +308,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     margin: 0 0 4px;
     font-size: 0.88rem;
     line-height: 1.45;
-    color: var(--text);
+    color: var(--tc-ink);
     word-break: break-word;
   }
   .notif-item--unread .notif-item__msg {
@@ -315,7 +316,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
   }
   .notif-item__time {
     font-size: 0.75rem;
-    color: var(--text-muted);
+    color: var(--tc-sub);
   }
 
   /* Mark read button */
@@ -323,18 +324,18 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     flex-shrink: 0;
     width: 28px; height: 28px;
     border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-muted);
+    border: 1px solid var(--tc-card-border);
+    background: var(--tc-chip-bg);
+    color: var(--tc-muted);
     font-size: 0.85rem;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: border-color 0.12s, color 0.12s, background 0.12s;
   }
   .notif-item__mark-btn:hover {
-    border-color: var(--primary);
-    color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 8%, transparent);
+    border-color: var(--tc-accent);
+    color: var(--tc-accent);
+    background: var(--tc-accent-soft);
   }
 
   @media (max-width: 480px) {
