@@ -618,7 +618,7 @@ const {
   async function loadNotifications() {
     const list = document.getElementById('notif-list');
     if (!list) return;
-    list.innerHTML = '<div class="topbar__notif-empty" style="padding:16px;text-align:center;font-size:0.8rem;color:var(--text-dim);">Ładowanie…</div>';
+    list.innerHTML = '<div class="topbar__notif-empty" style="padding:16px;text-align:center;font-size:0.8rem;color:var(--tc-muted);">Ładowanie…</div>';
     try {
       const res = await fetch(`${_API}/api/notifications/`, { credentials: 'include' });
       if (!res.ok) throw new Error();
