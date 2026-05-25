@@ -66,7 +66,7 @@ const iAmP1 = myId === match.p1?.id || myId === match.p3?.id;
 const iAmP2 = myId === match.p2?.id || myId === match.p4?.id;
 
 const myResult = iAmP1 ? (p1Won ? 'win' : 'loss') : iAmP2 ? (p2Won ? 'win' : 'loss') : null;
-const resultLabel = myResult === 'win' ? 'Wygrana' : myResult === 'loss' ? 'Porażka' : null;
+const resultLabel = myResult === 'win' ? 'Twoja wygrana' : myResult === 'loss' ? 'Twoja porażka' : null;
 const resultClass = myResult === 'win' ? 'result--win' : myResult === 'loss' ? 'result--loss' : '';
 
 const typeLabel = match.description
@@ -149,24 +149,23 @@ const iAmParticipant = iAmP1 || iAmP2;
             </div>
           </div>
         ))}
-        {p1Won && (
-          <div class="match-team__crown" aria-label="Zwycięzca">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-          </div>
-        )}
+        {p1Won && <span class="team-won-badge">Wygrali ✓</span>}
       </div>
 
       <!-- Wynik setów -->
       <div class="match-score">
         <div class="match-score__sets">
-          {sets.length > 0 ? sets.map(([a, b]) => (
+          {sets.length > 0 ? sets.map(([a, b], i) => (
             <div class="match-score__set">
-              <span class={a > b ? 'set-gem--win' : 'set-gem--loss'}>{a}</span>
-              <span class="set-sep">:</span>
-              <span class={b > a ? 'set-gem--win' : 'set-gem--loss'}>{b}</span>
+              <span class="set-label">Set {i + 1}</span>
+              <div class="set-nums">
+                <span class={a > b ? 'set-gem--win' : 'set-gem--loss'}>{a}</span>
+                <span class="set-sep">:</span>
+                <span class={b > a ? 'set-gem--win' : 'set-gem--loss'}>{b}</span>
+              </div>
             </div>
           )) : (
-            <span class="match-score__empty">—</span>
+            <span class="match-score__empty">Brak wyniku</span>
           )}
         </div>
       </div>
@@ -184,11 +183,7 @@ const iAmParticipant = iAmP1 || iAmP2;
             </div>
           </div>
         ))}
-        {p2Won && (
-          <div class="match-team__crown" aria-label="Zwycięzca">
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-          </div>
-        )}
+        {p2Won && <span class="team-won-badge">Wygrali ✓</span>}
       </div>
     </div>
 
@@ -388,8 +383,13 @@ const iAmParticipant = iAmP1 || iAmP2;
     display: flex; align-items: center; gap: 6px;
   }
 
-  .match-team__crown {
-    font-size: 1.1rem; margin-top: 2px;
+  .team-won-badge {
+    display: inline-flex; align-items: center;
+    font-size: 0.72rem; font-weight: 700;
+    background: rgba(34,197,94,0.12); color: var(--tc-win);
+    padding: 3px 10px; border-radius: 99px;
+    margin-top: 4px;
+    letter-spacing: 0.02em;
   }
 
   .me-badge {
@@ -411,19 +411,32 @@ const iAmParticipant = iAmP1 || iAmP2;
   }
 
   .match-score__sets {
-    display: flex; gap: 8px; align-items: center;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center;
   }
 
   .match-score__set {
-    display: flex; align-items: baseline; gap: 2px;
-    font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    min-width: 76px;
   }
 
-  .set-gem--win  { color: var(--tc-ink); }
-  .set-gem--loss { color: var(--tc-muted); }
-  .set-sep       { color: var(--tc-muted); font-size: 1.2rem; }
+  .set-label {
+    font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--tc-muted);
+  }
 
-  .match-score__empty { font-size: 1.6rem; color: var(--tc-muted); }
+  .set-nums {
+    display: flex; align-items: baseline; gap: 3px;
+  }
+
+  .set-gem--win  { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--tc-ink); }
+  .set-gem--loss { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--tc-muted); }
+  .set-sep       { color: var(--tc-muted); font-size: 1rem; font-weight: 400; }
+
+  .match-score__empty { font-size: 0.875rem; color: var(--tc-muted); }
 
   .match-header__date {
     font-size: 0.82rem; color: var(--tc-sub);

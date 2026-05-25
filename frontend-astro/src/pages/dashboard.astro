@@ -98,11 +98,12 @@ const recentActivity = matchHistoryRaw.slice(0, 3).map(m => {
   const fmt    = m.match_double ? 'Debel' : 'Singiel';
   const score  = matchScore(m);
   return {
-    type:   'match',
-    title:  `${label} vs ${matchOpponent(m)}`,
-    desc:   fmt,
+    type:      'match',
+    title:     `${label} vs ${matchOpponent(m)}`,
+    desc:      fmt,
     score,
-    time:   activityDate(m.match_date),
+    time:      activityDate(m.match_date),
+    timestamp: m.match_date,
     result,
   };
 });
@@ -335,7 +336,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         ) : (
           <ul id="activity-feed-list" class="activity-list" role="list">
             {recentActivity.map(item => (
-              <li class="activity-item">
+              <li class="activity-item" data-timestamp={item.timestamp}>
                 <div class={`activity-dot activity-dot--${item.result}`} aria-hidden="true"></div>
                 <div class="activity-item__body">
                   <div class="activity-item__title">{item.title}</div>
@@ -359,7 +360,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
           <span class="activity-footer__count">
             <strong>{recentActivity.length}</strong> {recentActivity.length === 1 ? 'wpis' : 'wpisów'}
           </span>
-          <a href={url('/matches')} class="dash-link-sm">Pełna historia →</a>
+          <a href={url('/matches')} class="dash-link-sm">Historia meczów →</a>
         </div>
       </div>
 
@@ -762,14 +763,95 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
       return 'month'; // pokaż miesięczny (może być pusty — pokaże empty state)
     }
 
-    // Podpięcie kliknięć — filtry działają tylko gdy mamy dane z API
+    // Filtrowanie SSR DOM po data-timestamp (fallback gdy brak danych z API)
+    function renderSsrForPeriod(period: string) {
+      const listEl = document.getElementById('activity-feed-list');
+      if (!listEl) return;
+      const items = listEl.querySelectorAll<HTMLLIElement>('li[data-timestamp]');
+      if (items.length === 0) return;
+
+      const now = Date.now();
+      let fromMs: number;
+      if (period === 'today') {
+        const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+        fromMs = d0.getTime();
+      } else if (period === 'week') {
+        fromMs = now - 7 * 86_400_000;
+      } else {
+        fromMs = now - 30 * 86_400_000;
+      }
+
+      let visible = 0;
+      items.forEach(li => {
+        const ts = new Date(li.dataset.timestamp ?? '').getTime();
+        const show = !isNaN(ts) && ts >= fromMs;
+        li.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+
+      const section = listEl.closest('[aria-labelledby="activity-heading"]');
+      const countEl = section?.querySelector<HTMLElement>('.activity-footer__count');
+      if (countEl) {
+        countEl.innerHTML = `<strong>${visible}</strong> ${visible === 1 ? 'wpis' : 'wpisów'}`;
+      }
+
+      // Pokaż/ukryj empty state
+      let emptyEl = document.getElementById('activity-feed-empty') as HTMLElement | null;
+      if (visible === 0) {
+        listEl.style.display = 'none';
+        if (!emptyEl) {
+          emptyEl = document.createElement('div');
+          emptyEl.id = 'activity-feed-empty';
+          emptyEl.className = 'dash-empty-block';
+          const footer = section?.querySelector('.activity-footer');
+          if (footer && section) section.insertBefore(emptyEl, footer);
+        }
+        const labels: Record<string, [string, string]> = {
+          today: ['Brak aktywności dziś', 'Nic się nie wydarzyło jeszcze dzisiaj.'],
+          week:  ['Brak aktywności w tym tygodniu', 'Tu pojawią się mecze z ostatnich 7 dni.'],
+          month: ['Brak aktywności w tym miesiącu', 'Tu pojawią się mecze z ostatnich 30 dni.'],
+        };
+        const [title, sub] = labels[period] ?? labels.month;
+        emptyEl.innerHTML = `<p class="dash-empty-block__title">${title}</p><p class="dash-empty-block__sub">${sub}</p>`;
+        emptyEl.style.display = '';
+      } else {
+        listEl.style.display = '';
+        if (emptyEl) emptyEl.style.display = 'none';
+      }
+    }
+
+    // Podpięcie kliknięć — renderFn z API (preferowane) lub SSR DOM fallback
     document.querySelectorAll<HTMLButtonElement>('.activity-seg__btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const period = btn.dataset.filter ?? 'today';
         setActiveFilter(period);
         if (renderFn) renderFn(period);
+        else renderSsrForPeriod(period);
       });
     });
+
+    // Auto-select aktywnego filtru na podstawie SSR timestamps przy załadowaniu
+    (function autoSelectFilter() {
+      const listEl = document.getElementById('activity-feed-list');
+      const items = listEl ? listEl.querySelectorAll<HTMLLIElement>('li[data-timestamp]') : [];
+      if (items.length === 0) return;
+
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const todayMs = todayStart.getTime();
+      const weekMs  = Date.now() - 7 * 86_400_000;
+      const monthMs = Date.now() - 30 * 86_400_000;
+
+      let best = 'month';
+      for (const li of Array.from(items)) {
+        const ts = new Date(li.dataset.timestamp ?? '').getTime();
+        if (!isNaN(ts)) {
+          if (ts >= todayMs) { best = 'today'; break; }
+          if (ts >= weekMs)  { best = 'week'; }
+        }
+      }
+      setActiveFilter(best);
+      renderSsrForPeriod(best);
+    })();
 
     // Eksportuj inicjalizację do użycia przez initDashboardSummary
     (window as any).__initActivityFiltersWithData = function(
