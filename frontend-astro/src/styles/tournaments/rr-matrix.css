@@ -1,9 +1,11 @@
-  /* ── RR Matrix ──────────────────────────────────────────────────────────── */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     RR MATRIX — tc-* design tokens
+     ═══════════════════════════════════════════════════════════════════════════ */
+
   .rr-matrix-card { margin-bottom: 24px; max-width: 900px; margin-left: auto; margin-right: auto; }
 
-  /* Separator pod headerem */
   .rr-matrix-card > .tc-card-header {
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--tc-card-border);
     flex-wrap: wrap; gap: 8px;
   }
 
@@ -19,16 +21,16 @@
   .rr-matrix-legend__item--win     { background: rgba(34,197,94,0.12);  color: #15803d; }
   .rr-matrix-legend__item--loss    { background: rgba(239,68,68,0.10);  color: #b91c1c; }
   .rr-matrix-legend__item--draw    { background: rgba(99,102,241,0.10); color: #4338ca; }
-  .rr-matrix-legend__item--pending { background: var(--surface-3,#f0f0f0); color: var(--text-dim); }
-  .rr-matrix-legend__sep { color: var(--border); font-size: 0.7rem; }
+  .rr-matrix-legend__item--pending { background: var(--tc-chip-bg); color: var(--tc-muted); }
+  .rr-matrix-legend__sep { color: var(--tc-card-border); font-size: 0.7rem; }
   .rr-matrix-legend__note {
-    font-size: 0.65rem; color: var(--text-dim);
+    font-size: 0.65rem; color: var(--tc-muted);
     white-space: nowrap;
   }
 
   /* Scroll hint */
   .rr-matrix-scroll-hint {
-    display: none; font-size: 0.7rem; color: var(--text-dim);
+    display: none; font-size: 0.7rem; color: var(--tc-muted);
     text-align: center; padding: 6px 0 2px; letter-spacing: 0.04em;
   }
   @media (max-width: 768px) { .rr-matrix-scroll-hint { display: block; } }
@@ -43,48 +45,48 @@
     min-width: max-content;
   }
   .rr-matrix th, .rr-matrix td {
-    border: 1px solid var(--border-light);
+    border: 1px solid var(--tc-card-border);
     padding: 0;
   }
 
   /* Róg sticky */
   .rr-matrix__corner {
     position: sticky; left: 0; top: 0;
-    background: var(--surface-2); z-index: 3;
+    background: var(--tc-chip-bg); z-index: 3;
   }
 
   /* Nagłówek kolumny */
   .rr-matrix__col-head {
     position: sticky; top: 0;
-    background: var(--surface-2);
+    background: var(--tc-chip-bg);
     padding: 7px 4px;
-    font-weight: 700; color: var(--text-muted);
+    font-weight: 700; color: var(--tc-sub);
     text-align: center; white-space: nowrap;
     font-size: 0.68rem; letter-spacing: 0.03em;
     z-index: 2; min-width: 56px;
   }
 
-  /* Nagłówek wiersza — wyższa specyficzność by przeić padding:0 z .rr-matrix td */
+  /* Nagłówek wiersza */
   .rr-matrix td.rr-matrix__row-head,
   .rr-matrix th.rr-matrix__row-head {
     padding: 0 20px 0 16px;
   }
   .rr-matrix__row-head {
     position: sticky; left: 0;
-    background: var(--surface-2);
+    background: var(--tc-chip-bg);
     padding: 0 20px 0 16px;
-    font-weight: 600; color: var(--text);
+    font-weight: 600; color: var(--tc-ink);
     white-space: nowrap; text-align: left;
     min-width: 140px; max-width: 200px;
     overflow: hidden; text-overflow: ellipsis;
     vertical-align: middle; height: 42px;
     z-index: 1;
-    border-right: 2px solid var(--border);
+    border-right: 2px solid var(--tc-card-border);
   }
 
   /* Przekątna */
   .rr-matrix__diag {
-    background: var(--surface-3, #ebebeb);
+    background: var(--tc-card-border-soft);
     width: 56px; height: 42px;
   }
 
@@ -106,6 +108,7 @@
   .rr-matrix__score {
     display: block;
     font-size: 0.56rem; font-weight: 500;
+    font-family: var(--font-mono);
     color: inherit; opacity: 0.72;
     line-height: 1.15;
     white-space: nowrap;
@@ -127,24 +130,24 @@
   }
   .rr-matrix__cell--wdr {
     background: rgba(148,163,184,0.15);
-    color: var(--text-dim);
+    color: var(--tc-muted);
   }
   .rr-matrix__cell--live {
     background: rgba(234,179,8,0.13);
     color: #a16207;
   }
   .rr-matrix__cell--empty {
-    background: var(--surface-2);
-    color: var(--text-dim);
+    background: var(--tc-chip-bg);
+    color: var(--tc-muted);
   }
   .rr-matrix__cell--pending {
-    background: var(--surface-2);
-    color: var(--text-dim);
+    background: var(--tc-chip-bg);
+    color: var(--tc-muted);
   }
 
   /* Highlight kliknięcia */
   .rr-matrix__cell--highlight {
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--tc-accent);
     outline-offset: -2px;
     z-index: 1;
   }
@@ -159,4 +162,3 @@
     .rr-matrix-legend { gap: 6px; }
     .rr-matrix-legend__item { font-size: 0.65rem; padding: 1px 6px; }
   }
-

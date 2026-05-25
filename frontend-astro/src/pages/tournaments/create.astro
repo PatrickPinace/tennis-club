@@ -17,7 +17,7 @@ if (!currentUser) {
 
 <AppLayout title="Nowy turniej" showSearch={false} showCta={false} currentUser={currentUser}>
   <nav class="tc-breadcrumb" aria-label="Nawigacja">
-    <a href={url('/tournaments/manage')}>← Moje turnieje</a>
+    <a href={url('/tournaments/manage')}>&larr; Moje turnieje</a>
   </nav>
 
   <PageHeader
@@ -126,7 +126,7 @@ if (!currentUser) {
 
         <div class="wiz-actions">
           <button type="button" id="wiz-next-1" class="tc-btn tc-btn-primary">
-            Dalej →
+            Dalej &rarr;
           </button>
           <a href={url('/tournaments/manage')} class="tc-btn tc-btn-ghost">Anuluj</a>
         </div>
@@ -147,26 +147,26 @@ if (!currentUser) {
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Sety do wygrania</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-sets-to-win" data-dir="1" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-sets-to-win" data-dir="1" aria-label="Więcej">&#9650;</button>
               <input id="cfg-sets-to-win" class="cfg-spin-input" type="number" min="1" max="5" value="2">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-sets-to-win" data-dir="-1" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-sets-to-win" data-dir="-1" aria-label="Mniej">&#9660;</button>
             </div>
-            <span class="cfg-hint">2 → „2 z 3"</span>
+            <span class="cfg-hint">2 &rarr; &bdquo;2 z 3&rdquo;</span>
           </div>
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Gemy w secie</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-games-per-set" data-dir="1" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-games-per-set" data-dir="1" aria-label="Więcej">&#9650;</button>
               <input id="cfg-games-per-set" class="cfg-spin-input" type="number" min="1" max="12" value="6">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-games-per-set" data-dir="-1" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-games-per-set" data-dir="-1" aria-label="Mniej">&#9660;</button>
             </div>
           </div>
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Maks. uczestników</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-max-part" data-dir="1" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-max-part" data-dir="1" aria-label="Więcej">&#9650;</button>
               <input id="cfg-max-part" class="cfg-spin-input" type="number" min="2" max="128" value="16">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-max-part" data-dir="-1" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-max-part" data-dir="-1" aria-label="Mniej">&#9660;</button>
             </div>
           </div>
         </div>
@@ -177,33 +177,33 @@ if (!currentUser) {
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Za wygraną</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-win" data-dir="0.5" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-win" data-dir="0.5" aria-label="Więcej">&#9650;</button>
               <input id="cfg-pts-win" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="2">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-win" data-dir="-0.5" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-win" data-dir="-0.5" aria-label="Mniej">&#9660;</button>
             </div>
           </div>
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Za przegraną</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-loss" data-dir="0.5" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-loss" data-dir="0.5" aria-label="Więcej">&#9650;</button>
               <input id="cfg-pts-loss" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="1">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-loss" data-dir="-0.5" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-loss" data-dir="-0.5" aria-label="Mniej">&#9660;</button>
             </div>
           </div>
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Za wygrany set</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-win" data-dir="0.5" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-win" data-dir="0.5" aria-label="Więcej">&#9650;</button>
               <input id="cfg-pts-set-win" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="0.5">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-win" data-dir="-0.5" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-win" data-dir="-0.5" aria-label="Mniej">&#9660;</button>
             </div>
           </div>
           <div class="cfg-spinner-col">
             <span class="cfg-spinner-label">Za przegrany set</span>
             <div class="cfg-spinner">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-loss" data-dir="0.5" aria-label="Więcej">▲</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-loss" data-dir="0.5" aria-label="Więcej">&#9650;</button>
               <input id="cfg-pts-set-loss" class="cfg-spin-input" type="number" min="0" max="100" step="0.5" value="0">
-              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-loss" data-dir="-0.5" aria-label="Mniej">▼</button>
+              <button type="button" class="cfg-spin-btn" data-target="cfg-pts-set-loss" data-dir="-0.5" aria-label="Mniej">&#9660;</button>
             </div>
           </div>
         </div>
@@ -236,18 +236,18 @@ if (!currentUser) {
             <div class="cfg-spinner-col">
               <span class="cfg-spinner-label">Liczba rund</span>
               <div class="cfg-spinner">
-                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="1" aria-label="Więcej">▲</button>
+                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="1" aria-label="Więcej">&#9650;</button>
                 <input id="amr-rounds" class="cfg-spin-input" type="number" min="1" max="99" value="7">
-                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="-1" aria-label="Mniej">▼</button>
+                <button type="button" class="cfg-spin-btn" data-target="amr-rounds" data-dir="-1" aria-label="Mniej">&#9660;</button>
               </div>
               <span class="cfg-hint">maks. n-1 dla n graczy</span>
             </div>
             <div class="cfg-spinner-col">
               <span class="cfg-spinner-label">Punkty na mecz</span>
               <div class="cfg-spinner">
-                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="4" aria-label="Więcej">▲</button>
+                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="4" aria-label="Więcej">&#9650;</button>
                 <input id="amr-ppm" class="cfg-spin-input" type="number" min="1" max="999" value="32">
-                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="-4" aria-label="Mniej">▼</button>
+                <button type="button" class="cfg-spin-btn" data-target="amr-ppm" data-dir="-4" aria-label="Mniej">&#9660;</button>
               </div>
               <span class="cfg-hint">np. 32 = suma gemów w meczu</span>
             </div>
@@ -290,8 +290,8 @@ if (!currentUser) {
         </div>
 
         <div class="wiz-actions">
-          <button type="button" id="wiz-back-2" class="tc-btn tc-btn-ghost">← Wstecz</button>
-          <button type="button" id="wiz-next-2" class="tc-btn tc-btn-primary">Dalej →</button>
+          <button type="button" id="wiz-back-2" class="tc-btn tc-btn-ghost">&larr; Wstecz</button>
+          <button type="button" id="wiz-next-2" class="tc-btn tc-btn-primary">Dalej &rarr;</button>
         </div>
       </div>
 
@@ -305,7 +305,7 @@ if (!currentUser) {
         </div>
 
         <div class="wiz-actions">
-          <button type="button" id="wiz-back-3" class="tc-btn tc-btn-ghost">← Wstecz</button>
+          <button type="button" id="wiz-back-3" class="tc-btn tc-btn-ghost">&larr; Wstecz</button>
           <button type="button" id="wiz-create" class="tc-btn tc-btn-primary">
             Utwórz turniej
           </button>
@@ -732,16 +732,14 @@ typeEl.addEventListener('change', () => {
 </script>
 
 <style>
-  .tc-breadcrumb {
-    font-size: 0.8rem; color: var(--text-dim);
-    margin-bottom: 20px;
-  }
-  .tc-breadcrumb a { color: var(--text-muted); text-decoration: none; }
-  .tc-breadcrumb a:hover { color: var(--primary); }
+  /* ═══════════════════════════════════════════════════════════════════════════
+     WIZARD — nowy design (tc-* tokens)
+     ═══════════════════════════════════════════════════════════════════════════ */
 
   .wiz-wrap {
-    padding: 0 var(--page-px, 28px) 48px;
-    max-width: 680px;
+    max-width: 720px;
+    margin: 0 auto;
+    padding-bottom: 48px;
   }
 
   /* ── Progress bar ────────────────────────────────────────────────── */
@@ -756,221 +754,240 @@ typeEl.addEventListener('change', () => {
     flex-shrink: 0;
   }
   .wiz-step__dot {
-    width: 32px; height: 32px; border-radius: 50%;
-    border: 2px solid var(--border);
-    background: var(--surface-2);
-    color: var(--text-dim);
-    font-size: 0.8rem; font-weight: 700;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 2px solid var(--tc-card-border);
+    background: var(--tc-card-bg);
+    color: var(--tc-muted);
+    font-size: 0.82rem; font-weight: 700;
     display: grid; place-items: center;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
   }
   .wiz-step__label {
     font-size: 0.72rem; font-weight: 600;
-    color: var(--text-dim);
-    transition: color 0.15s;
+    color: var(--tc-muted);
+    transition: color 0.2s;
   }
   .wiz-step--active .wiz-step__dot {
-    background: var(--primary); border-color: var(--primary);
-    color: #fff;
+    background: var(--tc-accent);
+    border-color: var(--tc-accent);
+    color: var(--tc-accent-ink);
+    box-shadow: 0 0 12px var(--tc-accent-glow);
   }
-  .wiz-step--active .wiz-step__label { color: var(--primary); }
+  .wiz-step--active .wiz-step__label {
+    color: var(--tc-accent);
+  }
   .wiz-step--done .wiz-step__dot {
-    background: color-mix(in srgb, var(--primary) 15%, var(--surface-2));
-    border-color: var(--primary);
-    color: var(--primary);
+    background: var(--tc-accent-soft);
+    border-color: var(--tc-accent-border);
+    color: var(--tc-accent);
   }
-  .wiz-step--done .wiz-step__label { color: var(--text-muted); }
+  .wiz-step--done .wiz-step__label { color: var(--tc-sub); }
   .wiz-step-connector {
     flex: 1; height: 2px;
-    background: var(--border);
-    margin: 0 6px; margin-bottom: 24px;
+    background: var(--tc-card-border);
+    margin: 0 8px; margin-bottom: 22px;
   }
 
-  /* ── Card ────────────────────────────────────────────────────────── */
-  .wiz-card { padding: 28px; }
+  /* ── Card override ──────────────────────────────────────────────── */
+  .wiz-card {
+    background: var(--tc-card-bg);
+    border-color: var(--tc-card-border);
+    border-radius: var(--radius-lg);
+    padding: var(--tc-card-pad) 28px;
+  }
 
   /* ── Pane headers ────────────────────────────────────────────────── */
   .wiz-pane__title {
-    font-size: 1rem; font-weight: 700; color: var(--text);
+    font-size: 1.05rem; font-weight: 700; color: var(--tc-ink);
     margin: 0 0 4px;
   }
   .wiz-pane__sub {
-    font-size: 0.82rem; color: var(--text-dim);
-    margin: 0 0 22px;
-  }
-  .wiz-section-label {
-    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.07em; color: var(--text-dim);
-    margin: 20px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem; color: var(--tc-sub);
+    margin: 0 0 24px;
   }
 
   /* ── Alerts ──────────────────────────────────────────────────────── */
   .wiz-alert {
-    padding: 10px 14px; border-radius: 7px;
+    padding: 10px 14px; border-radius: var(--radius-sm);
     font-size: 0.84rem; margin-bottom: 20px;
   }
   .wiz-alert--err {
-    background: color-mix(in srgb, var(--danger, #ef4444) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
-    color: var(--danger, #ef4444);
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: #ef4444;
   }
 
-  /* ── Form fields (shared w/ old create.astro) ────────────────────── */
-  .cr-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; }
+  /* ── Form fields ────────────────────────────────────────────────── */
+  .cr-field {
+    display: flex; flex-direction: column; gap: 5px;
+    margin-bottom: 18px;
+  }
   .cr-field--sm { max-width: 120px; }
-  .cr-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
-  .cr-required { color: var(--danger, #ef4444); }
+
+  .cr-label {
+    font-size: 0.78rem; font-weight: 600;
+    color: var(--tc-sub);
+  }
+  .cr-required { color: var(--tc-hot); }
 
   .cr-input {
-    padding: 8px 12px; border-radius: 7px;
-    border: 1px solid var(--border);
-    background: var(--surface-2); color: var(--text);
+    padding: 9px 12px; border-radius: var(--radius-xs);
+    border: 1px solid var(--tc-card-border);
+    background: var(--tc-input-bg); color: var(--tc-ink);
     font-size: 0.88rem; font-family: var(--font-sans);
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
     width: 100%; box-sizing: border-box;
   }
   .cr-input:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-subtle);
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 3px var(--tc-accent-soft);
+  }
+  .cr-input::placeholder {
+    color: var(--tc-faint);
   }
   .cr-select { cursor: pointer; }
   .cr-textarea { resize: vertical; min-height: 60px; }
 
-  .cr-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 0; }
+  .cr-row {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 0;
+  }
   .cr-row .cr-field { flex: 1; min-width: 120px; }
 
-  .cr-hint { font-size: 0.74rem; color: var(--text-dim); }
+  .cr-hint { font-size: 0.74rem; color: var(--tc-muted); }
+
+  .cr-checkbox-label {
+    display: flex; align-items: center; gap: 10px;
+    cursor: pointer; font-size: 0.9rem; color: var(--tc-ink);
+  }
+  .cr-checkbox-label input[type="checkbox"] {
+    width: 16px; height: 16px; flex-shrink: 0;
+    accent-color: var(--tc-accent);
+    cursor: pointer;
+  }
 
   /* ── Actions ─────────────────────────────────────────────────────── */
   .wiz-actions {
     display: flex; align-items: center; gap: 12px;
     margin-top: 28px; flex-wrap: wrap;
   }
-  .wiz-saving { font-size: 0.8rem; color: var(--text-muted); }
+  .wiz-saving {
+    font-size: 0.8rem; color: var(--tc-muted);
+    font-family: var(--font-mono);
+  }
 
   /* ── Config krok 2 — nagłówki sekcji ────────────────────────────── */
   .cfg-group-label {
-    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; color: var(--text-muted);
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--tc-muted);
     padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 12px;
+    border-bottom: 1px solid var(--tc-card-border-soft);
+    margin-bottom: 14px;
   }
 
-  /* Rząd spinnerów: label nad spinnerem, kilka obok siebie */
+  /* Rząd spinnerów */
   .cfg-spinners-row {
-    display: flex; gap: 16px; flex-wrap: wrap;
+    display: flex; gap: 18px; flex-wrap: wrap;
     margin-bottom: 4px;
   }
   .cfg-spinner-col {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
   }
   .cfg-spinner-label {
-    font-size: 0.72rem; color: var(--text-dim); text-align: center;
+    font-size: 0.72rem; color: var(--tc-sub); text-align: center;
     white-space: nowrap;
   }
-  .cfg-hint { font-size: 0.7rem; color: var(--text-dim); text-align: center; }
+  .cfg-hint {
+    font-size: 0.68rem; color: var(--tc-muted); text-align: center;
+  }
 
-  /* Pionowy spinner: ▲ / input / ▼ — identyczny jak org-score-spinner */
+  /* Pionowy spinner */
   .cfg-spinner {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
   }
   .cfg-spin-btn {
-    width: 44px; height: 22px;
+    width: 46px; height: 22px;
     display: flex; align-items: center; justify-content: center;
     font-size: 0.6rem; line-height: 1;
-    background: var(--surface-2);
-    border: 1px solid var(--border-light, var(--border));
-    border-radius: var(--radius-sm, 5px);
-    color: var(--text-muted);
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-xs);
+    color: var(--tc-sub);
     cursor: pointer; user-select: none;
-    transition: background 0.1s, color 0.1s, border-color 0.1s;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
-  .cfg-spin-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .cfg-spin-btn:hover {
+    background: var(--tc-accent);
+    color: var(--tc-accent-ink);
+    border-color: var(--tc-accent);
+  }
   .cfg-spin-btn:active { transform: scale(0.94); }
 
   .cfg-spin-input {
-    width: 44px; height: 36px; text-align: center;
+    width: 46px; height: 38px; text-align: center;
     font-size: 1rem; font-weight: 700;
-    border: 1px solid var(--border-light, var(--border));
-    border-radius: var(--radius-sm, 5px);
-    background: var(--surface-2); color: var(--text);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-xs);
+    background: var(--tc-input-bg); color: var(--tc-ink);
     outline: none;
     -moz-appearance: textfield; appearance: textfield;
   }
   .cfg-spin-input::-webkit-outer-spin-button,
   .cfg-spin-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .cfg-spin-input:focus {
-    outline: none; border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(34,197,94,0.15);
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 2px var(--tc-accent-soft);
   }
 
-  /* ── Buttons ─────────────────────────────────────────────────────── */
-  .tc-btn {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 0 18px; height: 38px;
-    font-size: 0.88rem; font-weight: 600;
-    border-radius: 8px; cursor: pointer;
-    border: none; text-decoration: none;
-    font-family: var(--font-sans);
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-  }
-  .tc-btn-primary { background: var(--primary); color: #fff; }
-  .tc-btn-primary:hover:not(:disabled) { background: var(--primary-btn-hover, #16a34a); }
-  .tc-btn-primary:disabled { opacity: 0.55; cursor: default; }
-  .tc-btn-ghost {
-    background: transparent; color: var(--text-muted);
-    border: 1px solid var(--border);
-  }
-  .tc-btn-ghost:hover { background: var(--surface-hover); }
-
-  /* ── SGL checkbox field ───────────────────────────────────────────── */
+  /* ── SGL checkbox field ──────────────────────────────────────────── */
   .cr-field--checkbox {
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    margin-bottom: 4px;
+    flex-direction: row; align-items: center;
+    gap: 10px; cursor: pointer; margin-bottom: 4px;
   }
   .cr-field--checkbox input[type="checkbox"] {
     width: 16px; height: 16px; flex-shrink: 0;
-    accent-color: var(--primary);
-    cursor: pointer;
+    accent-color: var(--tc-accent); cursor: pointer;
   }
   .cr-field--checkbox span {
-    font-size: 0.9rem; color: var(--text);
+    font-size: 0.9rem; color: var(--tc-ink);
+  }
+
+  /* ── Responsive ──────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .wiz-card { padding: 16px; }
+    .cr-row { flex-direction: column; gap: 0; }
+    .cfg-spinners-row { gap: 12px; }
+    .wiz-step__label { font-size: 0.65rem; }
   }
 </style>
 
 <!-- Klasy wstrzykiwane przez innerHTML (buildSummary) muszą być globalne -->
 <style is:global>
   .sum-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
     margin-bottom: 4px;
   }
   @media (max-width: 520px) { .sum-grid { grid-template-columns: 1fr; } }
 
   .sum-group {
-    background: var(--surface-2); border: 1px solid var(--border);
-    border-radius: 8px; overflow: hidden;
+    background: var(--tc-card-bg-2, var(--tc-card-bg));
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-sm); overflow: hidden;
   }
   .sum-group-label {
-    padding: 7px 14px;
-    font-size: 0.69rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.07em; color: var(--text-muted);
-    background: color-mix(in srgb, var(--border) 35%, transparent);
-    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--tc-muted);
+    background: var(--tc-chip-bg);
+    border-bottom: 1px solid var(--tc-card-border-soft);
   }
   .sum-row {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 5px 14px;
-    font-size: 0.82rem; color: var(--text-muted);
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
+    padding: 6px 14px;
+    font-size: 0.82rem; color: var(--tc-sub);
+    border-bottom: 1px solid var(--tc-card-border-soft);
   }
   .sum-row:last-child { border-bottom: none; }
-  .sum-row strong { color: var(--text); font-weight: 600; }
+  .sum-row strong { color: var(--tc-ink); font-weight: 600; }
 </style>
