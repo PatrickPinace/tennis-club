@@ -244,6 +244,19 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
         <span class="section-badge">{total}</span>
       </h2>
       <div class="m-filter-groups" id="match-filters">
+        <div class="m-search-wrap">
+          <svg class="m-search__icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+          </svg>
+          <input
+            id="m-search"
+            class="m-search"
+            type="search"
+            placeholder="Szukaj po nazwisku…"
+            autocomplete="off"
+            aria-label="Szukaj po przeciwniku"
+          />
+        </div>
         <div class="m-segmented" role="group" aria-label="Format">
           <button class="m-seg m-seg--active" data-filter="all">Wszystkie</button>
           <button class="m-seg" data-filter="SNG">Singiel</button>
@@ -287,6 +300,7 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
             class="m-row"
             data-result={m.result}
             data-format={m.format}
+            data-opponent={m.opponent.toLowerCase()}
             href={m.isTournament && m.tournamentId ? url(`/tournaments/${m.tournamentId}`) : m.matchIdNum ? url(`/matches/${m.matchIdNum}`) : '#'}
           >
             <div class={`m-result-badge m-result-badge--${m.result}`}>{m.resultLetter}</div>
@@ -320,37 +334,50 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
   }
 
   // ── Filtrowanie ──────────────────────────────────────────────────────────────
-  // Dwa niezależne grupy segmented: format (all/SNG/DBL) i result (all/win/loss)
   const rows = document.querySelectorAll<HTMLElement>('#match-list .m-row');
   let activeFormat = 'all';
   let activeResult = 'all';
+  let activeSearch = '';
 
   function applyFilters() {
+    let visible = 0;
     rows.forEach(row => {
       const matchFormat = activeFormat === 'all' || row.dataset.format === activeFormat;
       const matchResult = activeResult === 'all' || row.dataset.result === activeResult;
-      row.style.display = matchFormat && matchResult ? '' : 'none';
+      const matchSearch = activeSearch === '' || (row.dataset.opponent ?? '').includes(activeSearch);
+      const show = matchFormat && matchResult && matchSearch;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
     });
+    // Aktualizuj licznik
+    const badge = document.querySelector('.dash-section-title .section-badge');
+    if (badge) badge.textContent = String(visible);
   }
 
+  // Segmented filters (format + wynik)
   document.querySelectorAll<HTMLElement>('#match-filters .m-segmented').forEach(group => {
     const buttons = group.querySelectorAll<HTMLButtonElement>('.m-seg');
     const label = group.getAttribute('aria-label');
     buttons.forEach(btn => {
       btn.addEventListener('click', () => {
-        // Aktywuj w obrębie grupy
         buttons.forEach(b => b.classList.remove('m-seg--active'));
         btn.classList.add('m-seg--active');
         const f = btn.dataset.filter ?? 'all';
-        if (label === 'Format') {
-          activeFormat = f;
-        } else {
-          activeResult = f;
-        }
+        if (label === 'Format') activeFormat = f;
+        else activeResult = f;
         applyFilters();
       });
     });
   });
+
+  // Search input
+  const searchInput = document.getElementById('m-search') as HTMLInputElement | null;
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      activeSearch = searchInput.value.trim().toLowerCase();
+      applyFilters();
+    });
+  }
 </script>
 
 <style>
@@ -422,7 +449,44 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-wrap: wrap;
   }
+
+  /* ── Search input ─────────────────────────────────────────────────────── */
+  .m-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .m-search__icon {
+    position: absolute;
+    left: 9px;
+    color: var(--tc-muted);
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+
+  .m-search {
+    height: 30px;
+    padding: 0 10px 0 30px;
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 7px;
+    color: var(--tc-ink);
+    font-size: 0.72rem;
+    font-family: var(--font-sans);
+    width: 160px;
+    outline: none;
+    transition: border-color 0.15s, width 0.2s;
+  }
+  .m-search:focus {
+    border-color: var(--tc-accent);
+    width: 200px;
+  }
+  .m-search::placeholder { color: var(--tc-muted); }
+  /* ukryj domyślny przycisk clear w Chrome */
+  .m-search::-webkit-search-cancel-button { -webkit-appearance: none; }
 
   .m-segmented {
     display: flex;
