@@ -6,7 +6,7 @@
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
-import { getMatchHistory, type MatchHistoryEntry, type MatchUser } from '@/lib/api';
+import { getMatchHistory, getCurrentUser, type MatchHistoryEntry, type MatchUser } from '@/lib/api';
 import { url } from '@/lib/url';
 
 // ── Pobierz cookie sesji i dane z API ────────────────────────────────────────
@@ -14,15 +14,21 @@ const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
 let rawMatches: MatchHistoryEntry[] = [];
 let isLive = false;
 
-try {
-  const data = await getMatchHistory(sessionCookie);
-  if (data !== null && data !== undefined) {
-    rawMatches = data;
-    isLive = true;
-  }
-} catch (e) {
-  console.warn('[matches] API error, using fallback:', e);
+const [matchData, currentUser] = await Promise.all([
+  getMatchHistory(sessionCookie).catch(() => null),
+  getCurrentUser(sessionCookie).catch(() => null),
+]);
+
+if (matchData !== null && matchData !== undefined) {
+  rawMatches = matchData;
+  isLive = true;
 }
+
+const userDisplayName = currentUser
+  ? [currentUser.first_name, currentUser.last_name].filter(Boolean).join(' ') || currentUser.username
+  : null;
+
+const currentYear = new Date().getFullYear();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,8 +88,10 @@ type MatchRow = {
   result: 'win' | 'loss' | 'draw';
   resultLabel: string;
   resultLetter: string;
-  opponent: string;
+  opponent: string;        // główna nazwa (singiel: jeden gracz, debel: pierwszy z drużyny przeciwnej)
   opponentInitials: string;
+  opponentFull: string;    // debel: "Jan Kowalski / Marek Nowak", singiel: tak samo jak opponent
+  isDouble: boolean;
   date: string;
   score: string;
   setsScore: string;
@@ -102,30 +110,27 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
   };
   const r = resultMap[m.user] ?? { result: 'draw' as const, label: '—', letter: '?' };
 
-  const opponent = m.win === 'p1' && m.user === 'user-win'
-    ? userName(m.p2)
-    : m.win === 'p2' && m.user === 'user-win'
-    ? userName(m.p1)
-    : m.win === 'p1' && m.user === 'user-loss'
-    ? userName(m.p1)
-    : m.win === 'p2' && m.user === 'user-loss'
-    ? userName(m.p2)
-    : userName(m.p2);
-
-  const opponentObj = m.win === 'p1' && m.user === 'user-win'
-    ? m.p2
-    : m.win === 'p2' && m.user === 'user-win'
-    ? m.p1
-    : m.win === 'p1' && m.user === 'user-loss'
-    ? m.p1
-    : m.win === 'p2' && m.user === 'user-loss'
-    ? m.p2
-    : m.p2;
-
-  // Wyznacz stronę gracza (p1 vs p2) do obliczenia setsScore
+  // Wyznacz stronę gracza: user jest w drużynie 1 (p1+p3) lub drużynie 2 (p2+p4)
+  // Drużyna 1 wygrywa gdy win='p1'; drużyna 2 gdy win='p2'
   const isP1Side =
-    (m.user === 'user-win' && m.win === 'p1') ||
-    (m.user === 'user-loss' && m.win === 'p2');
+    (m.user === 'user-win'  && m.win === 'p1') ||
+    (m.user === 'user-loss' && m.win === 'p2') ||
+    (m.user === 'user-draw' && m.win === 'draw' && !!m.p1); // draw: zakładamy p1 side jako fallback
+
+  // Drużyny: Team A = p1+p3, Team B = p2+p4
+  const myTeam:  [MatchUser | null, MatchUser | null] = isP1Side ? [m.p1, m.p3] : [m.p2, m.p4];
+  const oppTeam: [MatchUser | null, MatchUser | null] = isP1Side ? [m.p2, m.p4] : [m.p1, m.p3];
+
+  // Główny gracz z przeciwnej drużyny (do inicjałów i fallback)
+  const opponentObj = oppTeam[0] ?? oppTeam[1];
+  const opponent = userName(opponentObj);
+
+  // Pełna etykieta przeciwnika — dla debla sklejamy obu graczy
+  const isDouble = m.match_double;
+  const oppNames = oppTeam.map(p => userName(p)).filter(n => n !== '?');
+  const opponentFull = isDouble && oppNames.length > 1
+    ? oppNames.join(' / ')
+    : oppNames[0] ?? opponent;
 
   const isTournament = m.is_tournament ?? false;
   const tournamentId = m.tournament_id ?? null;
@@ -152,6 +157,8 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
     resultLetter: r.letter,
     opponent,
     opponentInitials: userInitials(opponentObj),
+    opponentFull,
+    isDouble,
     date: formatDate(m.match_date),
     score: formatScore(m),
     setsScore: setsScore(m, isP1Side),
@@ -165,11 +172,11 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
 
 // ── Fallback demo — gdy API niedostępne lub niezalogowany ───────────────────
 const demoMatches: MatchRow[] = [
-  { id: 1, matchIdNum: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',       opponentInitials: 'TB', date: '21 paź 2026', score: '6:3, 7:5',       setsScore: '2:0', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
-  { id: 2, matchIdNum: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',   opponentInitials: 'AK', date: '15 paź 2026', score: '4:6, 5:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
-  { id: 3, matchIdNum: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',      opponentInitials: 'RN', date: '8 paź 2026',  score: '6:1, 6:4',       setsScore: '2:0', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
-  { id: 4, matchIdNum: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski', opponentInitials: 'PW', date: '1 paź 2026',  score: '7:5, 4:6, 10:8', setsScore: '2:1', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
-  { id: 5, matchIdNum: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',     opponentInitials: 'MW', date: '18 wrz 2026', score: '3:6, 6:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
+  { id: 1, matchIdNum: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',       opponentInitials: 'TB', opponentFull: 'Tomasz Bąk',                      isDouble: false, date: '21 paź 2026', score: '6:3, 7:5',       setsScore: '2:0', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
+  { id: 2, matchIdNum: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',   opponentInitials: 'AK', opponentFull: 'Adam Kowalczyk',                  isDouble: false, date: '15 paź 2026', score: '4:6, 5:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
+  { id: 3, matchIdNum: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',      opponentInitials: 'RN', opponentFull: 'Rafał Nowak / Anna Wiśniewska',   isDouble: true,  date: '8 paź 2026',  score: '6:1, 6:4',       setsScore: '2:0', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
+  { id: 4, matchIdNum: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski', opponentInitials: 'PW', opponentFull: 'Piotr Wiśniewski / Marek Nowak', isDouble: true,  date: '1 paź 2026',  score: '7:5, 4:6, 10:8', setsScore: '2:1', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
+  { id: 5, matchIdNum: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',     opponentInitials: 'MW', opponentFull: 'Marek Wróbel',                    isDouble: false, date: '18 wrz 2026', score: '3:6, 6:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
 ];
 
 const matches: MatchRow[] = isLive ? rawMatches.map(mapMatch) : demoMatches;
@@ -196,6 +203,7 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
 <AppLayout
   title="Mecze"
   greeting="Historia meczów"
+  greetingSub={userDisplayName ? `${userDisplayName} · sezon ${currentYear}` : undefined}
   showSearch={false}
   showCta={true}
   ctaLabel="+ Dodaj mecz towarzyski"
@@ -242,6 +250,7 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
       <h2 class="dash-section-title">
         Historia meczów
         <span class="section-badge">{total}</span>
+        {userDisplayName && <span class="m-my-chip">Twoja historia</span>}
       </h2>
       <div class="m-filter-groups" id="match-filters">
         <div class="m-search-wrap">
@@ -300,12 +309,12 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
             class="m-row"
             data-result={m.result}
             data-format={m.format}
-            data-opponent={m.opponent.toLowerCase()}
+            data-opponent={m.opponentFull.toLowerCase()}
             href={m.isTournament && m.tournamentId ? url(`/tournaments/${m.tournamentId}`) : m.matchIdNum ? url(`/matches/${m.matchIdNum}`) : '#'}
           >
             <div class={`m-result-badge m-result-badge--${m.result}`}>{m.resultLetter}</div>
             <div class="m-opponent">
-              <div class="m-opponent__name">{m.opponent}</div>
+              <div class={`m-opponent__name${m.isDouble ? ' m-opponent__name--dbl' : ''}`}>{m.opponentFull}</div>
               <div class="m-opponent__type">{m.typeLabel}</div>
             </div>
             <div class="m-sets">
@@ -381,6 +390,22 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
 </script>
 
 <style>
+  /* ── "Twoja historia" chip ───────────────────────────────────────────── */
+  .m-my-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    color: var(--tc-muted);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
   /* ── Banner sukcesu ───────────────────────────────────────────────────── */
   .m-added-banner {
     display: flex; align-items: center; gap: 8px;
@@ -592,6 +617,10 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .m-opponent__name--dbl {
+    font-size: 0.8rem;
   }
 
   .m-row:hover .m-opponent__name { color: var(--tc-accent); }
