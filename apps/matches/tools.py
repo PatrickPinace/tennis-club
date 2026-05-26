@@ -8,13 +8,17 @@ import logging
 logger = logging.getLogger(__name__)
 
 def _calculate_set_winner(p1_score, p2_score):
-    """Określa zwycięzcę seta na podstawie wyników."""
-    # Konwersja na liczby całkowite na początku
+    """Określa zwycięzcę seta na podstawie wyników.
+
+    Obsługuje:
+    - standardowy set tenisowy (do 6, tie-break do 7)
+    - super tie-break (do 10+)
+    - formaty skrócone (Americano/Mexicano, do 4 gemów itp.) — fallback: wyższy wynik wygrywa
+    """
     p1_score, p2_score = int(p1_score), int(p2_score)
 
     # Warunki zwycięstwa dla gracza 1
     p1_wins_standard_set = (p1_score == 6 and p2_score < 5) or (p1_score == 7 and p2_score in [5, 6])
-    # Warunki zwycięstwa dla gracza 1 w super tie-breaku (lub innym tie-breaku do 10)
     p1_wins_super_tiebreak = (p1_score >= 10 and (p1_score - p2_score) >= 2)
 
     if p1_wins_standard_set or p1_wins_super_tiebreak:
@@ -27,7 +31,14 @@ def _calculate_set_winner(p1_score, p2_score):
     if p2_wins_standard_set or p2_wins_super_tiebreak:
         return 'p2'
 
-    # Jeśli żaden z warunków zwycięstwa nie został spełniony, set jest nierozstrzygnięty
+    # Fallback dla formatów niestandardowych (skrócone sety, Americano, Mexicano):
+    # jeśli wynik nie pasuje do żadnego standardowego wzorca, wyższy wynik wygrywa.
+    if p1_score > p2_score:
+        return 'p1'
+    if p2_score > p1_score:
+        return 'p2'
+
+    # Remis (np. 3:3) — set nierozstrzygnięty
     return None
 
 class Results:
