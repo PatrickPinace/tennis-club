@@ -111,11 +111,14 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
   const r = resultMap[m.user] ?? { result: 'draw' as const, label: '—', letter: '?' };
 
   // Wyznacz stronę gracza: user jest w drużynie 1 (p1+p3) lub drużynie 2 (p2+p4)
-  // Drużyna 1 wygrywa gdy win='p1'; drużyna 2 gdy win='p2'
+  // Backend: win='p1' → Team A (p1+p3) wygrała; win='p2' → Team B (p2+p4) wygrała
+  // user='user-win/loss' → backend już sprawdził przynależność; draw → sprawdzamy sami po id
+  const uid = currentUser?.id ?? null;
+  const inTeamA = uid !== null && (m.p1?.id === uid || m.p3?.id === uid);
   const isP1Side =
     (m.user === 'user-win'  && m.win === 'p1') ||
     (m.user === 'user-loss' && m.win === 'p2') ||
-    (m.user === 'user-draw' && m.win === 'draw' && !!m.p1); // draw: zakładamy p1 side jako fallback
+    (m.user === 'user-draw' && inTeamA);        // draw: sprawdzamy rzeczywistą przynależność
 
   // Drużyny: Team A = p1+p3, Team B = p2+p4
   const myTeam:  [MatchUser | null, MatchUser | null] = isP1Side ? [m.p1, m.p3] : [m.p2, m.p4];
