@@ -149,8 +149,8 @@ if DJANGO_ENV == 'development':
 
 ROOT_URLCONF = 'core.urls'
 LOGIN_URL = '/users/login/'
-LOGIN_REDIRECT_URL = "/dashboard"  # Astro dashboard (nginx routes /dashboard → Astro)
-LOGOUT_REDIRECT_URL = "/users/login/"
+LOGIN_REDIRECT_URL = "/astro/dashboard"  # Astro dashboard
+LOGOUT_REDIRECT_URL = "/astro/login"    # Astro login page
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")  # ROOT dir for templates
 
 

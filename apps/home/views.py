@@ -25,8 +25,8 @@ def custom_500(request):
 
 def home(request):
     if request.user.is_authenticated:
-        return redirect('/dashboard')  # Astro dashboard
-    return redirect('/login')  # Astro login page
+        return redirect('/astro/dashboard')  # Astro dashboard
+    return redirect('/astro/login')  # Astro login page
 
 def about_author(request):
     """
