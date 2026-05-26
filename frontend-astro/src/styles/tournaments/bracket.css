@@ -1,4 +1,7 @@
-  /* ── Bracket (SGL drabinka) ─────────────────────────────────────────────── */
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BRACKET (SGL/DBE drabinka) — tc-* design tokens
+     ═══════════════════════════════════════════════════════════════════════════ */
+
   .bracket-container {
     padding: 16px;
     overflow-x: auto;
@@ -6,7 +9,7 @@
   .bkt-wrap {
     display: flex;
     gap: 24px;
-    align-items: flex-start;
+    align-items: stretch;   /* kolumny tej samej wysokości — potrzebne do centrowania */
     min-width: max-content;
   }
   .bkt-col {
@@ -20,24 +23,27 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--text-dim);
+    color: var(--tc-muted);
     margin-bottom: 10px;
     text-align: center;
+    flex-shrink: 0;
   }
   .bkt-col-matches {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    flex: 1;                        /* zajmij całą dostępną wysokość kolumny */
+    justify-content: space-around;  /* rozłóż mecze równomiernie w pionie */
+    gap: 0;
   }
   .bkt-match {
-    background: var(--surface-2);
-    border: 1px solid var(--border-light);
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
     border-radius: 8px;
     overflow: hidden;
     min-width: 160px;
   }
   .bkt-match--done {
-    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+    border-color: var(--tc-accent-border);
   }
   .bkt-player {
     display: flex;
@@ -45,15 +51,15 @@
     justify-content: space-between;
     padding: 7px 10px;
     font-size: 0.82rem;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border-light);
+    color: var(--tc-sub);
+    border-bottom: 1px solid var(--tc-card-border);
     gap: 6px;
   }
   .bkt-player:last-child { border-bottom: none; }
   .bkt-player--winner {
-    color: var(--text);
+    color: var(--tc-ink);
     font-weight: 700;
-    background: color-mix(in srgb, var(--primary) 6%, transparent);
+    background: var(--tc-accent-soft);
   }
   .bkt-player-name {
     flex: 1;
@@ -64,24 +70,25 @@
   .bkt-score {
     font-size: 0.75rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--tc-accent);
+    font-family: var(--font-mono);
     white-space: nowrap;
     flex-shrink: 0;
   }
   .bkt-score-neutral {
     padding: 3px 10px 5px;
     font-size: 0.73rem;
-    color: var(--text-dim);
+    color: var(--tc-muted);
     text-align: right;
   }
   .bkt-third-label {
     display: block;
     font-size: 0.68rem;
-    color: var(--text-dim);
+    color: var(--tc-muted);
     text-align: center;
     padding: 3px 6px 2px;
-    background: var(--surface-3, var(--surface-2));
-    border-bottom: 1px solid var(--border-light);
+    background: var(--tc-card-border-soft);
+    border-bottom: 1px solid var(--tc-card-border);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -96,14 +103,14 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.07em;
-    color: var(--text-dim);
+    color: var(--tc-muted);
     margin-bottom: 10px;
     padding: 4px 0 6px;
-    border-bottom: 1px solid var(--border-light);
+    border-bottom: 1px solid var(--tc-card-border);
   }
   .bkt-section--gf {
     margin-bottom: 0;
   }
   .bkt-section-title--gf {
-    color: var(--primary);
+    color: var(--tc-accent);
   }

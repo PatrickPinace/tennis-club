@@ -5,7 +5,6 @@
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
-import PageHeader from '@/components/PageHeader.astro';
 import { getRankings, type PlayerRankingEntry } from '@/lib/api';
 
 // ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
@@ -36,136 +35,158 @@ if (players.length === 0) {
   ];
 }
 
-// ── Helper: inicjały z display_name ───────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(w => w[0].toUpperCase())
-    .join('');
+  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
 }
 
-// ── Helper: klasa win-rate ─────────────────────────────────────────────────────
-function winRateClass(wr: number): string {
-  if (wr >= 70) return 'win-rate win-rate--high';
-  if (wr >= 50) return 'win-rate win-rate--mid';
-  return 'win-rate win-rate--low';
+function fmtPoints(pts: number | string): string {
+  return Math.round(Number(pts)).toLocaleString('pl-PL');
 }
+
+const top3 = players.slice(0, 3);
+const totalPlayers = players.length;
+
+// Prototyp: kolejność kart w podium to [2, 1, 3] — srebro, złoto (wyższe), brąz
+const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
+const podiumKeys = ['silver', 'gold', 'bronze'] as const;
+const podiumLabels = ['SREBRO', 'ZŁOTO', 'BRĄZ'];
+const podiumNumbers = [2, 1, 3];
 ---
 
 <AppLayout
   title="Ranking"
   greeting="Ranking klubowy"
+  greetingSub={`${totalPlayers} graczy · sezon wiosna 2026`}
   showCta={false}
   showSearch={false}
 >
 
-<div class="page-narrow">
-  <PageHeader
-    eyebrow="Statystyki"
-    title="Ranking klubowy"
-    subtitle="Klasyfikacja singlowa — sezon 2026. Punkty naliczane po zakończeniu turniejów."
-    centered={true}
-  />
-
-  <!-- Moja pozycja — wypełniana client-side; ukryta domyślnie -->
-  <div class="my-rank-card" id="my-rank-card" style="display:none;" aria-live="polite">
-    <div class="my-rank-card__left">
-      <div class="my-rank-card__pos">
-        <span class="my-rank-card__pos-num" id="my-rank-pos">—</span>
-        <span class="my-rank-card__pos-label">miejsce</span>
+  <!-- Moja pozycja — client-side; ukryta domyślnie -->
+  <div class="rk-my" id="my-rank-card" style="display:none;" aria-live="polite">
+    <div class="rk-my__left">
+      <div class="rk-my__pos">
+        <span class="rk-my__pos-num" id="my-rank-pos">—</span>
+        <span class="rk-my__pos-label">miejsce</span>
       </div>
-      <div class="my-rank-card__divider" aria-hidden="true"></div>
+      <div class="rk-my__sep" aria-hidden="true"></div>
       <div>
-        <div class="my-rank-card__name">Twoja pozycja</div>
-        <div class="my-rank-card__sub" id="my-rank-sub">Ranking singlowy 2026</div>
+        <div class="rk-my__title">Twoja pozycja</div>
+        <div class="rk-my__sub" id="my-rank-sub">Ranking singlowy 2026</div>
       </div>
     </div>
-    <div class="my-rank-card__stats">
-      <div class="my-rank-card__stat">
-        <span class="my-rank-card__stat-val" id="my-rank-pts">—</span>
-        <span class="my-rank-card__stat-lbl">Punkty</span>
+    <div class="rk-my__stats">
+      <div class="rk-my__stat">
+        <span class="rk-my__stat-label">PUNKTY</span>
+        <span class="rk-my__stat-val" id="my-rank-pts">—</span>
       </div>
-      <div class="my-rank-card__stat">
-        <span class="my-rank-card__stat-val" id="my-rank-record">—</span>
-        <span class="my-rank-card__stat-lbl">Wygrane</span>
+      <div class="rk-my__stat">
+        <span class="rk-my__stat-label">WYGRANE</span>
+        <span class="rk-my__stat-val" id="my-rank-record">—</span>
       </div>
-      <div class="my-rank-card__stat">
-        <span class="my-rank-card__stat-val" id="my-rank-wr">—</span>
-        <span class="my-rank-card__stat-lbl">Win Rate</span>
+      <div class="rk-my__stat">
+        <span class="rk-my__stat-label">SKUTECZNOŚĆ</span>
+        <span class="rk-my__stat-val" id="my-rank-wr">—</span>
       </div>
     </div>
   </div>
 
-  <!-- Główna tabela rankingowa -->
-  <div class="tc-card">
-    <div class="tc-card-header">
-      <span class="tc-card-title" id="rank-card-title">Top graczy — Singiel 2026</span>
-      <div class="rank-filters">
-        <button class="rank-filter rank-filter--active" data-type="SNG">Singiel</button>
-        <button class="rank-filter" data-type="DBL">Debel</button>
+  <!-- Podium Top 3 — kolejność: [srebro, złoto-wyższe, brąz] jak w prototypie -->
+  {top3.length >= 3 && (
+    <div class="rk-podium">
+      {podiumOrder.map((p, i) => (
+        <div class={`rk-podium__card rk-podium__card--${podiumKeys[i]}${i === 1 ? ' rk-podium__card--raised' : ''}`}>
+          <div class="rk-podium__header">
+            <span class="rk-podium__label">{podiumLabels[i]}</span>
+            <span class="rk-podium__num">{podiumNumbers[i]}</span>
+          </div>
+          <div class="rk-podium__body">
+            <div class={`rk-podium__avatar rk-podium__avatar--${podiumKeys[i]}`} aria-hidden="true">
+              {getInitials(p.display_name)}
+            </div>
+            <div class="rk-podium__info">
+              <span class="rk-podium__name">{p.display_name}</span>
+              <span class="rk-podium__meta">{p.matches_played} meczów · {Math.round(p.win_rate)}% skuteczności</span>
+            </div>
+          </div>
+          <div class="rk-podium__footer">
+            <div class="rk-podium__stat">
+              <span class="rk-podium__stat-label">PUNKTY</span>
+              <span class="rk-podium__stat-val">{fmtPoints(p.points)}</span>
+            </div>
+            <div class="rk-podium__stat">
+              <span class="rk-podium__stat-label">WYGRANE</span>
+              <span class="rk-podium__stat-val">{p.matches_won} <span class="rk-podium__stat-of">/ {p.matches_played}</span></span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+
+  <!-- Tabela rankingowa -->
+  <section class="rk-card">
+    <div class="rk-card__header">
+      <div class="rk-card__title-wrap">
+        <span class="rk-card__dot" aria-hidden="true"></span>
+        <h2 class="rk-card__title">TABELA KLUBOWA</h2>
+        <span class="rk-card__badge" id="rank-count-badge">{totalPlayers}</span>
+      </div>
+      <div class="rk-segmented" role="group" aria-label="Typ rankingu">
+        <button class="rk-seg rk-seg--active" data-type="SNG">Singiel</button>
+        <button class="rk-seg" data-type="DBL">Debel</button>
       </div>
     </div>
 
-    <div style="overflow-x:auto;">
-      <table class="tc-table rank-table" id="rank-table">
-        <thead>
-          <tr>
-            <th style="width:52px;">#</th>
-            <th>Gracz</th>
-            <th class="col-num">Punkty</th>
-            <th class="col-num">Mecze</th>
-            <th class="col-num">Wygrane</th>
-            <th class="col-num">Win %</th>
-          </tr>
-        </thead>
-        <tbody id="rank-tbody">
-          {players.map(p => (
-            <tr data-pos={p.position}>
-              <td>
-                <span class={`rank-pos${p.position <= 3 ? ` rank-pos--${p.position}` : ''}`}>
-                  {p.position}
-                </span>
-              </td>
-              <td>
-                <div class="rank-player">
-                  <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
-                    {getInitials(p.display_name)}
-                  </div>
-                  <div>
-                    <div class="rank-player__name">
-                      {p.display_name}
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td class="col-num rank-points">{Math.round(Number(p.points)).toLocaleString('pl-PL')}</td>
-              <td class="col-num col-muted">{p.matches_played}</td>
-              <td class="col-num col-muted">{p.matches_won}</td>
-              <td class="col-num">
-                <span class={winRateClass(p.win_rate)}>
-                  {Math.round(p.win_rate)}%
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <!-- Nagłówki tabeli -->
+    <div class="rk-thead">
+      <span class="rk-th">POZ.</span>
+      <span class="rk-th">GRACZ</span>
+      <span class="rk-th rk-th--r">MECZE</span>
+      <span class="rk-th rk-th--r">WYGRANE</span>
+      <span class="rk-th rk-th--r">PUNKTY</span>
     </div>
 
-    <div class="tc-card-footer" style="display:flex; justify-content:space-between; align-items:center;">
-      <span style="font-size:0.78rem; color:var(--text-dim);" id="rank-footer-info">
+    <div class="rk-tbody" id="rank-tbody">
+      {players.map(p => (
+        <div class={`rk-row${p.position === 1 ? ' rk-row--first' : ''}`} data-pos={p.position}>
+          <div class="rk-row__pos">
+            <span class={`rk-pos-badge${p.position <= 3 ? ` rk-pos-badge--${p.position}` : ''}`}>
+              {p.position}
+            </span>
+          </div>
+          <div class="rk-row__player">
+            <div class={`rk-row__avatar${p.position <= 3 ? ` rk-row__avatar--${['gold','silver','bronze'][p.position - 1]}` : ''}`} aria-hidden="true">
+              {getInitials(p.display_name)}
+            </div>
+            <div class="rk-row__player-info">
+              <span class="rk-row__name">{p.display_name}</span>
+              <span class="rk-row__winrate">{Math.round(p.win_rate)}% skuteczności</span>
+            </div>
+          </div>
+          <div class="rk-row__num rk-row__muted">{p.matches_played}</div>
+          <div class="rk-row__num rk-row__muted">
+            {p.matches_won} <span class="rk-row__of">/ {p.matches_played}</span>
+          </div>
+          <div class="rk-row__num rk-row__points">
+            {fmtPoints(p.points)} <span class="rk-row__pkt">pkt</span>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="rk-card__footer">
+      <span class="rk-footer-info" id="rank-footer-info">
         {isLive
           ? `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
-          : 'Ostatnia aktualizacja: 8 kwi 2026 · Dane demonstracyjne'
-        }
+          : 'Dane demonstracyjne'}
       </span>
-      <span class="tc-btn tc-btn-ghost tc-btn-sm" style="cursor:default;opacity:0.5;">Pełna tabela →</span>
+      <span class="rk-footer-label" id="rank-card-title">
+        {isLive ? 'Singiel 2026' : 'Singiel 2026 (demo)'}
+      </span>
     </div>
-  </div>
+  </section>
 
-</div><!-- /page-narrow -->
 </AppLayout>
 
 <!-- ── Client-side: karta "Moja pozycja" + podświetlenie wiersza ─────────────── -->
@@ -185,13 +206,12 @@ function winRateClass(wr: number): string {
       const ranking = data?.ranking;
       if (!ranking || ranking.position == null) return;
 
-      const pos     = ranking.position;
-      const pts     = ranking.points ?? '—';
-      const won     = ranking.matches_won ?? '—';
-      const played  = ranking.matches_played ?? '—';
-      const wr      = ranking.win_rate != null ? `${Math.round(ranking.win_rate)}%` : '—';
+      const pos    = ranking.position;
+      const pts    = ranking.points ?? '—';
+      const won    = ranking.matches_won ?? '—';
+      const played = ranking.matches_played ?? '—';
+      const wr     = ranking.win_rate != null ? `${Math.round(ranking.win_rate)}%` : '—';
 
-      // Wypełnij kartę
       const card = document.getElementById('my-rank-card');
       if (card) {
         (document.getElementById('my-rank-pos') as HTMLElement).textContent = String(pos);
@@ -202,30 +222,99 @@ function winRateClass(wr: number): string {
         card.style.display = '';
       }
 
-      // Podświetl wiersz w tabeli + dodaj badge "Ty"
-      const row = document.querySelector<HTMLTableRowElement>(`#rank-tbody tr[data-pos="${pos}"]`);
+      // Podświetl wiersz + badge "Ty"
+      const row = document.querySelector<HTMLElement>(`#rank-tbody .rk-row[data-pos="${pos}"]`);
       if (row) {
-        row.classList.add('rank-row--me');
-        const avatarEl = row.querySelector<HTMLElement>('.tc-avatar');
-        if (avatarEl) avatarEl.classList.add('tc-avatar--me');
-        const nameEl = row.querySelector<HTMLElement>('.rank-player__name');
-        if (nameEl && !nameEl.querySelector('.rank-me-badge')) {
+        row.classList.add('rk-row--me');
+        const nameEl = row.querySelector<HTMLElement>('.rk-row__name');
+        if (nameEl && !nameEl.querySelector('.rk-me-badge')) {
           const badge = document.createElement('span');
-          badge.className = 'rank-me-badge';
-          badge.textContent = 'Ty';
-          nameEl.appendChild(badge);
+          badge.className = 'rk-me-badge';
+          badge.textContent = 'TY';
+          nameEl.after(badge);
         }
       }
     } catch {
-      // Cicha degradacja — użytkownik niezalogowany
+      // Cicha degradacja
     }
   })();
 
+  // ── Helpers powielone dla innerHTML ──────────────────────────────────────────
+  function initials(name: string) {
+    return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('');
+  }
+  function fmtPts(pts: number | string) {
+    return Math.round(Number(pts)).toLocaleString('pl-PL');
+  }
+  const medals = ['gold', 'silver', 'bronze'];
+
+  function buildRow(p: {
+    position: number; display_name: string; points: number | string;
+    matches_played: number; matches_won: number; matches_lost?: number;
+    win_rate: number;
+  }): string {
+    const medalClass = p.position <= 3 ? ` rk-row__avatar--${medals[p.position - 1]}` : '';
+    const posBadgeClass = p.position <= 3 ? ` rk-pos-badge--${p.position}` : '';
+    return `
+      <div class="rk-row${p.position === 1 ? ' rk-row--first' : ''}" data-pos="${p.position}">
+        <div class="rk-row__pos">
+          <span class="rk-pos-badge${posBadgeClass}">${p.position}</span>
+        </div>
+        <div class="rk-row__player">
+          <div class="rk-row__avatar${medalClass}" aria-hidden="true">${initials(p.display_name)}</div>
+          <div class="rk-row__player-info">
+            <span class="rk-row__name">${p.display_name}</span>
+            <span class="rk-row__winrate">${Math.round(p.win_rate)}% skuteczności</span>
+          </div>
+        </div>
+        <div class="rk-row__num rk-row__muted">${p.matches_played}</div>
+        <div class="rk-row__num rk-row__muted">${p.matches_won} <span class="rk-row__of">/ ${p.matches_played}</span></div>
+        <div class="rk-row__num rk-row__points">${fmtPts(p.points)} <span class="rk-row__pkt">pkt</span></div>
+      </div>
+    `;
+  }
+
+  function buildPodiumCard(p: {
+    position: number; display_name: string; points: number | string;
+    matches_played: number; matches_won: number; win_rate: number;
+  }, slot: number): string {
+    const keys = ['silver', 'gold', 'bronze'];
+    const labels = ['SREBRO', 'ZŁOTO', 'BRĄZ'];
+    const nums = [2, 1, 3];
+    const k = keys[slot];
+    const raisedClass = slot === 1 ? ' rk-podium__card--raised' : '';
+    return `
+      <div class="rk-podium__card rk-podium__card--${k}${raisedClass}">
+        <div class="rk-podium__header">
+          <span class="rk-podium__label">${labels[slot]}</span>
+          <span class="rk-podium__num">${nums[slot]}</span>
+        </div>
+        <div class="rk-podium__body">
+          <div class="rk-podium__avatar rk-podium__avatar--${k}" aria-hidden="true">${initials(p.display_name)}</div>
+          <div class="rk-podium__info">
+            <span class="rk-podium__name">${p.display_name}</span>
+            <span class="rk-podium__meta">${p.matches_played} meczów · ${Math.round(p.win_rate)}% skuteczności</span>
+          </div>
+        </div>
+        <div class="rk-podium__footer">
+          <div class="rk-podium__stat">
+            <span class="rk-podium__stat-label">PUNKTY</span>
+            <span class="rk-podium__stat-val">${fmtPts(p.points)}</span>
+          </div>
+          <div class="rk-podium__stat">
+            <span class="rk-podium__stat-label">WYGRANE</span>
+            <span class="rk-podium__stat-val">${p.matches_won} <span class="rk-podium__stat-of">/ ${p.matches_played}</span></span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // ── Przełącznik Singiel / Debel ─────────────────────────────────────────────
-  document.querySelectorAll<HTMLButtonElement>('.rank-filter').forEach(btn => {
+  document.querySelectorAll<HTMLButtonElement>('.rk-seg').forEach(btn => {
     btn.addEventListener('click', async () => {
-      document.querySelectorAll('.rank-filter').forEach(b => b.classList.remove('rank-filter--active'));
-      btn.classList.add('rank-filter--active');
+      document.querySelectorAll('.rk-seg').forEach(b => b.classList.remove('rk-seg--active'));
+      btn.classList.add('rk-seg--active');
 
       const type = btn.dataset.type as 'SNG' | 'DBL';
       const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
@@ -233,6 +322,7 @@ function winRateClass(wr: number): string {
 
       const tbody = document.getElementById('rank-tbody');
       const footer = document.getElementById('rank-footer-info');
+      const countBadge = document.getElementById('rank-count-badge');
       if (!tbody) return;
 
       try {
@@ -242,44 +332,39 @@ function winRateClass(wr: number): string {
         });
         if (!res.ok || res.type === 'opaqueredirect') return;
         const rows: Array<{
-          position: number; display_name: string; points: number;
-          matches_played: number; matches_won: number; win_rate: number;
+          position: number; display_name: string; points: number | string;
+          matches_played: number; matches_won: number; matches_lost: number;
+          win_rate: number;
         }> = await res.json();
 
         if (!rows || rows.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">Brak danych dla wybranej kategorii.</td></tr>`;
+          tbody.innerHTML = `<div class="rk-empty">Brak danych dla wybranej kategorii.</div>`;
+          const podium = document.querySelector<HTMLElement>('.rk-podium');
+          if (podium) podium.style.display = 'none';
+          if (countBadge) countBadge.textContent = '0';
           return;
         }
 
-        function initials(name: string) {
-          return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('');
-        }
-        function wrClass(wr: number) {
-          return wr >= 70 ? 'win-rate win-rate--high' : wr >= 50 ? 'win-rate win-rate--mid' : 'win-rate win-rate--low';
+        // Aktualizuj podium
+        const podium = document.querySelector<HTMLElement>('.rk-podium');
+        if (podium && rows.length >= 3) {
+          podium.style.display = '';
+          // kolejność: [srebro=rows[1], złoto=rows[0], brąz=rows[2]]
+          const order = [rows[1], rows[0], rows[2]];
+          podium.innerHTML = order.map((p, i) => buildPodiumCard(p, i)).join('');
+        } else if (podium) {
+          podium.style.display = 'none';
         }
 
-        tbody.innerHTML = rows.map(p => `
-          <tr data-pos="${p.position}">
-            <td><span class="rank-pos${p.position <= 3 ? ` rank-pos--${p.position}` : ''}">${p.position}</span></td>
-            <td>
-              <div class="rank-player">
-                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">${initials(p.display_name)}</div>
-                <div class="rank-player__name">${p.display_name}</div>
-              </div>
-            </td>
-            <td class="col-num rank-points">${Math.round(Number(p.points)).toLocaleString('pl-PL')}</td>
-            <td class="col-num col-muted">${p.matches_played}</td>
-            <td class="col-num col-muted">${p.matches_won}</td>
-            <td class="col-num"><span class="${wrClass(p.win_rate)}">${Math.round(p.win_rate)}%</span></td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = rows.map(p => buildRow(p)).join('');
+        if (countBadge) countBadge.textContent = String(rows.length);
 
         const label = type === 'SNG' ? 'Singiel' : 'Debel';
         if (footer) {
-          footer.textContent = `Dane live · ${label} · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+          footer.textContent = `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
         }
         const cardTitle = document.getElementById('rank-card-title');
-        if (cardTitle) cardTitle.textContent = `Top graczy — ${label} 2026`;
+        if (cardTitle) cardTitle.textContent = `${label} 2026`;
         const rankSub = document.getElementById('my-rank-sub');
         if (rankSub) rankSub.textContent = `Ranking ${type === 'SNG' ? 'singlowy' : 'deblowy'} 2026`;
       } catch {
@@ -290,123 +375,573 @@ function winRateClass(wr: number): string {
 </script>
 
 <style is:global>
-  /* ── My rank highlight ─────────────────────────────────────────────────── */
-  .my-rank-card {
-    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  /* ══════════════════════════════════════════════════════════════════════════
+     RANKINGS — layout wg prototypu astro4.jpeg
+     is:global wymagane bo JS podmienia innerHTML (buildRow/buildPodiumCard)
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Moja pozycja (zielona karta - gdy zalogowany) ─────────────────────── */
+  .rk-my {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
     flex-wrap: wrap;
-    background: linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(34,197,94,0.04) 100%);
-    border: 1px solid rgba(34,197,94,0.25);
-    border-radius: var(--radius-md);
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-accent-border);
+    border-radius: 14px;
     padding: 20px 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 12px rgba(34,197,94,0.08);
+    margin-bottom: 16px;
   }
 
-  .my-rank-card__left {
-    display: flex; align-items: center; gap: 18px;
+  .rk-my__left {
+    display: flex;
+    align-items: center;
+    gap: 18px;
   }
 
-  .my-rank-card__pos {
+  .rk-my__pos { text-align: center; }
+
+  .rk-my__pos-num {
+    display: block;
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: var(--tc-accent);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rk-my__pos-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--tc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .rk-my__sep {
+    width: 1px;
+    height: 40px;
+    background: var(--tc-accent-border);
+  }
+
+  .rk-my__title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--tc-ink);
+  }
+
+  .rk-my__sub {
+    font-size: 0.78rem;
+    color: var(--tc-muted);
+    margin-top: 2px;
+  }
+
+  .rk-my__stats {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .rk-my__stat { text-align: left; }
+
+  .rk-my__stat-label {
+    display: block;
+    font-size: 0.6rem;
+    color: var(--tc-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+
+  .rk-my__stat-val {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--tc-ink);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Podium ────────────────────────────────────────────────────────────── */
+  /* Układ: [srebro] [złoto — raised wyżej] [brąz] */
+  .rk-podium {
+    display: grid;
+    grid-template-columns: 1fr 1.08fr 1fr; /* złoto nieco szersze */
+    align-items: flex-end;                  /* karty wyrównane do dołu */
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  /* Złoto — klasa raised: karta wysunięta w górę względem reszty */
+  .rk-podium__card--raised {
+    margin-bottom: 16px;
+    z-index: 1;
+  }
+
+  .rk-podium__card {
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    transition: background 0.25s, border-color 0.25s;
+  }
+
+  /* ── Nagłówek karty podium — solid kolor jak w prototypie ── */
+  .rk-podium__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+  }
+
+  .rk-podium__card--gold .rk-podium__header   { background: #92750a; } /* złoty — ciemne złoto */
+  .rk-podium__card--silver .rk-podium__header { background: #6b7a8a; }
+  .rk-podium__card--bronze .rk-podium__header { background: #8a6040; }
+
+  .rk-podium__label {
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .rk-podium__num {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1;
+    letter-spacing: -0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Body ── */
+  .rk-podium__body {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 16px 12px;
+  }
+
+  .rk-podium__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.88rem;
+    flex-shrink: 0;
+  }
+
+  .rk-podium__avatar--gold   { background: rgba(251,191,36,0.15); border: 2px solid rgba(251,191,36,0.5); color: #fbbf24; }
+  .rk-podium__avatar--silver { background: rgba(148,163,184,0.15); border: 2px solid rgba(148,163,184,0.5); color: #94a3b8; }
+  .rk-podium__avatar--bronze { background: rgba(180,108,64,0.15); border: 2px solid rgba(180,108,64,0.5); color: #b47a40; }
+
+  .rk-podium__info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .rk-podium__name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--tc-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rk-podium__meta {
+    font-size: 0.72rem;
+    color: var(--tc-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ── Footer stats ── */
+  .rk-podium__footer {
+    display: flex;
+    gap: 24px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--tc-card-border-soft);
+  }
+
+  .rk-podium__stat { display: flex; flex-direction: column; gap: 2px; }
+
+  .rk-podium__stat-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--tc-muted);
+  }
+
+  .rk-podium__stat-val {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--tc-ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .rk-podium__stat-of {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--tc-muted);
+  }
+
+  /* ── Karta rankingowa ──────────────────────────────────────────────────── */
+  .rk-card {
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 14px;
+    transition: background 0.25s, border-color 0.25s;
+  }
+
+  .rk-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--tc-card-border);
+  }
+
+  .rk-card__title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Zielona kropka jak w prototypie */
+  .rk-card__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--tc-accent);
+    flex-shrink: 0;
+  }
+
+  .rk-card__title {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--tc-ink);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .rk-card__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 99px;
+    background: var(--tc-chip-bg);
+    color: var(--tc-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  /* ── Segmented control ─────────────────────────────────────────────────── */
+  .rk-segmented {
+    display: flex;
+    padding: 2px;
+    background: var(--tc-chip-bg);
+    border-radius: 7px;
+  }
+
+  .rk-seg {
+    padding: 5px 14px;
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--tc-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+
+  .rk-seg:hover { color: var(--tc-sub); }
+
+  .rk-seg--active {
+    background: var(--tc-card-bg);
+    color: var(--tc-ink);
+    box-shadow: var(--tc-shadow);
+  }
+
+  /* ── Table head ────────────────────────────────────────────────────────── */
+  .rk-thead {
+    display: grid;
+    grid-template-columns: 60px 1fr 100px 120px 130px;
+    gap: 12px;
+    padding: 8px 20px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--tc-faint);
+    border-bottom: 1px solid var(--tc-card-border);
+  }
+
+  .rk-th--r { text-align: right; }
+
+  /* ── Table rows ────────────────────────────────────────────────────────── */
+  .rk-row {
+    display: grid;
+    grid-template-columns: 60px 1fr 100px 120px 130px;
+    gap: 12px;
+    padding: 14px 20px;
+    align-items: center;
+    border-bottom: 1px solid var(--tc-card-border-soft);
+    transition: background 0.1s;
+    position: relative;
+  }
+
+  .rk-row:last-child { border-bottom: none; }
+  .rk-row:hover { background: var(--tc-overlay); }
+
+  /* Wiersz #1 — zielony pasek po lewej + lekkie tło */
+  .rk-row--first {
+    background: var(--tc-accent-soft);
+  }
+  .rk-row--first::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--tc-accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .rk-row--first:hover { background: rgba(200,241,97,0.08); }
+
+  /* Podświetlenie "Moja pozycja" */
+  .rk-row--me { background: var(--tc-accent-soft); }
+  .rk-row--me::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--tc-accent);
+    border-radius: 0 2px 2px 0;
+  }
+  .rk-row--me:hover { background: rgba(200,241,97,0.08); }
+
+  .rk-pos-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    background: var(--tc-chip-bg);
+    color: var(--tc-muted);
+  }
+
+  .rk-pos-badge--1 { background: rgba(107,124,58,0.2);   color: #8fa83f; }
+  .rk-pos-badge--2 { background: rgba(107,122,138,0.15); color: #8fa3b8; }
+  .rk-pos-badge--3 { background: rgba(138,96,64,0.15);   color: #b47a40; }
+
+  .rk-row__player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .rk-row__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--tc-chip-bg);
+    border: 2px solid var(--tc-card-border);
+    display: grid;
+    place-items: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--tc-muted);
+    flex-shrink: 0;
+  }
+
+  .rk-row__avatar--gold   { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.4); color: #fbbf24; }
+  .rk-row__avatar--silver { background: rgba(148,163,184,0.1); border-color: rgba(148,163,184,0.4); color: #94a3b8; }
+  .rk-row__avatar--bronze { background: rgba(180,108,64,0.1); border-color: rgba(180,108,64,0.4); color: #b47a40; }
+
+  .rk-row__player-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  .rk-row__name {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--tc-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rk-row__winrate {
+    font-size: 0.72rem;
+    color: var(--tc-muted);
+    white-space: nowrap;
+  }
+
+  .rk-me-badge {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 700;
+    background: var(--tc-accent-soft);
+    border: 1px solid var(--tc-accent-border);
+    color: var(--tc-accent);
+    padding: 1px 7px;
+    border-radius: 99px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .rk-row__num {
+    text-align: right;
+    font-size: 0.84rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rk-row__points {
+    font-weight: 700;
+    color: var(--tc-ink);
+    font-size: 0.92rem;
+  }
+
+  .rk-row__pkt {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--tc-muted);
+  }
+
+  .rk-row__muted { color: var(--tc-muted); }
+
+  .rk-row__of {
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--tc-faint);
+  }
+
+  /* ── Footer ────────────────────────────────────────────────────────────── */
+  .rk-card__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    border-top: 1px solid var(--tc-card-border);
+  }
+
+  .rk-footer-info {
+    font-size: 0.72rem;
+    color: var(--tc-muted);
+  }
+
+  .rk-footer-label {
+    font-size: 0.72rem;
+    color: var(--tc-faint);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Empty state ───────────────────────────────────────────────────────── */
+  .rk-empty {
+    padding: 40px 20px;
     text-align: center;
-  }
-  .my-rank-card__pos-num {
-    display: block; font-size: 2.5rem; font-weight: 900; color: #22c55e;
-    line-height: 1; letter-spacing: -0.04em;
-  }
-  .my-rank-card__pos-label {
-    font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
-    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--tc-muted);
+    font-size: 0.84rem;
   }
 
-  .my-rank-card__divider {
-    width: 1px; height: 40px; background: rgba(34,197,94,0.2);
+  /* ══════════════════════════════════════════════════════════════════════════
+     RESPONSIVE
+     ══════════════════════════════════════════════════════════════════════════ */
+  @media (max-width: 1024px) {
+    .rk-podium { gap: 8px; }
+    .rk-podium__num { font-size: 2rem; }
+    .rk-podium__stat-val { font-size: 1.15rem; }
+
+    .rk-thead { display: none; }
+
+    .rk-row {
+      grid-template-columns: 48px 1fr auto;
+      gap: 10px;
+      padding: 12px 16px;
+    }
+
+    /* Ukryj kolumny MECZE i WYGRANE na tablecie — zostaje tylko PUNKTY */
+    .rk-row > .rk-row__num:nth-child(3),
+    .rk-row > .rk-row__num:nth-child(4) { display: none; }
+
+    .rk-card__header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .rk-my {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
   }
 
-  .my-rank-card__name {
-    font-weight: 700; font-size: 0.95rem; color: var(--text);
-  }
-  .my-rank-card__sub {
-    font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;
-  }
+  @media (max-width: 640px) {
+    /* Podium pionowo na mobile */
+    .rk-podium {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
 
-  .my-rank-card__stats {
-    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
-  }
+    /* Złoto na top w stacked layout, bez wysunięcia */
+    .rk-podium__card--raised {
+      margin-bottom: 0;
+      order: -1;
+    }
 
-  .my-rank-card__stat { text-align: center; }
-  .my-rank-card__stat-val {
-    display: block; font-size: 1.35rem; font-weight: 800; color: var(--text);
-    letter-spacing: -0.03em; line-height: 1.1;
-  }
-  .my-rank-card__stat-lbl {
-    font-size: 0.72rem; color: var(--text-muted); font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.05em;
-  }
+    .rk-podium__header { padding: 10px 14px; }
+    .rk-podium__num { font-size: 1.8rem; }
+    .rk-podium__body { padding: 12px 14px 10px; }
+    .rk-podium__footer { padding: 10px 14px 12px; gap: 20px; }
+    .rk-podium__stat-val { font-size: 1rem; }
 
-  /* ── Rank filters ──────────────────────────────────────────────────────── */
-  .rank-filters {
-    display: flex; gap: 4px;
+    .rk-my__pos-num { font-size: 2.2rem; }
+    .rk-my__stats { gap: 20px; }
+    .rk-my__stat-val { font-size: 1.25rem; }
+
+    .rk-row { padding: 11px 14px; gap: 8px; }
+    .rk-pos-badge { width: 28px; height: 28px; font-size: 0.78rem; }
+    .rk-row__avatar { width: 30px; height: 30px; font-size: 0.68rem; }
+    .rk-row__name { font-size: 0.82rem; }
+    .rk-row__points { font-size: 0.84rem; }
+
+    .rk-card__footer {
+      flex-direction: column;
+      gap: 4px;
+      align-items: flex-start;
+    }
   }
-
-  .rank-filter {
-    padding: 5px 12px; border-radius: 6px;
-    font-size: 0.8rem; font-weight: 600;
-    border: 1px solid var(--border);
-    background: transparent; color: var(--text-muted);
-    cursor: pointer; transition: background 0.12s, color 0.12s;
-  }
-  .rank-filter:hover { background: var(--surface-hover); color: var(--text); }
-  .rank-filter--active {
-    background: var(--primary-subtle); color: var(--primary);
-    border-color: rgba(34,197,94,0.3);
-  }
-
-  /* ── Rank table ────────────────────────────────────────────────────────── */
-  .rank-table { min-width: 600px; }
-
-  .rank-row--me td { background: rgba(34,197,94,0.04); }
-  .rank-row--me:hover td { background: rgba(34,197,94,0.08) !important; }
-
-  .rank-player {
-    display: flex; align-items: center; gap: 11px;
-  }
-  .rank-player__name {
-    font-weight: 600; font-size: 0.875rem; color: var(--text);
-    display: flex; align-items: center; gap: 7px;
-  }
-
-  .rank-me-badge {
-    font-size: 0.65rem; font-weight: 700;
-    background: rgba(34,197,94,0.15); color: #22c55e;
-    padding: 1px 6px; border-radius: 99px; vertical-align: middle;
-  }
-
-  .tc-avatar--me {
-    border-color: #22c55e;
-    background: rgba(34,197,94,0.15);
-    color: #22c55e;
-  }
-
-  .col-num { text-align: right; }
-  .col-muted { color: var(--text-muted); }
-
-  .rank-points {
-    font-weight: 700; color: var(--text);
-  }
-
-  .win-rate { font-weight: 700; font-size: 0.875rem; }
-  .win-rate--high { color: #22c55e; }
-  .win-rate--mid  { color: var(--warning); }
-  .win-rate--low  { color: var(--danger); }
-
-  /* ── Reuse global rank-pos ─────────────────────────────────────────────── */
-  .rank-pos {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 6px;
-    font-size: 0.82rem; font-weight: 700;
-    background: var(--surface-2); color: var(--text-muted);
-  }
-  .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
-  .rank-pos--2 { background: rgba(148,163,184,0.15); color: #94a3b8; }
-  .rank-pos--3 { background: rgba(180,108,64,0.15);  color: #b47a40; }
 </style>

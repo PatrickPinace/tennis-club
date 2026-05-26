@@ -1,0 +1,278 @@
+---
+// AuthCard — wspólny wrapper dla stron auth (login, register).
+// Renderuje pełną stronę HTML z logo, kartą i slotem na treść formularza.
+// Nie używa AppLayout — strony auth są poza shellem aplikacji.
+
+import { url } from '@/lib/url';
+
+interface Props {
+  title: string;
+  subtitle: string;
+  apiBase: string;
+  /** Opcjonalne meta tagi przekazywane do <head> */
+  pageTitle: string;
+}
+
+const { title, subtitle, apiBase, pageTitle } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{pageTitle} — Tennis Club</title>
+  <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+  <meta name="api-base" content={apiBase} />
+  <slot name="head" />
+  <script is:inline>
+    (function () {
+      var t = localStorage.getItem('tc-theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+</head>
+
+<body class="auth-body">
+  <div class="auth-wrap">
+
+    <!-- Logo -->
+    <a href="/" class="auth-brand" aria-label="Tennis Club — strona główna">
+      <svg width="34" height="34" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+        <circle cx="18" cy="18" r="18" fill="var(--tc-accent)"/>
+        <circle cx="18" cy="18" r="9" stroke="var(--tc-accent-ink)" stroke-width="2" fill="none"/>
+        <path d="M9 18 Q18 6 27 18" stroke="var(--tc-accent-ink)" stroke-width="2" fill="none"/>
+        <path d="M9 18 Q18 30 27 18" stroke="var(--tc-accent-ink)" stroke-width="2" fill="none"/>
+      </svg>
+      <span class="auth-brand__name">Tennis Club</span>
+    </a>
+
+    <!-- Karta -->
+    <div class="auth-card">
+      <div class="auth-card__header">
+        <h1 class="auth-title">{title}</h1>
+        <p class="auth-subtitle">{subtitle}</p>
+      </div>
+      <div class="auth-card__body">
+        <slot />
+      </div>
+    </div>
+
+    <!-- Linki pod kartą -->
+    <slot name="footer" />
+
+  </div>
+</body>
+</html>
+
+<style is:global>
+  /* ── Reset dla stron auth (poza AppLayout) ─────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; }
+  html { font-size: 16px; -webkit-font-smoothing: antialiased; height: 100%; }
+  body { font-family: var(--font-sans); min-height: 100%; line-height: 1.5; }
+
+  .auth-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--tc-bg);
+    padding: 24px 16px;
+  }
+
+  .auth-wrap {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  /* ── Brand ─────────────────────────────────────────────────────────────── */
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+  .auth-brand__name {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--tc-ink);
+    letter-spacing: -0.02em;
+  }
+
+  /* ── Card ───────────────────────────────────────────────────────────────── */
+  .auth-card {
+    width: 100%;
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--tc-shadow);
+    overflow: hidden;
+  }
+
+  .auth-card__header {
+    padding: 28px 28px 0;
+  }
+
+  .auth-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--tc-ink);
+    margin: 0 0 4px;
+    letter-spacing: -0.02em;
+  }
+
+  .auth-subtitle {
+    font-size: 0.875rem;
+    color: var(--tc-sub);
+    margin: 0 0 24px;
+  }
+
+  .auth-card__body {
+    padding: 0 28px 28px;
+  }
+
+  /* ── Shared form elements ───────────────────────────────────────────────── */
+  .auth-error {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.22);
+    border-radius: var(--radius-sm);
+    color: var(--tc-hot);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+  }
+
+  .auth-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 14px;
+  }
+
+  .auth-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--tc-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .auth-label-optional {
+    font-weight: 400;
+    text-transform: none;
+    color: var(--tc-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0;
+  }
+
+  .auth-input {
+    width: 100%;
+    height: 42px;
+    padding: 0 13px;
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-sm);
+    color: var(--tc-ink);
+    font-size: 0.9375rem;
+    font-family: var(--font-sans);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+  .auth-input::placeholder { color: var(--tc-muted); }
+  .auth-input:focus {
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 3px var(--tc-accent-soft);
+  }
+  .auth-input.input-error {
+    border-color: var(--tc-hot);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.10);
+  }
+
+  .auth-field-error {
+    display: none;
+    font-size: 0.76rem;
+    color: var(--tc-hot);
+    font-weight: 500;
+  }
+
+  .auth-submit {
+    width: 100%;
+    margin-top: 6px;
+    height: 44px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    background: var(--tc-accent);
+    color: var(--tc-accent-ink);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: filter 0.15s;
+    font-family: var(--font-sans);
+  }
+  .auth-submit:hover { filter: brightness(0.92); }
+  .auth-submit:active { transform: translateY(1px); }
+  .auth-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* ── Footer links ───────────────────────────────────────────────────────── */
+  .auth-footer-link {
+    font-size: 0.875rem;
+    color: var(--tc-sub);
+    margin: 0;
+    text-align: center;
+  }
+  .auth-footer-link a {
+    color: var(--tc-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .auth-footer-link a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .auth-back-link {
+    font-size: 0.73rem;
+    color: var(--tc-muted);
+    margin: 0;
+    text-align: center;
+  }
+  .auth-back-link a {
+    color: var(--tc-muted);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .auth-back-link a:hover { color: var(--tc-sub); }
+
+  /* ── Consent checkbox ───────────────────────────────────────────────────── */
+  .auth-consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+    margin-bottom: 0;
+  }
+  .auth-consent input[type="checkbox"] {
+    margin-top: 3px;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--tc-accent);
+  }
+  .auth-consent span {
+    font-size: 0.8rem;
+    color: var(--tc-sub);
+    line-height: 1.5;
+  }
+
+  /* ── Divider ────────────────────────────────────────────────────────────── */
+  .auth-divider {
+    border: none;
+    border-top: 1px solid var(--tc-card-border);
+    margin: 20px 0 0;
+  }
+</style>

@@ -248,7 +248,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- Uczestnicy -->
-              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
                 <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
                 <div id="org-participants-list" class="org-participants-list">
                   <div class="org-loading">Ładowanie uczestników…</div>
@@ -311,7 +311,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   </div>
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
-                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--tc-card-border);">
                   <button id="org-close-reg-btn" class="org-close-reg-btn" type="button">
                     <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
@@ -348,7 +348,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             <details class="tc-card td-config-card">
               <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
                 <span class="tc-card-title">Zasady</span>
-                <span style="font-size:0.78rem; color:var(--text-dim);">▾ rozwiń</span>
+                <span style="font-size:0.78rem; color:var(--tc-muted);">▾ rozwiń</span>
               </summary>
               <div class="td-config-body">
                 <div class="td-config-grid">
@@ -419,7 +419,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- Uczestnicy -->
-              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
                 <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
                 <div id="org-participants-list" class="org-participants-list">
                   <div class="org-loading">Ładowanie uczestników…</div>
@@ -482,7 +482,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                   </div>
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
-                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--tc-card-border);">
                   <button id="org-close-reg-btn" class="org-close-reg-btn" type="button">
                     <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
@@ -519,7 +519,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             <details class="tc-card td-config-card">
               <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
                 <span class="tc-card-title">Zasady</span>
-                <span style="font-size:0.78rem; color:var(--text-dim);">▾ rozwiń</span>
+                <span style="font-size:0.78rem; color:var(--tc-muted);">▾ rozwiń</span>
               </summary>
               <div class="td-config-body">
                 <div class="td-config-grid">
@@ -628,7 +628,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             <div class="tc-card" style="margin-bottom:24px;" id="amr-matches-card">
               <div class="tc-card-header">
                 <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
-                <span style="font-size:0.78rem; color:var(--text-dim);">
+                <span style="font-size:0.78rem; color:var(--tc-muted);">
                   {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
                 </span>
               </div>
@@ -688,7 +688,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <div class="tc-card">
                 <div class="tc-card-header">
                   <span class="tc-card-title">Twoje mecze</span>
-                  <span style="font-size:0.78rem;color:var(--text-dim);">Wpisz wyniki swoich meczów</span>
+                  <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
                 </div>
                 <div id="amr-player-matches-list"></div>
               </div>
@@ -721,7 +721,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- Uczestnicy -->
-              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
                 <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
                 <div id="org-participants-list" class="org-participants-list">
                   <div class="org-loading">Ładowanie uczestników…</div>
@@ -743,7 +743,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                 </div>
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
                 {tournament.status === 'REG' && (
-                  <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                  <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--tc-card-border);">
                     <button
                       class="org-close-reg-btn"
                       type="button"
@@ -760,7 +760,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
               <!-- Konfiguracja AMR — widoczna tylko gdy DRF lub REG -->
               {(tournament.status === 'DRF' || tournament.status === 'REG') && (
-                <div id="org-amr-config-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+                <div id="org-amr-config-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
                   <div class="org-section-label" style="margin-bottom:10px;">Konfiguracja Americano</div>
                   <form id="org-amr-config-form" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;" novalidate>
                     <label class="org-field-label" style="flex:1; min-width:120px;">Liczba rund
@@ -784,7 +784,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 
               <!-- Mexicano — status rundy i fallback (tylko DYNAMIC + ACT) -->
               {isMexicano && tournament.status === 'ACT' && (
-                <div id="mexicano-round-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);"
+                <div id="mexicano-round-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);"
                   data-total-rounds={String(amrTotalRounds ?? '')}
                   data-current-round={String(amrCurrentRound ?? 0)}>
                   <div class="org-section-label" style="margin-bottom:10px;">Postęp Mexicano</div>
@@ -854,7 +854,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             <div class="tc-card" style="margin-bottom:24px;">
               <div class="tc-card-header">
                 <span class="tc-card-title">Tabela wyników</span>
-                <span style="font-size:0.78rem; color:var(--text-dim);">Sortowanie: punkty → sety → gemy</span>
+                <span style="font-size:0.78rem; color:var(--tc-muted);">Sortowanie: punkty → sety → gemy</span>
               </div>
               <div style="overflow-x:auto;">
                 <table class="tc-table td-standings-table">
@@ -891,8 +891,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                         </td>
                         <td class="col-num td-pts">{Number(row.points).toFixed(1)}</td>
                         <td class="col-num col-muted">{row.matches_played}</td>
-                        <td class="col-num" style="color:var(--primary);">{row.wins}</td>
-                        <td class="col-num" style="color:var(--danger);">{row.losses}</td>
+                        <td class="col-num" style="color:var(--tc-win);">{row.wins}</td>
+                        <td class="col-num" style="color:var(--tc-hot);">{row.losses}</td>
                         <td class="col-num col-muted">
                           {row.sets_won}:{row.sets_lost}
                           <span class={`td-diff ${row.sets_diff > 0 ? 'td-diff--pos' : row.sets_diff < 0 ? 'td-diff--neg' : ''}`}>
@@ -925,7 +925,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <div class="tc-card-header">
                 <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
                 <div style="display:flex;align-items:center;gap:12px;">
-                  <span style="font-size:0.78rem; color:var(--text-dim);">
+                  <span style="font-size:0.78rem; color:var(--tc-muted);">
                     {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
                   </span>
                   <div class="view-toggle" id="matches-view-toggle">
@@ -1011,7 +1011,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <div class="tc-card">
                 <div class="tc-card-header">
                   <span class="tc-card-title">Twoje mecze</span>
-                  <span style="font-size:0.78rem;color:var(--text-dim);">Wpisz wyniki swoich meczów</span>
+                  <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
                 </div>
                 <div id="player-matches-list"></div>
               </div>
@@ -1035,7 +1035,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- ── Uczestnicy ───────────────────────────────────────────── -->
-              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--border);">
+              <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
                 <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
                 <div id="org-participants-list" class="org-participants-list">
                   <div class="org-loading">Ładowanie uczestników…</div>
@@ -1114,7 +1114,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
                 <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
                 <!-- Skrót: Zamknij zapisy — triggeruje działający przycisk z sekcji statusu -->
                 {tournament.status === 'REG' && (
-                  <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border);">
+                  <div style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--tc-card-border);">
                     <button
                       class="org-close-reg-btn"
                       type="button"
@@ -1311,7 +1311,7 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
             <details class="tc-card td-config-card">
               <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
                 <span class="tc-card-title">Zasady i punktacja</span>
-                <span style="font-size:0.78rem; color:var(--text-dim);">▾ rozwiń</span>
+                <span style="font-size:0.78rem; color:var(--tc-muted);">▾ rozwiń</span>
               </summary>
               <div class="td-config-body">
                 <div class="td-config-grid">

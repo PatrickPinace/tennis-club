@@ -7,6 +7,23 @@ from types import SimpleNamespace
 from django.urls import reverse
 from decimal import Decimal
 
+def _partner_user(participant, skip_user_id):
+    """Zwraca użytkownika drugiego członka teamu (nie-kapitana).
+
+    W turniejach deblowych Participant reprezentuje cały team.
+    participant.user = kapitan (p1/p2 slot). Drugi member teamu
+    trafia jako p3/p4, żeby frontend mógł pokazać pełną drużynę.
+    Jeśli team ma tylko jednego membera lub members nie są dostępne,
+    zwraca None — bezpieczny fallback (zachowanie jak dotąd).
+    """
+    if participant is None:
+        return None
+    for member in participant.members.all():
+        if member.user_id != skip_user_id:
+            return member.user
+    return None
+
+
 def get_tournament_matches_as_friendly(user, filters=None):
     """
     Pobiera wszystkie mecze turniejowe danego użytkownika i konwertuje je
@@ -37,6 +54,9 @@ def get_tournament_matches_as_friendly(user, filters=None):
         'tournament',
         'participant1__user', 'participant2__user',
         'participant3__user', 'participant4__user'
+    ).prefetch_related(
+        'participant1__members__user',
+        'participant2__members__user',
     ).order_by('-scheduled_time')
 
     # Wyklucz mecze z pierwszej rundy turnieju pucharowego, gdzie p2 to BYE (lub null)
@@ -99,8 +119,15 @@ def get_tournament_matches_as_friendly(user, filters=None):
         else: # Standardowe parowanie dla singla i debla
             p1 = match.participant1.user if match.participant1 else None
             p2 = match.participant2.user if match.participant2 else None
-            p3 = match.participant3.user if match.participant3 else None
-            p4 = match.participant4.user if match.participant4 else None
+            if is_double and not match.participant3 and not match.participant4:
+                # Turniej deblowy z modelem team: participant1/2 = team, p3/p4 slot pusty.
+                # Rozpakowujemy members teamu żeby uzyskać pełny skład drużyny.
+                p3 = _partner_user(match.participant1, p1.id if p1 else None)
+                p4 = _partner_user(match.participant2, p2.id if p2 else None)
+            else:
+                # Singiel lub debel z 4 osobnymi uczestnikami (p1/p2/p3/p4 w slotach)
+                p3 = match.participant3.user if match.participant3 else None
+                p4 = match.participant4.user if match.participant4 else None
 
         converted_match = {
             'id': f"t_{match.id}",  # Prefiks 't_' aby uniknąć kolizji ID
@@ -113,7 +140,9 @@ def get_tournament_matches_as_friendly(user, filters=None):
             'p1_set3': match.set3_p1_score or 0, 'p2_set3': match.set3_p2_score or 0,
             'match_double': is_double,
             'description': f"Turniej: {match.tournament.name}",
-            'match_date': match.scheduled_time.date() if match.scheduled_time else match.tournament.start_date.date(),
+            'match_date': (match.scheduled_time.date() if match.scheduled_time
+                           else match.tournament.start_date.date() if match.tournament.start_date
+                           else timezone.now().date()),
             'match_id': match.id, # Dodanie osobnego ID do URL
             'tournament_id': match.tournament.id, # Dodanie ID turnieju do URL
             'is_tournament': True, # Dodatkowa flaga do identyfikacji w szablonach

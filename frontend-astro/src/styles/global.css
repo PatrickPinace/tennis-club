@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -18,8 +18,8 @@
   --sidebar-active-bg: #22c55e;   /* pełne zielone tło aktywnego linku (jak na makiecie) */
   --sidebar-active-text: #000000;
   --sidebar-hover-bg: rgba(255,255,255,0.06);
-  --sidebar-width:  240px;
-  --topbar-height:  68px;
+  --sidebar-width:  220px;
+  --topbar-height:  64px;
 }
 
 /* ── Dark theme (default) ─────────────────────────────────────────────────── */
@@ -57,6 +57,44 @@
 
   --topbar-bg: rgba(15,17,23,0.92);
   --content-bg: #0f1117;
+
+  /* ── Tokeny redesign (tc-theme dark) ──────────────────────────────────────
+     Używane przez nowe strony (dashboard v2, rankings, matches, reservations).
+     Stare tokeny powyżej pozostają dla kompatybilności z istniejącymi stronami.
+     ───────────────────────────────────────────────────────────────────────── */
+  --tc-bg:               #08090b;
+  --tc-sidebar-bg:       #0c0e11;
+  --tc-sidebar-border:   #1a1d21;
+  --tc-card-bg:          #101316;
+  --tc-card-bg-2:        #0e1114;
+  --tc-card-border:      #1c2025;
+  --tc-card-border-soft: #15181c;
+  --tc-chip-bg:          #1c2025;
+  --tc-overlay:          rgba(255,255,255,0.04);
+
+  --tc-ink:   #f5f6f7;
+  --tc-sub:   #9aa0a6;
+  --tc-muted: #6b7280;
+  --tc-faint: #3a3f47;
+
+  --tc-hot: #ff6b35;
+  --tc-win: #22c55e;
+
+  /* Akcent: limonka (tennis ball) — domyślny */
+  --tc-accent:        #c8f161;
+  --tc-accent-ink:    #08090b;
+  --tc-accent-soft:   rgba(200,241,97,0.10);
+  --tc-accent-border: rgba(200,241,97,0.30);
+  --tc-accent-glow:   rgba(200,241,97,0.45);
+
+  --tc-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  --tc-input-bg: #101316;
+
+  /* Density tokens */
+  --tc-row-pad:    12px;
+  --tc-card-pad:   20px;
+  --tc-gap:        12px;
+  --tc-header-pad: 14px;
 }
 
 /* ── Light theme ──────────────────────────────────────────────────────────── */
@@ -93,6 +131,40 @@
 
   --topbar-bg: rgba(255,255,255,0.95);
   --content-bg: #f4f6f9;
+
+  /* ── Tokeny redesign (tc-theme light) ────────────────────────────────────── */
+  --tc-bg:               #fafaf9;
+  --tc-sidebar-bg:       #ffffff;
+  --tc-sidebar-border:   #ececea;
+  --tc-card-bg:          #ffffff;
+  --tc-card-bg-2:        #fbfbfa;
+  --tc-card-border:      #e7e6e3;
+  --tc-card-border-soft: #f4f4f3;
+  --tc-chip-bg:          #f4f4f3;
+  --tc-overlay:          rgba(0,0,0,0.03);
+
+  --tc-ink:   #18181b;
+  --tc-sub:   #52525b;
+  --tc-muted: #71717a;
+  --tc-faint: #c4c4c1;
+
+  --tc-hot: #b91c1c;
+  --tc-win: #16a34a;
+
+  /* Akcent: limonka light */
+  --tc-accent:        #5a7d22;
+  --tc-accent-ink:    #ffffff;
+  --tc-accent-soft:   rgba(90,125,34,0.08);
+  --tc-accent-border: rgba(90,125,34,0.25);
+  --tc-accent-glow:   rgba(90,125,34,0.35);
+
+  --tc-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  --tc-input-bg: #ffffff;
+
+  --tc-row-pad:    12px;
+  --tc-card-pad:   20px;
+  --tc-gap:        12px;
+  --tc-header-pad: 14px;
 }
 
 /* ── Shared ─────────────────────────────────────────────────────────────────── */
@@ -104,10 +176,11 @@
   --radius-xl: 24px;
 
   --content-max: 1100px;
-  --content-px: 36px;
+  --content-px: 24px;
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-mono-plex: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -125,8 +198,8 @@ html {
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg);
-  color: var(--text);
+  background: var(--tc-bg);
+  color: var(--tc-ink);
   min-height: 100%;
   line-height: 1.5;
 }
@@ -138,13 +211,13 @@ input, select, textarea { font-family: inherit; }
 /* Scrollbar */
 ::-webkit-scrollbar       { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+::-webkit-scrollbar-thumb { background: var(--tc-faint); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--tc-muted); }
 
 /* Skip link */
 .skip-link {
   position: absolute; left: -9999px; top: 1rem;
-  padding: 8px 16px; background: var(--primary); color: #000;
+  padding: 8px 16px; background: var(--tc-accent); color: var(--tc-accent-ink);
   border-radius: var(--radius-sm); font-weight: 600; z-index: 9999;
 }
 .skip-link:focus { left: 1rem; }
@@ -156,28 +229,28 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Karty ───────────────────────────────────────────────────────────────── */
 .tc-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: var(--tc-card-bg);
+  border: 1px solid var(--tc-card-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--tc-shadow);
 }
 
 .tc-card-header {
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--tc-card-border);
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
 
 .tc-card-title {
-  font-size: 0.9rem; font-weight: 600; color: var(--text);
+  font-size: 0.9rem; font-weight: 600; color: var(--tc-ink);
 }
 
 .tc-card-body { padding: 20px; }
 
 .tc-card-footer {
   padding: 12px 20px;
-  border-top: 1px solid var(--border);
-  background: var(--surface-2);
+  border-top: 1px solid var(--tc-card-border);
+  background: var(--tc-chip-bg);
   border-radius: 0 0 var(--radius-md) var(--radius-md);
 }
 
@@ -195,21 +268,21 @@ input, select, textarea { font-family: inherit; }
 .tc-btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
 .tc-btn-primary {
-  background: var(--primary-btn);
-  color: var(--primary-btn-text);
-  border-color: var(--primary-btn);
+  background: var(--tc-accent);
+  color: var(--tc-accent-ink);
+  border-color: var(--tc-accent);
 }
-.tc-btn-primary:hover { background: var(--primary-btn-hover); border-color: var(--primary-btn-hover); }
+.tc-btn-primary:hover { filter: brightness(0.9); }
 
 .tc-btn-secondary {
-  background: var(--surface-2); color: var(--text); border-color: var(--border-light);
+  background: var(--tc-chip-bg); color: var(--tc-ink); border-color: var(--tc-card-border);
 }
-.tc-btn-secondary:hover { background: var(--surface-hover); }
+.tc-btn-secondary:hover { background: var(--tc-overlay); }
 
 .tc-btn-ghost {
-  background: transparent; color: var(--text-muted); border-color: transparent;
+  background: transparent; color: var(--tc-sub); border-color: transparent;
 }
-.tc-btn-ghost:hover { background: var(--surface-hover); color: var(--text); }
+.tc-btn-ghost:hover { background: var(--tc-overlay); color: var(--tc-ink); }
 
 .tc-btn-sm { min-height: 30px; padding: 0 12px; font-size: 0.8rem; }
 .tc-btn-lg { min-height: 44px; padding: 0 22px; font-size: 0.9375rem; }
@@ -222,17 +295,17 @@ input, select, textarea { font-family: inherit; }
   font-size: 0.72rem; font-weight: 600; line-height: 1.5;
 }
 
-.tc-badge-success { background: rgba(34,197,94,0.12);  color: var(--success); }
+.tc-badge-success { background: rgba(34,197,94,0.12);  color: var(--tc-win); }
 .tc-badge-warning { background: rgba(245,158,11,0.12); color: var(--warning); }
-.tc-badge-danger  { background: rgba(239,68,68,0.12);  color: var(--danger); }
+.tc-badge-danger  { background: rgba(239,68,68,0.12);  color: var(--tc-hot); }
 .tc-badge-info    { background: rgba(59,130,246,0.12); color: var(--info); }
-.tc-badge-neutral { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
-.tc-badge-primary { background: var(--primary-subtle); color: var(--primary); }
+.tc-badge-neutral { background: var(--tc-chip-bg); color: var(--tc-sub); border: 1px solid var(--tc-card-border); }
+.tc-badge-primary { background: var(--tc-accent-soft); color: var(--tc-accent); }
 
 /* ── Avatar ──────────────────────────────────────────────────────────────── */
 .tc-avatar {
-  border-radius: 50%; background: var(--primary-subtle);
-  border: 2px solid var(--primary); color: var(--primary);
+  border-radius: 50%; background: var(--tc-accent-soft);
+  border: 2px solid var(--tc-accent); color: var(--tc-accent);
   font-weight: 700; display: grid; place-items: center; flex-shrink: 0;
 }
 .tc-avatar-sm { width: 32px; height: 32px; font-size: 0.78rem; }
@@ -244,18 +317,18 @@ input, select, textarea { font-family: inherit; }
 .tc-table th {
   padding: 10px 14px; text-align: left;
   font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
-  color: var(--text-muted); border-bottom: 1px solid var(--border);
+  color: var(--tc-sub); border-bottom: 1px solid var(--tc-card-border);
 }
-.tc-table td { padding: 13px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+.tc-table td { padding: 13px 14px; border-bottom: 1px solid var(--tc-card-border); color: var(--tc-ink); }
 .tc-table tbody tr:last-child td { border-bottom: none; }
-.tc-table tbody tr:hover td { background: var(--surface-hover); }
+.tc-table tbody tr:hover td { background: var(--tc-overlay); }
 
 /* ── Rank position ───────────────────────────────────────────────────────── */
 .rank-pos {
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: var(--radius-xs);
   font-size: 0.82rem; font-weight: 700;
-  background: var(--surface-2); color: var(--text-muted);
+  background: var(--tc-chip-bg); color: var(--tc-sub);
 }
 .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
 .rank-pos--2 { background: rgba(148,163,184,0.15); color: #94a3b8; }
@@ -263,11 +336,11 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Breadcrumb ──────────────────────────────────────────────────────────── */
 .tc-breadcrumb {
-  font-size: 0.82rem; color: var(--text-muted);
+  font-size: 0.82rem; color: var(--tc-sub);
   margin-bottom: 20px;
 }
-.tc-breadcrumb a { color: var(--text-muted); }
-.tc-breadcrumb a:hover { color: var(--text); }
+.tc-breadcrumb a { color: var(--tc-sub); }
+.tc-breadcrumb a:hover { color: var(--tc-ink); }
 
 /* ── Page narrow — wyśrodkowany wrapper dla stron z listą/formularzem ─────── */
 /* Użycie: <div class="page-narrow"> ... </div> wewnątrz AppLayout slot       */
@@ -281,8 +354,8 @@ input, select, textarea { font-family: inherit; }
 .tc-empty {
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 10px;
-  padding: 48px 20px; text-align: center; color: var(--text-muted);
+  padding: 48px 20px; text-align: center; color: var(--tc-sub);
 }
 .tc-empty__icon { font-size: 2rem; opacity: 0.35; }
-.tc-empty__title { font-size: 0.95rem; font-weight: 600; color: var(--text); }
+.tc-empty__title { font-size: 0.95rem; font-weight: 600; color: var(--tc-ink); }
 .tc-empty__text { font-size: 0.85rem; max-width: 34ch; line-height: 1.6; }

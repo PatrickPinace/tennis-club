@@ -99,7 +99,14 @@ class MatchHistorySerializer(serializers.ModelSerializer):
     def get_user(self, obj):
         return self._get_stats(obj).get('user')
 
-    def __getattr__(self, name):
-        if name.startswith('get_p') and ('_win_set' in name or '_win_gem' in name):
-            return lambda obj: self._get_stats(obj).get(name.replace('get_', ''), 0)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    def get_p1_win_set(self, obj):
+        return self._get_stats(obj).get('p1_win_set', 0)
+
+    def get_p2_win_set(self, obj):
+        return self._get_stats(obj).get('p2_win_set', 0)
+
+    def get_p1_win_gem(self, obj):
+        return self._get_stats(obj).get('p1_win_gem', 0)
+
+    def get_p2_win_gem(self, obj):
+        return self._get_stats(obj).get('p2_win_gem', 0)
