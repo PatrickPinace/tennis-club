@@ -88,7 +88,7 @@ export interface MatchHistoryEntry {
   match_double: boolean;
   description: string | null;
   match_date: string;          // "YYYY-MM-DD"
-  win: 'p1' | 'p2' | 'draw';
+  win: 'p1' | 'p2' | 'draw' | null;  // null gdy mecz nierozstrzygnięty; 'draw' gdy remis setów
   user: 'user-win' | 'user-loss' | 'user-draw';  // backend: user-lose → user-loss (naprawione w tools.py)
   p1_win_set: number;
   p2_win_set: number;

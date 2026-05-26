@@ -107,10 +107,12 @@ def get_tournament_matches_as_friendly(user, filters=None):
         )
 
         # 4. Mapowanie graczy i wyników
-        # W `matches.Match` p1/p3 to drużyna 1, a p2/p4 to drużyna 2.
-        # W `tournaments.TournamentsMatch` p1/p2 (lub p1/p4 w Americano) to drużyna 1, a p3/p4 (lub p2/p3) to drużyna 2.
-        # Musimy dokonać mapowania. Dla uproszczenia przyjmijmy standardowe parowanie.
-        # W Americano/Mexicano (debel) team1 to p1+p4, team2 to p2+p3.
+        # KONTRAKT: po każdej gałęzi poniżej obowiązuje konwencja Team A = p1+p3, Team B = p2+p4.
+        # Wyniki set1_p1_score / set1_p2_score odpowiadają kolejno Team A i Team B.
+        # Americano przechowuje mecze jako Team A = (participant1, participant4),
+        # Team B = (participant2, participant3) — dlatego swap poniżej.
+        # Dla pozostałych typów (RR, SGL, DBE) mapowanie jest bezpośrednie (p1→p1, p2→p2 itd.).
+        # Turnieje deblowe z team-model (DBL format, participant3/4 puste) rozpakowują members.
         if match.tournament.tournament_type == Tournament.TournamentType.AMERICANO:
             p1 = match.participant1.user if match.participant1 else None
             p3 = match.participant4.user if match.participant4 else None # Partner p1
@@ -233,8 +235,14 @@ def get_single_tournament_match_as_friendly(match_id: int):
     else:
         p1 = match.participant1.user if match.participant1 else None
         p2 = match.participant2.user if match.participant2 else None
-        p3 = match.participant3.user if match.participant3 else None
-        p4 = match.participant4.user if match.participant4 else None
+        if is_double and not match.participant3 and not match.participant4:
+            # Turniej deblowy z modelem team: participant1/2 = team, p3/p4 slot pusty.
+            # Rozpakowujemy members teamu żeby uzyskać pełny skład drużyny.
+            p3 = _partner_user(match.participant1, p1.id if p1 else None)
+            p4 = _partner_user(match.participant2, p2.id if p2 else None)
+        else:
+            p3 = match.participant3.user if match.participant3 else None
+            p4 = match.participant4.user if match.participant4 else None
 
     # Tworzenie obiektu podobnego do `Match` za pomocą SimpleNamespace
     # To pozwala na dostęp do atrybutów w szablonie za pomocą notacji z kropką (np. match.p1)
