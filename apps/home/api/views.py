@@ -287,7 +287,7 @@ class DashboardSummaryView(APIView):
                     'timestamp': r.created_at.isoformat(),
                     'title': f'Zarezerwowałeś kort na {day} {time_str}{court_str}',
                     'detail': r.start_time.strftime('%d %b %Y'),
-                    'href': '/courts/reservations',
+                    'href': '/astro/courts/reservations',
                     'result': 'neutral',
                 })
         except Exception:

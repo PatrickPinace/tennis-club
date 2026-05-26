@@ -115,7 +115,7 @@ const futureReservations = myReservations.filter(r => new Date(r.endIso) > now);
   <!-- Stat cards -->
   <div class="rv-stats">
     <div class="rv-stat rv-stat--accent">
-      <div class="rv-stat__label">WOLNE SLOTY DZIŚ</div>
+      <div class="rv-stat__label" id="rv-free-slots-label">WOLNE SLOTY</div>
       <div class="rv-stat__val" style="color:var(--tc-accent)" id="rv-free-slots">—</div>
       <div class="rv-stat__sub" id="rv-free-slots-sub">ładowanie…</div>
     </div>
@@ -1029,11 +1029,16 @@ function renderGrid(data) {
 
   // Stat cards
   let totalFree = 0, totalSlots = 0;
-  courts.forEach(c => { c.slots.forEach(s => { totalSlots++; if (s.status === 'FREE' && !s.is_mine) totalFree++; }); });
+  courts.forEach(c => { c.slots.forEach(s => { totalSlots++; if (slotStateFor(s) === 'free') totalFree++; }); });
   const freeEl = document.getElementById('rv-free-slots');
   if (freeEl) freeEl.textContent = String(totalFree);
+  const isToday = currentDate === todayIso;
+  const labelEl = document.getElementById('rv-free-slots-label');
+  if (labelEl) labelEl.textContent = isToday ? 'WOLNE SLOTY DZIŚ' : 'WOLNE SLOTY';
   const freeSub = document.getElementById('rv-free-slots-sub');
-  if (freeSub) freeSub.textContent = `z ${totalSlots} dostępnych`;
+  if (freeSub) freeSub.textContent = totalFree === 0
+    ? (isToday ? 'brak wolnych na dziś' : 'brak wolnych w tym dniu')
+    : `z ${totalSlots} slotów łącznie`;
   const courtsEl = document.getElementById('rv-courts-count');
   if (courtsEl) courtsEl.textContent = String(courts.length);
   const courtsSub = document.getElementById('rv-courts-sub');
