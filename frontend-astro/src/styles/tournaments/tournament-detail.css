@@ -98,7 +98,7 @@
 
   /* ── Standings table ────────────────────────────────────────────────────── */
   .td-standings-table { min-width: 560px; }
-  .col-num { text-align: right; }
+  .col-num { text-align: right; white-space: nowrap; }
   .col-muted { color: var(--tc-sub); }
   .td-pts { font-weight: 800; color: var(--tc-ink); font-family: var(--font-mono); }
 

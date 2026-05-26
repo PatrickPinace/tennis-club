@@ -9,7 +9,7 @@
   .bkt-wrap {
     display: flex;
     gap: 24px;
-    align-items: flex-start;
+    align-items: stretch;   /* kolumny tej samej wysokości — potrzebne do centrowania */
     min-width: max-content;
   }
   .bkt-col {
@@ -26,11 +26,14 @@
     color: var(--tc-muted);
     margin-bottom: 10px;
     text-align: center;
+    flex-shrink: 0;
   }
   .bkt-col-matches {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    flex: 1;                        /* zajmij całą dostępną wysokość kolumny */
+    justify-content: space-around;  /* rozłóż mecze równomiernie w pionie */
+    gap: 0;
   }
   .bkt-match {
     background: var(--tc-chip-bg);

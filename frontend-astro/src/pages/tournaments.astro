@@ -180,17 +180,15 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
             {totalRounds > 0 && ` · runda ${doneRounds} z ${totalRounds}`}
           </div>
 
-          {totalRounds > 0 && (
-            <div class="tr-featured__progress">
-              <div class="tr-progress-bar">
-                <div class="tr-progress-bar__fill" style={`width:${progressPct}%`}></div>
-              </div>
-              <div class="tr-progress-meta">
-                <span>Postęp turnieju</span>
-                <span class="tr-progress-val">{doneRounds} / {totalRounds} rundy</span>
-              </div>
+          <div class="tr-featured__progress" id="tr-feat-progress" style={totalRounds === 0 ? 'display:none' : ''}>
+            <div class="tr-progress-bar">
+              <div class="tr-progress-bar__fill" id="tr-feat-progress-fill" style={`width:${progressPct}%`}></div>
             </div>
-          )}
+            <div class="tr-progress-meta">
+              <span>Postęp turnieju</span>
+              <span class="tr-progress-val" id="tr-feat-progress-val">{doneRounds} / {totalRounds} rundy</span>
+            </div>
+          </div>
 
           <div class="tr-featured__actions" id="tr-feat-actions">
             <a href={url(`/tournaments/${featuredEntry.id}`)} class="tr-btn-primary" id="tr-feat-link1">Zobacz tabelę →</a>
@@ -321,19 +319,22 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     let current = 0; // index w running[]
 
     const nameEl    = document.getElementById('tr-feat-name');
-    const metaEl    = document.getElementById('tr-feat-meta');
-    const tagEl     = document.getElementById('tr-feat-tag');
-    const link1El   = document.getElementById('tr-feat-link1') as HTMLAnchorElement | null;
-    const link2El   = document.getElementById('tr-feat-link2') as HTMLAnchorElement | null;
-    const counterEl = document.getElementById('tr-feat-counter');
-    const prevBtn   = document.getElementById('tr-feat-prev') as HTMLButtonElement | null;
-    const nextBtn   = document.getElementById('tr-feat-next') as HTMLButtonElement | null;
+    const metaEl       = document.getElementById('tr-feat-meta');
+    const tagEl        = document.getElementById('tr-feat-tag');
+    const link1El      = document.getElementById('tr-feat-link1') as HTMLAnchorElement | null;
+    const link2El      = document.getElementById('tr-feat-link2') as HTMLAnchorElement | null;
+    const counterEl    = document.getElementById('tr-feat-counter');
+    const prevBtn      = document.getElementById('tr-feat-prev') as HTMLButtonElement | null;
+    const nextBtn      = document.getElementById('tr-feat-next') as HTMLButtonElement | null;
+    const progressEl   = document.getElementById('tr-feat-progress') as HTMLElement | null;
+    const progressFill = document.getElementById('tr-feat-progress-fill') as HTMLElement | null;
+    const progressVal  = document.getElementById('tr-feat-progress-val');
 
     function render() {
       const t = running[current];
       if (!t) return;
 
-      if (nameEl)  nameEl.textContent = t.name;
+      if (nameEl) nameEl.textContent = t.name;
 
       let meta = `Format ${t.type} · ${t.participants} uczestników`;
       if (t.total > 0) meta += ` · runda ${t.done} z ${t.total}`;
@@ -347,6 +348,14 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
       if (link2El) link2El.href = href;
 
       if (counterEl) counterEl.textContent = `${current + 1} / ${running.length}`;
+
+      // Aktualizuj progress bar
+      if (progressEl) progressEl.style.display = t.total > 0 ? '' : 'none';
+      if (t.total > 0) {
+        const pct = Math.round(t.done / t.total * 100);
+        if (progressFill) progressFill.style.width = `${pct}%`;
+        if (progressVal)  progressVal.textContent  = `${t.done} / ${t.total} rundy`;
+      }
     }
 
     prevBtn?.addEventListener('click', () => {
