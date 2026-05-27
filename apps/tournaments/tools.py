@@ -216,6 +216,9 @@ def get_single_tournament_match_as_friendly(match_id: int):
             'tournament',
             'participant1__user', 'participant2__user',
             'participant3__user', 'participant4__user'
+        ).prefetch_related(
+            'participant1__members__user',
+            'participant2__members__user',
         ).get(id=match_id)
     except TournamentsMatch.DoesNotExist:
         return None

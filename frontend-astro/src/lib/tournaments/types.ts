@@ -102,6 +102,7 @@ export type OrgPanelConfig = {
   isSGL: boolean;
   isDBE: boolean;
   isAMR: boolean;
+  isLDR?: boolean;
   locked: boolean;
   lockedHard: boolean;
 };

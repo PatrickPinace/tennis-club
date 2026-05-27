@@ -63,6 +63,7 @@ if (!currentUser) {
             placeholder="np. Liga wiosenna 2026"
             autocomplete="off"
           >
+          <span id="cr-name-warn" class="cr-hint cr-hint--warn" style="display:none;"></span>
         </div>
 
         <div class="cr-field">
@@ -79,6 +80,7 @@ if (!currentUser) {
               <option value="SGL">Eliminacja pojedyncza</option>
               <option value="DBE">Eliminacja podwójna</option>
               <option value="AMR">Americano / Mexicano</option>
+              <option value="LDR">Drabinka Liderów</option>
             </select>
             <span id="cr-type-note" class="cr-hint">
               Panel zarządzania meczami i tabela ligowa dostępne dla Round Robin.
@@ -289,6 +291,32 @@ if (!currentUser) {
           <p class="cr-hint" style="margin-top:8px;">Eliminacja podwójna — zawodnik odpada dopiero po dwóch przegranych. Brak meczu o 3. miejsce.</p>
         </div>
 
+        <!-- ── Sekcja LDR ── -->
+        <div id="wiz-ldr-config" style="display:none;">
+          <div class="cfg-group-label">Zasięg wyzwań</div>
+          <div class="cfg-spinners-row">
+            <div class="cfg-spinner-col">
+              <span class="cfg-spinner-label">Zasięg wyzwania</span>
+              <div class="cfg-spinner">
+                <button type="button" class="cfg-spin-btn" data-target="ldr-challenge-range" data-dir="1" aria-label="Więcej">&#9650;</button>
+                <input id="ldr-challenge-range" class="cfg-spin-input" type="number" min="1" max="20" value="3">
+                <button type="button" class="cfg-spin-btn" data-target="ldr-challenge-range" data-dir="-1" aria-label="Mniej">&#9660;</button>
+              </div>
+              <span class="cfg-hint">Gracz może wyzwać do N pozycji wyżej</span>
+            </div>
+          </div>
+
+          <div class="cfg-group-label" style="margin-top:20px;">Rozstawienie początkowe</div>
+          <div class="cr-field" style="max-width:400px; margin-bottom:0;">
+            <label class="cr-label" for="ldr-seeding">Kolejność na starcie</label>
+            <select id="ldr-seeding" class="cr-input cr-select">
+              <option value="SEEDING">Według rozstawienia (seed_number)</option>
+              <option value="RANDOM">Losowe</option>
+            </select>
+            <span class="cr-hint">Ustala pozycje graczy po zamknięciu rejestracji. Pozycje zmieniają się przez wyzwania.</span>
+          </div>
+        </div>
+
         <div class="wiz-actions">
           <button type="button" id="wiz-back-2" class="tc-btn tc-btn-ghost">&larr; Wstecz</button>
           <button type="button" id="wiz-next-2" class="tc-btn tc-btn-primary">Dalej &rarr;</button>
@@ -352,12 +380,44 @@ const cfgPtsSetWin = document.getElementById('cfg-pts-set-win') as HTMLInputElem
 const cfgPtsSetLos = document.getElementById('cfg-pts-set-loss') as HTMLInputElement;
 const cfgTiebreak  = document.getElementById('cfg-tiebreak') as HTMLSelectElement;
 
+// ── Sprawdzanie duplikatu nazwy ───────────────────────────────────────────────
+const nameWarnEl = document.getElementById('cr-name-warn') as HTMLElement;
+let nameCheckTimer: ReturnType<typeof setTimeout>;
+
+nameEl.addEventListener('input', () => {
+  clearTimeout(nameCheckTimer);
+  nameWarnEl.style.display = 'none';
+  const val = nameEl.value.trim();
+  if (val.length < 3) return;
+  nameCheckTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${API}/api/tournaments/check-name/?name=${encodeURIComponent(val)}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.exists) {
+        nameWarnEl.textContent = `Turniej o nazwie „${val}" już istnieje (${data.count}). Możesz mimo to kontynuować.`;
+        nameWarnEl.style.display = '';
+      }
+    } catch { /* silent */ }
+  }, 500);
+});
+
+// ── Domyślna data rozpoczęcia = teraz ────────────────────────────────────────
+if (startEl && !startEl.value) {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  startEl.value = now.toISOString().slice(0, 16);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
   RND: 'Liga (Round Robin)',
   SGL: 'Eliminacja pojedyncza',
   DBE: 'Eliminacja podwójna',
   AMR: 'Americano / Mexicano',
+  LDR: 'Drabinka Liderów',
 };
 const FORMAT_LABELS: Record<string, string> = { SNG: 'Singiel', DBL: 'Debel' };
 
@@ -401,8 +461,8 @@ document.getElementById('wiz-next-1')!.addEventListener('click', () => {
     return;
   }
 
-  // Krok 2: RND/SGL/DBE/AMR → konfiguracja, inne → pomiń
-  if (typeEl.value === 'RND' || typeEl.value === 'SGL' || typeEl.value === 'DBE' || typeEl.value === 'AMR') {
+  // Krok 2: typy z konfiguracją → konfiguracja, inne → pomiń
+  if (['RND', 'SGL', 'DBE', 'AMR', 'LDR'].includes(typeEl.value)) {
     updatePane2ForType(typeEl.value);
     goTo(2);
   } else {
@@ -438,7 +498,7 @@ document.getElementById('wiz-next-2')!.addEventListener('click', () => {
 // ── Krok 3 – back ─────────────────────────────────────────────────────────────
 document.getElementById('wiz-back-3')!.addEventListener('click', () => {
   const t = typeEl.value;
-  if (t === 'RND' || t === 'SGL' || t === 'DBE' || t === 'AMR') {
+  if (['RND', 'SGL', 'DBE', 'AMR', 'LDR'].includes(t)) {
     updatePane2ForType(t);
     goTo(2);
   } else {
@@ -525,6 +585,16 @@ function buildSummary() {
         ${row('Tryb', schedLabel)}
         ${row('Liczba rund', amrRounds.value)}
         ${row('Punkty na mecz', amrPpm.value)}
+      </div>`;
+  } else if (typeEl.value === 'LDR') {
+    const ldrRange   = (document.getElementById('ldr-challenge-range') as HTMLInputElement).value;
+    const ldrSeedEl  = (document.getElementById('ldr-seeding') as HTMLSelectElement);
+    const ldrSeedLbl = ldrSeedEl.options[ldrSeedEl.selectedIndex]?.text ?? ldrSeedEl.value;
+    html += `
+      <div class="sum-group">
+        <div class="sum-group-label">Drabinka Liderów</div>
+        ${row('Zasięg wyzwania', `±${ldrRange} pozycji`)}
+        ${row('Rozstawienie', ldrSeedLbl)}
       </div>`;
   }
 
@@ -634,7 +704,23 @@ document.getElementById('wiz-create')!.addEventListener('click', async () => {
       } catch { /* ignoruj */ }
     }
 
-    // 2c. PATCH /api/tournaments/{id}/config/ — tylko dla RND
+    // 2c. POST LadderConfig — tylko dla LDR
+    if (typeEl.value === 'LDR') {
+      try {
+        await fetch(`${API}/api/tournaments/${tournamentId}/config/ldr/`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+          body: JSON.stringify({
+            challenge_range: Number((document.getElementById('ldr-challenge-range') as HTMLInputElement).value),
+            initial_seeding: (document.getElementById('ldr-seeding') as HTMLSelectElement).value,
+          }),
+        });
+        // Nie krytyczne — backend ma wartości domyślne
+      } catch { /* ignoruj */ }
+    }
+
+    // 2d. PATCH /api/tournaments/{id}/config/ — tylko dla RND
     if (typeEl.value === 'RND') {
       const configBody: Record<string, number | string> = {
         sets_to_win:           Number(cfgSetsWin.value),
@@ -676,6 +762,7 @@ const rrConfigDiv  = document.getElementById('wiz-rr-config')  as HTMLElement;
 const sglConfigDiv = document.getElementById('wiz-sgl-config') as HTMLElement;
 const dbeConfigDiv = document.getElementById('wiz-dbe-config') as HTMLElement;
 const amrConfigDiv = document.getElementById('wiz-amr-config') as HTMLElement;
+const ldrConfigDiv = document.getElementById('wiz-ldr-config') as HTMLElement;
 const pane2Title   = document.getElementById('wiz-pane2-title') as HTMLElement;
 const pane2Sub     = document.getElementById('wiz-pane2-sub')   as HTMLElement;
 const sglSeeding   = document.getElementById('sgl-seeding')    as HTMLSelectElement;
@@ -691,6 +778,7 @@ function updatePane2ForType(type: string) {
   sglConfigDiv.style.display = type === 'SGL' ? '' : 'none';
   dbeConfigDiv.style.display = type === 'DBE' ? '' : 'none';
   amrConfigDiv.style.display = type === 'AMR' ? '' : 'none';
+  ldrConfigDiv.style.display = type === 'LDR' ? '' : 'none';
   if (type === 'SGL') {
     pane2Title.textContent = 'Konfiguracja drabinki';
     pane2Sub.textContent   = 'Opcje eliminacji pojedynczej. Możesz je zmienić też po utworzeniu.';
@@ -700,6 +788,9 @@ function updatePane2ForType(type: string) {
   } else if (type === 'AMR') {
     pane2Title.textContent = 'Konfiguracja Americano';
     pane2Sub.textContent   = 'Ustaw liczbę rund i pulę punktów na mecz. Harmonogram generowany automatycznie.';
+  } else if (type === 'LDR') {
+    pane2Title.textContent = 'Konfiguracja Drabinki Liderów';
+    pane2Sub.textContent   = 'Ustaw zasięg wyzwań i sposób rozstawienia. Możesz zmienić po utworzeniu.';
   } else {
     pane2Title.textContent = 'Konfiguracja punktacji';
     pane2Sub.textContent   = 'Wartości domyślne działają dla większości lig. Możesz je zmienić też po utworzeniu.';
@@ -725,6 +816,8 @@ typeEl.addEventListener('change', () => {
     typeNote.textContent = 'Eliminacja podwójna — zawodnik odpada dopiero po dwóch przegranych (Winners + Losers Bracket).';
   } else if (typeEl.value === 'AMR') {
     typeNote.textContent = 'Americano / Mexicano — tryb (stały / dynamiczny) wybierasz w następnym kroku.';
+  } else if (typeEl.value === 'LDR') {
+    typeNote.textContent = 'Drabinka Liderów — gracze sami rzucają wyzwania i wspinają się w górę rankingu.';
   } else {
     typeNote.textContent = 'Uwaga: panel zarządzania meczami dostępny tylko dla Round Robin i Single Elimination.';
   }
@@ -855,6 +948,7 @@ typeEl.addEventListener('change', () => {
   .cr-row .cr-field { flex: 1; min-width: 120px; }
 
   .cr-hint { font-size: 0.74rem; color: var(--tc-muted); }
+  .cr-hint--warn { color: var(--tc-warning, #b45309); margin-top: 4px; display: block; }
 
   .cr-checkbox-label {
     display: flex; align-items: center; gap: 10px;

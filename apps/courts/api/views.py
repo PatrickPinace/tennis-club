@@ -436,6 +436,24 @@ class ReservationStatusView(APIView):
         reservation.status = new_status
         reservation.save(update_fields=['status'])
 
+        # Powiadom rezerwującego (nie notyfikuj samego siebie jeśli owner rezerwuje własny kort)
+        if reservation.user and reservation.user.pk != request.user.pk:
+            from notifications.helpers import notify
+            _date_str = reservation.start_time.strftime('%d.%m.%Y %H:%M') if reservation.start_time else '?'
+            _court_label = (
+                f'kort nr {reservation.court.court_number}' if reservation.court else 'kort'
+            )
+            if action == 'approve':
+                notify(
+                    reservation.user,
+                    f'✅ Twoja rezerwacja ({_court_label}, {_date_str}) została potwierdzona.',
+                )
+            else:
+                notify(
+                    reservation.user,
+                    f'❌ Twoja rezerwacja ({_court_label}, {_date_str}) została odrzucona.',
+                )
+
         return Response({
             'id': reservation.id,
             'status': reservation.status,

@@ -11,6 +11,7 @@ urlpatterns = [
     path('tournaments/list/', views.TournamentListView.as_view(), name='tournament-list-api'),
     path('tournaments/mine/', views.MyTournamentsView.as_view(), name='tournament-mine-api'),
     path('tournaments/create/', views.TournamentCreateView.as_view(), name='tournament-create'),
+    path('tournaments/check-name/', views.TournamentCheckNameView.as_view(), name='tournament-check-name'),
     path('tournaments/<int:pk>/detail/', views.TournamentDetailView.as_view(), name='tournament-detail'),
     path('tournaments/<int:pk>/status/', views.TournamentStatusView.as_view(), name='tournament-status'),
     path('tournaments/<int:pk>/finish/', views.TournamentFinishView.as_view(), name='tournament-finish'),
@@ -27,6 +28,12 @@ urlpatterns = [
     path('tournaments/<int:pk>/config/amr/', views.AmericanoConfigUpdateView.as_view(), name='tournament-config-amr'),
     path('tournaments/<int:pk>/amr/next-round/', views.AmrNextRoundView.as_view(), name='tournament-amr-next-round'),
     path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),
+    # Ladder (LDR)
+    path('tournaments/<int:pk>/config/ldr/', views.LadderConfigUpdateView.as_view(), name='tournament-config-ldr'),
+    path('tournaments/<int:pk>/ladder/seeds/', views.LadderSeedView.as_view(), name='tournament-ladder-seeds'),
+    path('tournaments/<int:pk>/ladder/', views.LadderView.as_view(), name='tournament-ladder'),
+    path('tournaments/<int:pk>/challenge/', views.LadderChallengeView.as_view(), name='tournament-ladder-challenge'),
+    path('tournaments/<int:pk>/challenges/<int:match_id>/<str:action>/', views.LadderChallengeActionView.as_view(), name='tournament-ladder-challenge-action'),
     # Router na końcu — obsługuje standardowe CRUD akcje ViewSetu
     path('', include(router.urls)),
 ]

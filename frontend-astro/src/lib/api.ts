@@ -258,6 +258,62 @@ export interface TournamentDetail {
   matches_progress: { done: number; total: number } | null;
 }
 
+// ── Ladder (LDR) ────────────────────────────────────────────────────────────
+
+export interface LadderParticipant {
+  id: number;
+  display_name: string;
+  seed_number: number | null;
+  status: string;
+  user_id: number | null;
+  is_busy: boolean;
+}
+
+export interface LadderChallengeEntry {
+  match_id: number;
+  status: string;
+  challenger: { id: number | null; display_name: string | null };
+  challenged: { id: number | null; display_name: string | null };
+  i_am_challenger: boolean;
+  scheduled_time: string | null;
+}
+
+export interface LadderMatchEntry {
+  match_id: number;
+  challenger: { id: number | null; display_name: string | null };
+  challenged: { id: number | null; display_name: string | null };
+  winner_id: number | null;
+  score: string | null;
+  scheduled_time: string | null;
+}
+
+export interface LadderData {
+  tournament_id: number;
+  tournament_status: string;
+  challenge_range: number;
+  my_participant_id: number | null;
+  ranking: LadderParticipant[];
+  available_challenge_ids: number[];
+  active_challenges: LadderChallengeEntry[];
+  rejected_by_ids: number[];
+  recent_matches: LadderMatchEntry[];
+  stats: { completed_matches: number; total_participants: number };
+  initial_seeding: 'RANDOM' | 'SEEDING';
+}
+
+/**
+ * Zwraca dane drabinki liderów (ranking, challenge flow).
+ * Endpoint: GET /api/tournaments/{id}/ladder/
+ * Auth: IsAuthenticatedOrReadOnly — ranking publiczny.
+ * Zwraca null gdy turniej nie istnieje.
+ */
+export async function getLadderData(
+  id: number,
+  sessionCookie?: string
+): Promise<LadderData | null> {
+  return apiFetch<LadderData>(`/api/tournaments/${id}/ladder/`, { sessionCookie });
+}
+
 // ── Rankingi ─────────────────────────────────────────────────────────────────
 
 export interface PlayerRankingEntry {

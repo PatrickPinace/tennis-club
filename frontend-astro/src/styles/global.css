@@ -245,6 +245,16 @@ input, select, textarea { font-family: inherit; }
   font-size: 0.9rem; font-weight: 600; color: var(--tc-ink);
 }
 
+.tc-card-count {
+  font-size: 0.75rem; font-weight: 600;
+  color: var(--tc-muted);
+  background: var(--tc-chip-bg, var(--surface-2));
+  border: 1px solid var(--tc-card-border);
+  border-radius: 20px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
 .tc-card-body { padding: 20px; }
 
 .tc-card-footer {

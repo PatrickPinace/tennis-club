@@ -27,15 +27,40 @@ class UserListView(generics.ListAPIView):
 
     def get_queryset(self):
         from django.db.models import Q, Case, When, IntegerField
+        from apps.tournaments.models import Participant, TeamMember
+
+        # Opcjonalne wykluczenie już dodanych uczestników turnieju
+        exclude_tournament = self.request.query_params.get('exclude_tournament', '').strip()
+        excluded_user_ids = set()
+        if exclude_tournament.isdigit():
+            tid = int(exclude_tournament)
+            # Kapitanowie / singliści — bezpośrednio w Participant.user
+            captain_ids = set(
+                Participant.objects
+                .filter(tournament_id=tid)
+                .exclude(user_id=None)
+                .values_list('user_id', flat=True)
+            )
+            # Partnerzy w deblach — przechowywani w TeamMember
+            partner_ids = set(
+                TeamMember.objects
+                .filter(participant__tournament_id=tid)
+                .exclude(user_id=None)
+                .values_list('user_id', flat=True)
+            )
+            excluded_user_ids = captain_ids | partner_ids
 
         # Tryb podpowiedzi — kilka ostatnich userów bez filtrowania
         if self.request.query_params.get('suggest') == '1':
-            return User.objects.order_by('-date_joined')[:8]
+            qs = User.objects.order_by('-date_joined')
+            if excluded_user_ids:
+                qs = qs.exclude(id__in=excluded_user_ids)
+            return qs[:8]
 
         q = self.request.query_params.get('search', '').strip()
         if len(q) < 2:
             return User.objects.none()
-        return (
+        qs = (
             User.objects
             .filter(
                 Q(first_name__icontains=q) |
@@ -52,8 +77,11 @@ class UserListView(generics.ListAPIView):
                     output_field=IntegerField(),
                 )
             )
-            .order_by('relevance', 'last_name', 'first_name')[:20]
+            .order_by('relevance', 'last_name', 'first_name')
         )
+        if excluded_user_ids:
+            qs = qs.exclude(id__in=excluded_user_ids)
+        return qs[:20]
 
 
 class UserDetailsView(APIView):

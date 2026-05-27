@@ -116,6 +116,24 @@ class MyTournamentsView(generics.ListAPIView):
         )
 
 
+class TournamentCheckNameView(APIView):
+    """
+    Sprawdza czy turniej o podanej nazwie już istnieje.
+    GET /api/tournaments/check-name/?name=...
+
+    Odpowiedź: { "exists": bool, "count": int }
+    Auth: IsAuthenticated — tylko zalogowani mogą tworzyć turnieje.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        name = request.query_params.get('name', '').strip()
+        if not name:
+            return Response({'exists': False, 'count': 0})
+        count = Tournament.objects.filter(name__iexact=name).count()
+        return Response({'exists': count > 0, 'count': count})
+
+
 class RoundRobinMatchScoreView(APIView):
     """
     Zapis wyniku meczu przez organizatora.
@@ -153,6 +171,7 @@ class RoundRobinMatchScoreView(APIView):
         Tournament.TournamentType.SINGLE_ELIMINATION,
         Tournament.TournamentType.DOUBLE_ELIMINATION,
         Tournament.TournamentType.AMERICANO,
+        Tournament.TournamentType.LADDER,
     )
 
     def patch(self, request, pk, match_pk):
@@ -170,7 +189,7 @@ class RoundRobinMatchScoreView(APIView):
 
         if tournament.tournament_type not in self.SUPPORTED_TYPES:
             return Response(
-                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND), Single Elimination (SGL) i Americano (AMR).'},
+                {'detail': 'Endpoint obsługuje turnieje Round Robin (RND), Single Elimination (SGL), Americano (AMR) i Ladder (LDR).'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -443,9 +462,11 @@ class RoundRobinMatchScoreView(APIView):
                 Tournament.TournamentType.DOUBLE_ELIMINATION,
             )
 
-            if is_elimination:
-                # SGL/DBE: używamy EliminationConfig.sets_to_win; pomijamy walidację gemową
-                # (format wynikowy jest swobodny — organizator wpisuje wynik setów)
+            is_ladder = tournament.tournament_type == Tournament.TournamentType.LADDER
+
+            if is_elimination or is_ladder:
+                # SGL/DBE/LDR: używamy EliminationConfig.sets_to_win (lub default 2);
+                # pomijamy walidację gemową (format wynikowy jest swobodny)
                 try:
                     from apps.tournaments.models import EliminationConfig as _EC
                     elim_cfg = _EC.objects.get(tournament=tournament)
@@ -570,6 +591,60 @@ class RoundRobinMatchScoreView(APIView):
             elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
                 from apps.tournaments.bracket import advance_dbe_match
                 advance_dbe_match(match, tournament)
+            elif tournament.tournament_type == Tournament.TournamentType.LADDER:
+                # LDR: zamień seed_number gdy challenger (p1) wygrał; wyczyść ChallengeRejection
+                from django.db.models import Q as _Q
+                from apps.tournaments.models import ChallengeRejection as _CR
+                _winner     = match.winner
+                _challenger = match.participant1
+                _challenged = match.participant2
+                if (_winner and _challenger and _challenged
+                        and _winner.id == _challenger.id
+                        and _challenger.seed_number is not None
+                        and _challenged.seed_number is not None):
+                    _challenger.seed_number, _challenged.seed_number = (
+                        _challenged.seed_number, _challenger.seed_number
+                    )
+                    _challenger.save(update_fields=['seed_number'])
+                    _challenged.save(update_fields=['seed_number'])
+                _CR.objects.filter(
+                    _Q(rejecting_participant=_challenger) | _Q(rejecting_participant=_challenged)
+                    | _Q(challenger_participant=_challenger) | _Q(challenger_participant=_challenged),
+                    tournament=tournament,
+                ).delete()
+
+        # ── Notyfikacje o wyniku ─────────────────────────────────────────────
+        # Wysyłamy tylko przy finalnym statusie (CMP lub WDR) — nie przy INP/CNC/re-edit bez zmiany.
+        # Guard: nie powiadamiamy usera który właśnie wpisał wynik.
+        _final_statuses = (
+            TournamentsMatch.Status.COMPLETED.value,
+            TournamentsMatch.Status.WALKOVER.value,
+        )
+        if match.status in _final_statuses:
+            from notifications.helpers import notify
+            _score_str = ' '.join(
+                f'{fields[f"set{i}_p1"]}:{fields[f"set{i}_p2"]}'
+                for i in range(1, 4)
+                if fields[f'set{i}_p1'] is not None and fields[f'set{i}_p2'] is not None
+            ) or '—'
+            _p1 = match.participant1
+            _p2 = match.participant2
+            _winner_name = winner.display_name if winner else None
+            for _participant in (_p1, _p2):
+                if _participant and _participant.user and _participant.user.pk != request.user.pk:
+                    if match.status == TournamentsMatch.Status.WALKOVER.value:
+                        _msg = (
+                            f'🏆 Walkover w turnieju „{tournament.name}": '
+                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
+                            f'Wygrał: {_winner_name or "?"}.'
+                        )
+                    else:
+                        _msg = (
+                            f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
+                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
+                            f'Wygrał: {_winner_name or "?"}.'
+                        )
+                    notify(_participant.user, _msg)
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
@@ -1406,6 +1481,34 @@ class TournamentStatusView(APIView):
                             # AMR STATIC: generuj cały harmonogram z góry
                             from apps.tournaments.bracket import generate_americano_matches_static
                             match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
+                    elif tournament.tournament_type == 'LDR':
+                        # LDR: brak bracketów — tylko przypisanie pozycji startowych (seed_number)
+                        from apps.tournaments.models import LadderConfig as _LdrCfg
+                        import random as _random
+                        ldr_cfg, _ = _LdrCfg.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={'challenge_range': 3, 'initial_seeding': 'SEEDING'},
+                        )
+                        participants_list = list(participants_qs.order_by('pk'))
+                        if ldr_cfg.initial_seeding == 'RANDOM':
+                            _random.shuffle(participants_list)
+                        # Przypisz seed_number 1..N tylko tym co jeszcze go nie mają
+                        # (jeśli organizer już ręcznie ustawił seedy, respektujemy je — sortujemy po istniejącym seed_number)
+                        already_seeded   = [p for p in participants_list if p.seed_number is not None]
+                        not_yet_seeded   = [p for p in participants_list if p.seed_number is None]
+                        if not already_seeded:
+                            # nikt nie ma seedu — przypisz wszystkich
+                            for i, p in enumerate(participants_list, start=1):
+                                p.seed_number = i
+                                p.save(update_fields=['seed_number'])
+                        elif not_yet_seeded:
+                            # część ma seedy — uzupełnij brakujące kolejnymi wolnymi numerami
+                            used = {p.seed_number for p in already_seeded}
+                            free = [n for n in range(1, len(participants_list) + 1) if n not in used]
+                            for p, num in zip(not_yet_seeded, free):
+                                p.seed_number = num
+                                p.save(update_fields=['seed_number'])
+                        match_count, gen_message = 0, f'Przypisano pozycje startowe dla {len(participants_list)} uczestników.'
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
                     tournament.status = new_status
@@ -1445,6 +1548,27 @@ class TournamentStatusView(APIView):
             tournament.name, tournament.pk,
             old_status, new_status, request.user.username,
         )
+
+        # Notyfikacje do uczestników przy ważnych przejściach statusu
+        _notify_statuses = {'ACT', 'FIN', 'CNC'}
+        if new_status in _notify_statuses:
+            from notifications.helpers import notify
+            from apps.tournaments.models import Participant as _P
+            _msgs = {
+                'ACT': f'🎾 Turniej „{tournament.name}" został rozpoczęty. Czas grać!',
+                'FIN': f'🏁 Turniej „{tournament.name}" został zakończony.',
+                'CNC': f'❌ Turniej „{tournament.name}" został anulowany.',
+            }
+            _msg = _msgs[new_status]
+            _participants = (
+                _P.objects.filter(tournament=tournament, status__in=['ACT', 'REG'])
+                .select_related('user')
+                .exclude(user=None)
+            )
+            for _p in _participants:
+                # Nie notyfikuj organizatora o własnej akcji
+                if _p.user and _p.user.pk != request.user.pk:
+                    notify(_p.user, _msg)
 
         response_data = {
             'id': tournament.pk,
@@ -1813,3 +1937,727 @@ class TournamentJoinView(APIView):
             'display_name': participant.display_name,
             'status': participant.status,
         }, status=status.HTTP_201_CREATED)
+
+
+class LadderConfigUpdateView(APIView):
+    """
+    Tworzenie/edycja konfiguracji Drabinki Liderów przez organizatora.
+    POST/PATCH /api/tournaments/{pk}/config/ldr/
+
+    Pola:
+      challenge_range  — int ≥ 1 (ile pozycji w górę gracz może wyzwać)
+      initial_seeding  — 'RANDOM' | 'SEEDING'
+
+    Tworzy LadderConfig jeśli nie istnieje. Partial update (PATCH semantics).
+    Auth: IsAuthenticated + (created_by OR is_staff).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        return self._upsert(request, pk)
+
+    def patch(self, request, pk):
+        return self._upsert(request, pk)
+
+    def _upsert(self, request, pk):
+        from apps.tournaments.models import Tournament, LadderConfig
+
+        try:
+            tournament = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.LADDER:
+            return Response(
+                {'detail': 'Endpoint /config/ldr/ obsługuje tylko turnieje LDR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (request.user.is_staff or tournament.created_by == request.user):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        config, _ = LadderConfig.objects.get_or_create(
+            tournament=tournament,
+            defaults={'challenge_range': 3, 'initial_seeding': 'SEEDING'},
+        )
+
+        data = request.data
+
+        if 'challenge_range' in data:
+            try:
+                cr = int(data['challenge_range'])
+            except (TypeError, ValueError):
+                return Response({'detail': 'challenge_range musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+            if cr < 1:
+                return Response({'detail': 'challenge_range musi być ≥ 1.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.challenge_range = cr
+
+        if 'initial_seeding' in data:
+            seeding = data['initial_seeding']
+            if seeding not in ('RANDOM', 'SEEDING'):
+                return Response({'detail': 'initial_seeding musi być "RANDOM" lub "SEEDING".'}, status=status.HTTP_400_BAD_REQUEST)
+            config.initial_seeding = seeding
+
+        config.save()
+
+        return Response({
+            'challenge_range': config.challenge_range,
+            'initial_seeding': config.initial_seeding,
+        }, status=status.HTTP_200_OK)
+
+
+class LadderSeedView(APIView):
+    """
+    Zarządzanie pozycjami (seed_number) uczestników drabinki przez organizatora.
+
+    POST /api/tournaments/{pk}/ladder/seeds/
+      Swap dwóch uczestników: zamienia ich seed_number atomowo w transakcji.
+      Body: { "participant_a_id": int, "participant_b_id": int }
+
+    PATCH /api/tournaments/{pk}/ladder/seeds/
+      Bezpośrednie ustawienie seed_number dla uczestnika.
+      Body: { "participant_id": int, "seed_number": int }
+      Jeśli seed_number jest już zajęty przez innego uczestnika → zwraca błąd (409).
+      Użyj POST (swap) zamiast PATCH jeśli chcesz zamienić dwie pozycje.
+
+    Auth: IsAuthenticated + (created_by lub is_staff)
+    Tylko turnieje LDR. Dozwolone statusy: DRF, REG, SCH.
+    Turniej ACT/FIN/CNC — zablokowane (pozycje zmieniają się przez wyzwania).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _get_tournament_and_check(self, request, pk):
+        """Wspólna walidacja — zwraca (tournament, error_response)."""
+        try:
+            tournament = Tournament.objects.get(pk=pk)
+        except Tournament.DoesNotExist:
+            return None, Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.LADDER:
+            return None, Response(
+                {'detail': 'Endpoint /ladder/seeds/ obsługuje tylko turnieje LDR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_organizer = (
+            request.user.is_staff or
+            tournament.created_by_id == request.user.id
+        )
+        if not is_organizer:
+            return None, Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if tournament.status in ('FIN', 'CNC'):
+            return None, Response(
+                {'detail': 'Edycja pozycji niedostępna dla zakończonego lub anulowanego turnieju.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if tournament.status == 'ACT':
+            # W ACT pozycje zmieniają się przez wyzwania — blokuj edycję,
+            # chyba że są uczestnicy bez seedów (błąd migracyjny — pozwól naprawić).
+            from apps.tournaments.models import Participant as _PCheck
+            missing = _PCheck.objects.filter(tournament=tournament, seed_number__isnull=True).exists()
+            if not missing:
+                return None, Response(
+                    {'detail': 'Turniej aktywny — pozycje zmieniają się przez wyzwania, nie przez ręczną edycję.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        return tournament, None
+
+    def post(self, request, pk):
+        """Swap seed_number dwóch uczestników (atomowy)."""
+        tournament, err = self._get_tournament_and_check(request, pk)
+        if err:
+            return err
+
+        id_a = request.data.get('participant_a_id')
+        id_b = request.data.get('participant_b_id')
+
+        if id_a is None or id_b is None:
+            return Response(
+                {'detail': 'Wymagane pola: participant_a_id, participant_b_id.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            id_a, id_b = int(id_a), int(id_b)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'participant_a_id i participant_b_id muszą być liczbami.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if id_a == id_b:
+            return Response(
+                {'detail': 'Uczestnicy muszą być różni.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.db import transaction as _tx
+        from apps.tournaments.models import Participant as _P
+
+        try:
+            with _tx.atomic():
+                p_a = _P.objects.select_for_update().get(pk=id_a, tournament=tournament)
+                p_b = _P.objects.select_for_update().get(pk=id_b, tournament=tournament)
+                seed_a, seed_b = p_a.seed_number, p_b.seed_number
+                p_a.seed_number = seed_b
+                p_b.seed_number = seed_a
+                p_a.save(update_fields=['seed_number'])
+                p_b.save(update_fields=['seed_number'])
+        except _P.DoesNotExist:
+            return Response(
+                {'detail': 'Jeden lub obaj uczestnicy nie należą do tego turnieju.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response({
+            'participant_a': {'id': p_a.id, 'display_name': p_a.display_name, 'seed_number': p_a.seed_number},
+            'participant_b': {'id': p_b.id, 'display_name': p_b.display_name, 'seed_number': p_b.seed_number},
+        }, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        """Ustaw seed_number bezpośrednio dla jednego uczestnika."""
+        tournament, err = self._get_tournament_and_check(request, pk)
+        if err:
+            return err
+
+        participant_id = request.data.get('participant_id')
+        new_seed       = request.data.get('seed_number')
+
+        if participant_id is None or new_seed is None:
+            return Response(
+                {'detail': 'Wymagane pola: participant_id, seed_number.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            participant_id = int(participant_id)
+            new_seed       = int(new_seed)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'participant_id i seed_number muszą być liczbami.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new_seed < 1:
+            return Response(
+                {'detail': 'seed_number musi być ≥ 1.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.tournaments.models import Participant as _P
+        from django.db import transaction as _tx
+
+        with _tx.atomic():
+            try:
+                participant = _P.objects.select_for_update().get(pk=participant_id, tournament=tournament)
+            except _P.DoesNotExist:
+                return Response(
+                    {'detail': 'Uczestnik nie należy do tego turnieju.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Sprawdź duplikat
+            conflict = _P.objects.filter(
+                tournament=tournament, seed_number=new_seed
+            ).exclude(pk=participant_id).first()
+            if conflict:
+                return Response(
+                    {'detail': f'Pozycja {new_seed} jest już zajęta przez „{conflict.display_name}". Użyj zamiany (swap).'},
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+            participant.seed_number = new_seed
+            participant.save(update_fields=['seed_number'])
+
+        return Response({
+            'id': participant.id,
+            'display_name': participant.display_name,
+            'seed_number': participant.seed_number,
+        }, status=status.HTTP_200_OK)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LADDER — REST API
+# ══════════════════════════════════════════════════════════════════════════════
+
+class LadderView(APIView):
+    """
+    GET /api/tournaments/<pk>/ladder/
+
+    Zwraca dane drabinki liderów:
+      - ranking: uczestnicy posortowani po seed_number
+      - available_challenges: participant IDs które zalogowany user może wyzwać
+      - active_challenges: aktywne mecze (SCH/INP) gdzie user jest uczestnikiem
+      - recent_matches: ostatnie 10 zakończonych meczów LDR
+      - stats: statystyki turnieju
+
+    Auth: IsAuthenticatedOrReadOnly — ranking publiczny, challenge data tylko zalogowanemu.
+    """
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, pk):
+        from apps.tournaments.models import (
+            Tournament, TournamentsMatch, Participant, ChallengeRejection,
+        )
+        from django.db.models import Q, Max, Count
+
+        try:
+            tournament = Tournament.objects.select_related('ladder_config').get(
+                pk=pk,
+                tournament_type=Tournament.TournamentType.LADDER,
+            )
+        except Tournament.DoesNotExist:
+            return Response(
+                {'detail': 'Turniej drabinkowy nie istnieje.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        participants = list(
+            tournament.participants
+            .filter(status__in=['ACT', 'REG'])
+            .order_by('seed_number', 'pk')
+            .select_related('user')
+        )
+
+        # Aktywne mecze (SCH/INP/WAI) — żeby wiedzieć kto jest zajęty
+        active_statuses = [
+            TournamentsMatch.Status.WAITING.value,
+            TournamentsMatch.Status.SCHEDULED.value,
+            TournamentsMatch.Status.IN_PROGRESS.value,
+        ]
+        active_matches_qs = TournamentsMatch.objects.filter(
+            tournament=tournament, status__in=active_statuses
+        ).select_related('participant1', 'participant2', 'participant1__user', 'participant2__user')
+
+        busy_ids = set()
+        for m in active_matches_qs:
+            if m.participant1_id:
+                busy_ids.add(m.participant1_id)
+            if m.participant2_id:
+                busy_ids.add(m.participant2_id)
+
+        # Ranking
+        ranking = []
+        for p in participants:
+            ranking.append({
+                'id': p.id,
+                'display_name': p.display_name,
+                'seed_number': p.seed_number,
+                'status': p.status,
+                'user_id': p.user_id,
+                'is_busy': p.id in busy_ids,
+            })
+
+        # Dane specyficzne dla zalogowanego użytkownika
+        available_challenge_ids = []
+        active_challenges = []
+        rejected_by_ids = []
+        my_participant_id = None
+
+        if request.user.is_authenticated:
+            user_participant = next(
+                (p for p in participants if p.user_id == request.user.pk), None
+            )
+            if user_participant:
+                my_participant_id = user_participant.id
+
+            if user_participant and tournament.ladder_config:
+                cfg = tournament.ladder_config
+                # Gracze w zasięgu challengerange (wyżej w rankingu, nie zajęci, nie "ja")
+                if user_participant.seed_number is not None:
+                    min_seed = max(1, user_participant.seed_number - cfg.challenge_range)
+                    available_challenge_ids = [
+                        p['id'] for p in ranking
+                        if (
+                            p['seed_number'] is not None
+                            and min_seed <= p['seed_number'] < user_participant.seed_number
+                            and not p['is_busy']
+                            and p['id'] != user_participant.id
+                        )
+                    ]
+
+                # Aktywne wyzwania user_participanta
+                user_active = active_matches_qs.filter(
+                    Q(participant1=user_participant) | Q(participant2=user_participant)
+                )
+                for m in user_active:
+                    p1 = m.participant1
+                    p2 = m.participant2
+                    active_challenges.append({
+                        'match_id': m.id,
+                        'status': m.status,
+                        'challenger': {
+                            'id': p1.id if p1 else None,
+                            'display_name': p1.display_name if p1 else None,
+                        },
+                        'challenged': {
+                            'id': p2.id if p2 else None,
+                            'display_name': p2.display_name if p2 else None,
+                        },
+                        'i_am_challenger': (p1 is not None and p1.id == user_participant.id),
+                        'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
+                    })
+
+                # Kto odrzucił nasze wyzwania (blokada w tej "rundzie")
+                rejected_by_ids = list(
+                    ChallengeRejection.objects.filter(
+                        tournament=tournament,
+                        challenger_participant=user_participant,
+                    ).values_list('rejecting_participant_id', flat=True)
+                )
+
+        # Ostatnie 10 zakończonych meczów
+        recent_matches_qs = (
+            TournamentsMatch.objects
+            .filter(tournament=tournament, status=TournamentsMatch.Status.COMPLETED.value)
+            .select_related(
+                'participant1', 'participant2', 'winner',
+                'participant1__user', 'participant2__user',
+            )
+            .order_by('-pk')[:10]
+        )
+        recent_matches = []
+        for m in recent_matches_qs:
+            score_parts = []
+            for i in range(1, 4):
+                s1 = getattr(m, f'set{i}_p1_score', None)
+                s2 = getattr(m, f'set{i}_p2_score', None)
+                if s1 is not None and s2 is not None:
+                    score_parts.append(f'{s1}:{s2}')
+            recent_matches.append({
+                'match_id': m.id,
+                'challenger': {
+                    'id': m.participant1.id if m.participant1 else None,
+                    'display_name': m.participant1.display_name if m.participant1 else None,
+                },
+                'challenged': {
+                    'id': m.participant2.id if m.participant2 else None,
+                    'display_name': m.participant2.display_name if m.participant2 else None,
+                },
+                'winner_id': m.winner_id,
+                'score': ' '.join(score_parts) if score_parts else None,
+                'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
+            })
+
+        # Statystyki
+        completed_count = TournamentsMatch.objects.filter(
+            tournament=tournament, status=TournamentsMatch.Status.COMPLETED.value
+        ).count()
+
+        ldr_cfg = tournament.ladder_config
+        return Response({
+            'tournament_id': tournament.pk,
+            'tournament_status': tournament.status,
+            'challenge_range': ldr_cfg.challenge_range if ldr_cfg else 3,
+            'initial_seeding': ldr_cfg.initial_seeding if ldr_cfg else 'SEEDING',
+            'my_participant_id': my_participant_id,
+            'ranking': ranking,
+            'available_challenge_ids': available_challenge_ids,
+            'active_challenges': active_challenges,
+            'rejected_by_ids': rejected_by_ids,
+            'recent_matches': recent_matches,
+            'stats': {
+                'completed_matches': completed_count,
+                'total_participants': len(participants),
+            },
+        }, status=status.HTTP_200_OK)
+
+
+class LadderChallengeView(APIView):
+    """
+    POST /api/tournaments/<pk>/challenge/
+
+    Rzuca wyzwanie innemu graczowi w drabince liderów.
+
+    Body: { "challenged_id": int }  — participant ID gracza do wyzwania
+
+    Walidacje:
+      - turniej typu LDR i status ACT
+      - obaj gracze aktywni w tym turnieju
+      - challenged w zasięgu challenge_range powyżej challengera
+      - żaden z graczy nie ma aktywnego meczu (SCH/INP/WAI)
+      - brak istniejącego ChallengeRejection dla tej pary w tej rundzie
+
+    Odpowiedź 201: { match_id, challenger_id, challenged_id, status }
+
+    Auth: IsAuthenticated
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from apps.tournaments.models import (
+            Tournament, TournamentsMatch, Participant, ChallengeRejection, LadderConfig,
+        )
+        from django.db.models import Q, Max
+
+        try:
+            tournament = Tournament.objects.select_related('ladder_config').get(
+                pk=pk,
+                tournament_type=Tournament.TournamentType.LADDER,
+            )
+        except Tournament.DoesNotExist:
+            return Response(
+                {'detail': 'Turniej drabinkowy nie istnieje.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if tournament.status != Tournament.Status.ACTIVE.value:
+            return Response(
+                {'detail': 'Wyzwania można rzucać tylko gdy turniej jest aktywny (ACT).'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        challenged_id = request.data.get('challenged_id')
+        if not challenged_id:
+            return Response(
+                {'detail': 'Pole challenged_id jest wymagane.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            challenged_id = int(challenged_id)
+        except (ValueError, TypeError):
+            return Response(
+                {'detail': 'challenged_id musi być liczbą całkowitą.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Pobierz uczestnika zalogowanego usera
+        try:
+            challenger = Participant.objects.get(
+                tournament=tournament,
+                user=request.user,
+                status__in=['ACT', 'REG'],
+            )
+        except Participant.DoesNotExist:
+            return Response(
+                {'detail': 'Nie jesteś uczestnikiem tego turnieju.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Pobierz challenged participant
+        try:
+            challenged = Participant.objects.get(
+                pk=challenged_id,
+                tournament=tournament,
+                status__in=['ACT', 'REG'],
+            )
+        except Participant.DoesNotExist:
+            return Response(
+                {'detail': 'Wskazany uczestnik nie istnieje lub nie jest aktywny w tym turnieju.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if challenger.id == challenged.id:
+            return Response(
+                {'detail': 'Nie możesz wyzwać samego siebie.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Sprawdź zasięg challenge_range
+        cfg = tournament.ladder_config
+        if challenger.seed_number is None or challenged.seed_number is None:
+            return Response(
+                {'detail': 'Nie można rzucić wyzwania — brakuje pozycji startowej (seed). Skontaktuj się z organizatorem.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if cfg:
+            min_seed = max(1, challenger.seed_number - cfg.challenge_range)
+            if not (min_seed <= challenged.seed_number < challenger.seed_number):
+                return Response(
+                    {
+                        'detail': (
+                            f'Możesz wyzwać tylko graczy na pozycjach '
+                            f'{min_seed}–{challenger.seed_number - 1}. '
+                            f'Pozycja wyzwanego: {challenged.seed_number}.'
+                        )
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        # Sprawdź czy któryś gracz ma aktywny mecz
+        active_statuses = [
+            TournamentsMatch.Status.WAITING.value,
+            TournamentsMatch.Status.SCHEDULED.value,
+            TournamentsMatch.Status.IN_PROGRESS.value,
+        ]
+        has_active = TournamentsMatch.objects.filter(
+            tournament=tournament,
+            status__in=active_statuses,
+        ).filter(
+            Q(participant1=challenger) | Q(participant2=challenger) |
+            Q(participant1=challenged) | Q(participant2=challenged)
+        ).exists()
+
+        if has_active:
+            return Response(
+                {'detail': 'Jeden z graczy ma już aktywne wyzwanie lub mecz w toku.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Sprawdź ChallengeRejection — czy challenged odrzucił nasze wyzwanie w tej rundzie
+        already_rejected = ChallengeRejection.objects.filter(
+            tournament=tournament,
+            rejecting_participant=challenged,
+            challenger_participant=challenger,
+        ).exists()
+
+        if already_rejected:
+            return Response(
+                {'detail': 'Ten gracz odrzucił już Twoje wyzwanie w bieżącej rundzie.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Ustal match_index (auto-increment w obrębie turnieju)
+        max_index = TournamentsMatch.objects.filter(tournament=tournament).aggregate(
+            m=Max('match_index')
+        )['m'] or 0
+        next_index = max_index + 1
+
+        # Unikamy kolizji unique_together (tournament, bracket_type, round_number, match_index)
+        # przez użycie round_number=0 dla meczów challenge (nie są to rundy bracketowe)
+        match = TournamentsMatch.objects.create(
+            tournament=tournament,
+            participant1=challenger,
+            participant2=challenged,
+            status=TournamentsMatch.Status.SCHEDULED.value,
+            round_number=0,
+            match_index=next_index,
+        )
+
+        logger.info(
+            '[ladder] Wyzwanie rzucone: %s → %s w turnieju id=%d, mecz id=%d',
+            challenger.display_name, challenged.display_name, tournament.pk, match.pk,
+        )
+
+        # Notyfikacja: powiadom wyzwanego
+        if challenged.user_id and challenged.user:
+            from notifications.helpers import notify
+            notify(
+                challenged.user,
+                f'🎾 {challenger.display_name} rzucił Ci wyzwanie w turnieju „{tournament.name}". '
+                f'Zaakceptuj lub odrzuć wyzwanie.',
+            )
+
+        return Response({
+            'match_id': match.pk,
+            'challenger_id': challenger.id,
+            'challenger_name': challenger.display_name,
+            'challenged_id': challenged.id,
+            'challenged_name': challenged.display_name,
+            'status': match.status,
+        }, status=status.HTTP_201_CREATED)
+
+
+class LadderChallengeActionView(APIView):
+    """
+    POST /api/tournaments/<pk>/challenges/<match_id>/accept/
+    POST /api/tournaments/<pk>/challenges/<match_id>/reject/
+
+    Accept: zmienia status meczu SCH → INP (w trakcie).
+    Reject: zmienia status meczu SCH → CNC, tworzy ChallengeRejection record.
+
+    Tylko challenged player (participant2) może accept/reject.
+    Auth: IsAuthenticated
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk, match_id, action):
+        from apps.tournaments.models import (
+            Tournament, TournamentsMatch, ChallengeRejection,
+        )
+
+        if action not in ('accept', 'reject'):
+            return Response(
+                {'detail': 'Nieznana akcja. Użyj: accept lub reject.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            tournament = Tournament.objects.get(
+                pk=pk,
+                tournament_type=Tournament.TournamentType.LADDER,
+            )
+        except Tournament.DoesNotExist:
+            return Response(
+                {'detail': 'Turniej drabinkowy nie istnieje.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        try:
+            match = TournamentsMatch.objects.select_related(
+                'participant1', 'participant2',
+                'participant1__user', 'participant2__user',
+            ).get(pk=match_id, tournament=tournament)
+        except TournamentsMatch.DoesNotExist:
+            return Response(
+                {'detail': 'Mecz nie istnieje.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if match.status != TournamentsMatch.Status.SCHEDULED.value:
+            return Response(
+                {'detail': f'Akcja możliwa tylko dla meczu ze statusem SCH. Obecny: {match.status}.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        # Tylko challenged (participant2) może accept/reject
+        challenged = match.participant2
+        if challenged is None or challenged.user_id != request.user.pk:
+            # Organizator / staff może też zaakceptować/odrzucić
+            is_organizer = request.user == tournament.created_by or request.user.is_staff
+            if not is_organizer:
+                return Response(
+                    {'detail': 'Tylko wyzwany gracz lub organizator turnieju może wykonać tę akcję.'},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+        from notifications.helpers import notify
+
+        if action == 'accept':
+            match.status = TournamentsMatch.Status.IN_PROGRESS.value
+            match.save(update_fields=['status'])
+            logger.info(
+                '[ladder] Wyzwanie zaakceptowane: mecz id=%d w turnieju id=%d',
+                match.pk, tournament.pk,
+            )
+            # Powiadom challengera (participant1) o akceptacji
+            challenger = match.participant1
+            if challenger and challenger.user:
+                notify(
+                    challenger.user,
+                    f'✅ {challenged.display_name if challenged else "Przeciwnik"} zaakceptował Twoje wyzwanie '
+                    f'w turnieju „{tournament.name}". Czas grać!',
+                )
+            return Response({
+                'match_id': match.pk,
+                'status': match.status,
+                'detail': 'Wyzwanie zaakceptowane. Mecz w toku.',
+            }, status=status.HTTP_200_OK)
+
+        # action == 'reject'
+        match.status = TournamentsMatch.Status.CANCELLED.value
+        match.save(update_fields=['status'])
+
+        # Zapisz odrzucenie — blokuje powtórne wyzwanie w tej rundzie
+        challenger = match.participant1
+        if challenger is not None:
+            ChallengeRejection.objects.get_or_create(
+                tournament=tournament,
+                rejecting_participant=challenged,
+                challenger_participant=challenger,
+            )
+
+        logger.info(
+            '[ladder] Wyzwanie odrzucone: mecz id=%d w turnieju id=%d',
+            match.pk, tournament.pk,
+        )
+        # Powiadom challengera (participant1) o odrzuceniu
+        if challenger and challenger.user:
+            notify(
+                challenger.user,
+                f'❌ {challenged.display_name if challenged else "Przeciwnik"} odrzucił Twoje wyzwanie '
+                f'w turnieju „{tournament.name}".',
+            )
+        return Response({
+            'match_id': match.pk,
+            'status': match.status,
+            'detail': 'Wyzwanie odrzucone.',
+        }, status=status.HTTP_200_OK)
