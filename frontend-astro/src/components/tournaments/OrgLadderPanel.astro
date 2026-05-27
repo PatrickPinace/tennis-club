@@ -1,0 +1,127 @@
+---
+// OrgLadderPanel.astro — organizer panel for Ladder (LDR) tournaments.
+// Rendered server-side (hidden), revealed by org-ladder.ts after auth check.
+// Reuses OrgPanelHeader for status + transitions, OrgFinishSection for finish/cancel.
+// Participants managed by shared org-participants.ts (same pattern as SGL/RND).
+// LDR-specific: config form (challenge_range, initial_seeding) + active challenges view.
+
+import OrgPanelHeader from './OrgPanelHeader.astro';
+import OrgFinishSection from './OrgFinishSection.astro';
+
+interface Props {
+  tournamentId: number;
+  createdByUsername: string;
+  status: string;
+  statusLabel: string;
+  matchFormat: string;
+  challengeRange: number | null;
+  initialSeeding: string | null;
+}
+
+const {
+  tournamentId,
+  createdByUsername,
+  status,
+  statusLabel,
+  matchFormat,
+  challengeRange,
+  initialSeeding,
+} = Astro.props;
+---
+
+<div
+  id="org-panel-ldr"
+  style="display:none;"
+  data-tournament-id={tournamentId}
+  data-created-by={createdByUsername}
+  data-tournament-status={status}
+  data-tournament-type="LDR"
+  data-match-format={matchFormat}
+  data-challenge-range={challengeRange ?? 3}
+  data-initial-seeding={initialSeeding ?? 'SEEDING'}
+>
+  <div class="tc-card org-card">
+    <OrgPanelHeader status={status} statusLabel={statusLabel} />
+
+    <!-- ── Uczestnicy ───────────────────────────────────────────────────────── -->
+    <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
+      <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
+      <div id="org-participants-list" class="org-participants-list">
+        <div class="org-loading">Ładowanie uczestników…</div>
+      </div>
+      <div class="org-add-row">
+        <!-- Singiel -->
+        <div id="org-add-sng-wrap">
+          <div class="org-add-search-wrap">
+            <div class="org-add-input-wrap">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+              </svg>
+              <input id="org-add-user-search" class="org-add-input" type="text"
+                placeholder="Szukaj uczestnika…" autocomplete="off">
+            </div>
+            <button id="org-add-user-btn" class="org-add-btn" type="button">+ Dodaj</button>
+          </div>
+          <div id="org-user-suggestions" class="org-sug-dropdown" style="display:none;"></div>
+        </div>
+      </div>
+      <span id="org-participant-msg" class="org-form-msg" style="margin-top:4px;display:block;"></span>
+      <div id="org-close-reg-wrap" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed var(--tc-card-border);">
+        <button id="org-close-reg-btn" class="org-close-reg-btn" type="button">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          Zamknij zapisy i ustaw pozycje startowe →
+        </button>
+        <span id="org-close-reg-msg" class="org-form-msg" style="margin-left:8px;"></span>
+      </div>
+    </div>
+
+    <!-- ── Aktywne wyzwania (widok org) ─────────────────────────────────────── -->
+    <div id="org-ldr-challenges-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border); display:none;">
+      <div class="org-section-label" style="margin-bottom:8px;">Aktywne wyzwania</div>
+      <div id="org-ldr-challenges-list" class="org-loading">Ładowanie…</div>
+    </div>
+
+    <!-- ── Konfiguracja LDR ──────────────────────────────────────────────────── -->
+    <div style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
+      <div class="org-section-label" style="margin-bottom:12px;">Konfiguracja drabinki</div>
+      <form id="org-ldr-config-form" novalidate>
+        <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:flex-end;">
+          <label class="org-field-label" style="flex:0 0 auto;">
+            Zasięg wyzwania
+            <div class="org-score-spinner" style="margin-top:6px;">
+              <button type="button" class="org-spin-btn org-spin-up" data-target="org-ldr-range" tabindex="-1">▲</button>
+              <input
+                class="org-set-input"
+                id="org-ldr-range"
+                name="challenge_range"
+                type="number"
+                min="1" max="20"
+                value={challengeRange ?? 3}
+              >
+              <button type="button" class="org-spin-btn org-spin-down" data-target="org-ldr-range" tabindex="-1">▼</button>
+            </div>
+            <span class="org-hint">pozycji w górę gracz może wyzwać</span>
+          </label>
+
+          <label class="org-field-label" style="flex:1; min-width:200px;">
+            Rozstawienie
+            <select class="org-field-select org-field-input" name="initial_seeding" id="org-ldr-seeding" style="margin-top:6px; width:100%;">
+              <option value="SEEDING" selected={initialSeeding !== 'RANDOM'}>Według rozstawienia (seed_number)</option>
+              <option value="RANDOM"  selected={initialSeeding === 'RANDOM'}>Losowe</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="org-form-actions" style="margin-top:14px;">
+          <button type="submit" class="org-save-btn" id="org-ldr-config-save-btn">Zapisz konfigurację</button>
+          <span class="org-form-msg" id="org-ldr-config-msg"></span>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── Zakończenie ───────────────────────────────────────────────────────── -->
+    <OrgFinishSection />
+  </div>
+</div>

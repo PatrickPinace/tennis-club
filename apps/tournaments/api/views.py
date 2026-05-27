@@ -1839,6 +1839,73 @@ class TournamentJoinView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class LadderConfigUpdateView(APIView):
+    """
+    Tworzenie/edycja konfiguracji Drabinki Liderów przez organizatora.
+    POST/PATCH /api/tournaments/{pk}/config/ldr/
+
+    Pola:
+      challenge_range  — int ≥ 1 (ile pozycji w górę gracz może wyzwać)
+      initial_seeding  — 'RANDOM' | 'SEEDING'
+
+    Tworzy LadderConfig jeśli nie istnieje. Partial update (PATCH semantics).
+    Auth: IsAuthenticated + (created_by OR is_staff).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        return self._upsert(request, pk)
+
+    def patch(self, request, pk):
+        return self._upsert(request, pk)
+
+    def _upsert(self, request, pk):
+        from apps.tournaments.models import Tournament, LadderConfig
+
+        try:
+            tournament = Tournament.objects.select_related('created_by').get(pk=pk)
+        except Tournament.DoesNotExist:
+            return Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.LADDER:
+            return Response(
+                {'detail': 'Endpoint /config/ldr/ obsługuje tylko turnieje LDR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not (request.user.is_staff or tournament.created_by == request.user):
+            return Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        config, _ = LadderConfig.objects.get_or_create(
+            tournament=tournament,
+            defaults={'challenge_range': 3, 'initial_seeding': 'SEEDING'},
+        )
+
+        data = request.data
+
+        if 'challenge_range' in data:
+            try:
+                cr = int(data['challenge_range'])
+            except (TypeError, ValueError):
+                return Response({'detail': 'challenge_range musi być liczbą całkowitą.'}, status=status.HTTP_400_BAD_REQUEST)
+            if cr < 1:
+                return Response({'detail': 'challenge_range musi być ≥ 1.'}, status=status.HTTP_400_BAD_REQUEST)
+            config.challenge_range = cr
+
+        if 'initial_seeding' in data:
+            seeding = data['initial_seeding']
+            if seeding not in ('RANDOM', 'SEEDING'):
+                return Response({'detail': 'initial_seeding musi być "RANDOM" lub "SEEDING".'}, status=status.HTTP_400_BAD_REQUEST)
+            config.initial_seeding = seeding
+
+        config.save()
+
+        return Response({
+            'challenge_range': config.challenge_range,
+            'initial_seeding': config.initial_seeding,
+        }, status=status.HTTP_200_OK)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # LADDER — REST API
 # ══════════════════════════════════════════════════════════════════════════════

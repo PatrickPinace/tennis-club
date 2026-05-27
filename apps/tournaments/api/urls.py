@@ -28,6 +28,7 @@ urlpatterns = [
     path('tournaments/<int:pk>/amr/next-round/', views.AmrNextRoundView.as_view(), name='tournament-amr-next-round'),
     path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),
     # Ladder (LDR)
+    path('tournaments/<int:pk>/config/ldr/', views.LadderConfigUpdateView.as_view(), name='tournament-config-ldr'),
     path('tournaments/<int:pk>/ladder/', views.LadderView.as_view(), name='tournament-ladder'),
     path('tournaments/<int:pk>/challenge/', views.LadderChallengeView.as_view(), name='tournament-ladder-challenge'),
     path('tournaments/<int:pk>/challenges/<int:match_id>/<str:action>/', views.LadderChallengeActionView.as_view(), name='tournament-ladder-challenge-action'),
