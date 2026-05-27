@@ -237,7 +237,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           <!-- ── Statystyki ──────────────────────────────────────────────── -->
           <TournamentStatPills
             participantCount={ladderData?.stats.total_participants ?? tournament.participant_count}
-            totalMatches={ladderData?.stats.completed_matches ?? 0}
+            totalMatches={(ladderData?.stats.completed_matches ?? 0) + (ladderData?.active_challenges.length ?? 0)}
             completedMatches={ladderData?.stats.completed_matches ?? 0}
             pendingMatches={ladderData?.active_challenges.length ?? 0}
           />
@@ -305,7 +305,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
               <span class="tc-card-title">Ranking</span>
               {ladderData?.challenge_range && (
                 <span class="tc-card-count" title="Zasięg wyzwania (pozycje wyżej)">
-                  zakres ±{ladderData.challenge_range}
+                  zakres +{ladderData.challenge_range}
                 </span>
               )}
             </div>

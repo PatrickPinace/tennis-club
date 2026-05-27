@@ -26,12 +26,11 @@ import { initLdrMatches }       from './org-ldr-matches';
   const panel = document.getElementById('org-panel-ldr') as HTMLElement | null;
   if (!panel) return;
 
-  const tournamentId   = panel.dataset.tournamentId ?? '';
-  const createdBy      = panel.dataset.createdBy ?? '';
-  const tStatus        = panel.dataset.tournamentStatus ?? '';
-  const tType          = panel.dataset.tournamentType ?? 'LDR';
-  const matchFormat    = panel.dataset.matchFormat ?? 'SNG';
-  const apiBase        = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
+  const tournamentId = panel.dataset.tournamentId ?? '';
+  const createdBy    = panel.dataset.createdBy ?? '';
+  const tStatus      = panel.dataset.tournamentStatus ?? '';
+  const tType        = panel.dataset.tournamentType ?? 'LDR';
+  const apiBase      = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
 
   // 1. Auth check
   let meData: { authenticated?: boolean; user?: { username?: string; is_staff?: boolean } } = {};

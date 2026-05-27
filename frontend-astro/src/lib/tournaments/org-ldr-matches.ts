@@ -96,7 +96,8 @@ function renderLdrMatches(cfg: OrgPanelConfig, ldrState: LdrMatchState, state: M
 
   // Update filter button counts
   const pending = allChallenges.filter(ch => PENDING_STATUSES.has(ch.status) || LDR_ACTIVE_STATUSES.has(ch.status));
-  const done    = allChallenges.filter(ch => DONE_STATUSES.has(ch.status));
+  // CNC (anulowane wyzwania) traktujemy jak zakończone w kontekście filtrowania
+  const done    = allChallenges.filter(ch => DONE_STATUSES.has(ch.status) || ch.status === 'CNC');
   document.querySelectorAll<HTMLButtonElement>('.org-ldr-filter-btn').forEach(btn => {
     const f = btn.dataset.filter!;
     const count = f === 'pending' ? pending.length : f === 'done' ? done.length : allChallenges.length;
