@@ -27,6 +27,10 @@ urlpatterns = [
     path('tournaments/<int:pk>/config/amr/', views.AmericanoConfigUpdateView.as_view(), name='tournament-config-amr'),
     path('tournaments/<int:pk>/amr/next-round/', views.AmrNextRoundView.as_view(), name='tournament-amr-next-round'),
     path('tournaments/<int:pk>/generate-matches/', views.GenerateMatchesView.as_view(), name='tournament-generate-matches'),
+    # Ladder (LDR)
+    path('tournaments/<int:pk>/ladder/', views.LadderView.as_view(), name='tournament-ladder'),
+    path('tournaments/<int:pk>/challenge/', views.LadderChallengeView.as_view(), name='tournament-ladder-challenge'),
+    path('tournaments/<int:pk>/challenges/<int:match_id>/<str:action>/', views.LadderChallengeActionView.as_view(), name='tournament-ladder-challenge-action'),
     # Router na końcu — obsługuje standardowe CRUD akcje ViewSetu
     path('', include(router.urls)),
 ]

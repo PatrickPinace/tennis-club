@@ -379,3 +379,172 @@
     border-radius: var(--radius-sm);
   }
   .join-bar__text { flex: 1; font-size: 0.9rem; color: var(--tc-ink); }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     LADDER (LDR) — Drabinka Liderów
+     ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Layout kontenera LDR ────────────────────────────────────────────────── */
+  .ldr-layout {
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* ── Alert / komunikat akcji ─────────────────────────────────────────────── */
+  .ldr-msg {
+    font-size: 0.84rem; font-weight: 500;
+    padding: 9px 14px;
+    border-radius: var(--radius-sm);
+    margin-bottom: 4px;
+    display: none;
+  }
+  .ldr-msg--ok  { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.22); color: var(--tc-win); }
+  .ldr-msg--err { background: rgba(239,68,68,.08);  border: 1px solid rgba(239,68,68,.22);  color: var(--tc-hot); }
+  .ldr-msg.is-visible { display: block; }
+
+  /* ── Ranking table ───────────────────────────────────────────────────────── */
+  .ldr-table-wrap { overflow-x: auto; }
+  .ldr-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .ldr-table th {
+    text-align: left; padding: 8px 10px;
+    font-size: 0.72rem; font-weight: 700;
+    color: var(--tc-muted); text-transform: uppercase; letter-spacing: .05em;
+    border-bottom: 1px solid var(--tc-card-border);
+  }
+  .ldr-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--tc-overlay);
+    color: var(--tc-ink);
+    vertical-align: middle;
+  }
+  .ldr-table tr:last-child td { border-bottom: none; }
+  .ldr-table tr:hover td { background: var(--tc-overlay); }
+
+  /* Highlight — bieżący użytkownik */
+  .ldr-row--me td { background: var(--tc-accent-soft) !important; }
+  .ldr-row--me .ldr-pos { font-weight: 800; color: var(--tc-accent); }
+
+  /* Kolumna pozycji */
+  .ldr-pos {
+    font-size: 0.78rem; font-weight: 700;
+    color: var(--tc-sub); min-width: 28px;
+  }
+  /* Medaliści */
+  .ldr-pos--1 { color: #f59e0b; }
+  .ldr-pos--2 { color: #94a3b8; }
+  .ldr-pos--3 { color: #b45309; }
+
+  .ldr-name { font-weight: 600; }
+  .ldr-name-me::after {
+    content: ' (Ty)';
+    font-weight: 400; font-size: 0.78rem; color: var(--tc-accent);
+  }
+  .ldr-busy-badge {
+    display: inline-block;
+    font-size: 0.68rem; font-weight: 600;
+    padding: 1px 6px; border-radius: 10px;
+    background: rgba(251,191,36,.12);
+    color: #f59e0b;
+    margin-left: 6px;
+  }
+
+  /* Przycisk wyzwania w tabeli */
+  .ldr-challenge-btn {
+    font-size: 0.78rem; font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--tc-accent-border);
+    background: var(--tc-accent-soft);
+    color: var(--tc-accent);
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+  }
+  .ldr-challenge-btn:hover:not(:disabled) {
+    background: var(--tc-accent); color: var(--tc-accent-ink);
+  }
+  .ldr-challenge-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* Odrzucono badge */
+  .ldr-rejected-badge {
+    font-size: 0.72rem; font-weight: 600;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(239,68,68,.08); color: var(--tc-hot);
+    white-space: nowrap;
+  }
+
+  /* ── Sekcja aktywnych wyzwań ──────────────────────────────────────────────── */
+  .ldr-challenges-list {
+    display: flex; flex-direction: column; gap: 10px;
+    padding-top: 4px;
+  }
+  .ldr-challenge-card {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 11px 14px;
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-sm);
+    background: var(--tc-chip-bg);
+  }
+  .ldr-challenge-card__info { flex: 1; min-width: 0; }
+  .ldr-challenge-card__title {
+    font-size: 0.875rem; font-weight: 700; color: var(--tc-ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .ldr-challenge-card__meta {
+    font-size: 0.78rem; color: var(--tc-sub); margin-top: 2px;
+  }
+  .ldr-challenge-card__actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .ldr-accept-btn {
+    font-size: 0.8rem; font-weight: 700; padding: 5px 12px;
+    border-radius: 6px; border: none; cursor: pointer;
+    background: var(--tc-win-bg, rgba(34,197,94,.1)); color: var(--tc-win);
+    transition: background .15s;
+  }
+  .ldr-accept-btn:hover:not(:disabled) { background: var(--tc-win); color: #fff; }
+  .ldr-reject-btn {
+    font-size: 0.8rem; font-weight: 700; padding: 5px 12px;
+    border-radius: 6px; border: 1px solid var(--tc-card-border); cursor: pointer;
+    background: transparent; color: var(--tc-sub);
+    transition: background .15s, color .15s;
+  }
+  .ldr-reject-btn:hover:not(:disabled) { background: rgba(239,68,68,.08); color: var(--tc-hot); }
+  .ldr-accept-btn:disabled, .ldr-reject-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* Status badge (w challenge card) */
+  .ldr-status-badge {
+    font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+  }
+  .ldr-status-sch { background: rgba(59,130,246,.1); color: #3b82f6; }
+  .ldr-status-inp { background: rgba(245,158,11,.1); color: #f59e0b; }
+
+  /* ── Recent matches ───────────────────────────────────────────────────────── */
+  .ldr-recent-list {
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .ldr-recent-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--tc-overlay);
+    font-size: 0.84rem;
+  }
+  .ldr-recent-row:last-child { border-bottom: none; }
+  .ldr-recent-names { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .ldr-recent-winner { font-weight: 700; color: var(--tc-ink); }
+  .ldr-recent-loser  { color: var(--tc-sub); }
+  .ldr-recent-vs { color: var(--tc-muted); font-size: 0.75rem; }
+  .ldr-recent-score { font-variant-numeric: tabular-nums; color: var(--tc-sub); font-size: 0.8rem; white-space: nowrap; }
+  .ldr-win-arrow { color: var(--tc-win); font-size: 0.78rem; }
+
+  /* ── Brak danych placeholder ──────────────────────────────────────────────── */
+  .ldr-empty {
+    padding: 18px; text-align: center;
+    font-size: 0.875rem; color: var(--tc-muted);
+  }
+
+  @media (max-width: 540px) {
+    .ldr-challenge-card { flex-direction: column; align-items: flex-start; }
+    .ldr-challenge-card__actions { width: 100%; }
+    .ldr-accept-btn, .ldr-reject-btn { flex: 1; text-align: center; }
+  }
