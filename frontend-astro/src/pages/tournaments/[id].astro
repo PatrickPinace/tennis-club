@@ -413,6 +413,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             tournamentId: tournament.id,
             apiBase: import.meta.env.PUBLIC_API_BASE_URL ?? '',
           })} />
+          <script id="ssr-participants-data" type="application/json" set:html={JSON.stringify(tournament.participants)} />
         </div>
       )}
 

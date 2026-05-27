@@ -116,6 +116,24 @@ class MyTournamentsView(generics.ListAPIView):
         )
 
 
+class TournamentCheckNameView(APIView):
+    """
+    Sprawdza czy turniej o podanej nazwie już istnieje.
+    GET /api/tournaments/check-name/?name=...
+
+    Odpowiedź: { "exists": bool, "count": int }
+    Auth: IsAuthenticated — tylko zalogowani mogą tworzyć turnieje.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        name = request.query_params.get('name', '').strip()
+        if not name:
+            return Response({'exists': False, 'count': 0})
+        count = Tournament.objects.filter(name__iexact=name).count()
+        return Response({'exists': count > 0, 'count': count})
+
+
 class RoundRobinMatchScoreView(APIView):
     """
     Zapis wyniku meczu przez organizatora.

@@ -31,7 +31,7 @@ function filterMatches(state: MatchState): MatchData[] {
   return list;
 }
 
-function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
+export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const isDoubles = m.participant3_id != null || m.participant4_id != null;
   const p1 = isDoubles
     ? escHtml(`${m.participant1_name ?? 'BYE'} / ${m.participant4_name ?? 'BYE'}`)
@@ -220,7 +220,7 @@ function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     </div>`;
 }
 
-async function handleScoreSubmit(
+export async function handleScoreSubmit(
   e: Event,
   cfg: OrgPanelConfig,
   state: MatchState,

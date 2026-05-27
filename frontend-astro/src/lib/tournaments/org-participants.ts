@@ -7,6 +7,7 @@ function makeAutocomplete(
   dropEl: HTMLElement,
   apiBase: string,
   onSelect: (user: {id:number; display:string}) => void,
+  tournamentId?: string,
 ) {
   let timer: ReturnType<typeof setTimeout>;
   let abort: AbortController | null = null;
@@ -53,10 +54,12 @@ function makeAutocomplete(
     });
   }
 
+  const excludeParam = tournamentId ? `&exclude_tournament=${tournamentId}` : '';
+
   inputEl.addEventListener('focus', async () => {
     if (inputEl.value.trim().length >= 2 || dropEl.style.display !== 'none') return;
     try {
-      const res = await fetch(`${apiBase}/api/users/?suggest=1`, { credentials: 'include' });
+      const res = await fetch(`${apiBase}/api/users/?suggest=1${excludeParam}`, { credentials: 'include' });
       if (!res.ok) return;
       const users: UserItem[] = await res.json();
       if (users.length) renderItems(users, 'Ostatnio dołączyli');
@@ -72,7 +75,7 @@ function makeAutocomplete(
     timer = setTimeout(async () => {
       const ctrl = new AbortController(); abort = ctrl;
       try {
-        const res = await fetch(`${apiBase}/api/users/?search=${encodeURIComponent(q)}`, {
+        const res = await fetch(`${apiBase}/api/users/?search=${encodeURIComponent(q)}${excludeParam}`, {
           credentials: 'include', signal: ctrl.signal,
         });
         if (!res.ok || abort !== ctrl) return;
@@ -224,7 +227,7 @@ export function initParticipantsPanel(cfg: OrgPanelConfig) {
     const addBtn   = panel.querySelector<HTMLButtonElement>('#org-add-user-btn')!;
     let selectedUser: {id:number; display:string} | null = null;
 
-    makeAutocomplete(searchEl, sugEl, apiBase, (u) => { selectedUser = u.id ? u : null; });
+    makeAutocomplete(searchEl, sugEl, apiBase, (u) => { selectedUser = u.id ? u : null; }, tournamentId);
 
     addBtn.addEventListener('click', async () => {
       if (!selectedUser) {
@@ -289,11 +292,11 @@ export function initParticipantsPanel(cfg: OrgPanelConfig) {
     makeAutocomplete(p1El, p1SugEl, apiBase, (u) => {
       p1 = u.id ? u : null;
       autoFillName();
-    });
+    }, tournamentId);
     makeAutocomplete(p2El, p2SugEl, apiBase, (u) => {
       p2 = u.id ? u : null;
       autoFillName();
-    });
+    }, tournamentId);
 
     dblAddBtn.addEventListener('click', async () => {
       if (!p1?.id) {

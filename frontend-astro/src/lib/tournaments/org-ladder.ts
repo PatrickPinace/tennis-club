@@ -8,7 +8,7 @@
 //   initLdrConfigForm  — LDR-specific config (challenge_range, initial_seeding)
 //
 // LDR-specific additions:
-//   loadLdrChallenges  — fetches active challenges, displays them in org view
+//   initLdrMatches     — fetches challenge matches, renders score cards (org-ldr-matches.ts)
 //   LDR status panel uses custom TRANSITIONS (no "generuj mecze" label)
 
 import type { OrgPanelConfig } from './types';
@@ -16,79 +16,10 @@ import { initStatusPanel }      from './org-status';
 import { initFinishButton }     from './org-finish';
 import { initParticipantsPanel } from './org-participants';
 import { initLdrConfigForm }    from './org-config-ldr';
-import { escHtml }              from './helpers';
+import { initLdrMatches }       from './org-ldr-matches';
 
 // ── Custom status transitions for LDR ────────────────────────────────────────
 // Override: REG→SCH should say "Zamknij zapisy" not "generuj mecze" (no bracket).
-// We patch org-status TRANSITIONS after initStatusPanel mounts by re-rendering,
-// but it's cleaner to export a small helper used only here.
-
-async function loadLdrChallenges(cfg: OrgPanelConfig) {
-  const section = document.getElementById('org-ldr-challenges-section');
-  const listEl  = document.getElementById('org-ldr-challenges-list');
-  if (!section || !listEl) return;
-
-  // Only show when ACT
-  if (cfg.tStatus !== 'ACT') return;
-  section.style.display = '';
-
-  try {
-    const res = await fetch(
-      `${cfg.apiBase}/api/tournaments/${cfg.tournamentId}/ladder/`,
-      { credentials: 'include' }
-    );
-    if (!res.ok) { listEl.textContent = 'Błąd ładowania wyzwań.'; return; }
-    const data = await res.json();
-
-    const challenges: Array<{
-      match_id: number;
-      status: string;
-      challenger: { id: number | null; display_name: string | null };
-      challenged: { id: number | null; display_name: string | null };
-      scheduled_time: string | null;
-    }> = data.active_challenges ?? [];
-
-    if (!challenges.length) {
-      listEl.innerHTML = '<span style="font-size:0.84rem;color:var(--tc-muted);">Brak aktywnych wyzwań.</span>';
-      return;
-    }
-
-    const STATUS_LABEL: Record<string, string> = {
-      SCH: 'Oczekuje na akceptację',
-      INP: 'W trakcie',
-      WAI: 'Oczekuje',
-    };
-    const STATUS_CLS: Record<string, string> = {
-      SCH: 'ldr-status-sch',
-      INP: 'ldr-status-inp',
-      WAI: 'ldr-status-sch',
-    };
-
-    listEl.innerHTML = challenges.map(ch => `
-      <div class="ldr-challenge-card" style="margin-bottom:8px;">
-        <div class="ldr-challenge-card__info">
-          <div class="ldr-challenge-card__title">
-            ${escHtml(ch.challenger.display_name ?? '—')}
-            <span style="font-weight:400;color:var(--tc-muted);margin:0 4px;">vs</span>
-            ${escHtml(ch.challenged.display_name ?? '—')}
-          </div>
-          <div class="ldr-challenge-card__meta">
-            <span class="ldr-status-badge ${STATUS_CLS[ch.status] ?? ''}">${escHtml(STATUS_LABEL[ch.status] ?? ch.status)}</span>
-            ${ch.scheduled_time
-              ? `<span style="margin-left:8px;font-size:0.78rem;color:var(--tc-sub);">${escHtml(
-                  new Date(ch.scheduled_time).toLocaleDateString('pl-PL', {
-                    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                  })
-                )}</span>`
-              : ''}
-          </div>
-        </div>
-      </div>
-    `).join('');
-  } catch {
-    listEl.textContent = 'Błąd sieci.';
-  }
-}
 
 // ── Main entry point ──────────────────────────────────────────────────────────
 (async () => {
@@ -148,8 +79,8 @@ async function loadLdrChallenges(cfg: OrgPanelConfig) {
     });
   });
 
-  // 4. Active challenges (only when ACT)
-  await loadLdrChallenges(cfg);
+  // 4. LDR matches / score entry (only when ACT)
+  await initLdrMatches(cfg);
 
   // 5. Config form
   initLdrConfigForm(cfg);

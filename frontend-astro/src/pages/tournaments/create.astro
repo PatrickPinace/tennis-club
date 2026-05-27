@@ -63,6 +63,7 @@ if (!currentUser) {
             placeholder="np. Liga wiosenna 2026"
             autocomplete="off"
           >
+          <span id="cr-name-warn" class="cr-hint cr-hint--warn" style="display:none;"></span>
         </div>
 
         <div class="cr-field">
@@ -378,6 +379,37 @@ const cfgPtsLoss   = document.getElementById('cfg-pts-loss') as HTMLInputElement
 const cfgPtsSetWin = document.getElementById('cfg-pts-set-win') as HTMLInputElement;
 const cfgPtsSetLos = document.getElementById('cfg-pts-set-loss') as HTMLInputElement;
 const cfgTiebreak  = document.getElementById('cfg-tiebreak') as HTMLSelectElement;
+
+// ── Sprawdzanie duplikatu nazwy ───────────────────────────────────────────────
+const nameWarnEl = document.getElementById('cr-name-warn') as HTMLElement;
+let nameCheckTimer: ReturnType<typeof setTimeout>;
+
+nameEl.addEventListener('input', () => {
+  clearTimeout(nameCheckTimer);
+  nameWarnEl.style.display = 'none';
+  const val = nameEl.value.trim();
+  if (val.length < 3) return;
+  nameCheckTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`${API}/api/tournaments/check-name/?name=${encodeURIComponent(val)}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.exists) {
+        nameWarnEl.textContent = `Turniej o nazwie „${val}" już istnieje (${data.count}). Możesz mimo to kontynuować.`;
+        nameWarnEl.style.display = '';
+      }
+    } catch { /* silent */ }
+  }, 500);
+});
+
+// ── Domyślna data rozpoczęcia = teraz ────────────────────────────────────────
+if (startEl && !startEl.value) {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  startEl.value = now.toISOString().slice(0, 16);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const TYPE_LABELS: Record<string, string> = {
@@ -916,6 +948,7 @@ typeEl.addEventListener('change', () => {
   .cr-row .cr-field { flex: 1; min-width: 120px; }
 
   .cr-hint { font-size: 0.74rem; color: var(--tc-muted); }
+  .cr-hint--warn { color: var(--tc-warning, #b45309); margin-top: 4px; display: block; }
 
   .cr-checkbox-label {
     display: flex; align-items: center; gap: 10px;
