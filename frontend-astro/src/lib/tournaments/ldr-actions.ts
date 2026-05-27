@@ -126,6 +126,13 @@ import { getCsrf } from './helpers';
     }
   }
 
+  // ── Odśwież ranking po wpisaniu wyniku przez organizer panel ─────────────
+  // org-ldr-matches.ts dispatches 'ldr-score-updated' after successful score entry.
+  // Ranking is SSR — reload is the simplest correct solution.
+  document.addEventListener('ldr-score-updated', () => {
+    setTimeout(() => window.location.reload(), 1200);
+  });
+
   // ── Delegacja eventów na root ──────────────────────────────────────────────
 
   root.addEventListener('click', (e) => {

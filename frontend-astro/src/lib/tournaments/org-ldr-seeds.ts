@@ -222,13 +222,13 @@ export async function initLdrSeeds(cfg: OrgPanelConfig) {
   const section = document.getElementById('org-ldr-seeds-section');
   if (!section) return;
 
-  // Widoczna tylko przed ACT (DRF / REG / SCH)
-  if (cfg.tStatus === 'ACT' || cfg.lockedHard) {
-    // W ACT seedy zmieniają się przez wyzwania — nie pokazujemy edytora
-    // W FIN/CNC panel jest lockedHard — też ukryty
-    return;
-  }
-  section.style.display = '';
+  // FIN/CNC — nie pokazujemy
+  if (cfg.lockedHard) return;
+
+  // W ACT normalnie seedy zmieniają się przez wyzwania.
+  // Wyjątek: jeśli są uczestnicy bez seed_number (błąd inicjalizacji) — pozwól naprawić.
+  // Sprawdzimy to po pobraniu uczestników poniżej.
+  const isAct = cfg.tStatus === 'ACT';
 
   const container = document.getElementById('org-ldr-seeds-list');
   const msgEl     = document.getElementById('org-ldr-seeds-msg');
@@ -238,6 +238,25 @@ export async function initLdrSeeds(cfg: OrgPanelConfig) {
 
   const refresh = async () => {
     participants = await fetchParticipants(cfg);
+
+    // W ACT: pokaż sekcję tylko gdy ktoś nie ma seedu (naprawczy edge case)
+    if (isAct) {
+      const hasMissing = participants.some(p => p.seed_number == null);
+      if (!hasMissing) return; // wszystko OK — nie pokazuj
+      section.style.display = '';
+      // Dodaj ostrzeżenie na górze sekcji
+      const label = section.querySelector('.org-section-label');
+      if (label && !section.querySelector('.org-seed-warn')) {
+        const warn = document.createElement('div');
+        warn.className = 'org-seed-warn';
+        warn.style.cssText = 'font-size:0.78rem;color:var(--tc-warning,#b45309);margin-bottom:8px;';
+        warn.textContent = 'Turniej jest aktywny, ale niektórzy uczestnicy nie mają przypisanych pozycji — uzupełnij je, żeby challenge flow działał poprawnie.';
+        label.after(warn);
+      }
+    } else {
+      section.style.display = '';
+    }
+
     renderSeeds(cfg, container, msgEl, participants, refresh);
   };
 

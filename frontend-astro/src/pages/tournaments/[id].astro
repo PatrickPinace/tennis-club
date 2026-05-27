@@ -405,7 +405,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status}
             matchFormat={tournament.match_format}
             challengeRange={ladderData?.challenge_range ?? null}
-            initialSeeding={null}
+            initialSeeding={ladderData?.initial_seeding ?? null}
           />
 
           <!-- SSR JSON dla client-side JS -->

@@ -20,6 +20,19 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
   .org-filter-btn:hover:not(.org-filter-btn--active) { color: var(--tc-ink); }
+  /* LDR filter buttons — same styling as org-filter-btn, standalone (no .org-filter-group wrapper) */
+  .org-ldr-filter-btn {
+    font-size: 0.75rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--tc-card-border); border-radius: 6px; padding: 4px 12px;
+    background: var(--tc-chip-bg); color: var(--tc-sub);
+    transition: background 0.12s, color 0.12s, border-color 0.12s; white-space: nowrap;
+  }
+  .org-ldr-filter-btn.is-active {
+    background: var(--tc-card-bg); color: var(--tc-ink);
+    border-color: var(--tc-accent, #2563eb);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .org-ldr-filter-btn:hover:not(.is-active) { color: var(--tc-ink); border-color: var(--tc-sub); }
   .org-search-input {
     height: 30px; padding: 0 8px 0 28px;
     font-size: 0.8rem; font-family: var(--font-sans);

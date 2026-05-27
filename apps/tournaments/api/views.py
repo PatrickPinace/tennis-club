@@ -613,6 +613,39 @@ class RoundRobinMatchScoreView(APIView):
                     tournament=tournament,
                 ).delete()
 
+        # ── Notyfikacje o wyniku ─────────────────────────────────────────────
+        # Wysyłamy tylko przy finalnym statusie (CMP lub WDR) — nie przy INP/CNC/re-edit bez zmiany.
+        # Guard: nie powiadamiamy usera który właśnie wpisał wynik.
+        _final_statuses = (
+            TournamentsMatch.Status.COMPLETED.value,
+            TournamentsMatch.Status.WALKOVER.value,
+        )
+        if match.status in _final_statuses:
+            from notifications.helpers import notify
+            _score_str = ' '.join(
+                f'{fields[f"set{i}_p1"]}:{fields[f"set{i}_p2"]}'
+                for i in range(1, 4)
+                if fields[f'set{i}_p1'] is not None and fields[f'set{i}_p2'] is not None
+            ) or '—'
+            _p1 = match.participant1
+            _p2 = match.participant2
+            _winner_name = winner.display_name if winner else None
+            for _participant in (_p1, _p2):
+                if _participant and _participant.user and _participant.user.pk != request.user.pk:
+                    if match.status == TournamentsMatch.Status.WALKOVER.value:
+                        _msg = (
+                            f'🏆 Walkover w turnieju „{tournament.name}": '
+                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
+                            f'Wygrał: {_winner_name or "?"}.'
+                        )
+                    else:
+                        _msg = (
+                            f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
+                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
+                            f'Wygrał: {_winner_name or "?"}.'
+                        )
+                    notify(_participant.user, _msg)
+
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
         for i in range(1, 4):
@@ -1448,6 +1481,34 @@ class TournamentStatusView(APIView):
                             # AMR STATIC: generuj cały harmonogram z góry
                             from apps.tournaments.bracket import generate_americano_matches_static
                             match_count, gen_message = generate_americano_matches_static(tournament, participants_qs, config)
+                    elif tournament.tournament_type == 'LDR':
+                        # LDR: brak bracketów — tylko przypisanie pozycji startowych (seed_number)
+                        from apps.tournaments.models import LadderConfig as _LdrCfg
+                        import random as _random
+                        ldr_cfg, _ = _LdrCfg.objects.get_or_create(
+                            tournament=tournament,
+                            defaults={'challenge_range': 3, 'initial_seeding': 'SEEDING'},
+                        )
+                        participants_list = list(participants_qs.order_by('pk'))
+                        if ldr_cfg.initial_seeding == 'RANDOM':
+                            _random.shuffle(participants_list)
+                        # Przypisz seed_number 1..N tylko tym co jeszcze go nie mają
+                        # (jeśli organizer już ręcznie ustawił seedy, respektujemy je — sortujemy po istniejącym seed_number)
+                        already_seeded   = [p for p in participants_list if p.seed_number is not None]
+                        not_yet_seeded   = [p for p in participants_list if p.seed_number is None]
+                        if not already_seeded:
+                            # nikt nie ma seedu — przypisz wszystkich
+                            for i, p in enumerate(participants_list, start=1):
+                                p.seed_number = i
+                                p.save(update_fields=['seed_number'])
+                        elif not_yet_seeded:
+                            # część ma seedy — uzupełnij brakujące kolejnymi wolnymi numerami
+                            used = {p.seed_number for p in already_seeded}
+                            free = [n for n in range(1, len(participants_list) + 1) if n not in used]
+                            for p, num in zip(not_yet_seeded, free):
+                                p.seed_number = num
+                                p.save(update_fields=['seed_number'])
+                        match_count, gen_message = 0, f'Przypisano pozycje startowe dla {len(participants_list)} uczestników.'
                     else:
                         match_count, gen_message = 0, 'Generowanie meczów pominięte (format nieobsługiwany).'
                     tournament.status = new_status
@@ -1487,6 +1548,27 @@ class TournamentStatusView(APIView):
             tournament.name, tournament.pk,
             old_status, new_status, request.user.username,
         )
+
+        # Notyfikacje do uczestników przy ważnych przejściach statusu
+        _notify_statuses = {'ACT', 'FIN', 'CNC'}
+        if new_status in _notify_statuses:
+            from notifications.helpers import notify
+            from apps.tournaments.models import Participant as _P
+            _msgs = {
+                'ACT': f'🎾 Turniej „{tournament.name}" został rozpoczęty. Czas grać!',
+                'FIN': f'🏁 Turniej „{tournament.name}" został zakończony.',
+                'CNC': f'❌ Turniej „{tournament.name}" został anulowany.',
+            }
+            _msg = _msgs[new_status]
+            _participants = (
+                _P.objects.filter(tournament=tournament, status__in=['ACT', 'REG'])
+                .select_related('user')
+                .exclude(user=None)
+            )
+            for _p in _participants:
+                # Nie notyfikuj organizatora o własnej akcji
+                if _p.user and _p.user.pk != request.user.pk:
+                    notify(_p.user, _msg)
 
         response_data = {
             'id': tournament.pk,
@@ -1964,11 +2046,21 @@ class LadderSeedView(APIView):
         if not is_organizer:
             return None, Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
 
-        if tournament.status in ('ACT', 'FIN', 'CNC'):
+        if tournament.status in ('FIN', 'CNC'):
             return None, Response(
-                {'detail': 'Edycja pozycji możliwa tylko przed startem turnieju (DRF/REG/SCH).'},
+                {'detail': 'Edycja pozycji niedostępna dla zakończonego lub anulowanego turnieju.'},
                 status=status.HTTP_409_CONFLICT,
             )
+        if tournament.status == 'ACT':
+            # W ACT pozycje zmieniają się przez wyzwania — blokuj edycję,
+            # chyba że są uczestnicy bez seedów (błąd migracyjny — pozwól naprawić).
+            from apps.tournaments.models import Participant as _PCheck
+            missing = _PCheck.objects.filter(tournament=tournament, seed_number__isnull=True).exists()
+            if not missing:
+                return None, Response(
+                    {'detail': 'Turniej aktywny — pozycje zmieniają się przez wyzwania, nie przez ręczną edycję.'},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
         return tournament, None
 
@@ -2051,27 +2143,29 @@ class LadderSeedView(APIView):
             )
 
         from apps.tournaments.models import Participant as _P
+        from django.db import transaction as _tx
 
-        try:
-            participant = _P.objects.get(pk=participant_id, tournament=tournament)
-        except _P.DoesNotExist:
-            return Response(
-                {'detail': 'Uczestnik nie należy do tego turnieju.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+        with _tx.atomic():
+            try:
+                participant = _P.objects.select_for_update().get(pk=participant_id, tournament=tournament)
+            except _P.DoesNotExist:
+                return Response(
+                    {'detail': 'Uczestnik nie należy do tego turnieju.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
-        # Sprawdź duplikat
-        conflict = _P.objects.filter(
-            tournament=tournament, seed_number=new_seed
-        ).exclude(pk=participant_id).first()
-        if conflict:
-            return Response(
-                {'detail': f'Pozycja {new_seed} jest już zajęta przez „{conflict.display_name}". Użyj zamiany (swap).'},
-                status=status.HTTP_409_CONFLICT,
-            )
+            # Sprawdź duplikat
+            conflict = _P.objects.filter(
+                tournament=tournament, seed_number=new_seed
+            ).exclude(pk=participant_id).first()
+            if conflict:
+                return Response(
+                    {'detail': f'Pozycja {new_seed} jest już zajęta przez „{conflict.display_name}". Użyj zamiany (swap).'},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
-        participant.seed_number = new_seed
-        participant.save(update_fields=['seed_number'])
+            participant.seed_number = new_seed
+            participant.save(update_fields=['seed_number'])
 
         return Response({
             'id': participant.id,
@@ -2119,7 +2213,7 @@ class LadderView(APIView):
         participants = list(
             tournament.participants
             .filter(status__in=['ACT', 'REG'])
-            .order_by('seed_number')
+            .order_by('seed_number', 'pk')
             .select_related('user')
         )
 
@@ -2248,10 +2342,12 @@ class LadderView(APIView):
             tournament=tournament, status=TournamentsMatch.Status.COMPLETED.value
         ).count()
 
+        ldr_cfg = tournament.ladder_config
         return Response({
             'tournament_id': tournament.pk,
             'tournament_status': tournament.status,
-            'challenge_range': tournament.ladder_config.challenge_range if tournament.ladder_config else 3,
+            'challenge_range': ldr_cfg.challenge_range if ldr_cfg else 3,
+            'initial_seeding': ldr_cfg.initial_seeding if ldr_cfg else 'SEEDING',
             'my_participant_id': my_participant_id,
             'ranking': ranking,
             'available_challenge_ids': available_challenge_ids,
@@ -2357,7 +2453,12 @@ class LadderChallengeView(APIView):
 
         # Sprawdź zasięg challenge_range
         cfg = tournament.ladder_config
-        if cfg and challenger.seed_number is not None and challenged.seed_number is not None:
+        if challenger.seed_number is None or challenged.seed_number is None:
+            return Response(
+                {'detail': 'Nie można rzucić wyzwania — brakuje pozycji startowej (seed). Skontaktuj się z organizatorem.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if cfg:
             min_seed = max(1, challenger.seed_number - cfg.challenge_range)
             if not (min_seed <= challenged.seed_number < challenger.seed_number):
                 return Response(
@@ -2425,6 +2526,15 @@ class LadderChallengeView(APIView):
             '[ladder] Wyzwanie rzucone: %s → %s w turnieju id=%d, mecz id=%d',
             challenger.display_name, challenged.display_name, tournament.pk, match.pk,
         )
+
+        # Notyfikacja: powiadom wyzwanego
+        if challenged.user_id and challenged.user:
+            from notifications.helpers import notify
+            notify(
+                challenged.user,
+                f'🎾 {challenger.display_name} rzucił Ci wyzwanie w turnieju „{tournament.name}". '
+                f'Zaakceptuj lub odrzuć wyzwanie.',
+            )
 
         return Response({
             'match_id': match.pk,
@@ -2499,6 +2609,8 @@ class LadderChallengeActionView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+        from notifications.helpers import notify
+
         if action == 'accept':
             match.status = TournamentsMatch.Status.IN_PROGRESS.value
             match.save(update_fields=['status'])
@@ -2506,6 +2618,14 @@ class LadderChallengeActionView(APIView):
                 '[ladder] Wyzwanie zaakceptowane: mecz id=%d w turnieju id=%d',
                 match.pk, tournament.pk,
             )
+            # Powiadom challengera (participant1) o akceptacji
+            challenger = match.participant1
+            if challenger and challenger.user:
+                notify(
+                    challenger.user,
+                    f'✅ {challenged.display_name if challenged else "Przeciwnik"} zaakceptował Twoje wyzwanie '
+                    f'w turnieju „{tournament.name}". Czas grać!',
+                )
             return Response({
                 'match_id': match.pk,
                 'status': match.status,
@@ -2529,6 +2649,13 @@ class LadderChallengeActionView(APIView):
             '[ladder] Wyzwanie odrzucone: mecz id=%d w turnieju id=%d',
             match.pk, tournament.pk,
         )
+        # Powiadom challengera (participant1) o odrzuceniu
+        if challenger and challenger.user:
+            notify(
+                challenger.user,
+                f'❌ {challenged.display_name if challenged else "Przeciwnik"} odrzucił Twoje wyzwanie '
+                f'w turnieju „{tournament.name}".',
+            )
         return Response({
             'match_id': match.pk,
             'status': match.status,

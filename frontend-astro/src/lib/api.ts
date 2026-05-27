@@ -298,6 +298,7 @@ export interface LadderData {
   rejected_by_ids: number[];
   recent_matches: LadderMatchEntry[];
   stats: { completed_matches: number; total_participants: number };
+  initial_seeding: 'RANDOM' | 'SEEDING';
 }
 
 /**
