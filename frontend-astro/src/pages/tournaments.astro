@@ -117,6 +117,11 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   ctaHref={url('/tournaments/create')}
 >
 
+  <!-- Mobile CTA — widoczny tylko na ≤640px, bo topbar__cta jest ukryty -->
+  <div class="tr-mobile-cta">
+    <a href={url('/tournaments/create')} class="tr-mobile-cta__btn">+ Utwórz turniej</a>
+  </div>
+
   <!-- Stats -->
   <div class="tr-stats">
     <div class="tr-stat-card tr-stat-card--accent">
@@ -402,6 +407,26 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   /* ══════════════════════════════════════════════════════════════════════════
      TURNIEJE — layout wg prototypu astro5.jpeg, tokeny --tc-*
      ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Mobile CTA ─────────────────────────────────────────────────────────── */
+  .tr-mobile-cta {
+    display: none;
+    margin-bottom: 12px;
+  }
+
+  .tr-mobile-cta__btn {
+    display: inline-flex; align-items: center;
+    padding: 0 16px; height: 38px;
+    background: var(--tc-accent); color: var(--tc-accent-ink);
+    border-radius: 8px;
+    font-size: 0.875rem; font-weight: 700;
+    text-decoration: none; white-space: nowrap;
+    box-shadow: 0 2px 8px var(--tc-accent-glow);
+  }
+
+  @media (max-width: 640px) {
+    .tr-mobile-cta { display: block; }
+  }
 
   /* ── Stat cards ──────────────────────────────────────────────────────────── */
   .tr-stats {
