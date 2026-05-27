@@ -1924,6 +1924,162 @@ class LadderConfigUpdateView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+class LadderSeedView(APIView):
+    """
+    Zarządzanie pozycjami (seed_number) uczestników drabinki przez organizatora.
+
+    POST /api/tournaments/{pk}/ladder/seeds/
+      Swap dwóch uczestników: zamienia ich seed_number atomowo w transakcji.
+      Body: { "participant_a_id": int, "participant_b_id": int }
+
+    PATCH /api/tournaments/{pk}/ladder/seeds/
+      Bezpośrednie ustawienie seed_number dla uczestnika.
+      Body: { "participant_id": int, "seed_number": int }
+      Jeśli seed_number jest już zajęty przez innego uczestnika → zwraca błąd (409).
+      Użyj POST (swap) zamiast PATCH jeśli chcesz zamienić dwie pozycje.
+
+    Auth: IsAuthenticated + (created_by lub is_staff)
+    Tylko turnieje LDR. Dozwolone statusy: DRF, REG, SCH.
+    Turniej ACT/FIN/CNC — zablokowane (pozycje zmieniają się przez wyzwania).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def _get_tournament_and_check(self, request, pk):
+        """Wspólna walidacja — zwraca (tournament, error_response)."""
+        try:
+            tournament = Tournament.objects.get(pk=pk)
+        except Tournament.DoesNotExist:
+            return None, Response({'detail': 'Turniej nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if tournament.tournament_type != Tournament.TournamentType.LADDER:
+            return None, Response(
+                {'detail': 'Endpoint /ladder/seeds/ obsługuje tylko turnieje LDR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_organizer = (
+            request.user.is_staff or
+            tournament.created_by_id == request.user.id
+        )
+        if not is_organizer:
+            return None, Response({'detail': 'Brak uprawnień.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if tournament.status in ('ACT', 'FIN', 'CNC'):
+            return None, Response(
+                {'detail': 'Edycja pozycji możliwa tylko przed startem turnieju (DRF/REG/SCH).'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        return tournament, None
+
+    def post(self, request, pk):
+        """Swap seed_number dwóch uczestników (atomowy)."""
+        tournament, err = self._get_tournament_and_check(request, pk)
+        if err:
+            return err
+
+        id_a = request.data.get('participant_a_id')
+        id_b = request.data.get('participant_b_id')
+
+        if id_a is None or id_b is None:
+            return Response(
+                {'detail': 'Wymagane pola: participant_a_id, participant_b_id.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            id_a, id_b = int(id_a), int(id_b)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'participant_a_id i participant_b_id muszą być liczbami.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if id_a == id_b:
+            return Response(
+                {'detail': 'Uczestnicy muszą być różni.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from django.db import transaction as _tx
+        from apps.tournaments.models import Participant as _P
+
+        try:
+            with _tx.atomic():
+                p_a = _P.objects.select_for_update().get(pk=id_a, tournament=tournament)
+                p_b = _P.objects.select_for_update().get(pk=id_b, tournament=tournament)
+                seed_a, seed_b = p_a.seed_number, p_b.seed_number
+                p_a.seed_number = seed_b
+                p_b.seed_number = seed_a
+                p_a.save(update_fields=['seed_number'])
+                p_b.save(update_fields=['seed_number'])
+        except _P.DoesNotExist:
+            return Response(
+                {'detail': 'Jeden lub obaj uczestnicy nie należą do tego turnieju.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response({
+            'participant_a': {'id': p_a.id, 'display_name': p_a.display_name, 'seed_number': p_a.seed_number},
+            'participant_b': {'id': p_b.id, 'display_name': p_b.display_name, 'seed_number': p_b.seed_number},
+        }, status=status.HTTP_200_OK)
+
+    def patch(self, request, pk):
+        """Ustaw seed_number bezpośrednio dla jednego uczestnika."""
+        tournament, err = self._get_tournament_and_check(request, pk)
+        if err:
+            return err
+
+        participant_id = request.data.get('participant_id')
+        new_seed       = request.data.get('seed_number')
+
+        if participant_id is None or new_seed is None:
+            return Response(
+                {'detail': 'Wymagane pola: participant_id, seed_number.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            participant_id = int(participant_id)
+            new_seed       = int(new_seed)
+        except (TypeError, ValueError):
+            return Response(
+                {'detail': 'participant_id i seed_number muszą być liczbami.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if new_seed < 1:
+            return Response(
+                {'detail': 'seed_number musi być ≥ 1.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from apps.tournaments.models import Participant as _P
+
+        try:
+            participant = _P.objects.get(pk=participant_id, tournament=tournament)
+        except _P.DoesNotExist:
+            return Response(
+                {'detail': 'Uczestnik nie należy do tego turnieju.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Sprawdź duplikat
+        conflict = _P.objects.filter(
+            tournament=tournament, seed_number=new_seed
+        ).exclude(pk=participant_id).first()
+        if conflict:
+            return Response(
+                {'detail': f'Pozycja {new_seed} jest już zajęta przez „{conflict.display_name}". Użyj zamiany (swap).'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        participant.seed_number = new_seed
+        participant.save(update_fields=['seed_number'])
+
+        return Response({
+            'id': participant.id,
+            'display_name': participant.display_name,
+            'seed_number': participant.seed_number,
+        }, status=status.HTTP_200_OK)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # LADDER — REST API
 # ══════════════════════════════════════════════════════════════════════════════

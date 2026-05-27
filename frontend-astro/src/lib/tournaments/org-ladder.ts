@@ -17,6 +17,7 @@ import { initFinishButton }     from './org-finish';
 import { initParticipantsPanel } from './org-participants';
 import { initLdrConfigForm }    from './org-config-ldr';
 import { initLdrMatches }       from './org-ldr-matches';
+import { initLdrSeeds }        from './org-ldr-seeds';
 
 // ── Custom status transitions for LDR ────────────────────────────────────────
 // Override: REG→SCH should say "Zamknij zapisy" not "generuj mecze" (no bracket).
@@ -78,15 +79,18 @@ import { initLdrMatches }       from './org-ldr-matches';
     });
   });
 
-  // 4. LDR matches / score entry (only when ACT)
+  // 4. Seed management (DRF/REG/SCH — przed startem)
+  await initLdrSeeds(cfg);
+
+  // 5. LDR matches / score entry (only when ACT)
   await initLdrMatches(cfg);
 
-  // 5. Config form
+  // 6. Config form
   initLdrConfigForm(cfg);
 
-  // 6. Finish / cancel
+  // 7. Finish / cancel
   initFinishButton(cfg, async () => { /* no standings for LDR */ });
 
-  // 7. Participants
+  // 8. Participants
   initParticipantsPanel(cfg);
 })();
