@@ -1,15 +1,14 @@
 ---
 // matches.astro — historia meczów połączona z Django API
 // GET /api/matches/history/ (IsAuthenticated — wymaga cookie sesji)
-// Dane: id, p1/p2, sety, wynik (user-win/loss/draw), data, debel/singiel
 // SSR wymagane (prerender = false) — potrzebujemy cookie sesji z requestu
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
+import MatchHistory from '@/components/MatchHistory.tsx';
 import { getMatchHistory, getCurrentUser, type MatchHistoryEntry, type MatchUser } from '@/lib/api';
 import { url } from '@/lib/url';
 
-// ── Pobierz cookie sesji i dane z API ────────────────────────────────────────
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
 let rawMatches: MatchHistoryEntry[] = [];
 let isLive = false;
@@ -80,29 +79,9 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ── Mapuj surowe dane API na shape UI ────────────────────────────────────────
+// ── Map API data → UI rows ──────────────────────────────────────────────────
 
-type MatchRow = {
-  id: number | string;
-  matchIdNum: number | null;
-  result: 'win' | 'loss' | 'draw';
-  resultLabel: string;
-  resultLetter: string;
-  opponent: string;        // główna nazwa (singiel: jeden gracz, debel: pierwszy z drużyny przeciwnej)
-  opponentInitials: string;
-  opponentFull: string;    // debel: "Jan Kowalski / Marek Nowak", singiel: tak samo jak opponent
-  isDouble: boolean;
-  date: string;
-  score: string;
-  setsScore: string;
-  format: 'SNG' | 'DBL';
-  formatLabel: string;
-  typeLabel: string;
-  isTournament: boolean;
-  tournamentId: number | null;
-};
-
-function mapMatch(m: MatchHistoryEntry): MatchRow {
+function mapMatch(m: MatchHistoryEntry) {
   const resultMap = {
     'user-win':  { result: 'win'  as const, label: 'Wygrana',  letter: 'W' },
     'user-loss': { result: 'loss' as const, label: 'Porażka',  letter: 'P' },
@@ -110,25 +89,17 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
   };
   const r = resultMap[m.user] ?? { result: 'draw' as const, label: '—', letter: '?' };
 
-  // Wyznacz stronę gracza: user jest w drużynie 1 (p1+p3) lub drużynie 2 (p2+p4)
-  // Backend: win='p1' → Team A (p1+p3) wygrała; win='p2' → Team B (p2+p4) wygrała
-  // user='user-win/loss' → backend już sprawdził przynależność; draw → sprawdzamy sami po id
   const uid = currentUser?.id ?? null;
   const inTeamA = uid !== null && (m.p1?.id === uid || m.p3?.id === uid);
   const isP1Side =
     (m.user === 'user-win'  && m.win === 'p1') ||
     (m.user === 'user-loss' && m.win === 'p2') ||
-    (m.user === 'user-draw' && inTeamA);        // draw: sprawdzamy rzeczywistą przynależność
+    (m.user === 'user-draw' && inTeamA);
 
-  // Drużyny: Team A = p1+p3, Team B = p2+p4
-  const myTeam:  [MatchUser | null, MatchUser | null] = isP1Side ? [m.p1, m.p3] : [m.p2, m.p4];
   const oppTeam: [MatchUser | null, MatchUser | null] = isP1Side ? [m.p2, m.p4] : [m.p1, m.p3];
-
-  // Główny gracz z przeciwnej drużyny (do inicjałów i fallback)
   const opponentObj = oppTeam[0] ?? oppTeam[1];
   const opponent = userName(opponentObj);
 
-  // Pełna etykieta przeciwnika — dla debla sklejamy obu graczy
   const isDouble = m.match_double;
   const oppNames = oppTeam.map(p => userName(p)).filter(n => n !== '?');
   const opponentFull = isDouble && oppNames.length > 1
@@ -137,70 +108,38 @@ function mapMatch(m: MatchHistoryEntry): MatchRow {
 
   const isTournament = m.is_tournament ?? false;
   const tournamentId = m.tournament_id ?? null;
+  const matchIdNum = typeof m.id === 'number' ? m.id : null;
 
-  // Dla turniejowych: wyciągnij nazwę turnieju z description ("Turniej: NazwaTurnieju" → "Turniej: NazwaTurnieju")
-  // Dla towarzyskich: "TOWARZYSKIE" → "Towarzyski"
   let typeLabel: string;
   if (isTournament && m.description && m.description.startsWith('Turniej:')) {
-    typeLabel = m.description; // już sformatowane: "Turniej: Liga Klubowa"
+    typeLabel = m.description;
   } else if (isTournament) {
     typeLabel = 'Turniejowy';
   } else {
     typeLabel = 'Towarzyski';
   }
 
-  // Href: turniejowe → strona turnieju, towarzyskie → strona meczu (tylko numeryczne id)
-  const matchIdNum = typeof m.id === 'number' ? m.id : null;
+  const href = isTournament && tournamentId
+    ? url(`/tournaments/${tournamentId}`)
+    : matchIdNum ? url(`/matches/${matchIdNum}`) : '#';
 
   return {
     id: m.id,
-    matchIdNum,
+    href,
     result: r.result,
-    resultLabel: r.label,
     resultLetter: r.letter,
-    opponent,
-    opponentInitials: userInitials(opponentObj),
     opponentFull,
     isDouble,
     date: formatDate(m.match_date),
     score: formatScore(m),
     setsScore: setsScore(m, isP1Side),
-    format: m.match_double ? 'DBL' : 'SNG',
+    format: (m.match_double ? 'DBL' : 'SNG') as 'SNG' | 'DBL',
     formatLabel: m.match_double ? 'Debel' : 'Singiel',
     typeLabel,
-    isTournament,
-    tournamentId,
   };
 }
 
-// ── Fallback demo — gdy API niedostępne lub niezalogowany ───────────────────
-const demoMatches: MatchRow[] = [
-  { id: 1, matchIdNum: 1, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Tomasz Bąk',       opponentInitials: 'TB', opponentFull: 'Tomasz Bąk',                      isDouble: false, date: '21 paź 2026', score: '6:3, 7:5',       setsScore: '2:0', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
-  { id: 2, matchIdNum: 2, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Adam Kowalczyk',   opponentInitials: 'AK', opponentFull: 'Adam Kowalczyk',                  isDouble: false, date: '15 paź 2026', score: '4:6, 5:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
-  { id: 3, matchIdNum: 3, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Rafał Nowak',      opponentInitials: 'RN', opponentFull: 'Rafał Nowak / Anna Wiśniewska',   isDouble: true,  date: '8 paź 2026',  score: '6:1, 6:4',       setsScore: '2:0', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Turniej: Liga Wiosna', isTournament: true,  tournamentId: 1    },
-  { id: 4, matchIdNum: 4, result: 'win',  resultLabel: 'Wygrana', resultLetter: 'W', opponent: 'Piotr Wiśniewski', opponentInitials: 'PW', opponentFull: 'Piotr Wiśniewski / Marek Nowak', isDouble: true,  date: '1 paź 2026',  score: '7:5, 4:6, 10:8', setsScore: '2:1', format: 'DBL', formatLabel: 'Debel',   typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
-  { id: 5, matchIdNum: 5, result: 'loss', resultLabel: 'Porażka', resultLetter: 'P', opponent: 'Marek Wróbel',     opponentInitials: 'MW', opponentFull: 'Marek Wróbel',                    isDouble: false, date: '18 wrz 2026', score: '3:6, 6:7',       setsScore: '0:2', format: 'SNG', formatLabel: 'Singiel', typeLabel: 'Towarzyski',          isTournament: false, tournamentId: null },
-];
-
-const matches: MatchRow[] = isLive ? rawMatches.map(mapMatch) : demoMatches;
-
-const wins   = matches.filter(m => m.result === 'win').length;
-const losses = matches.filter(m => m.result === 'loss').length;
-const draws  = matches.filter(m => m.result === 'draw').length;
-const total  = matches.length;
-const winRate = total > 0 ? Math.round(wins / total * 100) : 0;
-
-// Aktualna passa — ile ostatnich meczów z rzędu to ten sam wynik
-let streak = 0;
-let streakType = '';
-if (matches.length > 0) {
-  streakType = matches[0].result;
-  for (const m of matches) {
-    if (m.result === streakType) streak++;
-    else break;
-  }
-}
-const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : 'R';
+const matches = isLive ? rawMatches.map(mapMatch) : [];
 ---
 
 <AppLayout
@@ -212,188 +151,15 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
   ctaLabel="+ Dodaj mecz towarzyski"
   ctaHref={url('/matches/add')}
 >
-
-  <!-- Banner sukcesu po dodaniu meczu -->
-  <div id="match-added-banner" class="m-added-banner" style="display:none;" role="status">
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-    </svg>
-    Mecz został zapisany i pojawił się na liście.
-  </div>
-
-  <!-- Stats -->
-  <div class="m-stats">
-    <div class="m-stat-card">
-      <div class="bento-label">ROZEGRANE</div>
-      <div class="m-stat-card__value">{total}</div>
-      <div class="m-stat-card__sub">w sezonie</div>
-    </div>
-    <div class="m-stat-card m-stat-card--accent">
-      <div class="bento-label">WYGRANE</div>
-      <div class="m-stat-card__value" style="color:var(--tc-accent)">{wins}</div>
-      <div class="m-stat-card__sub">{winRate}% wszystkich</div>
-    </div>
-    <div class="m-stat-card">
-      <div class="bento-label">PORAŻKI</div>
-      <div class="m-stat-card__value">{losses}</div>
-      <div class="m-stat-card__sub">{total > 0 ? Math.round(losses / total * 100) : 0}% wszystkich</div>
-    </div>
-    <div class="m-stat-card">
-      <div class="bento-label">AKTUALNA PASSA</div>
-      <div class="m-stat-card__value">
-        {streak}<span class="m-stat-card__streak-letter">{streakLabel}</span>
-      </div>
-      <div class="m-stat-card__sub">ostatnie {streak} mecze</div>
-    </div>
-  </div>
-
-  <!-- Tabela meczów -->
-  <section class="dash-card m-table-card">
-    <div class="dash-section-header">
-      <h2 class="dash-section-title">
-        Historia meczów
-        <span class="section-badge">{total}</span>
-        {userDisplayName && <span class="m-my-chip">Twoja historia</span>}
-      </h2>
-      <div class="m-filter-groups" id="match-filters">
-        <div class="m-search-wrap">
-          <svg class="m-search__icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
-          </svg>
-          <input
-            id="m-search"
-            class="m-search"
-            type="search"
-            placeholder="Szukaj po nazwisku…"
-            autocomplete="off"
-            aria-label="Szukaj po przeciwniku"
-          />
-        </div>
-        <div class="m-segmented" role="group" aria-label="Format">
-          <button class="m-seg m-seg--active" data-filter="all">Wszystkie</button>
-          <button class="m-seg" data-filter="SNG">Singiel</button>
-          <button class="m-seg" data-filter="DBL">Debel</button>
-        </div>
-        <div class="m-segmented" role="group" aria-label="Wynik">
-          <button class="m-seg m-seg--active" data-filter="all">Wszystkie</button>
-          <button class="m-seg" data-filter="win">Wygrane</button>
-          <button class="m-seg" data-filter="loss">Porażki</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Nagłówki tabeli -->
-    <div class="m-table-head">
-      <span>WYNIK</span>
-      <span>PRZECIWNIK</span>
-      <span>SETY</span>
-      <span>FORMAT</span>
-      <span class="m-th-right">DATA</span>
-    </div>
-
-    {matches.length === 0 ? (
-      <div class="dash-empty-block">
-        <div class="dash-empty-block__icon" aria-hidden="true">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M6.3 6.3c2.4 2.4 2.4 9 0 11.4M17.7 6.3c-2.4 2.4-2.4 9 0 11.4" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <p class="dash-empty-block__title">Brak meczów</p>
-        <p class="dash-empty-block__sub">Nie rozegrałeś jeszcze żadnych meczów lub nie jesteś zalogowany.</p>
-        <div class="dash-empty-block__links">
-          <a href={url('/matches/add')} class="dash-btn-primary">Dodaj pierwszy mecz</a>
-        </div>
-      </div>
-    ) : (
-      <div class="m-table-body" id="match-list">
-        {matches.map((m, i) => (
-          <a
-            class="m-row"
-            data-result={m.result}
-            data-format={m.format}
-            data-opponent={m.opponentFull.toLowerCase()}
-            href={m.isTournament && m.tournamentId ? url(`/tournaments/${m.tournamentId}`) : m.matchIdNum ? url(`/matches/${m.matchIdNum}`) : '#'}
-          >
-            <div class={`m-result-badge m-result-badge--${m.result}`}>{m.resultLetter}</div>
-            <div class="m-opponent">
-              <div class={`m-opponent__name${m.isDouble ? ' m-opponent__name--dbl' : ''}`}>{m.opponentFull}</div>
-              <div class="m-opponent__type">{m.typeLabel}</div>
-            </div>
-            <div class="m-sets">
-              <span class={`m-sets__score m-sets__score--${m.result}`}>{m.setsScore}</span>
-              <span class="m-sets__detail">{m.score}</span>
-            </div>
-            <div class="m-format">{m.formatLabel}</div>
-            <div class="m-date">{m.date}</div>
-          </a>
-        ))}
-      </div>
-    )}
-  </section>
-
+  <MatchHistory
+    client:load
+    matches={matches}
+    userDisplayName={userDisplayName}
+    addMatchUrl={url('/matches/add')}
+  />
 </AppLayout>
 
-<script>
-  // Pokaż banner sukcesu po dodaniu meczu (?added=1)
-  if (new URLSearchParams(window.location.search).get('added') === '1') {
-    const banner = document.getElementById('match-added-banner');
-    if (banner) {
-      banner.style.display = '';
-      setTimeout(() => { banner.style.display = 'none'; }, 6000);
-    }
-    history.replaceState({}, '', window.location.pathname);
-  }
-
-  // ── Filtrowanie ──────────────────────────────────────────────────────────────
-  const rows = document.querySelectorAll<HTMLElement>('#match-list .m-row');
-  let activeFormat = 'all';
-  let activeResult = 'all';
-  let activeSearch = '';
-
-  function applyFilters() {
-    let visible = 0;
-    rows.forEach(row => {
-      const matchFormat = activeFormat === 'all' || row.dataset.format === activeFormat;
-      const matchResult = activeResult === 'all' || row.dataset.result === activeResult;
-      const matchSearch = activeSearch === '' || (row.dataset.opponent ?? '').includes(activeSearch);
-      const show = matchFormat && matchResult && matchSearch;
-      row.style.display = show ? '' : 'none';
-      if (show) visible++;
-    });
-    // Aktualizuj licznik
-    const badge = document.querySelector('.dash-section-title .section-badge');
-    if (badge) badge.textContent = String(visible);
-  }
-
-  // Segmented filters (format + wynik)
-  document.querySelectorAll<HTMLElement>('#match-filters .m-segmented').forEach(group => {
-    const buttons = group.querySelectorAll<HTMLButtonElement>('.m-seg');
-    const label = group.getAttribute('aria-label');
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        buttons.forEach(b => b.classList.remove('m-seg--active'));
-        btn.classList.add('m-seg--active');
-        const f = btn.dataset.filter ?? 'all';
-        if (label === 'Format') activeFormat = f;
-        else activeResult = f;
-        applyFilters();
-      });
-    });
-  });
-
-  // Search input
-  const searchInput = document.getElementById('m-search') as HTMLInputElement | null;
-  if (searchInput) {
-    searchInput.addEventListener('input', () => {
-      activeSearch = searchInput.value.trim().toLowerCase();
-      applyFilters();
-    });
-  }
-</script>
-
-<style>
-  /* ── "Twoja historia" chip ───────────────────────────────────────────── */
+<style is:global>
   .m-my-chip {
     display: inline-flex;
     align-items: center;
@@ -409,7 +175,6 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     white-space: nowrap;
   }
 
-  /* ── Banner sukcesu ───────────────────────────────────────────────────── */
   .m-added-banner {
     display: flex; align-items: center; gap: 8px;
     padding: 10px 16px; border-radius: 8px; margin-bottom: 16px;
@@ -418,7 +183,6 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     color: var(--tc-accent); font-size: 0.84rem; font-weight: 600;
   }
 
-  /* ── Stat cards ─────────────────────────────────────────────────────────── */
   .m-stats {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -462,10 +226,7 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     color: var(--tc-muted);
   }
 
-  /* ── Table card ─────────────────────────────────────────────────────────── */
-  .m-table-card {
-    padding: 0;
-  }
+  .m-table-card { padding: 0; }
 
   .m-table-card .dash-section-header {
     padding: 14px 20px;
@@ -480,7 +241,6 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     flex-wrap: wrap;
   }
 
-  /* ── Search input ─────────────────────────────────────────────────────── */
   .m-search-wrap {
     position: relative;
     display: flex;
@@ -508,12 +268,8 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     outline: none;
     transition: border-color 0.15s, width 0.2s;
   }
-  .m-search:focus {
-    border-color: var(--tc-accent);
-    width: 200px;
-  }
+  .m-search:focus { border-color: var(--tc-accent); width: 200px; }
   .m-search::placeholder { color: var(--tc-muted); }
-  /* ukryj domyślny przycisk clear w Chrome */
   .m-search::-webkit-search-cancel-button { -webkit-appearance: none; }
 
   .m-segmented {
@@ -535,7 +291,6 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     font-family: var(--font-sans);
     transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   }
-
   .m-seg:hover { color: var(--tc-sub); }
 
   .m-seg--active {
@@ -544,7 +299,6 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     box-shadow: var(--tc-shadow);
   }
 
-  /* ── Table head ─────────────────────────────────────────────────────────── */
   .m-table-head {
     display: grid;
     grid-template-columns: 40px 1fr 220px 110px 120px;
@@ -560,9 +314,6 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
 
   .m-th-right { text-align: right; }
 
-  /* ── Table body ─────────────────────────────────────────────────────────── */
-  .m-table-body {}
-
   .m-row {
     display: grid;
     grid-template-columns: 40px 1fr 220px 110px 120px;
@@ -575,209 +326,53 @@ const streakLabel = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : '
     text-decoration: none;
     color: inherit;
   }
-
   .m-row:last-child { border-bottom: none; }
   .m-row:hover { background: var(--tc-overlay); }
 
-  /* ── Result badge ───────────────────────────────────────────────────────── */
   .m-result-badge {
-    width: 32px;
-    height: 24px;
-    border-radius: 5px;
-    display: grid;
-    place-items: center;
-    font-size: 0.68rem;
-    font-weight: 700;
-    flex-shrink: 0;
+    width: 32px; height: 24px; border-radius: 5px;
+    display: grid; place-items: center;
+    font-size: 0.68rem; font-weight: 700; flex-shrink: 0;
   }
+  .m-result-badge--win { background: var(--tc-accent-soft); border: 1px solid var(--tc-accent-border); color: var(--tc-accent); }
+  .m-result-badge--loss { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--tc-hot); }
+  .m-result-badge--draw { background: var(--tc-overlay); border: 1px solid var(--tc-card-border); color: var(--tc-muted); }
 
-  .m-result-badge--win {
-    background: var(--tc-accent-soft);
-    border: 1px solid var(--tc-accent-border);
-    color: var(--tc-accent);
-  }
-  .m-result-badge--loss {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.25);
-    color: var(--tc-hot);
-  }
-  .m-result-badge--draw {
-    background: var(--tc-overlay);
-    border: 1px solid var(--tc-card-border);
-    color: var(--tc-muted);
-  }
-
-  /* ── Opponent ───────────────────────────────────────────────────────────── */
-  .m-opponent {
-    min-width: 0;
-  }
-
+  .m-opponent { min-width: 0; }
   .m-opponent__name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--tc-ink);
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.875rem; font-weight: 600; color: var(--tc-ink);
+    line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-
-  .m-opponent__name--dbl {
-    font-size: 0.8rem;
-  }
-
+  .m-opponent__name--dbl { font-size: 0.8rem; }
   .m-row:hover .m-opponent__name { color: var(--tc-accent); }
-
   .m-opponent__type {
-    font-size: 0.72rem;
-    color: var(--tc-muted);
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.72rem; color: var(--tc-muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* ── Sets / score ───────────────────────────────────────────────────────── */
-  .m-sets {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-
-  .m-sets__score {
-    font-size: 1.1rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--tc-ink);
-  }
-
-  .m-sets__score--win  { color: var(--tc-accent); }
+  .m-sets { display: flex; align-items: baseline; gap: 8px; }
+  .m-sets__score { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--tc-ink); }
+  .m-sets__score--win { color: var(--tc-accent); }
   .m-sets__score--loss { color: var(--tc-ink); }
   .m-sets__score--draw { color: var(--tc-muted); }
-
   .m-sets__detail {
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: var(--tc-muted);
-    font-family: var(--font-mono-plex);
-    white-space: nowrap;
+    font-size: 0.72rem; font-weight: 500; color: var(--tc-muted);
+    font-family: var(--font-mono-plex); white-space: nowrap;
   }
 
-  /* ── Format ─────────────────────────────────────────────────────────────── */
-  .m-format {
-    font-size: 0.78rem;
-    color: var(--tc-sub);
-  }
+  .m-format { font-size: 0.78rem; color: var(--tc-sub); }
+  .m-date { font-size: 0.78rem; color: var(--tc-muted); text-align: right; white-space: nowrap; }
 
-  /* ── Date ────────────────────────────────────────────────────────────────── */
-  .m-date {
-    font-size: 0.78rem;
-    color: var(--tc-muted);
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  /* ── Shared classes from dashboard (reused) ─────────────────────────────── */
-  .bento-label {
-    font-size: 0.62rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--tc-muted);
-  }
-
-  .dash-card {
-    background: var(--tc-card-bg);
-    border: 1px solid var(--tc-card-border);
-    border-radius: 14px;
-    transition: background 0.25s, border-color 0.25s;
-  }
-
-  .dash-section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .dash-section-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--tc-ink);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .section-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    border-radius: 99px;
-    background: var(--tc-chip-bg);
-    color: var(--tc-muted);
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-
-  .dash-empty-block {
-    padding: 40px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    text-align: center;
-  }
-
-  .dash-empty-block__icon {
-    width: 40px; height: 40px;
-    border-radius: 10px;
-    background: var(--tc-overlay);
-    border: 1px solid var(--tc-card-border-soft);
-    display: grid; place-items: center;
-    color: var(--tc-muted);
-    margin-bottom: 4px;
-  }
-
-  .dash-empty-block__title {
-    font-size: 0.875rem; font-weight: 600; color: var(--tc-ink); margin: 0;
-  }
-
-  .dash-empty-block__sub {
-    font-size: 0.78rem; color: var(--tc-sub); margin: 0 0 6px; line-height: 1.5;
-  }
-
-  .dash-empty-block__links { display: flex; gap: 8px; justify-content: center; }
-
-  .dash-btn-primary {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 8px 18px; border-radius: 8px;
-    background: var(--tc-accent); color: var(--tc-accent-ink);
-    font-size: 0.84rem; font-weight: 700;
-    text-decoration: none; transition: opacity 0.15s;
-  }
-  .dash-btn-primary:hover { opacity: 0.88; }
-
-  /* ── Responsive ────────────────────────────────────────────────────────── */
   @media (max-width: 1024px) {
     .m-stats { grid-template-columns: repeat(2, 1fr); }
     .m-filter-groups { flex-wrap: wrap; }
     .m-table-head { display: none; }
-    .m-row {
-      grid-template-columns: 32px 1fr auto;
-      gap: 10px;
-    }
+    .m-row { grid-template-columns: 32px 1fr auto; gap: 10px; }
     .m-sets__detail { display: none; }
     .m-format { display: none; }
     .m-date { display: none; }
     .m-table-card .dash-section-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
+      flex-direction: column; align-items: flex-start; gap: 10px;
     }
   }
 

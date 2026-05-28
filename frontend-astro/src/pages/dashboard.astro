@@ -192,15 +192,6 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
 <!-- Bento hero + Activity feed — obsługiwane przez React islands (BentoHero.tsx, ActivityFeed.tsx) -->
 
 <style is:global>
-  /* ── Base card ─────────────────────────────────────────────────────────── */
-  .dash-card {
-    background: var(--tc-card-bg);
-    border: 1px solid var(--tc-card-border);
-    border-radius: 14px;
-    padding: 20px;
-    transition: background 0.25s, border-color 0.25s;
-  }
-
   /* ── Bento hero (is:global — rendered by React island BentoHero.tsx) ─── */
   .bento-hero {
     display: grid;
@@ -228,15 +219,6 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .bento-stats {
     grid-column: span 4;
     grid-row: span 1;
-  }
-
-  .bento-label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--tc-muted);
-    margin-bottom: 8px;
   }
 
   .bento-last-match {
@@ -605,97 +587,6 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     gap: 16px;
   }
 
-  /* ── Section header ────────────────────────────────────────────────────── */
-  .dash-section-header {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--tc-card-border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin: -20px -20px 0;
-  }
-
-  .dash-section-title {
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: var(--tc-ink);
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-  }
-
-  .section-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    border-radius: 99px;
-    background: var(--tc-accent-soft);
-    color: var(--tc-accent-ink);
-    font-size: 0.72rem;
-    font-weight: 700;
-  }
-
-  .dash-card-body { padding: 16px 0 0; }
-
-  .dash-card-footer {
-    padding: 12px 20px;
-    border-top: 1px solid var(--tc-card-border-soft);
-    margin: 16px -20px -20px;
-  }
-
-  /* ── Buttons / links ───────────────────────────────────────────────────── */
-  .dash-link-sm {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--tc-accent);
-    text-decoration: none;
-    transition: opacity 0.15s;
-    white-space: nowrap;
-  }
-  .dash-link-sm:hover { opacity: 0.75; }
-
-  .dash-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 18px;
-    border-radius: 8px;
-    background: var(--tc-accent);
-    color: var(--tc-accent-ink);
-    font-size: 0.84rem;
-    font-weight: 700;
-    text-decoration: none;
-    transition: opacity 0.15s;
-    box-shadow: var(--tc-shadow);
-  }
-  .dash-btn-primary:hover { opacity: 0.88; }
-
-  .dash-btn-secondary {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    padding: 8px 18px;
-    border-radius: 8px;
-    background: var(--tc-overlay);
-    border: 1px solid var(--tc-card-border);
-    color: var(--tc-sub);
-    font-size: 0.84rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-  }
-  .dash-btn-secondary:hover {
-    background: var(--tc-chip-bg);
-    color: var(--tc-ink);
-    border-color: var(--tc-accent-border);
-  }
-
   /* ── Tournaments table ─────────────────────────────────────────────────── */
   .tourn-table-head {
     display: grid;
@@ -978,50 +869,6 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     background: var(--tc-card-bg);
     color: var(--tc-ink);
     box-shadow: var(--tc-shadow);
-  }
-
-  /* Empty state block */
-  .dash-empty-block {
-    padding: 24px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    text-align: center;
-  }
-
-  .dash-empty-block__icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: var(--tc-overlay);
-    border: 1px solid var(--tc-card-border-soft);
-    display: grid;
-    place-items: center;
-    color: var(--tc-muted);
-    margin-bottom: 4px;
-  }
-
-  .dash-empty-block__title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--tc-ink);
-    margin: 0;
-  }
-
-  .dash-empty-block__sub {
-    font-size: 0.78rem;
-    color: var(--tc-sub);
-    margin: 0 0 6px;
-    line-height: 1.5;
-    max-width: 260px;
-  }
-
-  .dash-empty-block__links {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
   }
 
   /* Activity footer */
