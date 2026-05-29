@@ -4,6 +4,7 @@
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
+import MatchEditForm from '@/components/MatchEditForm.tsx';
 import { getMatch, getCurrentUser, type MatchHistoryEntry } from '@/lib/api';
 import { url } from '@/lib/url';
 
@@ -108,9 +109,18 @@ const iAmParticipant = iAmP1 || iAmP2;
       <span class="breadcrumb__current">Mecz #{matchId}</span>
     </nav>
     {canEdit && (
-      <button id="edit-toggle-btn" class="tc-btn tc-btn-secondary tc-btn-sm" type="button">
-        Edytuj wynik
-      </button>
+      <MatchEditForm
+        client:load
+        matchId={matchId}
+        initialSets={{
+          p1_set1: String(match.p1_set1 ?? ''),
+          p2_set1: String(match.p2_set1 ?? ''),
+          p1_set2: String(match.p1_set2 ?? ''),
+          p2_set2: String(match.p2_set2 ?? ''),
+          p1_set3: String(match.p1_set3 ?? ''),
+          p2_set3: String(match.p2_set3 ?? ''),
+        }}
+      />
     )}
   </div>
 
@@ -265,48 +275,6 @@ const iAmParticipant = iAmP1 || iAmP2;
     </div>
   )}
 
-  <!-- Formularz edycji wyniku (widoczny tylko gdy can_edit, toggle) -->
-  {canEdit && (
-    <div id="edit-form-card" class="tc-card" style="margin-top:20px; display:none;">
-      <div class="tc-card-header">
-        <span class="tc-card-title">Edytuj wynik</span>
-      </div>
-      <form id="edit-score-form" style="padding:16px 20px 20px;" novalidate>
-        <div class="edit-sets-row">
-          {[1, 2, 3].map(s => (
-            <div class="edit-set-group">
-              <div class="edit-set-label">Set {s}{s === 1 ? ' *' : ''}</div>
-              <div class="edit-set-inputs">
-                <div class="edit-spinner">
-                  <button type="button" class="edit-spin-btn edit-spin-up" tabindex="-1">▲</button>
-                  <input class="edit-set-input" type="number" min="0" max="99"
-                    name={`p1_set${s}`}
-                    value={s === 1 ? String(match.p1_set1 ?? '') : s === 2 ? String(match.p1_set2 ?? '') : String(match.p1_set3 ?? '')}
-                    placeholder="—">
-                  <button type="button" class="edit-spin-btn edit-spin-down" tabindex="-1">▼</button>
-                </div>
-                <span class="edit-set-sep">:</span>
-                <div class="edit-spinner">
-                  <button type="button" class="edit-spin-btn edit-spin-up" tabindex="-1">▲</button>
-                  <input class="edit-set-input" type="number" min="0" max="99"
-                    name={`p2_set${s}`}
-                    value={s === 1 ? String(match.p2_set1 ?? '') : s === 2 ? String(match.p2_set2 ?? '') : String(match.p2_set3 ?? '')}
-                    placeholder="—">
-                  <button type="button" class="edit-spin-btn edit-spin-down" tabindex="-1">▼</button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        <p class="edit-form-hint">* Set 1 jest wymagany. Sety 2–3 wypełnij tylko jeśli były rozegrane.</p>
-        <div style="margin-top:14px; display:flex; align-items:center; gap:10px;">
-          <button type="submit" class="tc-btn tc-btn-primary tc-btn-sm">Zapisz wynik</button>
-          <button type="button" id="edit-cancel-btn" class="tc-btn tc-btn-ghost tc-btn-sm">Anuluj</button>
-          <span id="edit-form-msg" style="font-size:0.82rem;"></span>
-        </div>
-      </form>
-    </div>
-  )}
 
   <!-- Powrót -->
   <div style="margin-top:28px;">
@@ -601,88 +569,3 @@ const iAmParticipant = iAmP1 || iAmP2;
   }
 </style>
 
-<script define:vars={{ matchId, canEdit }}>
-// ── Spinner buttons ────────────────────────────────────────────────────────
-document.querySelectorAll('.edit-spin-up').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const input = btn.nextElementSibling;
-    const val = parseInt(input.value || '0', 10);
-    input.value = String(isNaN(val) ? 1 : Math.min(val + 1, 99));
-  });
-});
-document.querySelectorAll('.edit-spin-down').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const input = btn.previousElementSibling;
-    const val = parseInt(input.value || '0', 10);
-    input.value = String(isNaN(val) ? 0 : Math.max(val - 1, 0));
-  });
-});
-
-// ── Edit form ──────────────────────────────────────────────────────────────
-if (canEdit) {
-  const toggleBtn  = document.getElementById('edit-toggle-btn');
-  const cancelBtn  = document.getElementById('edit-cancel-btn');
-  const formCard   = document.getElementById('edit-form-card');
-  const form       = document.getElementById('edit-score-form');
-  const msgEl      = document.getElementById('edit-form-msg');
-
-  toggleBtn?.addEventListener('click', () => {
-    formCard.style.display = formCard.style.display === 'none' ? '' : 'none';
-  });
-  cancelBtn?.addEventListener('click', () => {
-    formCard.style.display = 'none';
-  });
-
-  function getCsrfToken() {
-    const m = document.cookie.match(/csrftoken=([^;]+)/);
-    return m ? m[1] : '';
-  }
-
-  form?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = form.querySelector('button[type="submit"]');
-    if (btn) btn.disabled = true;
-    msgEl.textContent = '';
-    msgEl.style.color = '';
-
-    const getVal = (name) => {
-      const v = form.elements[name]?.value;
-      return v !== '' && v != null ? parseInt(v, 10) : null;
-    };
-
-    const body = {};
-    for (const f of ['p1_set1','p2_set1','p1_set2','p2_set2','p1_set3','p2_set3']) {
-      const el = form.elements[f];
-      if (el) body[f] = getVal(f);
-    }
-
-    try {
-      const res = await fetch(`/api/matches/${matchId}/`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': getCsrfToken(),
-        },
-        body: JSON.stringify(body),
-      });
-
-      if (res.ok) {
-        msgEl.textContent = 'Zapisano!';
-        msgEl.style.color = '#22c55e';
-        // Odśwież stronę po chwili, żeby score-display się zaktualizował
-        setTimeout(() => window.location.reload(), 800);
-      } else {
-        const err = await res.json().catch(() => ({}));
-        msgEl.textContent = err.detail || Object.values(err)[0] || `Błąd ${res.status}`;
-        msgEl.style.color = 'var(--danger)';
-        if (btn) btn.disabled = false;
-      }
-    } catch {
-      msgEl.textContent = 'Błąd sieci.';
-      msgEl.style.color = 'var(--danger)';
-      if (btn) btn.disabled = false;
-    }
-  });
-}
-</script>
