@@ -6,9 +6,8 @@ export const prerender = false;
 
 import '@/styles/global.css';
 import AuthCard from '@/components/AuthCard.astro';
+import LoginForm from '@/components/LoginForm.tsx';
 import { url } from '@/lib/url';
-
-const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
 
 const _djangoApiUrl = process.env.DJANGO_API_URL ?? '';
 const classicBase = _djangoApiUrl.includes('localhost') || _djangoApiUrl.includes('127.0.0.1')
@@ -18,6 +17,8 @@ const classicLoginUrl = classicBase + '/users/login/';
 
 const nextUrl = Astro.url.searchParams.get('next') ?? url('/dashboard');
 const safeNext = nextUrl.startsWith('/') ? nextUrl : url('/dashboard');
+
+const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
 ---
 
 <AuthCard
@@ -26,134 +27,10 @@ const safeNext = nextUrl.startsWith('/') ? nextUrl : url('/dashboard');
   subtitle="Wpisz swoje dane aby wejść do aplikacji"
   apiBase={apiBase}
 >
-  <Fragment slot="head">
-    <meta name="next-url" content={safeNext} />
-  </Fragment>
-
-  <!-- Alert błędu -->
-  <div id="login-error" class="auth-error" role="alert" aria-live="polite" style="display:none;"></div>
-
-  <form id="login-form" novalidate>
-    <div class="auth-field">
-      <label class="auth-label" for="username">Login lub e-mail</label>
-      <input
-        class="auth-input"
-        type="text"
-        id="username"
-        name="username"
-        autocomplete="username"
-        placeholder="np. jan.kowalski"
-        required
-      />
-    </div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="password">Hasło</label>
-      <input
-        class="auth-input"
-        type="password"
-        id="password"
-        name="password"
-        autocomplete="current-password"
-        placeholder="••••••••"
-        required
-      />
-    </div>
-
-    <button type="submit" class="auth-submit" id="login-btn">
-      Zaloguj
-    </button>
-  </form>
-
-  <Fragment slot="footer">
-    <p class="auth-footer-link">
-      Nie masz konta? <a href={url('/register')}>Zarejestruj się →</a>
-    </p>
-    {classicLoginUrl && (
-      <p class="auth-back-link">
-        <a href={classicLoginUrl}>Wróć do starej wersji aplikacji →</a>
-      </p>
-    )}
-  </Fragment>
+  <LoginForm
+    client:load
+    nextUrl={safeNext}
+    registerUrl={url('/register')}
+    classicLoginUrl={classicLoginUrl}
+  />
 </AuthCard>
-
-<script>
-  const API     = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
-                  ?? 'http://localhost:8000';
-  const BASE    = import.meta.env.BASE_URL.replace(/\/$/, '');
-  const NEXT    = (document.querySelector('meta[name="next-url"]') as HTMLMetaElement)?.content
-                  || (BASE + '/dashboard');
-
-  const form    = document.getElementById('login-form') as HTMLFormElement;
-  const btn     = document.getElementById('login-btn') as HTMLButtonElement;
-  const errorEl = document.getElementById('login-error') as HTMLDivElement;
-
-  function showError(msg: string) {
-    errorEl.textContent = msg;
-    errorEl.style.display = 'block';
-  }
-
-  function clearError() {
-    errorEl.textContent = '';
-    errorEl.style.display = 'none';
-  }
-
-  function setLoading(loading: boolean) {
-    btn.disabled = loading;
-    btn.textContent = loading ? 'Logowanie…' : 'Zaloguj';
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearError();
-
-    const username = (document.getElementById('username') as HTMLInputElement).value.trim();
-    const password = (document.getElementById('password') as HTMLInputElement).value;
-
-    if (!username || !password) {
-      showError('Wypełnij login i hasło.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Krok 1: pobierz CSRF token (ustawi cookie csrftoken)
-      await fetch(`${API}/api/auth/csrf/`, {
-        method: 'GET',
-        credentials: 'include',
-      });
-
-      // Krok 2: odczytaj csrftoken z cookie
-      const csrfToken = document.cookie
-        .split(';')
-        .map(c => c.trim())
-        .find(c => c.startsWith('csrftoken='))
-        ?.split('=')[1] ?? '';
-
-      // Krok 3: wyślij login
-      const res = await fetch(`${API}/api/auth/login/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken,
-        },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        // Krok 4: redirect — na ?next jeśli podany, inaczej /dashboard
-        window.location.href = NEXT;
-      } else {
-        showError(data.error ?? 'Błąd logowania. Sprawdź dane i spróbuj ponownie.');
-      }
-    } catch {
-      showError('Nie można połączyć się z serwerem. Sprawdź połączenie.');
-    } finally {
-      setLoading(false);
-    }
-  });
-</script>
