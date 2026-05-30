@@ -158,6 +158,9 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const msg = form.querySelector<HTMLElement>('.org-form-msg');
           if (!btn || !msg || !matchId) return;
 
+          // Disable natychmiast — blokuje podwójne kliknięcie
+          btn.disabled = true;
+
           const fd = new FormData(form);
           const body: Record<string, number|null> = {};
           ['set1_p1','set1_p2','set2_p1','set2_p2','set3_p1','set3_p2'].forEach(k => {
@@ -165,14 +168,38 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             body[k] = (v !== null && v !== '') ? parseInt(v as string, 10) : null;
           });
 
+          const reject = (text: string) => {
+            msg.textContent = text;
+            msg.className = 'org-form-msg org-form-msg--err';
+            btn.disabled = false;
+          };
+
           // Walidacja: set 1 wymagany
           if (body.set1_p1 === null || body.set1_p2 === null) {
-            msg.textContent = 'Set 1 jest wymagany.';
-            msg.className = 'org-form-msg org-form-msg--err';
-            return;
+            return reject('Set 1 jest wymagany.');
           }
 
-          btn.disabled = true;
+          // Walidacja tenisowa — taka sama jak w org-matches.ts
+          const checkSet = (a: number, b: number, n: number): string | null => {
+            if (a < 0 || b < 0) return `Set ${n}: wynik nie może być ujemny.`;
+            const hi = Math.max(a, b), lo = Math.min(a, b);
+            if (hi >= 10) return (hi - lo < 2) ? `Set ${n}: super tie-break wymaga przewagi ≥ 2 punktów (${a}:${b}).` : null;
+            if (hi < 6) return `Set ${n}: zwycięzca musi mieć co najmniej 6 gemów.`;
+            if (hi === 6 && lo <= 4) return null;
+            if (hi === 7 && (lo === 5 || lo === 6)) return null;
+            return `Set ${n}: wynik ${a}:${b} jest niemożliwy w standardowym secie tenisowym.`;
+          };
+
+          const sets: Array<[number, number, number]> = [[body.set1_p1!, body.set1_p2!, 1]];
+          if (body.set2_p1 !== null && body.set2_p2 !== null) sets.push([body.set2_p1, body.set2_p2, 2]);
+          else if (body.set2_p1 !== null || body.set2_p2 !== null) return reject('Set 2: wpisz wynik dla obu stron.');
+          if (body.set3_p1 !== null && body.set3_p2 !== null) sets.push([body.set3_p1, body.set3_p2, 3]);
+          else if (body.set3_p1 !== null || body.set3_p2 !== null) return reject('Set 3: wpisz wynik dla obu stron.');
+          for (const [a, b, n] of sets) {
+            const err = checkSet(a, b, n);
+            if (err) return reject(err);
+          }
+
           btn.textContent = 'Zapisuję…';
           msg.textContent = '';
           msg.className = 'org-form-msg';
