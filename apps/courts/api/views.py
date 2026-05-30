@@ -233,6 +233,19 @@ class CreateReservationView(APIView):
                 end_time=end_dt,
                 status='PENDING',
             )
+
+            # Powiadom ownera o nowej rezerwacji (nie notyfikuj gdy user == owner)
+            _owner = court.facility.owner
+            if _owner and _owner.pk != request.user.pk:
+                from notifications.helpers import notify
+                _date_str = start_dt.strftime('%d.%m.%Y %H:%M')
+                _court_label = f'kort nr {court.court_number}'
+                _user_name = request.user.get_full_name() or request.user.username
+                notify(
+                    _owner,
+                    f'🎾 Nowa rezerwacja od {_user_name} ({_court_label}, {_date_str}) oczekuje na Twoją akceptację.',
+                )
+
             return Response({
                 'id': reservation.id,
                 'court_name': f'Kort {court.court_number}',
@@ -290,6 +303,18 @@ class CreateReservationView(APIView):
             )
             for s, e in occurrences
         ])
+
+        # Powiadom ownera — jedna zbiorcza notyfikacja dla całej serii
+        _owner = court.facility.owner
+        if _owner and _owner.pk != request.user.pk:
+            from notifications.helpers import notify
+            _first_str = occurrences[0][0].strftime('%d.%m.%Y %H:%M')
+            _court_label = f'kort nr {court.court_number}'
+            _user_name = request.user.get_full_name() or request.user.username
+            notify(
+                _owner,
+                f'🎾 Nowa seria {len(reservations)} rezerwacji od {_user_name} ({_court_label}, pierwsza: {_first_str}) oczekuje na akceptację.',
+            )
 
         return Response({
             'series_id': str(series_uuid),

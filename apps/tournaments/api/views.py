@@ -554,6 +554,7 @@ class RoundRobinMatchScoreView(APIView):
                 match.scheduled_time = parsed
 
         # ── Zapisz wynik ─────────────────────────────────────────────────────
+        _old_status = match.status  # zapamiętaj przed save — guard antyspam notyfikacji
         match.set1_p1_score = fields['set1_p1']
         match.set1_p2_score = fields['set1_p2']
         match.set2_p1_score = fields['set2_p1']
@@ -614,13 +615,14 @@ class RoundRobinMatchScoreView(APIView):
                 ).delete()
 
         # ── Notyfikacje o wyniku ─────────────────────────────────────────────
-        # Wysyłamy tylko przy finalnym statusie (CMP lub WDR) — nie przy INP/CNC/re-edit bez zmiany.
-        # Guard: nie powiadamiamy usera który właśnie wpisał wynik.
+        # Wysyłamy tylko gdy status faktycznie zmienił się na finalny (CMP/WDR).
+        # Guard _old_status: re-edit CMP→CMP lub WDR→WDR nie spamuje uczestników.
+        # Guard request.user: nie powiadamiamy usera który właśnie wpisał wynik.
         _final_statuses = (
             TournamentsMatch.Status.COMPLETED.value,
             TournamentsMatch.Status.WALKOVER.value,
         )
-        if match.status in _final_statuses:
+        if match.status in _final_statuses and _old_status != match.status:
             from notifications.helpers import notify
             _score_str = ' '.join(
                 f'{fields[f"set{i}_p1"]}:{fields[f"set{i}_p2"]}'
