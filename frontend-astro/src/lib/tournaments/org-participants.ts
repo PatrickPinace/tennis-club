@@ -17,8 +17,12 @@ function makeAutocomplete(
     return Array.from(dropEl.querySelectorAll<HTMLElement>('.org-sug-item'));
   }
   function setHL(idx: number) {
-    getItems().forEach((el, i) => el.classList.toggle('org-sug-item--selected', i === idx));
+    const items = getItems();
+    items.forEach((el, i) => el.classList.toggle('org-sug-item--selected', i === idx));
     highlightIdx = idx;
+    if (idx >= 0 && items[idx]) {
+      items[idx].scrollIntoView({ block: 'nearest' });
+    }
   }
   function close() {
     dropEl.style.display = 'none';
