@@ -5,12 +5,6 @@ import { url } from '@/lib/url';
 import NotificationBell from '@/components/NotificationBell.tsx';
 import UserChip from '@/components/UserChip.tsx';
 
-// Link "Wersja klasyczna" → Django.
-// PUBLIC_CLASSIC_URL: w dev = http://localhost:8000 (Django na osobnym porcie).
-// W prod zostaw puste — Caddy routuje /tournaments → Django na tej samej domenie.
-const _classicBase = import.meta.env.PUBLIC_CLASSIC_URL ?? '';
-const classicUrl = (_classicBase ? _classicBase.replace(/\/$/, '') : '') + '/tournaments';
-
 interface Props {
   greeting?: string;   // "Witaj z powrotem, Marcin!" — opcjonalny heading w treści
   greetingSub?: string; // "pon · 25 maja 2026 · 14:32" — linia pod greeting
@@ -95,11 +89,6 @@ const {
       manageUrl={url('/tournaments/manage')}
       loginUrl={url('/login')}
     />
-
-    <!-- Link do wersji klasycznej (Django) -->
-    <a href={classicUrl} class="topbar__classic-link" title="Wróć do wersji klasycznej">
-      Wersja klasyczna →
-    </a>
 
     <!-- Theme toggle — dyskretny -->
     <button

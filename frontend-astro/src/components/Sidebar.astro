@@ -138,9 +138,13 @@ function isActive(item: { match: string[] }): boolean {
 
   /* ── Brand ──────────────────────────────────────────────────────────────── */
   .sidebar-brand {
-    padding: 20px 14px 18px;
+    height: var(--topbar-height);
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
     border-bottom: 1px solid var(--tc-sidebar-border);
     flex-shrink: 0;
+    box-sizing: border-box;
   }
 
   .sidebar-brand__link {

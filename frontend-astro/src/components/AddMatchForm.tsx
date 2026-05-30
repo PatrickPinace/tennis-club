@@ -4,6 +4,8 @@ interface Props {
   myId: number;
   today: string;
   matchesUrl: string;
+  isModal?: boolean;
+  onClose?: () => void;
 }
 
 interface UserSuggestion {
@@ -187,7 +189,7 @@ function SetInput({
   );
 }
 
-export default function AddMatchForm({ myId, today, matchesUrl }: Props) {
+export default function AddMatchForm({ myId, today, matchesUrl, isModal = false, onClose }: Props) {
   const [isDouble, setIsDouble] = useState(false);
 
   const [opponentId, setOpponentId] = useState<number | null>(null);
@@ -324,17 +326,19 @@ export default function AddMatchForm({ myId, today, matchesUrl }: Props) {
   const p2Label = isDouble ? 'Rywal / P' : 'Rywal';
 
   return (
-    <div className="add-wrap">
-      <div className="add-header">
-        <h1 className="add-title">Dodaj mecz towarzyski</h1>
-        <p className="add-subtitle">Zapisz wynik rozegranego meczu.</p>
-      </div>
+    <div className={isModal ? '' : 'add-wrap'}>
+      {!isModal && (
+        <div className="add-header">
+          <h1 className="add-title">Dodaj mecz towarzyski</h1>
+          <p className="add-subtitle">Zapisz wynik rozegranego meczu.</p>
+        </div>
+      )}
 
       {generalError && (
         <div className="add-alert add-alert--err" role="alert">{generalError}</div>
       )}
 
-      <div className="tc-card add-card">
+      <div className={isModal ? '' : 'tc-card add-card'}>
         <form onSubmit={handleSubmit} noValidate>
 
           <div className="af-field">
@@ -415,7 +419,11 @@ export default function AddMatchForm({ myId, today, matchesUrl }: Props) {
           </div>
 
           <div className="af-actions">
-            <a href={matchesUrl} className="tc-btn tc-btn-ghost">Anuluj</a>
+            {isModal ? (
+              <button type="button" className="tc-btn tc-btn-ghost" onClick={onClose}>Anuluj</button>
+            ) : (
+              <a href={matchesUrl} className="tc-btn tc-btn-ghost">Anuluj</a>
+            )}
             <button type="submit" className="tc-btn tc-btn-primary" disabled={loading}>
               {loading ? 'Zapisuję…' : 'Zapisz mecz'}
             </button>

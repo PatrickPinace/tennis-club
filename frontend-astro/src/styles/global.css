@@ -538,3 +538,52 @@ select.tc-input { cursor: pointer; }
 .tc-empty__icon { font-size: 2rem; opacity: 0.35; }
 .tc-empty__title { font-size: var(--fs-lg); font-weight: 600; color: var(--tc-ink); }
 .tc-empty__text { font-size: var(--fs-base); max-width: 34ch; line-height: 1.6; }
+
+/* ── Modal popup (shared) ────────────────────────────────────────────────────
+   Używany przez: CourtReservations (rezerwacja), MatchHistory (dodaj mecz),
+   EditPopup (edycja rezerwacji). Przeniesiony z reservations.astro do global.
+   ─────────────────────────────────────────────────────────────────────────── */
+.res-popup-backdrop {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; animation: fadeIn 0.15s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.res-popup {
+  background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+  border-radius: 14px; padding: 0;
+  width: 100%; max-width: 480px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+  animation: slideUp 0.18s ease; overflow: hidden;
+}
+@keyframes slideUp { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+.res-popup__header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 20px 20px 16px; border-bottom: 1px solid var(--tc-card-border);
+}
+.res-popup__title { font-size: 0.95rem; font-weight: 700; color: var(--tc-ink); }
+.res-popup__subtitle { font-size: 0.78rem; color: var(--tc-muted); margin-top: 2px; }
+.res-popup__close {
+  background: none; border: none; cursor: pointer; color: var(--tc-muted);
+  padding: 2px; border-radius: 4px; display: flex; transition: color 0.12s;
+}
+.res-popup__close:hover { color: var(--tc-ink); }
+.res-popup__body { padding: 24px 24px 20px; }
+.res-popup__actions { display: flex; gap: 10px; padding: 16px 20px 20px; }
+.res-popup__msg {
+  margin: 0 20px 16px; padding: 9px 12px; border-radius: 7px;
+  font-size: 0.82rem; font-weight: 600; line-height: 1.4;
+  display: flex; align-items: center; gap: 6px;
+}
+.res-popup__msg--error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: var(--tc-hot); }
+.res-popup__msg--conflict { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.3); color: #ca8a04; }
+
+@media (max-width: 640px) {
+  .res-popup-backdrop { padding: 8px; align-items: flex-end; }
+  .res-popup { border-radius: 14px 14px 0 0; max-height: 90vh; overflow-y: auto; }
+}

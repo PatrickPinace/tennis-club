@@ -156,6 +156,8 @@ const matches = isLive ? rawMatches.map(mapMatch) : [];
     matches={matches}
     userDisplayName={userDisplayName}
     addMatchUrl={url('/matches/add')}
+    myId={currentUser?.id}
+    today={new Date().toISOString().slice(0, 10)}
   />
 </AppLayout>
 
