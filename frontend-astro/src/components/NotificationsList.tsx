@@ -5,6 +5,7 @@ interface NotificationItem {
   message: string;
   created_at: string;
   is_read: boolean;
+  target_url: string | null;
 }
 
 interface Props {
@@ -70,21 +71,30 @@ export default function NotificationsList({ notifications: initial, initialUnrea
     const api = getApiBase();
     const csrf = await getCsrf(api);
     try {
-      const r = await fetch(`${api}/api/notifications/${id}/read/`, {
+      await fetch(`${api}/api/notifications/${id}/read/`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
-      });
-      if (!r.ok) return;
-      setItems(prev => {
-        const next = prev.map(n => n.id === id ? { ...n, is_read: true } : n);
-        updateTopbarBadge(next.filter(n => !n.is_read).length);
-        return next;
       });
     } catch (e) {
       console.error('[notif] markRead error', e);
     }
   }, []);
+
+  const handleItemClick = useCallback(async (n: NotificationItem) => {
+    if (!n.is_read) {
+      // Optimistic update
+      setItems(prev => {
+        const next = prev.map(x => x.id === n.id ? { ...x, is_read: true } : x);
+        updateTopbarBadge(next.filter(x => !x.is_read).length);
+        return next;
+      });
+      markRead(n.id);
+    }
+    if (n.target_url) {
+      window.location.href = n.target_url;
+    }
+  }, [markRead]);
 
   const readAll = useCallback(async () => {
     const api = getApiBase();
@@ -140,7 +150,12 @@ export default function NotificationsList({ notifications: initial, initialUnrea
           {items.map(n => (
             <li
               key={n.id}
-              className={`notif-item${n.is_read ? '' : ' notif-item--unread'}`}
+              className={`notif-item${n.is_read ? '' : ' notif-item--unread'}${n.target_url ? ' notif-item--link' : ''}`}
+              onClick={() => handleItemClick(n)}
+              style={{ cursor: (n.target_url || !n.is_read) ? 'pointer' : 'default' }}
+              role={n.target_url ? 'link' : undefined}
+              tabIndex={n.target_url ? 0 : undefined}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleItemClick(n); }}
             >
               <div className="notif-item__dot" aria-hidden="true" />
               <div className="notif-item__body">
@@ -149,11 +164,11 @@ export default function NotificationsList({ notifications: initial, initialUnrea
                   {fmtTime(n.created_at)}
                 </time>
               </div>
-              {!n.is_read && (
+              {!n.is_read && !n.target_url && (
                 <button
                   className="notif-item__mark-btn"
                   type="button"
-                  onClick={() => markRead(n.id)}
+                  onClick={e => { e.stopPropagation(); markRead(n.id); setItems(prev => { const next = prev.map(x => x.id === n.id ? { ...x, is_read: true } : x); updateTopbarBadge(next.filter(x => !x.is_read).length); return next; }); }}
                   title="Oznacz jako przeczytane"
                   aria-label="Oznacz jako przeczytane"
                 >

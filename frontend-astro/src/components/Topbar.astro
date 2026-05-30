@@ -486,6 +486,8 @@ const {
   :global(.topbar__notif-item--unread:hover) {
     background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
   }
+  :global(.topbar__notif-item--link:hover) { background: var(--tc-overlay); }
+  :global(.topbar__notif-item--link:focus-visible) { outline: 2px solid var(--tc-accent); outline-offset: -2px; }
 
   :global(.topbar__notif-footer) {
     padding: 9px 16px;

@@ -12,13 +12,14 @@ from django.contrib.auth.models import User
 logger = logging.getLogger(__name__)
 
 
-def notify(user: User, message: str) -> None:
+def notify(user: User, message: str, target_url: str | None = None) -> None:
     """
     Tworzy notyfikację dla podanego użytkownika.
 
     - Nie rzuca wyjątku — awaria notyfikacji nie blokuje głównej akcji.
     - Nie wysyła do anonimów (brak user.pk lub is_authenticated=False).
     - Ogranicza message do 255 znaków (limit modelu).
+    - target_url: opcjonalny deep link (np. '/tournaments/42'); max 500 znaków.
     """
     if not user or not getattr(user, 'pk', None):
         return
@@ -27,6 +28,7 @@ def notify(user: User, message: str) -> None:
         Notifications.objects.create(
             user=user,
             message=message[:255],
+            target_url=target_url[:500] if target_url else None,
         )
     except Exception:
         logger.exception('notify(): failed to create notification for user_id=%s', getattr(user, 'pk', '?'))

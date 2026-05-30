@@ -658,7 +658,7 @@ class RoundRobinMatchScoreView(APIView):
                         f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
                         f'Wygrał: {_winner_name or "?"}.'
                     )
-                notify(_slot.user, _msg)
+                notify(_slot.user, _msg, target_url=f'/tournaments/{tournament.pk}')
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
@@ -1582,7 +1582,7 @@ class TournamentStatusView(APIView):
             for _p in _participants:
                 # Nie notyfikuj organizatora o własnej akcji
                 if _p.user and _p.user.pk != request.user.pk:
-                    notify(_p.user, _msg)
+                    notify(_p.user, _msg, target_url=f'/tournaments/{tournament.pk}')
 
         response_data = {
             'id': tournament.pk,
@@ -2548,6 +2548,7 @@ class LadderChallengeView(APIView):
                 challenged.user,
                 f'🎾 {challenger.display_name} rzucił Ci wyzwanie w turnieju „{tournament.name}". '
                 f'Zaakceptuj lub odrzuć wyzwanie.',
+                target_url=f'/tournaments/{tournament.pk}',
             )
 
         return Response({
@@ -2639,6 +2640,7 @@ class LadderChallengeActionView(APIView):
                     challenger.user,
                     f'✅ {challenged.display_name if challenged else "Przeciwnik"} zaakceptował Twoje wyzwanie '
                     f'w turnieju „{tournament.name}". Czas grać!',
+                    target_url=f'/tournaments/{tournament.pk}',
                 )
             return Response({
                 'match_id': match.pk,
@@ -2669,6 +2671,7 @@ class LadderChallengeActionView(APIView):
                 challenger.user,
                 f'❌ {challenged.display_name if challenged else "Przeciwnik"} odrzucił Twoje wyzwanie '
                 f'w turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
             )
         return Response({
             'match_id': match.pk,

@@ -5,6 +5,7 @@ interface Notification {
   message: string;
   created_at: string;
   is_read: boolean;
+  target_url: string | null;
 }
 
 interface Props {
@@ -90,16 +91,25 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
 
   const markRead = async (id: number) => {
     try {
-      const res = await fetch(`/api/notifications/${id}/read/`, {
+      await fetch(`/api/notifications/${id}/read/`, {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
       });
-      if (res.ok) {
-        setNotifications(prev => prev?.map(n => n.id === id ? { ...n, is_read: true } : n) ?? null);
-        setUnreadCount(c => Math.max(0, c - 1));
-      }
     } catch {}
+  };
+
+  const handleItemClick = (n: Notification) => {
+    if (!n.is_read) {
+      // Optimistic update
+      setNotifications(prev => prev?.map(x => x.id === n.id ? { ...x, is_read: true } : x) ?? null);
+      setUnreadCount(c => Math.max(0, c - 1));
+      markRead(n.id);
+    }
+    if (n.target_url) {
+      setOpen(false);
+      window.location.href = n.target_url;
+    }
   };
 
   const readAll = async () => {
@@ -156,9 +166,12 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
                 {notifications.map(n => (
                   <div
                     key={n.id}
-                    className={`topbar__notif-item${n.is_read ? '' : ' topbar__notif-item--unread'}`}
-                    onClick={() => !n.is_read && markRead(n.id)}
-                    style={{ cursor: n.is_read ? 'default' : 'pointer' }}
+                    className={`topbar__notif-item${n.is_read ? '' : ' topbar__notif-item--unread'}${n.target_url ? ' topbar__notif-item--link' : ''}`}
+                    onClick={() => handleItemClick(n)}
+                    style={{ cursor: (n.target_url || !n.is_read) ? 'pointer' : 'default' }}
+                    role={n.target_url ? 'link' : undefined}
+                    tabIndex={n.target_url ? 0 : undefined}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleItemClick(n); }}
                   >
                     <div className="topbar__notif-dot" />
                     <div className="topbar__notif-body">

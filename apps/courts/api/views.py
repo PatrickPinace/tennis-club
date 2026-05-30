@@ -244,6 +244,7 @@ class CreateReservationView(APIView):
                 notify(
                     _owner,
                     f'🎾 Nowa rezerwacja od {_user_name} ({_court_label}, {_date_str}) oczekuje na Twoją akceptację.',
+                    target_url='/courts/reservations',
                 )
 
             return Response({
@@ -314,6 +315,7 @@ class CreateReservationView(APIView):
             notify(
                 _owner,
                 f'🎾 Nowa seria {len(reservations)} rezerwacji od {_user_name} ({_court_label}, pierwsza: {_first_str}) oczekuje na akceptację.',
+                target_url='/courts/reservations',
             )
 
         return Response({
@@ -379,6 +381,7 @@ class CancelReservationView(APIView):
             notify(
                 _owner,
                 f'❌ {_user_name} anulował rezerwację ({_court_label}, {_date_str}).',
+                target_url='/courts/reservations',
             )
 
         return Response(status=http_status.HTTP_204_NO_CONTENT)
@@ -487,11 +490,13 @@ class ReservationStatusView(APIView):
                 notify(
                     reservation.user,
                     f'✅ Twoja rezerwacja ({_court_label}, {_date_str}) została potwierdzona.',
+                    target_url='/courts/reservations',
                 )
             else:
                 notify(
                     reservation.user,
                     f'❌ Twoja rezerwacja ({_court_label}, {_date_str}) została odrzucona.',
+                    target_url='/courts/reservations',
                 )
 
         return Response({
@@ -548,6 +553,7 @@ class CancelSeriesView(APIView):
             notify(
                 _owner,
                 f'❌ {_user_name} anulował serię {count} rezerwacji ({_court_label}, pierwsza: {_first_str}).',
+                target_url='/courts/reservations',
             )
 
         return Response({'cancelled': count}, status=http_status.HTTP_200_OK)
