@@ -441,6 +441,22 @@ def calculate_round_robin_standings(tournament, participants, config):
     return standings_list
 
 
+def _head_to_head_score(participant_id, group_ids, head_wins):
+    """
+    Oblicza bilans bezpośrednich meczów uczestnika wyłącznie w obrębie grupy remisowej.
+    Zwraca (wins, losses) — tylko mecze między uczestnikami z grupy.
+    """
+    wins = sum(
+        1 for opp_id in group_ids
+        if opp_id != participant_id and head_wins.get(participant_id, {}).get(opp_id) is True
+    )
+    losses = sum(
+        1 for opp_id in group_ids
+        if opp_id != participant_id and head_wins.get(participant_id, {}).get(opp_id) is False
+    )
+    return wins, losses
+
+
 def _sort_standings(standings_list, tie_breaker_priority, head_wins):
     """
     Sortuje standings_list według:
@@ -448,28 +464,29 @@ def _sort_standings(standings_list, tie_breaker_priority, head_wins):
       2. kryterium tie_breaker_priority
       3. fallback
 
-    SETS  → sets_diff → games_diff
-    GAMES → games_diff → sets_diff
-    HEAD  → bezpośredni mecz (tylko dla remisu 2 zawodników); fallback: sets_diff → games_diff
+    SETS  → sets_diff → games_diff → participant.id (stabilny sort)
+    GAMES → games_diff → sets_diff → participant.id
+    HEAD  → bilans bezpośrednich meczów wewnątrz grupy remisowej (2-way i ≥3-way),
+            fallback: sets_diff → games_diff → participant.id
     """
     if tie_breaker_priority == 'SETS':
         standings_list.sort(
-            key=lambda x: (x['points'], x['sets_diff'], x['games_diff']),
+            key=lambda x: (x['points'], x['sets_diff'], x['games_diff'], -x['participant'].id),
             reverse=True,
         )
         return standings_list
 
     if tie_breaker_priority == 'GAMES':
         standings_list.sort(
-            key=lambda x: (x['points'], x['games_diff'], x['sets_diff']),
+            key=lambda x: (x['points'], x['games_diff'], x['sets_diff'], -x['participant'].id),
             reverse=True,
         )
         return standings_list
 
     # HEAD (lub nieznana wartość — traktuj jak HEAD)
-    # Krok 1: sort wstępny po points, sets_diff, games_diff
+    # Krok 1: sort wstępny po points, sets_diff, games_diff (stabilny fallback)
     standings_list.sort(
-        key=lambda x: (x['points'], x['sets_diff'], x['games_diff']),
+        key=lambda x: (x['points'], x['sets_diff'], x['games_diff'], -x['participant'].id),
         reverse=True,
     )
 
@@ -482,22 +499,43 @@ def _sort_standings(standings_list, tie_breaker_priority, head_wins):
             j += 1
         group = standings_list[i:j]
 
-        if len(group) == 2:
-            # Sprawdź bezpośredni mecz
-            id_a = group[0]['participant'].id
-            id_b = group[1]['participant'].id
-            a_beat_b = head_wins.get(id_a, {}).get(id_b)
-            if a_beat_b is True:
-                result.extend([group[0], group[1]])
-            elif a_beat_b is False:
-                result.extend([group[1], group[0]])
-            else:
-                # Brak bezpośredniego meczu między nimi — fallback (wstępny sort już jest)
-                result.extend(group)
-        else:
-            # ≥3 z tymi samymi punktami — HEAD niejednoznaczny, zostaje sort wstępny
+        if len(group) == 1:
             result.extend(group)
+            i = j
+            continue
 
+        # Dla 2-way i ≥3-way: oblicz bilans wewnętrznych meczów każdego uczestnika
+        group_ids = [row['participant'].id for row in group]
+        head_scores = {
+            pid: _head_to_head_score(pid, group_ids, head_wins)
+            for pid in group_ids
+        }
+
+        # Sprawdź, czy wszyscy mają choć jeden znany wynik wewnątrzgrupowy
+        # (jeśli nie — brak danych do HEAD, zostaje sort wstępny)
+        has_any_head_data = any(
+            w + l > 0 for w, l in head_scores.values()
+        )
+
+        if not has_any_head_data:
+            # Żaden mecz wewnątrzgrupowy nie jest znany — zostaje sort wstępny
+            result.extend(group)
+            i = j
+            continue
+
+        # Sortuj grupę po: head_wins desc, head_losses asc, sets_diff desc, games_diff desc, id
+        group_sorted = sorted(
+            group,
+            key=lambda row: (
+                head_scores[row['participant'].id][0],   # wygrane wewnętrzne (malejąco)
+                -head_scores[row['participant'].id][1],  # przegrane wewnętrzne (rosnąco)
+                row['sets_diff'],
+                row['games_diff'],
+                -row['participant'].id,
+            ),
+            reverse=True,
+        )
+        result.extend(group_sorted)
         i = j
 
     return result
