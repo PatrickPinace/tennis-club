@@ -16,6 +16,7 @@ interface MyRank {
   matches_won: number | string;
   matches_played: number | string;
   win_rate: number | null;
+  display_name: string | null;
 }
 
 interface Props {
@@ -182,6 +183,7 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: 
         if (!ranking || ranking.position == null) return;
         setMyRank({
           position: ranking.position,
+          display_name: ranking.display_name ?? null,
           points: ranking.points ?? '—',
           matches_won: ranking.matches_won ?? '—',
           matches_played: ranking.matches_played ?? '—',
@@ -278,7 +280,7 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: 
               <PlayerRow
                 key={`${matchType}-${p.display_name}-${i}`}
                 player={{ ...p, position: i + 1 }}
-                isMe={myRank?.position === p.position}
+                isMe={myRank?.display_name != null && myRank.display_name === p.display_name}
               />
             ))
           )}
