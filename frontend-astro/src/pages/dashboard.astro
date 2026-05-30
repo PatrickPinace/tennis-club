@@ -106,7 +106,7 @@ function matchOpponent(m: MatchHistoryEntry): string {
   return [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
 }
 
-const recentActivity = matchHistoryRaw.slice(0, 3).map(m => {
+const recentActivity = matchHistoryRaw.slice(0, 5).map(m => {
   const isWin  = m.user === 'user-win';
   const isDraw = m.user === 'user-draw';
   const result = isWin ? 'win' : isDraw ? 'neutral' : 'loss';
@@ -405,9 +405,6 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .rk-stat__value--accent { color: var(--tc-accent); }
 
   .bento-reservation--dashed {
-    border-style: dashed;
-    border-color: var(--tc-card-border);
-    background: transparent;
     padding: 16px 20px;
   }
 
