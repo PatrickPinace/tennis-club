@@ -551,3 +551,208 @@ class CancelSeriesView(APIView):
             )
 
         return Response({'cancelled': count}, status=http_status.HTTP_200_OK)
+
+
+class EditReservationView(APIView):
+    """
+    PATCH /api/courts/reservations/<id>/edit/
+
+    Edytuje pojedynczą przyszłą rezerwację zalogowanego użytkownika.
+
+    Body (JSON):
+      start_time — str 'HH:MM', wymagane
+      end_time   — str 'HH:MM', wymagane
+      court_id   — int, opcjonalne (domyślnie bieżący kort)
+
+    Reguły:
+      - Tylko właściciel rezerwacji.
+      - Tylko przyszłe (start_time > teraz).
+      - Dozwolone statusy: PENDING, CONFIRMED.
+      - Walidacja jak przy tworzeniu: 08:00–21:00, siatka 30 min, end > start, brak konfliktu.
+      - Jeśli court_id podany, kort musi należeć do tego samego facility.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            reservation = Reservation.objects.select_related('court__facility').get(pk=pk)
+        except Reservation.DoesNotExist:
+            return Response({'detail': 'Rezerwacja nie istnieje.'}, status=http_status.HTTP_404_NOT_FOUND)
+
+        if reservation.user_id != request.user.pk:
+            return Response({'detail': 'Brak uprawnień.'}, status=http_status.HTTP_403_FORBIDDEN)
+
+        if reservation.status not in ('PENDING', 'CONFIRMED'):
+            return Response({'detail': 'Nie można edytować rezerwacji o tym statusie.'}, status=http_status.HTTP_409_CONFLICT)
+
+        now = tz.now()
+        if reservation.start_time <= now:
+            return Response({'detail': 'Nie można edytować rezerwacji, która już się rozpoczęła lub minęła.'}, status=http_status.HTTP_409_CONFLICT)
+
+        start_str = request.data.get('start_time')
+        end_str   = request.data.get('end_time')
+        court_id  = request.data.get('court_id')
+
+        if not start_str or not end_str:
+            return Response({'detail': 'Wymagane pola: start_time, end_time.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_time = datetime.strptime(start_str, '%H:%M').time()
+            end_time   = datetime.strptime(end_str,   '%H:%M').time()
+        except ValueError:
+            return Response({'detail': 'Nieprawidłowy format czasu (HH:MM).'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        if start_time.minute % 30 != 0 or end_time.minute % 30 != 0:
+            return Response({'detail': 'Godziny muszą być wyrównane do siatki 30 min.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        if start_time.hour < GRID_START or end_time.hour > GRID_END or (end_time.hour == GRID_END and end_time.minute > 0):
+            return Response({'detail': f'Rezerwacje możliwe tylko w godzinach {GRID_START:02d}:00–{GRID_END:02d}:00.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        res_date = reservation.start_time.date()
+        start_dt = datetime.combine(res_date, start_time)
+        end_dt   = datetime.combine(res_date, end_time)
+
+        if start_dt >= end_dt:
+            return Response({'detail': 'Godzina zakończenia musi być późniejsza niż rozpoczęcia.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Wybór kortu
+        court = reservation.court
+        if court_id and int(court_id) != court.id:
+            try:
+                new_court = Court.objects.select_related('facility').get(pk=court_id)
+            except Court.DoesNotExist:
+                return Response({'detail': 'Kort nie istnieje.'}, status=http_status.HTTP_404_NOT_FOUND)
+            if new_court.facility_id != court.facility_id:
+                return Response({'detail': 'Nowy kort musi należeć do tego samego obiektu.'}, status=http_status.HTTP_400_BAD_REQUEST)
+            court = new_court
+
+        # Sprawdź konflikt (pomiń bieżącą rezerwację)
+        conflict = Reservation.objects.filter(
+            court=court,
+            start_time__lt=end_dt,
+            end_time__gt=start_dt,
+        ).exclude(status__in=['REJECTED', 'CHANGED']).exclude(pk=reservation.pk)
+        if conflict.exists():
+            return Response({'detail': 'Ten slot jest już zajęty. Wybierz inny termin.'}, status=http_status.HTTP_409_CONFLICT)
+
+        reservation.start_time = start_dt
+        reservation.end_time   = end_dt
+        reservation.court      = court
+        reservation.status     = 'PENDING'  # reset do PENDING po edycji
+        reservation.save(update_fields=['start_time', 'end_time', 'court', 'status'])
+
+        return Response({
+            'id': reservation.id,
+            'start_time': reservation.start_time.isoformat(),
+            'end_time':   reservation.end_time.isoformat(),
+            'court_id':   reservation.court.id,
+            'status':     reservation.status,
+        }, status=http_status.HTTP_200_OK)
+
+
+class EditSeriesView(APIView):
+    """
+    PATCH /api/courts/series/<series_uuid>/edit/
+
+    Edytuje godzinę wszystkich przyszłych rezerwacji z serii.
+
+    Body (JSON):
+      start_time — str 'HH:MM', wymagane
+      end_time   — str 'HH:MM', wymagane
+      court_id   — int, opcjonalne (zmienia kort dla wszystkich przyszłych)
+
+    Reguły:
+      - Tylko właściciel serii.
+      - Edytuje tylko przyszłe wystąpienia (start_time > teraz).
+      - Walidacja jak przy tworzeniu dla każdego wystąpienia.
+      - Atomowe — jeśli którekolwiek wystąpienie ma konflikt, cała edycja jest odrzucana.
+      - Po edycji statusy przyszłych rezerwacji wracają do PENDING.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, series_uuid):
+        try:
+            series_id = uuid.UUID(str(series_uuid))
+        except ValueError:
+            return Response({'detail': 'Nieprawidłowy identyfikator serii.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        now = tz.now()
+        future_qs = Reservation.objects.filter(
+            series_id=series_id,
+            user=request.user,
+            start_time__gt=now,
+            status__in=['PENDING', 'CONFIRMED'],
+        ).select_related('court__facility').order_by('start_time')
+
+        if not future_qs.exists():
+            return Response({'detail': 'Brak przyszłych rezerwacji tej serii do edycji.'}, status=http_status.HTTP_404_NOT_FOUND)
+
+        start_str = request.data.get('start_time')
+        end_str   = request.data.get('end_time')
+        court_id  = request.data.get('court_id')
+
+        if not start_str or not end_str:
+            return Response({'detail': 'Wymagane pola: start_time, end_time.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        try:
+            new_start_time = datetime.strptime(start_str, '%H:%M').time()
+            new_end_time   = datetime.strptime(end_str,   '%H:%M').time()
+        except ValueError:
+            return Response({'detail': 'Nieprawidłowy format czasu (HH:MM).'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        if new_start_time.minute % 30 != 0 or new_end_time.minute % 30 != 0:
+            return Response({'detail': 'Godziny muszą być wyrównane do siatki 30 min.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        if new_start_time.hour < GRID_START or new_end_time.hour > GRID_END or (new_end_time.hour == GRID_END and new_end_time.minute > 0):
+            return Response({'detail': f'Rezerwacje możliwe tylko w godzinach {GRID_START:02d}:00–{GRID_END:02d}:00.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        if new_start_time >= new_end_time:
+            return Response({'detail': 'Godzina zakończenia musi być późniejsza niż rozpoczęcia.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Walidacja kortu (jeśli zmiana)
+        first_res = future_qs.first()
+        base_court = first_res.court
+        new_court = base_court
+
+        if court_id and int(court_id) != base_court.id:
+            try:
+                new_court = Court.objects.select_related('facility').get(pk=court_id)
+            except Court.DoesNotExist:
+                return Response({'detail': 'Kort nie istnieje.'}, status=http_status.HTTP_404_NOT_FOUND)
+            if new_court.facility_id != base_court.facility_id:
+                return Response({'detail': 'Nowy kort musi należeć do tego samego obiektu.'}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Atomowe sprawdzenie konfliktów dla wszystkich przyszłych wystąpień
+        future_ids = list(future_qs.values_list('id', flat=True))
+        conflict_dates = []
+        for res in future_qs:
+            res_date = res.start_time.date()
+            new_start_dt = datetime.combine(res_date, new_start_time)
+            new_end_dt   = datetime.combine(res_date, new_end_time)
+            conflict = Reservation.objects.filter(
+                court=new_court,
+                start_time__lt=new_end_dt,
+                end_time__gt=new_start_dt,
+            ).exclude(status__in=['REJECTED', 'CHANGED']).exclude(pk__in=future_ids)
+            if conflict.exists():
+                conflict_dates.append(res_date.strftime('%d.%m.%Y'))
+
+        if conflict_dates:
+            dates_str = ', '.join(conflict_dates)
+            return Response(
+                {'detail': f'Nie można edytować serii — konflikty w terminach: {dates_str}.'},
+                status=http_status.HTTP_409_CONFLICT,
+            )
+
+        # Zastosuj zmiany
+        updated = 0
+        for res in future_qs:
+            res_date = res.start_time.date()
+            res.start_time = datetime.combine(res_date, new_start_time)
+            res.end_time   = datetime.combine(res_date, new_end_time)
+            res.court      = new_court
+            res.status     = 'PENDING'
+            res.save(update_fields=['start_time', 'end_time', 'court', 'status'])
+            updated += 1
+
+        return Response({'updated': updated}, status=http_status.HTTP_200_OK)

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 
 interface MyReservation {
   id: number;
+  courtId: number | null;
   court: string;
   facility: string;
   date: string;
@@ -11,7 +12,7 @@ interface MyReservation {
   startIso: string;
   endIso: string;
   status: 'pending' | 'confirmed' | 'rejected';
-  seriesId: number | null;
+  seriesId: string | null;
 }
 
 interface PendingEntry {
@@ -47,6 +48,19 @@ interface PopupSlot {
   date: string;
   startTime: string;
   endTime: string;
+}
+
+interface Facility {
+  id: number;
+  name: string;
+}
+
+interface EditTarget {
+  reservationId: number;
+  seriesId: string | null;
+  startTime: string; // HH:MM
+  endTime: string;   // HH:MM
+  courtId: number;
 }
 
 interface Props {
@@ -464,10 +478,12 @@ function ManagerPanel({
 function MyReservationsList({
   reservations,
   onCancelled,
+  onEdit,
   showToast: toastFn,
 }: {
   reservations: MyReservation[];
   onCancelled: () => void;
+  onEdit: (target: EditTarget) => void;
   showToast: (msg: string, type: string) => void;
 }) {
   const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
@@ -551,6 +567,15 @@ function MyReservationsList({
               </div>
               <div className="rv-res-court">{r.court}{r.facility ? ` · ${r.facility}` : ''}</div>
               {!isConfirming && <span className={`rv-badge ${cfg.cls}`}>{cfg.label}</span>}
+              {!isConfirming && cfg.canCancel && r.courtId !== null && (
+                <button className="rv-edit-btn" onClick={() => onEdit({
+                  reservationId: r.id,
+                  seriesId: r.seriesId,
+                  startTime: fmtTimeStr(r.startIso),
+                  endTime: fmtTimeStr(r.endIso),
+                  courtId: r.courtId!,
+                })}>Edytuj</button>
+              )}
               {!isConfirming && cfg.canCancel && (
                 <button className="rv-cancel-btn" onClick={() => setCancelConfirmId(r.id)}>Anuluj</button>
               )}
@@ -576,6 +601,172 @@ function MyReservationsList({
   );
 }
 
+/* ── Edit reservation popup ────────────────────────────────────────────── */
+
+function EditPopup({
+  target,
+  onClose,
+  onSaved,
+  showToast,
+}: {
+  target: EditTarget;
+  onClose: () => void;
+  onSaved: () => void;
+  showToast: (msg: string, type: string) => void;
+}) {
+  const [startTime, setStartTime] = useState(target.startTime);
+  const [endTime, setEndTime] = useState(target.endTime);
+  const [scope, setScope] = useState<'single' | 'series'>('single');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const handleSave = async () => {
+    setLoading(true);
+    setError(null);
+
+    const body = { start_time: startTime, end_time: endTime, court_id: target.courtId };
+    const isSeriesEdit = scope === 'series' && target.seriesId;
+    const url = isSeriesEdit
+      ? `/api/courts/series/${target.seriesId}/edit/`
+      : `/api/courts/reservations/${target.reservationId}/edit/`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrf() },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        onClose();
+        const msg = isSeriesEdit
+          ? `Zaktualizowano ${data.updated ?? ''} rezerwacji serii.`
+          : 'Rezerwacja zaktualizowana.';
+        showToast(msg, 'success');
+        onSaved();
+      } else if (res.status === 409) {
+        setError(data.detail || 'Konflikt terminu — slot jest już zajęty.');
+      } else {
+        setError(data.detail || `Błąd (${res.status}).`);
+      }
+    } catch {
+      setError('Brak połączenia z serwerem.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="res-popup-backdrop" role="dialog" aria-modal="true" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="res-popup">
+        <div className="res-popup__header">
+          <div>
+            <div className="res-popup__title">Edytuj rezerwację</div>
+            <div className="res-popup__subtitle">Zmień godzinę rezerwacji</div>
+          </div>
+          <button className="res-popup__close" aria-label="Zamknij" onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/></svg>
+          </button>
+        </div>
+
+        <div style={{ padding: '16px 20px 0' }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--tc-sub)', marginBottom: 4 }}>Od</label>
+              <input
+                type="time"
+                step={1800}
+                value={startTime}
+                onChange={e => setStartTime(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--tc-card-border)', background: 'var(--tc-input-bg)', color: 'var(--tc-ink)', fontSize: '0.9rem', boxSizing: 'border-box' as const }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--tc-sub)', marginBottom: 4 }}>Do</label>
+              <input
+                type="time"
+                step={1800}
+                value={endTime}
+                onChange={e => setEndTime(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid var(--tc-card-border)', background: 'var(--tc-input-bg)', color: 'var(--tc-ink)', fontSize: '0.9rem', boxSizing: 'border-box' as const }}
+              />
+            </div>
+          </div>
+
+          {target.seriesId && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--tc-sub)', marginBottom: 6 }}>Zakres zmiany</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setScope('single')}
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: `1px solid ${scope === 'single' ? 'var(--tc-accent)' : 'var(--tc-card-border)'}`, background: scope === 'single' ? 'var(--tc-accent-soft)' : 'var(--tc-chip-bg)', color: scope === 'single' ? 'var(--tc-accent)' : 'var(--tc-sub)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Tylko ta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScope('series')}
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: `1px solid ${scope === 'series' ? 'var(--tc-accent)' : 'var(--tc-card-border)'}`, background: scope === 'series' ? 'var(--tc-accent-soft)' : 'var(--tc-chip-bg)', color: scope === 'series' ? 'var(--tc-accent)' : 'var(--tc-sub)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  Cała przyszła seria
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="res-popup__actions">
+          <button className="tr-btn-primary" style={{ flex: 1, padding: '10px 18px' }} disabled={loading} onClick={handleSave}>
+            {loading ? 'Zapisuję…' : 'Zapisz'}
+          </button>
+          <button className="rv-action-ghost" onClick={onClose}>Anuluj</button>
+        </div>
+
+        {error && (
+          <div className="res-popup__msg res-popup__msg--error" role="alert">
+            <span>✕</span> {error}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Facility picker ────────────────────────────────────────────────────── */
+
+function FacilityPicker({
+  facilities,
+  selectedId,
+  onSelect,
+}: {
+  facilities: Facility[];
+  selectedId: number | null;
+  onSelect: (id: number) => void;
+}) {
+  if (facilities.length <= 1) return null;
+  return (
+    <div className="rv-facility-picker">
+      {facilities.map(f => (
+        <button
+          key={f.id}
+          className={`rv-facility-btn${f.id === selectedId ? ' rv-facility-btn--active' : ''}`}
+          onClick={() => onSelect(f.id)}
+        >
+          {f.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /* ── Main component ────────────────────────────────────────────────────── */
 
 export default function CourtReservations({
@@ -596,6 +787,10 @@ export default function CourtReservations({
   const [gridData, setGridData] = useState<CourtData[] | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const facilityIdRef = useRef<number | null>(null);
+
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [selectedFacilityId, setSelectedFacilityId] = useState<number | null>(null);
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   const [popupSlot, setPopupSlot] = useState<PopupSlot | null>(null);
   const [popupLoading, setPopupLoading] = useState(false);
@@ -665,6 +860,7 @@ export default function CourtReservations({
       const now = new Date();
       setMyReservations(list.map((r: any) => ({
         id: r.id,
+        courtId: r.court_id ?? null,
         court: r.court_name ?? 'Kort',
         facility: r.facility_name ?? '',
         date: fmtDateShort(r.start_time),
@@ -684,11 +880,13 @@ export default function CourtReservations({
       try {
         const res = await fetch('/api/courts/facilities/', { credentials: 'include' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const facilities = await res.json();
-        if (!facilities || facilities.length === 0) { setGridState('empty'); return; }
-        facilityIdRef.current = facilities[0].id;
-        // Load timeline with todayIso directly (currentDate might not be set yet)
-        const tRes = await fetch(`/api/courts/timeline/${facilities[0].id}/?date=${todayIso}`, { credentials: 'include' });
+        const facilityList: Facility[] = await res.json();
+        if (!facilityList || facilityList.length === 0) { setGridState('empty'); return; }
+        setFacilities(facilityList);
+        const firstId = facilityList[0].id;
+        facilityIdRef.current = firstId;
+        setSelectedFacilityId(firstId);
+        const tRes = await fetch(`/api/courts/timeline/${firstId}/?date=${todayIso}`, { credentials: 'include' });
         if (!tRes.ok) throw new Error(`HTTP ${tRes.status}`);
         const tData: TimelineData = await tRes.json();
         if (!tData.courts || tData.courts.length === 0) { setGridState('empty'); return; }
@@ -788,6 +986,12 @@ export default function CourtReservations({
     loadTimeline();
   };
 
+  const handleFacilitySelect = (id: number) => {
+    facilityIdRef.current = id;
+    setSelectedFacilityId(id);
+    loadTimeline(currentDate);
+  };
+
   const colTemplate = `120px repeat(${SLOTS.length}, minmax(34px, 1fr))`;
   const isToday = currentDate === todayIso;
 
@@ -824,6 +1028,13 @@ export default function CourtReservations({
           <div className="rv-stat__sub">rezerwacji łącznie</div>
         </div>
       </div>
+
+      {/* Facility picker — widoczny tylko gdy > 1 facility */}
+      <FacilityPicker
+        facilities={facilities}
+        selectedId={selectedFacilityId}
+        onSelect={handleFacilitySelect}
+      />
 
       {/* Week nav */}
       <div className="rv-week-nav">
@@ -921,8 +1132,19 @@ export default function CourtReservations({
       <MyReservationsList
         reservations={myReservations}
         onCancelled={handleReservationCancelled}
+        onEdit={setEditTarget}
         showToast={showToast}
       />
+
+      {/* Edit popup */}
+      {editTarget && (
+        <EditPopup
+          target={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={() => { reloadMyReservations(); loadTimeline(); }}
+          showToast={showToast}
+        />
+      )}
 
       {/* Toast */}
       <Toast message={toastMsg} type={toastType} visible={toastVisible} />
