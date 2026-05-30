@@ -68,7 +68,7 @@ export default function LoginForm({ nextUrl, registerUrl, classicLoginUrl }: Pro
         <div className="auth-field">
           <label className="auth-label" htmlFor="username">Login lub e-mail</label>
           <input
-            className="auth-input"
+            className="tc-input"
             type="text"
             id="username"
             autoComplete="username"
@@ -81,7 +81,7 @@ export default function LoginForm({ nextUrl, registerUrl, classicLoginUrl }: Pro
         <div className="auth-field">
           <label className="auth-label" htmlFor="password">Hasło</label>
           <input
-            className="auth-input"
+            className="tc-input"
             type="password"
             id="password"
             autoComplete="current-password"

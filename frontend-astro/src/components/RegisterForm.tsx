@@ -93,7 +93,7 @@ export default function RegisterForm({ dashboardUrl, loginUrl }: Props) {
   };
 
   const fieldClass = (name: string) =>
-    `auth-input${fieldErrors[name] ? ' input-error' : ''}`;
+    `tc-input${fieldErrors[name] ? ' input-error' : ''}`;
 
   const fieldError = (name: string) =>
     fieldErrors[name]

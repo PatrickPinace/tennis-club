@@ -170,28 +170,7 @@ const { title, subtitle, apiBase, pageTitle } = Astro.props;
     letter-spacing: 0;
   }
 
-  .auth-input {
-    width: 100%;
-    height: 42px;
-    padding: 0 13px;
-    background: var(--tc-chip-bg);
-    border: 1px solid var(--tc-card-border);
-    border-radius: var(--radius-sm);
-    color: var(--tc-ink);
-    font-size: 0.9375rem;
-    font-family: var(--font-sans);
-    transition: border-color 0.15s, box-shadow 0.15s;
-    outline: none;
-  }
-  .auth-input::placeholder { color: var(--tc-muted); }
-  .auth-input:focus {
-    border-color: var(--tc-accent);
-    box-shadow: 0 0 0 3px var(--tc-accent-soft);
-  }
-  .auth-input.input-error {
-    border-color: var(--tc-hot);
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.10);
-  }
+  /* .auth-input — zastąpione przez globalne .tc-input; LoginForm i RegisterForm używają tc-input */
 
   .auth-field-error {
     display: none;
