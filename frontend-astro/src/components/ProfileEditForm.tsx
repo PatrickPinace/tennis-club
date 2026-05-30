@@ -91,7 +91,7 @@ export default function ProfileEditForm({ initialData, profileUrl }: Props) {
   };
 
   const fieldClass = (name: string) =>
-    `edit-input${fieldErrors[name] ? ' input-error' : ''}`;
+    `tc-input${fieldErrors[name] ? ' input-error' : ''}`;
 
   return (
     <div className="edit-wrap">

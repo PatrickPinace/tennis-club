@@ -198,7 +198,8 @@ class RoundRobinMatchScoreView(APIView):
         # ── Pobierz mecz ─────────────────────────────────────────────────────
         try:
             match = TournamentsMatch.objects.select_related(
-                'participant1__user', 'participant2__user'
+                'participant1__user', 'participant2__user',
+                'participant3__user', 'participant4__user',
             ).get(pk=match_pk, tournament=tournament)
         except TournamentsMatch.DoesNotExist:
             return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
@@ -554,6 +555,7 @@ class RoundRobinMatchScoreView(APIView):
                 match.scheduled_time = parsed
 
         # ── Zapisz wynik ─────────────────────────────────────────────────────
+        _old_status = match.status  # zapamiętaj przed save — guard antyspam notyfikacji
         match.set1_p1_score = fields['set1_p1']
         match.set1_p2_score = fields['set1_p2']
         match.set2_p1_score = fields['set2_p1']
@@ -614,13 +616,14 @@ class RoundRobinMatchScoreView(APIView):
                 ).delete()
 
         # ── Notyfikacje o wyniku ─────────────────────────────────────────────
-        # Wysyłamy tylko przy finalnym statusie (CMP lub WDR) — nie przy INP/CNC/re-edit bez zmiany.
-        # Guard: nie powiadamiamy usera który właśnie wpisał wynik.
+        # Wysyłamy tylko gdy status faktycznie zmienił się na finalny (CMP/WDR).
+        # Guard _old_status: re-edit CMP→CMP lub WDR→WDR nie spamuje uczestników.
+        # Guard request.user: nie powiadamiamy usera który właśnie wpisał wynik.
         _final_statuses = (
             TournamentsMatch.Status.COMPLETED.value,
             TournamentsMatch.Status.WALKOVER.value,
         )
-        if match.status in _final_statuses:
+        if match.status in _final_statuses and _old_status != match.status:
             from notifications.helpers import notify
             _score_str = ' '.join(
                 f'{fields[f"set{i}_p1"]}:{fields[f"set{i}_p2"]}'
@@ -630,21 +633,32 @@ class RoundRobinMatchScoreView(APIView):
             _p1 = match.participant1
             _p2 = match.participant2
             _winner_name = winner.display_name if winner else None
-            for _participant in (_p1, _p2):
-                if _participant and _participant.user and _participant.user.pk != request.user.pk:
-                    if match.status == TournamentsMatch.Status.WALKOVER.value:
-                        _msg = (
-                            f'🏆 Walkover w turnieju „{tournament.name}": '
-                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
-                            f'Wygrał: {_winner_name or "?"}.'
-                        )
-                    else:
-                        _msg = (
-                            f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
-                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
-                            f'Wygrał: {_winner_name or "?"}.'
-                        )
-                    notify(_participant.user, _msg)
+
+            # Zbierz unikalnych userów ze wszystkich slotów (p1–p4).
+            # p3/p4 wypełnione tylko przy AMR/MEX deblu — dla singla są None.
+            _seen_user_pks: set = set()
+            for _slot in (match.participant1, match.participant2,
+                          match.participant3, match.participant4):
+                if not (_slot and _slot.user):
+                    continue
+                if _slot.user.pk == request.user.pk:
+                    continue
+                if _slot.user.pk in _seen_user_pks:
+                    continue
+                _seen_user_pks.add(_slot.user.pk)
+                if match.status == TournamentsMatch.Status.WALKOVER.value:
+                    _msg = (
+                        f'🏆 Walkover w turnieju „{tournament.name}": '
+                        f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
+                        f'Wygrał: {_winner_name or "?"}.'
+                    )
+                else:
+                    _msg = (
+                        f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
+                        f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
+                        f'Wygrał: {_winner_name or "?"}.'
+                    )
+                notify(_slot.user, _msg, target_url=f'/tournaments/{tournament.pk}')
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
@@ -1568,7 +1582,7 @@ class TournamentStatusView(APIView):
             for _p in _participants:
                 # Nie notyfikuj organizatora o własnej akcji
                 if _p.user and _p.user.pk != request.user.pk:
-                    notify(_p.user, _msg)
+                    notify(_p.user, _msg, target_url=f'/tournaments/{tournament.pk}')
 
         response_data = {
             'id': tournament.pk,
@@ -2534,6 +2548,7 @@ class LadderChallengeView(APIView):
                 challenged.user,
                 f'🎾 {challenger.display_name} rzucił Ci wyzwanie w turnieju „{tournament.name}". '
                 f'Zaakceptuj lub odrzuć wyzwanie.',
+                target_url=f'/tournaments/{tournament.pk}',
             )
 
         return Response({
@@ -2625,6 +2640,7 @@ class LadderChallengeActionView(APIView):
                     challenger.user,
                     f'✅ {challenged.display_name if challenged else "Przeciwnik"} zaakceptował Twoje wyzwanie '
                     f'w turnieju „{tournament.name}". Czas grać!',
+                    target_url=f'/tournaments/{tournament.pk}',
                 )
             return Response({
                 'match_id': match.pk,
@@ -2655,6 +2671,7 @@ class LadderChallengeActionView(APIView):
                 challenger.user,
                 f'❌ {challenged.display_name if challenged else "Przeciwnik"} odrzucił Twoje wyzwanie '
                 f'w turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
             )
         return Response({
             'match_id': match.pk,

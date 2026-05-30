@@ -124,6 +124,8 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
     border-left: 3px solid var(--tc-accent);
     padding-left: 17px;
   }
+  .notif-item--link:hover { background: var(--tc-overlay); }
+  .notif-item--link:focus-visible { outline: 2px solid var(--tc-accent); outline-offset: -2px; }
   .notif-item--unread .notif-item__dot {
     background: var(--tc-accent);
   }

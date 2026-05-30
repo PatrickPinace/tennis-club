@@ -44,7 +44,7 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
     const v1p1 = getVal(sets.p1_set1), v1p2 = getVal(sets.p2_set1);
     if (v1p1 === null || v1p2 === null || v1p1 < 0 || v1p2 < 0) {
       setMsg('Set 1 jest wymagany — wpisz wynik dla obu stron.');
-      setMsgColor('var(--danger)');
+      setMsgColor('var(--tc-hot)');
       setLoading(false);
       return;
     }
@@ -52,7 +52,7 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
     const v2p1 = getVal(sets.p1_set2), v2p2 = getVal(sets.p2_set2);
     if ((v2p1 === null) !== (v2p2 === null) || (v2p1 !== null && v2p1 < 0) || (v2p2 !== null && v2p2 < 0)) {
       setMsg('Wpisz wynik dla obu stron w secie 2.');
-      setMsgColor('var(--danger)');
+      setMsgColor('var(--tc-hot)');
       setLoading(false);
       return;
     }
@@ -60,7 +60,7 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
     const v3p1 = getVal(sets.p1_set3), v3p2 = getVal(sets.p2_set3);
     if ((v3p1 === null) !== (v3p2 === null) || (v3p1 !== null && v3p1 < 0) || (v3p2 !== null && v3p2 < 0)) {
       setMsg('Wpisz wynik dla obu stron w secie 3.');
-      setMsgColor('var(--danger)');
+      setMsgColor('var(--tc-hot)');
       setLoading(false);
       return;
     }
@@ -92,12 +92,12 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
       } else {
         const err = await res.json().catch(() => ({}));
         setMsg(err.detail || Object.values(err)[0] || `Błąd ${res.status}`);
-        setMsgColor('var(--danger)');
+        setMsgColor('var(--tc-hot)');
         setLoading(false);
       }
     } catch {
       setMsg('Błąd sieci.');
-      setMsgColor('var(--danger)');
+      setMsgColor('var(--tc-hot)');
       setLoading(false);
     }
   };

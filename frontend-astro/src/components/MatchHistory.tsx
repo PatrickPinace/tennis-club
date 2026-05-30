@@ -21,6 +21,7 @@ interface Props {
   userDisplayName: string | null;
   addMatchUrl: string;
   myId?: number;
+  today?: string;
 }
 
 type FormatFilter = 'all' | 'SNG' | 'DBL';
@@ -45,28 +46,13 @@ const CheckIcon = () => (
   </svg>
 );
 
-export default function MatchHistory({ matches, userDisplayName, addMatchUrl, myId }: Props) {
+export default function MatchHistory({ matches, userDisplayName, addMatchUrl, myId, today }: Props) {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
   const [search, setSearch] = useState('');
   const [showBanner, setShowBanner] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-
-  useEffect(() => {
-    const handleOpenModal = () => setShowAddModal(true);
-    window.addEventListener('open-add-match-modal', handleOpenModal);
-    
-    // Auto open if URL hash is #add-match
-    if (window.location.hash === '#add-match') {
-      setShowAddModal(true);
-      // Clear hash so it doesn't reopen on reload
-      history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
-
-    return () => {
-      window.removeEventListener('open-add-match-modal', handleOpenModal);
-    };
-  }, []);
+  const todayStr = today ?? new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('added') === '1') {
@@ -75,6 +61,16 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
       const t = setTimeout(() => setShowBanner(false), 6000);
       return () => clearTimeout(t);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleOpen = () => setShowAddModal(true);
+    window.addEventListener('open-add-match-modal', handleOpen);
+    if (window.location.hash === '#add-match') {
+      setShowAddModal(true);
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    return () => window.removeEventListener('open-add-match-modal', handleOpen);
   }, []);
 
   const filtered = useMemo(() => {
@@ -201,10 +197,10 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
             </p>
             {total === 0 && (
               <div className="dash-empty-block__links">
-                <button 
-                  onClick={(e) => { e.preventDefault(); setShowAddModal(true); }} 
+                <button
                   className="dash-btn-primary"
                   style={{ border: 'none', cursor: 'pointer' }}
+                  onClick={() => myId ? setShowAddModal(true) : (window.location.href = addMatchUrl)}
                 >
                   Dodaj pierwszy mecz
                 </button>
@@ -232,23 +228,26 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
         )}
       </section>
 
-      {showAddModal && (
-        <div className="res-popup-backdrop" role="dialog" aria-modal="true" onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
-          <div className="res-popup" style={{ maxWidth: 600 }}>
+      {showAddModal && myId && (
+        <div className="res-popup-backdrop" role="dialog" aria-modal="true"
+          onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
+          <div className="res-popup" style={{ maxWidth: 620 }}>
             <div className="res-popup__header">
               <div>
                 <div className="res-popup__title">Dodaj mecz towarzyski</div>
                 <div className="res-popup__subtitle">Zapisz wynik rozegranego meczu</div>
               </div>
               <button className="res-popup__close" aria-label="Zamknij" onClick={() => setShowAddModal(false)}>
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
               </button>
             </div>
             <div className="res-popup__body">
               <AddMatchForm
-                myId={myId ?? 0}
-                today={new Date().toISOString().slice(0, 10)}
-                matchesUrl={addMatchUrl.replace(/\/add\/?$/, '')}
+                myId={myId}
+                today={todayStr}
+                matchesUrl={addMatchUrl}
                 isModal={true}
                 onClose={() => setShowAddModal(false)}
               />

@@ -326,18 +326,7 @@ export default function AddMatchForm({ myId, today, matchesUrl, isModal = false,
   const p2Label = isDouble ? 'Rywal / P' : 'Rywal';
 
   return (
-    <div className={isModal ? "" : "add-wrap"}>
-      {!isModal && (
-        <nav className="tc-breadcrumb" aria-label="Nawigacja">
-          <a href={matchesUrl} className="tc-breadcrumb-link">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }}>
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            Moje mecze
-          </a>
-        </nav>
-      )}
-
+    <div className={isModal ? '' : 'add-wrap'}>
       {!isModal && (
         <div className="add-header">
           <h1 className="add-title">Dodaj mecz towarzyski</h1>
@@ -349,7 +338,7 @@ export default function AddMatchForm({ myId, today, matchesUrl, isModal = false,
         <div className="add-alert add-alert--err" role="alert">{generalError}</div>
       )}
 
-      <div className={isModal ? "" : "tc-card add-card"}>
+      <div className={isModal ? '' : 'tc-card add-card'}>
         <form onSubmit={handleSubmit} noValidate>
 
           <div className="af-field">
