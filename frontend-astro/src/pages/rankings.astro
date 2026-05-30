@@ -218,9 +218,9 @@ const initialPlayers = players.map(p => ({
     flex-shrink: 0;
   }
 
-  .rk-podium__avatar--gold   { background: rgba(251,191,36,0.15); border: 2px solid rgba(251,191,36,0.5); color: #fbbf24; }
-  .rk-podium__avatar--silver { background: rgba(148,163,184,0.15); border: 2px solid rgba(148,163,184,0.5); color: #94a3b8; }
-  .rk-podium__avatar--bronze { background: rgba(180,108,64,0.15); border: 2px solid rgba(180,108,64,0.5); color: #b47a40; }
+  .rk-podium__avatar--gold   { background: color-mix(in srgb, var(--tc-medal-gold)   15%, transparent); border: 2px solid color-mix(in srgb, var(--tc-medal-gold)   50%, transparent); color: var(--tc-medal-gold); }
+  .rk-podium__avatar--silver { background: color-mix(in srgb, var(--tc-medal-silver) 15%, transparent); border: 2px solid color-mix(in srgb, var(--tc-medal-silver) 50%, transparent); color: var(--tc-medal-silver); }
+  .rk-podium__avatar--bronze { background: color-mix(in srgb, var(--tc-medal-bronze) 15%, transparent); border: 2px solid color-mix(in srgb, var(--tc-medal-bronze) 50%, transparent); color: var(--tc-medal-bronze); }
 
   .rk-podium__info {
     display: flex;
@@ -392,20 +392,11 @@ const initialPlayers = players.map(p => ({
   .rk-row:last-child { border-bottom: none; }
   .rk-row:hover { background: var(--tc-overlay); }
 
-  .rk-row--first {
+  .rk-row--first,
+  .rk-row--me {
     background: var(--tc-accent-soft);
   }
-  .rk-row--first::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: var(--tc-accent);
-    border-radius: 0 2px 2px 0;
-  }
-  .rk-row--first:hover { background: rgba(200,241,97,0.08); }
-
-  .rk-row--me { background: var(--tc-accent-soft); }
+  .rk-row--first::before,
   .rk-row--me::before {
     content: '';
     position: absolute;
@@ -414,7 +405,8 @@ const initialPlayers = players.map(p => ({
     background: var(--tc-accent);
     border-radius: 0 2px 2px 0;
   }
-  .rk-row--me:hover { background: rgba(200,241,97,0.08); }
+  .rk-row--first:hover,
+  .rk-row--me:hover { background: var(--tc-accent-soft); }
 
   .rk-pos-badge {
     display: inline-flex;
@@ -429,9 +421,9 @@ const initialPlayers = players.map(p => ({
     color: var(--tc-muted);
   }
 
-  .rk-pos-badge--1 { background: rgba(107,124,58,0.2);   color: #8fa83f; }
-  .rk-pos-badge--2 { background: rgba(107,122,138,0.15); color: #8fa3b8; }
-  .rk-pos-badge--3 { background: rgba(138,96,64,0.15);   color: #b47a40; }
+  .rk-pos-badge--1 { background: color-mix(in srgb, var(--tc-medal-gold)   20%, transparent); color: var(--tc-medal-gold); }
+  .rk-pos-badge--2 { background: color-mix(in srgb, var(--tc-medal-silver) 15%, transparent); color: var(--tc-medal-silver); }
+  .rk-pos-badge--3 { background: color-mix(in srgb, var(--tc-medal-bronze) 15%, transparent); color: var(--tc-medal-bronze); }
 
   .rk-row__player {
     display: flex;
@@ -454,9 +446,9 @@ const initialPlayers = players.map(p => ({
     flex-shrink: 0;
   }
 
-  .rk-row__avatar--gold   { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.4); color: #fbbf24; }
-  .rk-row__avatar--silver { background: rgba(148,163,184,0.1); border-color: rgba(148,163,184,0.4); color: #94a3b8; }
-  .rk-row__avatar--bronze { background: rgba(180,108,64,0.1); border-color: rgba(180,108,64,0.4); color: #b47a40; }
+  .rk-row__avatar--gold   { background: color-mix(in srgb, var(--tc-medal-gold)   10%, transparent); border-color: color-mix(in srgb, var(--tc-medal-gold)   40%, transparent); color: var(--tc-medal-gold); }
+  .rk-row__avatar--silver { background: color-mix(in srgb, var(--tc-medal-silver) 10%, transparent); border-color: color-mix(in srgb, var(--tc-medal-silver) 40%, transparent); color: var(--tc-medal-silver); }
+  .rk-row__avatar--bronze { background: color-mix(in srgb, var(--tc-medal-bronze) 10%, transparent); border-color: color-mix(in srgb, var(--tc-medal-bronze) 40%, transparent); color: var(--tc-medal-bronze); }
 
   .rk-row__player-info {
     display: flex;

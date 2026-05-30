@@ -81,6 +81,11 @@
   --tc-win:  #22c55e;
   --tc-warn: #f59e0b;
 
+  /* Medale — podium rankings */
+  --tc-medal-gold:   #fbbf24;
+  --tc-medal-silver: #94a3b8;
+  --tc-medal-bronze: #b47a40;
+
   /* Akcent: limonka (tennis ball) — domyślny */
   --tc-accent:        #c8f161;
   --tc-accent-ink:    #08090b;
@@ -152,6 +157,11 @@
   --tc-hot:  #b91c1c;
   --tc-win:  #16a34a;
   --tc-warn: #d97706;
+
+  /* Medale — podium rankings */
+  --tc-medal-gold:   #b45309;
+  --tc-medal-silver: #64748b;
+  --tc-medal-bronze: #92400e;
 
   /* Akcent: limonka light */
   --tc-accent:        #5a7d22;
