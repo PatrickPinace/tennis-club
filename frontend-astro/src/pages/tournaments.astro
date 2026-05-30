@@ -6,6 +6,7 @@
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
+import TournamentsPage from '@/components/TournamentsPage.tsx';
 import {
   getTournamentsList,
   getMyTournaments,
@@ -37,14 +38,11 @@ try {
   console.warn('[tournaments] API error, using fallback demo data:', e);
 }
 
-// Pobierz „moje turnieje" jeśli zalogowany
 if (currentUser) {
   try {
     const mine = await getMyTournaments(sessionCookie);
     myTournamentIds = new Set(mine.map(t => t.id));
-  } catch {
-    // cicha degradacja
-  }
+  } catch {}
 }
 
 // ── Fallback demo ───────────────────────────────────────────────────────────
@@ -63,15 +61,6 @@ const TYPE_LABEL: Record<string, string> = {
   RND: 'Round Robin', LDR: 'Drabinka', AMR: 'Americano', SWS: 'System szwajcarski',
 };
 
-const STATUS_META: Record<string, { label: string; color: 'accent' | 'win' | 'muted' }> = {
-  DRF: { label: 'Szkic',          color: 'muted' },
-  REG: { label: 'Rejestracja',    color: 'win' },
-  SCH: { label: 'Zaplanowany',    color: 'muted' },
-  ACT: { label: 'Trwa',           color: 'accent' },
-  FIN: { label: 'Zakończony',     color: 'muted' },
-  CNC: { label: 'Odwołany',       color: 'muted' },
-};
-
 function fmtDate(iso: string | null): string {
   if (!iso) return '—';
   try {
@@ -84,27 +73,54 @@ const publicTournaments = tournaments.filter(t => t.status !== 'DRF');
 const running = publicTournaments.filter(t => t.status === 'ACT');
 const registration = publicTournaments.filter(t => t.status === 'REG');
 const finished = publicTournaments.filter(t => t.status === 'FIN' || t.status === 'CNC');
-const myCount = currentUser ? publicTournaments.filter(t => myTournamentIds.has(t.id)).length : 0;
+const myCount = currentUser ? publicTournaments.filter(t => myTournamentIds.has(t.id)).length : null;
 
-// ── Featured tournament: pierwszy ACT turniej w którym user uczestniczy ──────
-const featuredEntry = running.find(t => myTournamentIds.has(t.id)) ?? running[0] ?? null;
-let featuredDetail: TournamentDetail | null = null;
-let featuredStandings: RRStandingRow[] = [];
+// ── Featured tournaments (all running) ──────────────────────────────────────
+const featuredList = [];
+// Put user's tournament first, then the rest
+const sortedRunning = [
+  ...running.filter(t => myTournamentIds.has(t.id)),
+  ...running.filter(t => !myTournamentIds.has(t.id)),
+];
 
-if (featuredEntry) {
+for (const entry of sortedRunning) {
+  let standings: { displayName: string; points: number; isMe: boolean }[] = [];
   try {
-    featuredDetail = await getTournamentDetail(featuredEntry.id);
-    if (featuredDetail?.standings) {
-      featuredStandings = featuredDetail.standings.slice(0, 4);
+    const detail = await getTournamentDetail(entry.id);
+    if (detail?.standings) {
+      standings = detail.standings.slice(0, 4).map(s => ({
+        displayName: s.display_name,
+        points: Math.round(Number(s.points)),
+        isMe: !!(currentUser && s.display_name.toLowerCase().includes(currentUser.last_name?.toLowerCase() ?? '___NOMATCH___')),
+      }));
     }
-  } catch {
-    // cicha degradacja — featured bez standings
-  }
+  } catch {}
+
+  featuredList.push({
+    id: entry.id,
+    name: entry.name,
+    type: TYPE_LABEL[entry.tournament_type] ?? entry.tournament_type,
+    participants: entry.participant_count,
+    total: entry.matches_progress?.total ?? 0,
+    done: entry.matches_progress?.done ?? 0,
+    href: url(`/tournaments/${entry.id}`),
+    isMine: myTournamentIds.has(entry.id),
+    standings,
+  });
 }
 
-const totalRounds = featuredDetail?.matches_progress?.total ?? featuredEntry?.matches_progress?.total ?? 0;
-const doneRounds = featuredDetail?.matches_progress?.done ?? featuredEntry?.matches_progress?.done ?? 0;
-const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100) : 0;
+// ── Map rows ────────────────────────────────────────────────────────────────
+const tournamentRows = publicTournaments.map(t => ({
+  id: t.id,
+  name: t.name,
+  status: t.status,
+  tournamentType: t.tournament_type,
+  participantCount: t.participant_count,
+  startDate: fmtDate(t.start_date),
+  joined: myTournamentIds.has(t.id),
+  href: url(`/tournaments/${t.id}`),
+  matchesProgress: t.matches_progress,
+}));
 ---
 
 <AppLayout
@@ -116,298 +132,16 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   ctaLabel="+ Utwórz turniej"
   ctaHref={url('/tournaments/create')}
 >
-
-  <!-- Mobile CTA — widoczny tylko na ≤640px, bo topbar__cta jest ukryty -->
-  <div class="tr-mobile-cta">
-    <a href={url('/tournaments/create')} class="tr-mobile-cta__btn">+ Utwórz turniej</a>
-  </div>
-
-  <!-- Stats -->
-  <div class="tr-stats">
-    <div class="tr-stat-card tr-stat-card--accent">
-      <div class="tr-stat-label">AKTYWNE</div>
-      <div class="tr-stat-val" style="color:var(--tc-accent)">{running.length}</div>
-      <div class="tr-stat-sub">trwają teraz</div>
-    </div>
-    <div class="tr-stat-card">
-      <div class="tr-stat-label">W REJESTRACJI</div>
-      <div class="tr-stat-val">{registration.length}</div>
-      <div class="tr-stat-sub">możesz dołączyć</div>
-    </div>
-    <div class="tr-stat-card">
-      <div class="tr-stat-label">MOJE TURNIEJE</div>
-      <div class="tr-stat-val">{currentUser ? myCount : '—'}</div>
-      <div class="tr-stat-sub">{currentUser ? 'bierzesz udział' : 'zaloguj się'}</div>
-    </div>
-    <div class="tr-stat-card">
-      <div class="tr-stat-label">ZAKOŃCZONE</div>
-      <div class="tr-stat-val">{finished.length}</div>
-      <div class="tr-stat-sub">{finished.length > 0 ? 'w historii' : 'brak'}</div>
-    </div>
-  </div>
-
-  <!-- Featured tournament (jeśli jest aktywny) -->
-  {featuredEntry && (
-    <div
-      class="tr-featured"
-      id="tr-featured"
-      data-running={JSON.stringify(running.map(t => ({
-        id: t.id,
-        name: t.name,
-        type: TYPE_LABEL[t.tournament_type] ?? t.tournament_type,
-        participants: t.participant_count,
-        total: t.matches_progress?.total ?? 0,
-        done: t.matches_progress?.done ?? 0,
-      })))}
-      data-my-ids={JSON.stringify([...myTournamentIds])}
-    >
-      <div class="tr-featured__accent-bar" aria-hidden="true"></div>
-      <div class="tr-featured__grid">
-        <!-- Lewa strona: info -->
-        <div class="tr-featured__info">
-          <div class="tr-featured__top">
-            <span class="tr-featured__badge">Trwa teraz</span>
-            <span class="tr-featured__tag" id="tr-feat-tag">
-              {myTournamentIds.has(featuredEntry.id) ? 'Twój aktywny turniej' : 'Aktywny turniej'}
-            </span>
-            {running.length > 1 && (
-              <div class="tr-feat-nav" aria-label="Przełącz turniej">
-                <button class="tr-feat-nav__btn" id="tr-feat-prev" aria-label="Poprzedni turniej">‹</button>
-                <span class="tr-feat-nav__counter" id="tr-feat-counter">1 / {running.length}</span>
-                <button class="tr-feat-nav__btn" id="tr-feat-next" aria-label="Następny turniej">›</button>
-              </div>
-            )}
-          </div>
-          <h2 class="tr-featured__name" id="tr-feat-name">{featuredEntry.name}</h2>
-          <div class="tr-featured__meta" id="tr-feat-meta">
-            Format {TYPE_LABEL[featuredEntry.tournament_type] ?? featuredEntry.tournament_type}
-            · {featuredEntry.participant_count} uczestników
-            {totalRounds > 0 && ` · runda ${doneRounds} z ${totalRounds}`}
-          </div>
-
-          <div class="tr-featured__progress" id="tr-feat-progress" style={totalRounds === 0 ? 'display:none' : ''}>
-            <div class="tr-progress-bar">
-              <div class="tr-progress-bar__fill" id="tr-feat-progress-fill" style={`width:${progressPct}%`}></div>
-            </div>
-            <div class="tr-progress-meta">
-              <span>Postęp turnieju</span>
-              <span class="tr-progress-val" id="tr-feat-progress-val">{doneRounds} / {totalRounds} rundy</span>
-            </div>
-          </div>
-
-          <div class="tr-featured__actions" id="tr-feat-actions">
-            <a href={url(`/tournaments/${featuredEntry.id}`)} class="tr-btn-primary" id="tr-feat-link1">Zobacz tabelę →</a>
-            <a href={url(`/tournaments/${featuredEntry.id}`)} class="tr-btn-secondary" id="tr-feat-link2">Wyniki rund</a>
-          </div>
-        </div>
-
-        <!-- Prawa strona: standings -->
-        {featuredStandings.length > 0 && (
-          <div class="tr-featured__standings">
-            <div class="tr-standings-label">AKTUALNE MIEJSCA</div>
-            <div class="tr-standings-list">
-              {featuredStandings.map((s, i) => {
-                const isMe = currentUser &&
-                  s.display_name.toLowerCase().includes(currentUser.last_name?.toLowerCase() ?? '___NOMATCH___');
-                return (
-                  <div class={`tr-standing-row${isMe ? ' tr-standing-row--me' : ''}`}>
-                    <span class={`tr-standing-pos${i === 0 ? ' tr-standing-pos--first' : ''}`}>{i + 1}</span>
-                    <span class="tr-standing-name">
-                      {s.display_name}
-                      {isMe && <span class="tr-standing-me">TY</span>}
-                    </span>
-                    <span class={`tr-standing-pts${isMe ? ' tr-standing-pts--me' : ''}`}>
-                      {Math.round(Number(s.points))}
-                    </span>
-                    <span class="tr-standing-pkt">pkt</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )}
-
-  <!-- Tabela "WSZYSTKIE TURNIEJE" -->
-  <section class="tr-card">
-    <div class="tr-card__header">
-      <div class="tr-card__title-wrap">
-        <span class="tr-card__dot" aria-hidden="true"></span>
-        <h2 class="tr-card__title">WSZYSTKIE TURNIEJE</h2>
-        <span class="tr-card__badge" id="tr-count-badge">{publicTournaments.length}</span>
-      </div>
-      <div class="tr-segmented" role="group" aria-label="Filtr turniejów" id="tr-filters">
-        <button class="tr-seg tr-seg--active" data-filter="all">Wszystkie</button>
-        <button class="tr-seg" data-filter="mine">Moje</button>
-        <button class="tr-seg" data-filter="open">Otwarte</button>
-        <button class="tr-seg" data-filter="finished">Zakończone</button>
-      </div>
-    </div>
-
-    <!-- Nagłówki tabeli -->
-    <div class="tr-thead">
-      <span class="tr-th">#</span>
-      <span class="tr-th">TURNIEJ</span>
-      <span class="tr-th">TYP</span>
-      <span class="tr-th tr-th--r">UCZESTNICY</span>
-      <span class="tr-th">STATUS</span>
-    </div>
-
-    <div class="tr-tbody" id="tr-tbody">
-      {publicTournaments.length === 0 ? (
-        <div class="tr-empty">Brak turniejów do wyświetlenia.</div>
-      ) : (
-        publicTournaments.map((t, i) => {
-          const sm = STATUS_META[t.status] ?? { label: t.status, color: 'muted' };
-          const joined = myTournamentIds.has(t.id);
-          const fillPct = t.participant_count > 0 ? Math.min(100, Math.round(t.participant_count / Math.max(t.participant_count, 8) * 100)) : 0;
-          return (
-            <a
-              class="tr-row"
-              href={url(`/tournaments/${t.id}`)}
-              data-status={t.status}
-              data-joined={joined ? 'true' : 'false'}
-            >
-              <div class="tr-row__idx">{String(i + 1).padStart(2, '0')}</div>
-              <div class="tr-row__tournament">
-                <div class="tr-row__name-line">
-                  <span class="tr-row__name">{t.name}</span>
-                  {joined && <span class="tr-row__joined-badge">Zapisano</span>}
-                </div>
-                <div class="tr-row__date">
-                  {t.status === 'ACT' ? 'Trwa' : t.status === 'FIN' ? 'Zakończony' : fmtDate(t.start_date) ? `Trwa od ${fmtDate(t.start_date)}` : '—'}
-                </div>
-              </div>
-              <div class="tr-row__type">{TYPE_LABEL[t.tournament_type] ?? t.tournament_type}</div>
-              <div class="tr-row__participants">
-                <span class="tr-row__p-count">{t.participant_count}</span>
-                <span class="tr-row__p-max">/ {Math.max(t.participant_count, 8)}</span>
-                <div class="tr-row__p-bar">
-                  <div class={`tr-row__p-fill tr-row__p-fill--${sm.color}`} style={`width:${fillPct}%`}></div>
-                </div>
-              </div>
-              <div class={`tr-row__status tr-row__status--${sm.color}`}>
-                {(sm.color === 'accent' || sm.color === 'win') && <span class="tr-row__status-dot"></span>}
-                {sm.label}
-              </div>
-            </a>
-          );
-        })
-      )}
-    </div>
-  </section>
-
+  <TournamentsPage
+    client:load
+    tournaments={tournamentRows}
+    featured={featuredList}
+    stats={{ running: running.length, registration: registration.length, myCount, finished: finished.length }}
+    createUrl={url('/tournaments/create')}
+  />
 </AppLayout>
 
-<!-- ── Client-side: filtrowanie ──────────────────────────────────────────────── -->
-<script>
-  // ── Featured tournament navigation (prev/next) ─────────────────────────────
-  (function initFeaturedNav() {
-    const featured = document.getElementById('tr-featured');
-    if (!featured) return;
-
-    const runningRaw = featured.dataset.running;
-    const myIdsRaw   = featured.dataset.myIds;
-    if (!runningRaw) return;
-
-    let running: Array<{id:number;name:string;type:string;participants:number;total:number;done:number}>;
-    let myIds: number[];
-    try {
-      running = JSON.parse(runningRaw);
-      myIds   = JSON.parse(myIdsRaw ?? '[]');
-    } catch { return; }
-
-    if (running.length <= 1) return;
-
-    let current = 0; // index w running[]
-
-    const nameEl    = document.getElementById('tr-feat-name');
-    const metaEl       = document.getElementById('tr-feat-meta');
-    const tagEl        = document.getElementById('tr-feat-tag');
-    const link1El      = document.getElementById('tr-feat-link1') as HTMLAnchorElement | null;
-    const link2El      = document.getElementById('tr-feat-link2') as HTMLAnchorElement | null;
-    const counterEl    = document.getElementById('tr-feat-counter');
-    const prevBtn      = document.getElementById('tr-feat-prev') as HTMLButtonElement | null;
-    const nextBtn      = document.getElementById('tr-feat-next') as HTMLButtonElement | null;
-    const progressEl   = document.getElementById('tr-feat-progress') as HTMLElement | null;
-    const progressFill = document.getElementById('tr-feat-progress-fill') as HTMLElement | null;
-    const progressVal  = document.getElementById('tr-feat-progress-val');
-
-    function render() {
-      const t = running[current];
-      if (!t) return;
-
-      if (nameEl) nameEl.textContent = t.name;
-
-      let meta = `Format ${t.type} · ${t.participants} uczestników`;
-      if (t.total > 0) meta += ` · runda ${t.done} z ${t.total}`;
-      if (metaEl) metaEl.textContent = meta;
-
-      const isMyTournament = myIds.includes(t.id);
-      if (tagEl) tagEl.textContent = isMyTournament ? 'Twój aktywny turniej' : 'Aktywny turniej';
-
-      const href = `/tournaments/${t.id}`;
-      if (link1El) link1El.href = href;
-      if (link2El) link2El.href = href;
-
-      if (counterEl) counterEl.textContent = `${current + 1} / ${running.length}`;
-
-      // Aktualizuj progress bar
-      if (progressEl) progressEl.style.display = t.total > 0 ? '' : 'none';
-      if (t.total > 0) {
-        const pct = Math.round(t.done / t.total * 100);
-        if (progressFill) progressFill.style.width = `${pct}%`;
-        if (progressVal)  progressVal.textContent  = `${t.done} / ${t.total} rundy`;
-      }
-    }
-
-    prevBtn?.addEventListener('click', () => {
-      current = (current - 1 + running.length) % running.length;
-      render();
-    });
-    nextBtn?.addEventListener('click', () => {
-      current = (current + 1) % running.length;
-      render();
-    });
-  })();
-
-  // ── Filtrowanie tabeli ─────────────────────────────────────────────────────
-  const rows = document.querySelectorAll<HTMLElement>('#tr-tbody .tr-row');
-  const badge = document.getElementById('tr-count-badge');
-
-  document.querySelectorAll<HTMLButtonElement>('#tr-filters .tr-seg').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#tr-filters .tr-seg').forEach(b => b.classList.remove('tr-seg--active'));
-      btn.classList.add('tr-seg--active');
-
-      const f = btn.dataset.filter ?? 'all';
-      let visible = 0;
-
-      rows.forEach(row => {
-        const status = row.dataset.status;
-        const joined = row.dataset.joined === 'true';
-        let show = true;
-
-        if (f === 'mine')     show = joined;
-        if (f === 'open')     show = status === 'REG' || status === 'SCH';
-        if (f === 'finished') show = status === 'FIN' || status === 'CNC';
-
-        row.style.display = show ? '' : 'none';
-        if (show) visible++;
-      });
-
-      if (badge) badge.textContent = String(visible);
-    });
-  });
-</script>
-
-<style>
-  /* ══════════════════════════════════════════════════════════════════════════
-     TURNIEJE — layout wg prototypu astro5.jpeg, tokeny --tc-*
-     ══════════════════════════════════════════════════════════════════════════ */
-
+<style is:global>
   /* ── Mobile CTA ─────────────────────────────────────────────────────────── */
   .tr-mobile-cta {
     display: none;
@@ -530,7 +264,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     color: var(--tc-muted);
   }
 
-  /* ── Featured nav (prev/next) ──────────────────────────────────────────── */
   .tr-feat-nav {
     display: inline-flex;
     align-items: center;
@@ -579,7 +312,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     margin-bottom: 20px;
   }
 
-  /* Progress bar */
   .tr-featured__progress { margin-bottom: 20px; }
 
   .tr-progress-bar {
@@ -636,7 +368,7 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   }
   .tr-btn-secondary:hover { background: var(--tc-overlay); }
 
-  /* ── Standings (prawa strona featured) ──────────────────────────────────── */
+  /* ── Standings ──────────────────────────────────────────────────────────── */
   .tr-featured__standings {
     padding: 22px 24px;
     border-left: 1px solid var(--tc-card-border);
@@ -773,7 +505,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     font-size: 0.72rem; font-weight: 700;
   }
 
-  /* ── Segmented control ─────────────────────────────────────────────────── */
   .tr-segmented {
     display: flex;
     padding: 2px;
@@ -800,7 +531,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     box-shadow: var(--tc-shadow);
   }
 
-  /* ── Table head ────────────────────────────────────────────────────────── */
   .tr-thead {
     display: grid;
     grid-template-columns: 36px 1fr 160px 120px 110px;
@@ -816,7 +546,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
 
   .tr-th--r { text-align: right; }
 
-  /* ── Table rows ────────────────────────────────────────────────────────── */
   .tr-row {
     display: grid;
     grid-template-columns: 36px 1fr 160px 120px 110px;
@@ -886,7 +615,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     text-overflow: ellipsis;
   }
 
-  /* Participants: count + /max + mini bar */
   .tr-row__participants {
     display: flex;
     align-items: center;
@@ -924,7 +652,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
   .tr-row__p-fill--win    { background: var(--tc-win); opacity: 0.7; }
   .tr-row__p-fill--muted  { background: var(--tc-muted); opacity: 0.4; }
 
-  /* Status */
   .tr-row__status {
     font-size: 0.75rem;
     font-weight: 600;
@@ -944,8 +671,6 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     box-shadow: 0 0 4px currentColor;
   }
 
-
-  /* ── Empty state ───────────────────────────────────────────────────────── */
   .tr-empty {
     padding: 40px 20px;
     text-align: center;
@@ -953,9 +678,7 @@ const progressPct = totalRounds > 0 ? Math.round(doneRounds / totalRounds * 100)
     font-size: 0.84rem;
   }
 
-  /* ══════════════════════════════════════════════════════════════════════════
-     RESPONSIVE
-     ══════════════════════════════════════════════════════════════════════════ */
+  /* ── Responsive ────────────────────────────────────────────────────────── */
   @media (max-width: 1024px) {
     .tr-stats { grid-template-columns: repeat(2, 1fr); }
 

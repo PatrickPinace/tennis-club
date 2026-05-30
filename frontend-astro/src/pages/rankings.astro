@@ -5,6 +5,7 @@
 export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
+import RankingsTable from '@/components/RankingsTable.tsx';
 import { getRankings, type PlayerRankingEntry } from '@/lib/api';
 
 // ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
@@ -35,23 +36,17 @@ if (players.length === 0) {
   ];
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function getInitials(name: string): string {
-  return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
-}
-
-function fmtPoints(pts: number | string): string {
-  return Math.round(Number(pts)).toLocaleString('pl-PL');
-}
-
-const top3 = players.slice(0, 3);
 const totalPlayers = players.length;
 
-// Prototyp: kolejność kart w podium to [2, 1, 3] — srebro, złoto (wyższe), brąz
-const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
-const podiumKeys = ['silver', 'gold', 'bronze'] as const;
-const podiumLabels = ['SREBRO', 'ZŁOTO', 'BRĄZ'];
-const podiumNumbers = [2, 1, 3];
+const initialPlayers = players.map(p => ({
+  position: p.position,
+  display_name: p.display_name,
+  points: p.points,
+  matches_played: p.matches_played,
+  matches_won: p.matches_won,
+  matches_lost: p.matches_lost,
+  win_rate: p.win_rate,
+}));
 ---
 
 <AppLayout
@@ -61,325 +56,15 @@ const podiumNumbers = [2, 1, 3];
   showCta={false}
   showSearch={false}
 >
-
-  <!-- Moja pozycja — client-side; ukryta domyślnie -->
-  <div class="rk-my" id="my-rank-card" style="display:none;" aria-live="polite">
-    <div class="rk-my__left">
-      <div class="rk-my__pos">
-        <span class="rk-my__pos-num" id="my-rank-pos">—</span>
-        <span class="rk-my__pos-label">miejsce</span>
-      </div>
-      <div class="rk-my__sep" aria-hidden="true"></div>
-      <div>
-        <div class="rk-my__title">Twoja pozycja</div>
-        <div class="rk-my__sub" id="my-rank-sub">Ranking singlowy 2026</div>
-      </div>
-    </div>
-    <div class="rk-my__stats">
-      <div class="rk-my__stat">
-        <span class="rk-my__stat-label">PUNKTY</span>
-        <span class="rk-my__stat-val" id="my-rank-pts">—</span>
-      </div>
-      <div class="rk-my__stat">
-        <span class="rk-my__stat-label">WYGRANE</span>
-        <span class="rk-my__stat-val" id="my-rank-record">—</span>
-      </div>
-      <div class="rk-my__stat">
-        <span class="rk-my__stat-label">SKUTECZNOŚĆ</span>
-        <span class="rk-my__stat-val" id="my-rank-wr">—</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Podium Top 3 — kolejność: [srebro, złoto-wyższe, brąz] jak w prototypie -->
-  {top3.length >= 3 && (
-    <div class="rk-podium">
-      {podiumOrder.map((p, i) => (
-        <div class={`rk-podium__card rk-podium__card--${podiumKeys[i]}${i === 1 ? ' rk-podium__card--raised' : ''}`}>
-          <div class="rk-podium__header">
-            <span class="rk-podium__label">{podiumLabels[i]}</span>
-            <span class="rk-podium__num">{podiumNumbers[i]}</span>
-          </div>
-          <div class="rk-podium__body">
-            <div class={`rk-podium__avatar rk-podium__avatar--${podiumKeys[i]}`} aria-hidden="true">
-              {getInitials(p.display_name)}
-            </div>
-            <div class="rk-podium__info">
-              <span class="rk-podium__name">{p.display_name}</span>
-              <span class="rk-podium__meta">{p.matches_played} meczów · {Math.round(p.win_rate)}% skuteczności</span>
-            </div>
-          </div>
-          <div class="rk-podium__footer">
-            <div class="rk-podium__stat">
-              <span class="rk-podium__stat-label">PUNKTY</span>
-              <span class="rk-podium__stat-val">{fmtPoints(p.points)}</span>
-            </div>
-            <div class="rk-podium__stat">
-              <span class="rk-podium__stat-label">WYGRANE</span>
-              <span class="rk-podium__stat-val">{p.matches_won} <span class="rk-podium__stat-of">/ {p.matches_played}</span></span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )}
-
-  <!-- Tabela rankingowa -->
-  <section class="rk-card">
-    <div class="rk-card__header">
-      <div class="rk-card__title-wrap">
-        <span class="rk-card__dot" aria-hidden="true"></span>
-        <h2 class="rk-card__title">TABELA KLUBOWA</h2>
-        <span class="rk-card__badge" id="rank-count-badge">{totalPlayers}</span>
-      </div>
-      <div class="rk-segmented" role="group" aria-label="Typ rankingu">
-        <button class="rk-seg rk-seg--active" data-type="SNG">Singiel</button>
-        <button class="rk-seg" data-type="DBL">Debel</button>
-      </div>
-    </div>
-
-    <!-- Nagłówki tabeli -->
-    <div class="rk-thead">
-      <span class="rk-th">POZ.</span>
-      <span class="rk-th">GRACZ</span>
-      <span class="rk-th rk-th--r">MECZE</span>
-      <span class="rk-th rk-th--r">WYGRANE</span>
-      <span class="rk-th rk-th--r">PUNKTY</span>
-    </div>
-
-    <div class="rk-tbody" id="rank-tbody">
-      {players.map(p => (
-        <div class={`rk-row${p.position === 1 ? ' rk-row--first' : ''}`} data-pos={p.position}>
-          <div class="rk-row__pos">
-            <span class={`rk-pos-badge${p.position <= 3 ? ` rk-pos-badge--${p.position}` : ''}`}>
-              {p.position}
-            </span>
-          </div>
-          <div class="rk-row__player">
-            <div class={`rk-row__avatar${p.position <= 3 ? ` rk-row__avatar--${['gold','silver','bronze'][p.position - 1]}` : ''}`} aria-hidden="true">
-              {getInitials(p.display_name)}
-            </div>
-            <div class="rk-row__player-info">
-              <span class="rk-row__name">{p.display_name}</span>
-              <span class="rk-row__winrate">{Math.round(p.win_rate)}% skuteczności</span>
-            </div>
-          </div>
-          <div class="rk-row__num rk-row__muted">{p.matches_played}</div>
-          <div class="rk-row__num rk-row__muted">
-            {p.matches_won} <span class="rk-row__of">/ {p.matches_played}</span>
-          </div>
-          <div class="rk-row__num rk-row__points">
-            {fmtPoints(p.points)} <span class="rk-row__pkt">pkt</span>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div class="rk-card__footer">
-      <span class="rk-footer-info" id="rank-footer-info">
-        {isLive
-          ? `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
-          : 'Dane demonstracyjne'}
-      </span>
-      <span class="rk-footer-label" id="rank-card-title">
-        {isLive ? 'Singiel 2026' : 'Singiel 2026 (demo)'}
-      </span>
-    </div>
-  </section>
-
+  <RankingsTable
+    client:load
+    initialPlayers={initialPlayers}
+    isLive={isLive}
+    totalPlayers={totalPlayers}
+  />
 </AppLayout>
 
-<!-- ── Client-side: karta "Moja pozycja" + podświetlenie wiersza ─────────────── -->
-<script>
-  (async () => {
-    const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
-      ?? 'http://localhost:8000';
-
-    try {
-      const res = await fetch(`${apiBase}/api/dashboard/summary/`, {
-        credentials: 'include',
-        redirect: 'manual',
-      });
-      if (!res.ok || res.type === 'opaqueredirect') return;
-
-      const data = await res.json();
-      const ranking = data?.ranking;
-      if (!ranking || ranking.position == null) return;
-
-      const pos    = ranking.position;
-      const pts    = ranking.points ?? '—';
-      const won    = ranking.matches_won ?? '—';
-      const played = ranking.matches_played ?? '—';
-      const wr     = ranking.win_rate != null ? `${Math.round(ranking.win_rate)}%` : '—';
-
-      const card = document.getElementById('my-rank-card');
-      if (card) {
-        (document.getElementById('my-rank-pos') as HTMLElement).textContent = String(pos);
-        (document.getElementById('my-rank-pts') as HTMLElement).textContent =
-          pts != null && pts !== '—' ? Math.round(Number(pts)).toLocaleString('pl-PL') : '—';
-        (document.getElementById('my-rank-record') as HTMLElement).textContent = `${won}/${played}`;
-        (document.getElementById('my-rank-wr') as HTMLElement).textContent = wr;
-        card.style.display = '';
-      }
-
-      // Podświetl wiersz + badge "Ty"
-      const row = document.querySelector<HTMLElement>(`#rank-tbody .rk-row[data-pos="${pos}"]`);
-      if (row) {
-        row.classList.add('rk-row--me');
-        const nameEl = row.querySelector<HTMLElement>('.rk-row__name');
-        if (nameEl && !nameEl.querySelector('.rk-me-badge')) {
-          const badge = document.createElement('span');
-          badge.className = 'rk-me-badge';
-          badge.textContent = 'TY';
-          nameEl.after(badge);
-        }
-      }
-    } catch {
-      // Cicha degradacja
-    }
-  })();
-
-  // ── Helpers powielone dla innerHTML ──────────────────────────────────────────
-  function initials(name: string) {
-    return name.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0].toUpperCase()).join('');
-  }
-  function fmtPts(pts: number | string) {
-    return Math.round(Number(pts)).toLocaleString('pl-PL');
-  }
-  const medals = ['gold', 'silver', 'bronze'];
-
-  function buildRow(p: {
-    position: number; display_name: string; points: number | string;
-    matches_played: number; matches_won: number; matches_lost?: number;
-    win_rate: number;
-  }): string {
-    const medalClass = p.position <= 3 ? ` rk-row__avatar--${medals[p.position - 1]}` : '';
-    const posBadgeClass = p.position <= 3 ? ` rk-pos-badge--${p.position}` : '';
-    return `
-      <div class="rk-row${p.position === 1 ? ' rk-row--first' : ''}" data-pos="${p.position}">
-        <div class="rk-row__pos">
-          <span class="rk-pos-badge${posBadgeClass}">${p.position}</span>
-        </div>
-        <div class="rk-row__player">
-          <div class="rk-row__avatar${medalClass}" aria-hidden="true">${initials(p.display_name)}</div>
-          <div class="rk-row__player-info">
-            <span class="rk-row__name">${p.display_name}</span>
-            <span class="rk-row__winrate">${Math.round(p.win_rate)}% skuteczności</span>
-          </div>
-        </div>
-        <div class="rk-row__num rk-row__muted">${p.matches_played}</div>
-        <div class="rk-row__num rk-row__muted">${p.matches_won} <span class="rk-row__of">/ ${p.matches_played}</span></div>
-        <div class="rk-row__num rk-row__points">${fmtPts(p.points)} <span class="rk-row__pkt">pkt</span></div>
-      </div>
-    `;
-  }
-
-  function buildPodiumCard(p: {
-    position: number; display_name: string; points: number | string;
-    matches_played: number; matches_won: number; win_rate: number;
-  }, slot: number): string {
-    const keys = ['silver', 'gold', 'bronze'];
-    const labels = ['SREBRO', 'ZŁOTO', 'BRĄZ'];
-    const nums = [2, 1, 3];
-    const k = keys[slot];
-    const raisedClass = slot === 1 ? ' rk-podium__card--raised' : '';
-    return `
-      <div class="rk-podium__card rk-podium__card--${k}${raisedClass}">
-        <div class="rk-podium__header">
-          <span class="rk-podium__label">${labels[slot]}</span>
-          <span class="rk-podium__num">${nums[slot]}</span>
-        </div>
-        <div class="rk-podium__body">
-          <div class="rk-podium__avatar rk-podium__avatar--${k}" aria-hidden="true">${initials(p.display_name)}</div>
-          <div class="rk-podium__info">
-            <span class="rk-podium__name">${p.display_name}</span>
-            <span class="rk-podium__meta">${p.matches_played} meczów · ${Math.round(p.win_rate)}% skuteczności</span>
-          </div>
-        </div>
-        <div class="rk-podium__footer">
-          <div class="rk-podium__stat">
-            <span class="rk-podium__stat-label">PUNKTY</span>
-            <span class="rk-podium__stat-val">${fmtPts(p.points)}</span>
-          </div>
-          <div class="rk-podium__stat">
-            <span class="rk-podium__stat-label">WYGRANE</span>
-            <span class="rk-podium__stat-val">${p.matches_won} <span class="rk-podium__stat-of">/ ${p.matches_played}</span></span>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // ── Przełącznik Singiel / Debel ─────────────────────────────────────────────
-  document.querySelectorAll<HTMLButtonElement>('.rk-seg').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      document.querySelectorAll('.rk-seg').forEach(b => b.classList.remove('rk-seg--active'));
-      btn.classList.add('rk-seg--active');
-
-      const type = btn.dataset.type as 'SNG' | 'DBL';
-      const apiBase = document.querySelector<HTMLMetaElement>('meta[name="api-base"]')?.content
-        ?? 'http://localhost:8000';
-
-      const tbody = document.getElementById('rank-tbody');
-      const footer = document.getElementById('rank-footer-info');
-      const countBadge = document.getElementById('rank-count-badge');
-      if (!tbody) return;
-
-      try {
-        const res = await fetch(`${apiBase}/api/rankings/list/?type=${type}`, {
-          credentials: 'include',
-          redirect: 'manual',
-        });
-        if (!res.ok || res.type === 'opaqueredirect') return;
-        const rows: Array<{
-          position: number; display_name: string; points: number | string;
-          matches_played: number; matches_won: number; matches_lost: number;
-          win_rate: number;
-        }> = await res.json();
-
-        if (!rows || rows.length === 0) {
-          tbody.innerHTML = `<div class="rk-empty">Brak danych dla wybranej kategorii.</div>`;
-          const podium = document.querySelector<HTMLElement>('.rk-podium');
-          if (podium) podium.style.display = 'none';
-          if (countBadge) countBadge.textContent = '0';
-          return;
-        }
-
-        // Aktualizuj podium
-        const podium = document.querySelector<HTMLElement>('.rk-podium');
-        if (podium && rows.length >= 3) {
-          podium.style.display = '';
-          // kolejność: [srebro=rows[1], złoto=rows[0], brąz=rows[2]]
-          const order = [rows[1], rows[0], rows[2]];
-          podium.innerHTML = order.map((p, i) => buildPodiumCard(p, i)).join('');
-        } else if (podium) {
-          podium.style.display = 'none';
-        }
-
-        tbody.innerHTML = rows.map(p => buildRow(p)).join('');
-        if (countBadge) countBadge.textContent = String(rows.length);
-
-        const label = type === 'SNG' ? 'Singiel' : 'Debel';
-        if (footer) {
-          footer.textContent = `Dane live · ${new Date().toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-        }
-        const cardTitle = document.getElementById('rank-card-title');
-        if (cardTitle) cardTitle.textContent = `${label} 2026`;
-        const rankSub = document.getElementById('my-rank-sub');
-        if (rankSub) rankSub.textContent = `Ranking ${type === 'SNG' ? 'singlowy' : 'deblowy'} 2026`;
-      } catch {
-        // Cicha degradacja
-      }
-    });
-  });
-</script>
-
 <style is:global>
-  /* ══════════════════════════════════════════════════════════════════════════
-     RANKINGS — layout wg prototypu astro4.jpeg
-     is:global wymagane bo JS podmienia innerHTML (buildRow/buildPodiumCard)
-     ══════════════════════════════════════════════════════════════════════════ */
-
   /* ── Moja pozycja (zielona karta - gdy zalogowany) ─────────────────────── */
   .rk-my {
     display: flex;
@@ -468,16 +153,14 @@ const podiumNumbers = [2, 1, 3];
   }
 
   /* ── Podium ────────────────────────────────────────────────────────────── */
-  /* Układ: [srebro] [złoto — raised wyżej] [brąz] */
   .rk-podium {
     display: grid;
-    grid-template-columns: 1fr 1.08fr 1fr; /* złoto nieco szersze */
-    align-items: flex-end;                  /* karty wyrównane do dołu */
+    grid-template-columns: 1fr 1.08fr 1fr;
+    align-items: flex-end;
     gap: 10px;
     margin-bottom: 16px;
   }
 
-  /* Złoto — klasa raised: karta wysunięta w górę względem reszty */
   .rk-podium__card--raised {
     margin-bottom: 16px;
     z-index: 1;
@@ -493,17 +176,12 @@ const podiumNumbers = [2, 1, 3];
     transition: background 0.25s, border-color 0.25s;
   }
 
-  /* ── Nagłówek karty podium — solid kolor jak w prototypie ── */
   .rk-podium__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
   }
-
-  .rk-podium__card--gold .rk-podium__header   { background: #92750a; } /* złoty — ciemne złoto */
-  .rk-podium__card--silver .rk-podium__header { background: #6b7a8a; }
-  .rk-podium__card--bronze .rk-podium__header { background: #8a6040; }
 
   .rk-podium__label {
     font-size: 0.65rem;
@@ -522,7 +200,6 @@ const podiumNumbers = [2, 1, 3];
     font-variant-numeric: tabular-nums;
   }
 
-  /* ── Body ── */
   .rk-podium__body {
     display: flex;
     align-items: center;
@@ -569,7 +246,6 @@ const podiumNumbers = [2, 1, 3];
     text-overflow: ellipsis;
   }
 
-  /* ── Footer stats ── */
   .rk-podium__footer {
     display: flex;
     gap: 24px;
@@ -625,7 +301,6 @@ const podiumNumbers = [2, 1, 3];
     gap: 8px;
   }
 
-  /* Zielona kropka jak w prototypie */
   .rk-card__dot {
     width: 8px;
     height: 8px;
@@ -717,7 +392,6 @@ const podiumNumbers = [2, 1, 3];
   .rk-row:last-child { border-bottom: none; }
   .rk-row:hover { background: var(--tc-overlay); }
 
-  /* Wiersz #1 — zielony pasek po lewej + lekkie tło */
   .rk-row--first {
     background: var(--tc-accent-soft);
   }
@@ -731,7 +405,6 @@ const podiumNumbers = [2, 1, 3];
   }
   .rk-row--first:hover { background: rgba(200,241,97,0.08); }
 
-  /* Podświetlenie "Moja pozycja" */
   .rk-row--me { background: var(--tc-accent-soft); }
   .rk-row--me::before {
     content: '';
@@ -816,8 +489,7 @@ const podiumNumbers = [2, 1, 3];
     color: var(--tc-accent);
     padding: 1px 7px;
     border-radius: 99px;
-    margin-left: 6px;
-    vertical-align: middle;
+    width: fit-content;
   }
 
   .rk-row__num {
@@ -876,9 +548,7 @@ const podiumNumbers = [2, 1, 3];
     font-size: 0.84rem;
   }
 
-  /* ══════════════════════════════════════════════════════════════════════════
-     RESPONSIVE
-     ══════════════════════════════════════════════════════════════════════════ */
+  /* ── Responsive ────────────────────────────────────────────────────────── */
   @media (max-width: 1024px) {
     .rk-podium { gap: 8px; }
     .rk-podium__num { font-size: 2rem; }
@@ -892,7 +562,6 @@ const podiumNumbers = [2, 1, 3];
       padding: 12px 16px;
     }
 
-    /* Ukryj kolumny MECZE i WYGRANE na tablecie — zostaje tylko PUNKTY */
     .rk-row > .rk-row__num:nth-child(3),
     .rk-row > .rk-row__num:nth-child(4) { display: none; }
 
@@ -910,13 +579,11 @@ const podiumNumbers = [2, 1, 3];
   }
 
   @media (max-width: 640px) {
-    /* Podium pionowo na mobile */
     .rk-podium {
       grid-template-columns: 1fr;
       align-items: stretch;
     }
 
-    /* Złoto na top w stacked layout, bez wysunięcia */
     .rk-podium__card--raised {
       margin-bottom: 0;
       order: -1;

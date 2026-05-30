@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 
 class PlayerRanking(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ranking')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rankings')
     match_type = models.CharField(max_length=3, default='SNG')  # SNG / DBL
     season = models.PositiveIntegerField(null=True, blank=True)  # None = all-time
     points = models.DecimalField(max_digits=10, decimal_places=2, default=0)

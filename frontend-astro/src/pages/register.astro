@@ -6,6 +6,7 @@ export const prerender = false;
 
 import '@/styles/global.css';
 import AuthCard from '@/components/AuthCard.astro';
+import RegisterForm from '@/components/RegisterForm.tsx';
 import { url } from '@/lib/url';
 
 const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
@@ -16,81 +17,15 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
   title="Utwórz konto"
   subtitle="Wypełnij formularz, aby dołączyć do klubu"
   apiBase={apiBase}
-  style="max-width:480px"
 >
-  <!-- Alert błędu ogólnego -->
-  <div id="reg-error" class="auth-error" role="alert" aria-live="polite" style="display:none;"></div>
-
-  <form id="reg-form" novalidate>
-
-    <div class="reg-row">
-      <div class="auth-field">
-        <label class="auth-label" for="first_name">Imię</label>
-        <input class="auth-input" type="text" id="first_name" name="first_name"
-          autocomplete="given-name" placeholder="Jan" required />
-        <span class="auth-field-error" id="err-first_name"></span>
-      </div>
-      <div class="auth-field">
-        <label class="auth-label" for="last_name">Nazwisko</label>
-        <input class="auth-input" type="text" id="last_name" name="last_name"
-          autocomplete="family-name" placeholder="Kowalski" required />
-        <span class="auth-field-error" id="err-last_name"></span>
-      </div>
-    </div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="login">Login</label>
-      <input class="auth-input" type="text" id="login" name="login"
-        autocomplete="username" placeholder="np. jan.kowalski" required />
-      <span class="auth-field-error" id="err-login"></span>
-    </div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="email">
-        E-mail <span class="auth-label-optional">(opcjonalnie)</span>
-      </label>
-      <input class="auth-input" type="email" id="email" name="email"
-        autocomplete="email" placeholder="jan@example.com" />
-      <span class="auth-field-error" id="err-email"></span>
-    </div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="password_1">Hasło</label>
-      <input class="auth-input" type="password" id="password_1" name="password_1"
-        autocomplete="new-password" placeholder="min. 8 znaków" required />
-      <span class="auth-field-error" id="err-password_1"></span>
-    </div>
-
-    <div class="auth-field">
-      <label class="auth-label" for="password_2">Powtórz hasło</label>
-      <input class="auth-input" type="password" id="password_2" name="password_2"
-        autocomplete="new-password" placeholder="••••••••" required />
-      <span class="auth-field-error" id="err-password_2"></span>
-    </div>
-
-    <div class="auth-field" style="margin-bottom:20px;">
-      <label class="auth-consent">
-        <input type="checkbox" id="data_processing_consent" name="data_processing_consent" required />
-        <span>Wyrażam zgodę na przetwarzanie moich danych osobowych w ramach funkcjonalności portalu.</span>
-      </label>
-      <span class="auth-field-error" id="err-data_processing_consent"></span>
-    </div>
-
-    <button type="submit" class="auth-submit" id="reg-btn">
-      Zarejestruj się
-    </button>
-
-  </form>
-
-  <Fragment slot="footer">
-    <p class="auth-footer-link">
-      Masz już konto? <a href={url('/login')}>Zaloguj się →</a>
-    </p>
-  </Fragment>
+  <RegisterForm
+    client:load
+    dashboardUrl={url('/dashboard')}
+    loginUrl={url('/login')}
+  />
 </AuthCard>
 
-<style>
-  /* Tylko to co specyficzne dla register — reszta w AuthCard */
+<style is:global>
   .reg-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -100,121 +35,3 @@ const apiBase = import.meta.env.PUBLIC_API_BASE_URL ?? '';
     .reg-row { grid-template-columns: 1fr; }
   }
 </style>
-
-<script>
-  const API  = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content ?? '';
-  const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
-
-  const form    = document.getElementById('reg-form') as HTMLFormElement;
-  const btn     = document.getElementById('reg-btn') as HTMLButtonElement;
-  const errorEl = document.getElementById('reg-error') as HTMLDivElement;
-
-  // Pola z odpowiadającymi im divami błędów
-  const FIELDS = ['first_name', 'last_name', 'login', 'email', 'password_1', 'password_2', 'data_processing_consent'];
-
-  function clearErrors() {
-    errorEl.style.display = 'none';
-    errorEl.textContent = '';
-    FIELDS.forEach(f => {
-      const el = document.getElementById(`err-${f}`);
-      if (el) { el.textContent = ''; el.style.display = 'none'; }
-      const input = document.getElementById(f) as HTMLInputElement | null;
-      if (input) input.classList.remove('input-error');
-    });
-  }
-
-  function showGlobalError(msg: string) {
-    errorEl.textContent = msg;
-    errorEl.style.display = 'block';
-  }
-
-  function showFieldErrors(errors: Record<string, string[]>) {
-    for (const [field, msgs] of Object.entries(errors)) {
-      if (field === '__all__') {
-        showGlobalError(msgs[0] ?? 'Błąd rejestracji.');
-        continue;
-      }
-      const errEl = document.getElementById(`err-${field}`);
-      const inputEl = document.getElementById(field) as HTMLInputElement | null;
-      if (errEl) {
-        errEl.textContent = msgs[0] ?? '';
-        errEl.style.display = msgs[0] ? 'block' : 'none';
-      }
-      if (inputEl) inputEl.classList.add('input-error');
-    }
-  }
-
-  function setLoading(loading: boolean) {
-    btn.disabled = loading;
-    btn.textContent = loading ? 'Rejestrowanie…' : 'Zarejestruj się';
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearErrors();
-
-    const getValue = (id: string) => (document.getElementById(id) as HTMLInputElement)?.value ?? '';
-    const getChecked = (id: string) => (document.getElementById(id) as HTMLInputElement)?.checked ?? false;
-
-    const payload = {
-      login:                   getValue('login').trim(),
-      first_name:              getValue('first_name').trim(),
-      last_name:               getValue('last_name').trim(),
-      email:                   getValue('email').trim(),
-      password_1:              getValue('password_1'),
-      password_2:              getValue('password_2'),
-      data_processing_consent: getChecked('data_processing_consent'),
-    };
-
-    // Minimalna walidacja client-side (pola wymagane)
-    if (!payload.login || !payload.first_name || !payload.last_name || !payload.password_1 || !payload.password_2) {
-      showGlobalError('Wypełnij wszystkie wymagane pola.');
-      return;
-    }
-    if (!payload.data_processing_consent) {
-      showFieldErrors({ data_processing_consent: ['Zgoda na przetwarzanie danych jest wymagana.'] });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      // Krok 1: pobierz CSRF token
-      await fetch(`${API}/api/auth/csrf/`, { method: 'GET', credentials: 'include' });
-
-      const csrfToken = document.cookie
-        .split(';')
-        .map(c => c.trim())
-        .find(c => c.startsWith('csrftoken='))
-        ?.split('=')[1] ?? '';
-
-      // Krok 2: wyślij rejestrację
-      const res = await fetch(`${API}/api/auth/register/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrfToken,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        // Auto-login gotowy (sesja ustawiona przez backend) → redirect
-        window.location.href = BASE + '/dashboard';
-      } else {
-        if (data.errors) {
-          showFieldErrors(data.errors);
-        } else {
-          showGlobalError('Błąd rejestracji. Spróbuj ponownie.');
-        }
-      }
-    } catch {
-      showGlobalError('Nie można połączyć się z serwerem. Sprawdź połączenie.');
-    } finally {
-      setLoading(false);
-    }
-  });
-</script>
