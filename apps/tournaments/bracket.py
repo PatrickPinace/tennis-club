@@ -348,7 +348,7 @@ def build_bracket_data(tournament) -> list[dict]:
         round_label_str = None
 
         for m in sorted(round_matches, key=lambda x: x.match_index):
-            is_bye = m.participant2 is None and m.status == TournamentsMatch.Status.COMPLETED.value
+            is_bye = m.participant2 is None
             is_third = (round_num == total_rounds and m.match_index == 2)
             lbl = round_label(round_num, m.match_index, total_rounds)
             if round_label_str is None:

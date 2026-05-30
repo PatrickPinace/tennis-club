@@ -87,6 +87,15 @@
   .org-match-header:hover { background: var(--tc-overlay, rgba(0,0,0,0.015)); }
   .org-match--done.org-match:not([data-status="CMP"]):not([data-status="WDR"]) .org-match-header { cursor: default; }
 
+  /* ── vs separator i nazwy graczy ──────────────────────────────────────── */
+  .org-match-players { font-size: 0.84rem; color: var(--tc-ink); }
+  .vs {
+    color: var(--tc-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    margin: 0 3px;
+  }
+
   /* ── Formularz w karcie ─────────────────────────────────────────────────── */
   .org-score-form {
     display: none;
@@ -148,7 +157,7 @@
 
   /* Prosty input wyniku (bez spinnerów) */
   .org-set-input {
-    width: 46px; height: 38px; text-align: center;
+    width: 60px; height: 38px; text-align: center;
     font-size: 1.05rem; font-weight: 700;
     border: 1px solid var(--tc-card-border); border-radius: 6px;
     background: var(--tc-input-bg); color: var(--tc-ink);

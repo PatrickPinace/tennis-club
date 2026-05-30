@@ -102,7 +102,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
         <div class="org-match-header">
           <div class="org-match-meta">
             <span class="org-match-label">${roundLabel}</span>
-            <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+            <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
           </div>
           <div class="org-match-right">
             ${timeChip}${scoreChip}${statusBadge}
@@ -199,7 +199,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       <div class="org-match-header">
         <div class="org-match-meta">
           <span class="org-match-label">${roundLabel}</span>
-          <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+          <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
         </div>
         <div class="org-match-right">
           ${timeChip}${scoreChip}${statusBadge}
@@ -225,6 +225,27 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     </div>`;
 }
 
+/**
+ * Walidacja tenisowa seta: czy wynik (a:b) jest możliwy w standardowym secie?
+ * Dozwolone: 6:0–6:4, 7:5, 7:6, 6:7, 5:7, 0:6–4:6, lub super tie-break (≥10).
+ * Zwraca null jeśli OK, string z błędem jeśli nie.
+ */
+function validateTennisSet(a: number, b: number, setNum: number): string | null {
+  if (a < 0 || b < 0) return `Set ${setNum}: wynik nie może być ujemny.`;
+  const hi = Math.max(a, b), lo = Math.min(a, b);
+  // Super tie-break (do 10+)
+  if (hi >= 10) {
+    if (hi - lo < 2) return `Set ${setNum}: super tie-break wymaga przewagi co najmniej 2 punktów (${a}:${b}).`;
+    return null;
+  }
+  // Standardowy set: zwycięzca musi mieć 6 lub 7
+  if (hi < 6) return `Set ${setNum}: wynik ${a}:${b} jest nieprawidłowy — zwycięzca musi mieć co najmniej 6 gemów.`;
+  if (hi === 6 && lo <= 4) return null;   // 6:0–6:4 ✓
+  if (hi === 7 && (lo === 5 || lo === 6)) return null; // 7:5, 7:6 ✓
+  if (hi === 6 && lo === 5) return `Set ${setNum}: przy wyniku 6:5 kontynuuje się grę — wynik niemożliwy.`;
+  return `Set ${setNum}: wynik ${a}:${b} jest niemożliwy w standardowym secie tenisowym.`;
+}
+
 export async function handleScoreSubmit(
   e: Event,
   cfg: OrgPanelConfig,
@@ -237,6 +258,9 @@ export async function handleScoreSubmit(
   const matchId = form.dataset.matchId;
   const msgEl = document.querySelector<HTMLElement>(`.org-form-msg[data-match-id="${matchId}"]`);
   const btn = form.querySelector<HTMLButtonElement>('.org-save-btn');
+
+  // Disable natychmiast — blokuje podwójne kliknięcie zanim cokolwiek sprawdzimy
+  if (btn) btn.disabled = true;
 
   const getVal = (name: string): number | null => {
     const v = (form.elements.namedItem(name) as HTMLInputElement)?.value;
@@ -262,15 +286,33 @@ export async function handleScoreSubmit(
     body = { walkover: true, winner_participant_id: parseInt(winnerId, 10) };
     if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
   } else {
-    body = {
-      set1_p1: getVal('set1_p1'), set1_p2: getVal('set1_p2'),
-      set2_p1: getVal('set2_p1'), set2_p2: getVal('set2_p2'),
-      set3_p1: getVal('set3_p1'), set3_p2: getVal('set3_p2'),
-    };
+    const s1p1 = getVal('set1_p1'), s1p2 = getVal('set1_p2');
+    const s2p1 = getVal('set2_p1'), s2p2 = getVal('set2_p2');
+    const s3p1 = getVal('set3_p1'), s3p2 = getVal('set3_p2');
+
+    // Walidacja tenisowa dla SGL / DBE / LDR — AMR i RND mają własne reguły backendowe
+    if (cfg.isSGL || cfg.isDBE || cfg.isLDR) {
+      // Set 1 wymagany
+      const rejectValidation = (msg: string) => {
+        if (msgEl) { msgEl.textContent = msg; msgEl.className = 'org-form-msg org-form-msg--err'; }
+        if (btn) btn.disabled = false;
+      };
+      if (s1p1 === null || s1p2 === null) { rejectValidation('Set 1 jest wymagany.'); return; }
+      const checks: Array<[number, number, number]> = [[s1p1, s1p2, 1]];
+      if (s2p1 !== null && s2p2 !== null) checks.push([s2p1, s2p2, 2]);
+      else if (s2p1 !== null || s2p2 !== null) { rejectValidation('Set 2: wpisz wynik dla obu stron.'); return; }
+      if (s3p1 !== null && s3p2 !== null) checks.push([s3p1, s3p2, 3]);
+      else if (s3p1 !== null || s3p2 !== null) { rejectValidation('Set 3: wpisz wynik dla obu stron.'); return; }
+      for (const [a, b, n] of checks) {
+        const err = validateTennisSet(a, b, n);
+        if (err) { rejectValidation(err); return; }
+      }
+    }
+
+    body = { set1_p1: s1p1, set1_p2: s1p2, set2_p1: s2p1, set2_p2: s2p2, set3_p1: s3p1, set3_p2: s3p2 };
     if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
   }
 
-  if (btn) btn.disabled = true;
   if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
 
   const csrf = getCsrf();
