@@ -26,6 +26,7 @@ class DashboardSummaryView(APIView):
         try:
             from apps.rankings.models import PlayerRanking
             ranking = PlayerRanking.objects.filter(user=user, match_type='SNG').first()
+            _display_name = (user.get_full_name().strip() or user.username) if user else None
             ranking_data = {
                 'position': ranking.position if ranking else None,
                 'points': float(ranking.points) if ranking else None,
@@ -35,6 +36,7 @@ class DashboardSummaryView(APIView):
                 'win_rate': round(
                     ranking.matches_won / ranking.matches_played * 100
                 ) if ranking and ranking.matches_played else None,
+                'display_name': _display_name,
             }
         except Exception:
             ranking_data = None
