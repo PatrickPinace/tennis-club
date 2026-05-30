@@ -106,7 +106,7 @@ function matchOpponent(m: MatchHistoryEntry): string {
   return [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
 }
 
-const recentActivity = matchHistoryRaw.slice(0, 4).map(m => {
+const recentActivity = matchHistoryRaw.slice(0, 5).map(m => {
   const isWin  = m.user === 'user-win';
   const isDraw = m.user === 'user-draw';
   const result = isWin ? 'win' : isDraw ? 'neutral' : 'loss';
@@ -772,8 +772,8 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .activity-item {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 12px 20px;
+    gap: 10px;
+    padding: 8px 20px;
     border-bottom: 1px solid var(--tc-card-border-soft);
     transition: background 0.12s;
     cursor: default;
@@ -839,7 +839,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   }
 
   @media (max-width: 640px) {
-    .activity-item { padding: 10px 16px; }
+    .activity-item { padding: 8px 16px; }
   }
 
   /* ── Activity segment control ────────────────────────────────────────── */
