@@ -212,7 +212,10 @@
   color: var(--tc-accent);
   font-family: var(--font-mono, monospace);
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
   background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
   padding: 2px 5px;
   border-radius: 4px;

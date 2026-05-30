@@ -34,6 +34,7 @@ import { initViewToggle } from './org-view-toggle';
   const isSGL          = tType === 'SGL';
   const isDBE          = tType === 'DBE';
   const isAMR          = tType === 'AMR';
+  const isLDR          = tType === 'LDR';
 
   // 1. Auth check
   let meData: { authenticated?: boolean; user?: { username?: string; is_staff?: boolean } } = {};
@@ -60,7 +61,7 @@ import { initViewToggle } from './org-view-toggle';
 
   const cfg: OrgPanelConfig = {
     panel, tournamentId, createdBy, tStatus, tType,
-    setsToWin, pointsPerMatch, apiBase, isSGL, isDBE, isAMR,
+    setsToWin, pointsPerMatch, apiBase, isSGL, isDBE, isAMR, isLDR,
     locked, lockedHard,
   };
 

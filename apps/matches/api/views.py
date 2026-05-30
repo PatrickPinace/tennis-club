@@ -91,6 +91,21 @@ class MatchDetailView(generics.RetrieveAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        # Walidacja tenisowa setów (defence-in-depth — frontend ma własną)
+        from apps.matches.tools import validate_tennis_set
+        for s in (1, 2, 3):
+            a = sets.get(f'p1_set{s}')
+            b = sets.get(f'p2_set{s}')
+            if a is not None and b is not None:
+                err = validate_tennis_set(a, b, s)
+                if err:
+                    return Response({'detail': err}, status=status.HTTP_400_BAD_REQUEST)
+            elif (a is None) != (b is None):
+                return Response(
+                    {'detail': f'Set {s}: wpisz wynik dla obu stron lub żaden.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         update_fields = []
         for field, val in sets.items():
             if field in request.data:

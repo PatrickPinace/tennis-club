@@ -672,6 +672,7 @@
   /* ── Recent matches ───────────────────────────────────────────────────────── */
   .ldr-recent-list {
     display: flex; flex-direction: column; gap: 0;
+    padding: 4px 20px 12px;
   }
   .ldr-recent-row {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;

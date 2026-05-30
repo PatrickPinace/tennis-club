@@ -60,7 +60,7 @@ import { initLdrSeeds }        from './org-ldr-seeds';
     setsToWin: 2,       // not used for LDR but required by OrgPanelConfig type
     pointsPerMatch: 0,  // not used for LDR
     apiBase,
-    isSGL: false, isDBE: false, isAMR: false,
+    isSGL: false, isDBE: false, isAMR: false, isLDR: true,
     locked, lockedHard,
   };
 

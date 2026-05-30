@@ -38,7 +38,21 @@ class MatchCreateSerializer(serializers.ModelSerializer):
 
         if len(players) != len(set(players)):
             raise serializers.ValidationError("Gracze w meczu must be unique.")
-            
+
+        # Walidacja tenisowa setów
+        from apps.matches.tools import validate_tennis_set
+        for s in (1, 2, 3):
+            a = data.get(f'p1_set{s}')
+            b = data.get(f'p2_set{s}')
+            if a is not None and b is not None:
+                err = validate_tennis_set(a, b, s)
+                if err:
+                    raise serializers.ValidationError(err)
+            elif (a is None) != (b is None):
+                raise serializers.ValidationError(
+                    f'Set {s}: wpisz wynik dla obu stron lub żaden.'
+                )
+
         return data
 
     def create(self, validated_data):

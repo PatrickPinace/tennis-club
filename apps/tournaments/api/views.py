@@ -208,7 +208,7 @@ class RoundRobinMatchScoreView(APIView):
         # Organizator / staff — pełny dostęp do wszystkich typów turniejów.
         # Uczestnik meczu RR — może wpisać wynik setów oraz WDR (bez CNC).
         # Uczestnik meczu AMR STATIC — może wpisać zwykły wynik (bez WDR/CNC).
-        # SGL: tylko organizer/staff.
+        # Uczestnik meczu SGL/DBE — self-reported, trust-first (bez CNC/WDR).
         is_rnd_participant = (
             tournament.tournament_type == Tournament.TournamentType.ROUND_ROBIN
             and match.participant1 is not None
@@ -231,9 +231,21 @@ class RoundRobinMatchScoreView(APIView):
                     if p is not None and p.user is not None:
                         amr_users.add(p.user)
                 is_amr_participant = request.user in amr_users
-        if not is_organizer and not is_rnd_participant and not is_amr_participant:
+        is_sgl_dbe_participant = (
+            tournament.tournament_type in (
+                Tournament.TournamentType.SINGLE_ELIMINATION,
+                Tournament.TournamentType.DOUBLE_ELIMINATION,
+            )
+            and match.participant1 is not None
+            and match.participant2 is not None
+            and request.user in (
+                match.participant1.user,
+                match.participant2.user,
+            )
+        )
+        if not is_organizer and not is_rnd_participant and not is_amr_participant and not is_sgl_dbe_participant:
             return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR).'},
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -474,6 +486,21 @@ class RoundRobinMatchScoreView(APIView):
                     sets_to_win = elim_cfg.sets_to_win
                 except Exception:
                     sets_to_win = 2  # bezpieczny default
+
+                # Walidacja tenisowa setów (defence-in-depth — frontend ma własną)
+                from apps.matches.tools import validate_tennis_set as _vts
+                for _s in (1, 2, 3):
+                    _a = fields[f'set{_s}_p1']
+                    _b = fields[f'set{_s}_p2']
+                    if _a is not None and _b is not None:
+                        _err = _vts(_a, _b, _s)
+                        if _err:
+                            return Response({'detail': _err}, status=status.HTTP_400_BAD_REQUEST)
+                    elif (_a is None) != (_b is None):
+                        return Response(
+                            {'detail': f'Set {_s}: wpisz wynik dla obu stron lub żaden.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
             else:
                 # ── Walidacja gemów per set (RND) ─────────────────────────────────
                 config_for_validation = getattr(tournament, 'round_robin_config', None)
@@ -646,7 +673,7 @@ class RoundRobinMatchScoreView(APIView):
                 if _slot.user.pk in _seen_user_pks:
                     continue
                 _seen_user_pks.add(_slot.user.pk)
-                if match.status == TournamentsMatch.Status.WALKOVER.value:
+                if match.status == TournamentsMatch.Status.WITHDRAWN.value:
                     _msg = (
                         f'🏆 Walkover w turnieju „{tournament.name}": '
                         f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
@@ -1815,6 +1842,23 @@ class TournamentParticipantView(APIView):
             f' Partner: {partner_name}' if partner_name else '',
         )
 
+        # Notyfikuj dodanego uczestnika (nie notyfikuj gdy organizator dodaje siebie)
+        if target_user and target_user.pk != request.user.pk:
+            from notifications.helpers import notify
+            notify(
+                target_user,
+                f'🎾 Dodano Cię do turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
+            )
+        # Notyfikuj partnera (debel) — jeśli istnieje i jest inną osobą
+        if partner_user and partner_user.pk != request.user.pk and partner_user.pk != target_user.pk:
+            from notifications.helpers import notify
+            notify(
+                partner_user,
+                f'🎾 Dodano Cię do turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
+            )
+
         return Response({
             'id': participant.pk,
             'display_name': participant.display_name,
@@ -2270,6 +2314,17 @@ class LadderView(APIView):
             user_participant = next(
                 (p for p in participants if p.user_id == request.user.pk), None
             )
+            # Debel LDR: partner pary może też wyzywać — sprawdź TeamMember
+            if user_participant is None:
+                from apps.tournaments.models import TeamMember as _TM
+                tm = _TM.objects.filter(
+                    user=request.user,
+                    participant__tournament=tournament,
+                ).exclude(participant__status='WDN').select_related('participant').first()
+                if tm:
+                    user_participant = next(
+                        (p for p in participants if p.id == tm.participant_id), None
+                    )
             if user_participant:
                 my_participant_id = user_participant.id
 
@@ -2433,14 +2488,23 @@ class LadderChallengeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Pobierz uczestnika zalogowanego usera
-        try:
-            challenger = Participant.objects.get(
-                tournament=tournament,
+        # Pobierz uczestnika zalogowanego usera (kapitan lub partner pary)
+        challenger = Participant.objects.filter(
+            tournament=tournament,
+            user=request.user,
+            status__in=['ACT', 'REG'],
+        ).first()
+        if challenger is None:
+            # Debel LDR: sprawdź czy user jest partnerem pary (TeamMember)
+            from apps.tournaments.models import TeamMember as _TM
+            tm = _TM.objects.filter(
                 user=request.user,
-                status__in=['ACT', 'REG'],
-            )
-        except Participant.DoesNotExist:
+                participant__tournament=tournament,
+                participant__status__in=['ACT', 'REG'],
+            ).select_related('participant').first()
+            if tm:
+                challenger = tm.participant
+        if challenger is None:
             return Response(
                 {'detail': 'Nie jesteś uczestnikiem tego turnieju.'},
                 status=status.HTTP_403_FORBIDDEN,

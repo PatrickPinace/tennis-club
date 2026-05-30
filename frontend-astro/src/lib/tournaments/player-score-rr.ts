@@ -209,6 +209,22 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         }
       }
 
+      // Walidacja tenisowa seta — identyczna z org-matches.ts i player-score-sgl.ts
+      const checkSet = (a: number, b: number, n: number): string | null => {
+        if (a < 0 || b < 0) return `Set ${n}: wynik nie może być ujemny.`;
+        const hi = Math.max(a, b), lo = Math.min(a, b);
+        if (hi >= 10) {
+          if (hi > 20) return `Set ${n}: super tie-break nie może mieć więcej niż 20 punktów (${a}:${b}).`;
+          if (hi - lo < 2) return `Set ${n}: super tie-break wymaga przewagi ≥ 2 punktów (${a}:${b}).`;
+          if (hi > 10 && lo !== hi - 2) return `Set ${n}: po 10:10 gra trwa do różnicy 2 punktów — ${a}:${b} jest niemożliwe.`;
+          return null;
+        }
+        if (hi < 6) return `Set ${n}: zwycięzca musi mieć co najmniej 6 gemów.`;
+        if (hi === 6 && lo <= 4) return null;
+        if (hi === 7 && (lo === 5 || lo === 6)) return null;
+        return `Set ${n}: wynik ${a}:${b} jest niemożliwy w standardowym secie tenisowym.`;
+      };
+
       // Podepnij handlery formularzy
       list.querySelectorAll<HTMLFormElement>('.org-score-form').forEach(form => {
         form.addEventListener('submit', async (e) => {
@@ -218,6 +234,15 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const msg = form.querySelector<HTMLElement>('.org-form-msg');
           if (!btn || !msg || !matchId) return;
 
+          // Disable natychmiast — blokuje podwójne kliknięcie
+          btn.disabled = true;
+
+          const reject = (text: string) => {
+            msg.textContent = text;
+            msg.className = 'org-form-msg org-form-msg--err';
+            btn.disabled = false;
+          };
+
           // Sprawdź WDR
           const wdrCb = form.querySelector<HTMLInputElement>('.ps-wdr-cb');
           const isWalkover = wdrCb?.checked ?? false;
@@ -225,9 +250,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const loserId = loserSelect?.value ?? '';
 
           if (isWalkover && !loserId) {
-            msg.textContent = 'Wybierz kto się wycofuje.';
-            msg.className = 'org-form-msg org-form-msg--err';
-            return;
+            return reject('Wybierz kto się wycofuje.');
           }
 
           // winner = ten który NIE jest loser
@@ -246,10 +269,24 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
               const v = fd.get(k);
               scoreBody[k] = (v !== null && v !== '') ? parseInt(v as string, 10) : null;
             });
+
+            // Walidacja tenisowa setów
+            if (scoreBody.set1_p1 === null || scoreBody.set1_p2 === null) {
+              return reject('Set 1 jest wymagany.');
+            }
+            const sets: Array<[number, number, number]> = [[scoreBody.set1_p1!, scoreBody.set1_p2!, 1]];
+            if (scoreBody.set2_p1 !== null && scoreBody.set2_p2 !== null) sets.push([scoreBody.set2_p1, scoreBody.set2_p2, 2]);
+            else if (scoreBody.set2_p1 !== null || scoreBody.set2_p2 !== null) return reject('Set 2: wpisz wynik dla obu stron.');
+            if (scoreBody.set3_p1 !== null && scoreBody.set3_p2 !== null) sets.push([scoreBody.set3_p1, scoreBody.set3_p2, 3]);
+            else if (scoreBody.set3_p1 !== null || scoreBody.set3_p2 !== null) return reject('Set 3: wpisz wynik dla obu stron.');
+            for (const [a, b, n] of sets) {
+              const err = checkSet(a, b, n);
+              if (err) return reject(err);
+            }
+
             body = scoreBody;
           }
 
-          btn.disabled = true;
           btn.textContent = 'Zapisuję…';
           msg.textContent = '';
           msg.className = 'org-form-msg';
