@@ -193,6 +193,21 @@
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --font-mono-plex: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
+
+  /* ── Skala typograficzna (5 stopni dla UI poniżej 1rem) ─────────────────
+     Zamiast ~20 rozproszonych wartości, 5 semantycznych poziomów:
+       --fs-xs   = drobne etykiety, badge dot, superscript (≥12px @ 16px base)
+       --fs-sm   = caption, meta, timestamp, hint
+       --fs-base = body standard, table, lista
+       --fs-md   = nieco większy body, form input, button
+       --fs-lg   = tytuły sekcji, card header (bez rem headingów H1/H2)
+     Wartości dobrane do dominujących klastrów w kodzie.
+     ────────────────────────────────────────────────────────────────────── */
+  --fs-xs:   0.72rem;   /* 11.5px — minimalne etykiety, badge */
+  --fs-sm:   0.78rem;   /* 12.5px — caption, meta, timestamp */
+  --fs-base: 0.875rem;  /* 14px   — body, tabele, listy */
+  --fs-md:   0.9375rem; /* 15px   — form input, duży body */
+  --fs-lg:   1rem;      /* 16px   — card title, section header */
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -254,11 +269,11 @@ input, select, textarea { font-family: inherit; }
 }
 
 .tc-card-title {
-  font-size: 0.9rem; font-weight: 600; color: var(--tc-ink);
+  font-size: var(--fs-lg); font-weight: 600; color: var(--tc-ink);
 }
 
 .tc-card-count {
-  font-size: 0.75rem; font-weight: 600;
+  font-size: var(--fs-xs); font-weight: 600;
   color: var(--tc-muted);
   background: var(--tc-chip-bg, var(--surface-2));
   border: 1px solid var(--tc-card-border);
@@ -281,7 +296,7 @@ input, select, textarea { font-family: inherit; }
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   min-height: 38px; padding: 0 16px;
   border-radius: var(--radius-sm); border: 1px solid transparent;
-  font-size: 0.875rem; font-weight: 600; font-family: var(--font-sans);
+  font-size: var(--fs-base); font-weight: 600; font-family: var(--font-sans);
   text-decoration: none; cursor: pointer;
   transition: background 0.15s, border-color 0.15s, transform 0.1s;
   white-space: nowrap;
@@ -306,15 +321,15 @@ input, select, textarea { font-family: inherit; }
 }
 .tc-btn-ghost:hover { background: var(--tc-overlay); color: var(--tc-ink); }
 
-.tc-btn-sm { min-height: 30px; padding: 0 12px; font-size: 0.8rem; }
-.tc-btn-lg { min-height: 44px; padding: 0 22px; font-size: 0.9375rem; }
+.tc-btn-sm { min-height: 30px; padding: 0 12px; font-size: var(--fs-sm); }
+.tc-btn-lg { min-height: 44px; padding: 0 22px; font-size: var(--fs-md); }
 .tc-btn-icon { min-height: 36px; width: 36px; padding: 0; border-radius: var(--radius-sm); }
 
 /* ── Odznaki ─────────────────────────────────────────────────────────────── */
 .tc-badge {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 3px 9px; border-radius: 99px;
-  font-size: 0.72rem; font-weight: 600; line-height: 1.5;
+  font-size: var(--fs-xs); font-weight: 600; line-height: 1.5;
 }
 
 .tc-badge-success { background: rgba(34,197,94,0.12);  color: var(--tc-win); }
@@ -330,15 +345,15 @@ input, select, textarea { font-family: inherit; }
   border: 2px solid var(--tc-accent); color: var(--tc-accent);
   font-weight: 700; display: grid; place-items: center; flex-shrink: 0;
 }
-.tc-avatar-sm { width: 32px; height: 32px; font-size: 0.78rem; }
-.tc-avatar-md { width: 40px; height: 40px; font-size: 0.9rem; }
-.tc-avatar-lg { width: 48px; height: 48px; font-size: 1rem; }
+.tc-avatar-sm { width: 32px; height: 32px; font-size: var(--fs-sm); }
+.tc-avatar-md { width: 40px; height: 40px; font-size: var(--fs-base); }
+.tc-avatar-lg { width: 48px; height: 48px; font-size: var(--fs-lg); }
 
 /* ── Tabele ──────────────────────────────────────────────────────────────── */
-.tc-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.tc-table { width: 100%; border-collapse: collapse; font-size: var(--fs-base); }
 .tc-table th {
   padding: 10px 14px; text-align: left;
-  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
+  font-size: var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
   color: var(--tc-sub); border-bottom: 1px solid var(--tc-card-border);
 }
 .tc-table td { padding: 13px 14px; border-bottom: 1px solid var(--tc-card-border); color: var(--tc-ink); }
@@ -349,7 +364,7 @@ input, select, textarea { font-family: inherit; }
 .rank-pos {
   display: inline-flex; align-items: center; justify-content: center;
   width: 28px; height: 28px; border-radius: var(--radius-xs);
-  font-size: 0.82rem; font-weight: 700;
+  font-size: var(--fs-sm); font-weight: 700;
   background: var(--tc-chip-bg); color: var(--tc-sub);
 }
 .rank-pos--1 { background: rgba(251,191,36,0.15); color: #fbbf24; }
@@ -358,7 +373,7 @@ input, select, textarea { font-family: inherit; }
 
 /* ── Breadcrumb ──────────────────────────────────────────────────────────── */
 .tc-breadcrumb {
-  font-size: 0.82rem; color: var(--tc-sub);
+  font-size: var(--fs-sm); color: var(--tc-sub);
   margin-bottom: 20px;
 }
 .tc-breadcrumb a { color: var(--tc-sub); }
@@ -377,7 +392,7 @@ input, select, textarea { font-family: inherit; }
   border: 1px solid var(--tc-card-border);
   border-radius: var(--radius-sm);
   color: var(--tc-ink);
-  font-size: 0.9375rem;
+  font-size: var(--fs-md);
   font-family: var(--font-sans);
   transition: border-color 0.15s, box-shadow 0.15s;
   outline: none;
@@ -428,7 +443,7 @@ select.tc-input { cursor: pointer; }
 }
 
 .dash-section-title {
-  font-size: 0.88rem;
+  font-size: var(--fs-base);
   font-weight: 700;
   color: var(--tc-ink);
   margin: 0;
@@ -447,7 +462,7 @@ select.tc-input { cursor: pointer; }
   border-radius: 99px;
   background: var(--tc-chip-bg);
   color: var(--tc-muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   font-weight: 700;
 }
 
@@ -460,7 +475,7 @@ select.tc-input { cursor: pointer; }
 }
 
 .dash-link-sm {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--tc-accent);
   text-decoration: none;
@@ -473,7 +488,7 @@ select.tc-input { cursor: pointer; }
   display: inline-flex; align-items: center; justify-content: center;
   padding: 8px 18px; border-radius: 8px;
   background: var(--tc-accent); color: var(--tc-accent-ink);
-  font-size: 0.84rem; font-weight: 700;
+  font-size: var(--fs-base); font-weight: 700;
   text-decoration: none; transition: opacity 0.15s;
   box-shadow: var(--tc-shadow);
 }
@@ -484,7 +499,7 @@ select.tc-input { cursor: pointer; }
   width: 100%; padding: 8px 18px; border-radius: 8px;
   background: var(--tc-overlay);
   border: 1px solid var(--tc-card-border);
-  color: var(--tc-sub); font-size: 0.84rem; font-weight: 600;
+  color: var(--tc-sub); font-size: var(--fs-base); font-weight: 600;
   text-decoration: none;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
@@ -505,8 +520,8 @@ select.tc-input { cursor: pointer; }
   display: grid; place-items: center;
   color: var(--tc-muted); margin-bottom: 4px;
 }
-.dash-empty-block__title { font-size: 0.875rem; font-weight: 600; color: var(--tc-ink); margin: 0; }
-.dash-empty-block__sub { font-size: 0.78rem; color: var(--tc-sub); margin: 0 0 6px; line-height: 1.5; max-width: 260px; }
+.dash-empty-block__title { font-size: var(--fs-base); font-weight: 600; color: var(--tc-ink); margin: 0; }
+.dash-empty-block__sub { font-size: var(--fs-sm); color: var(--tc-sub); margin: 0 0 6px; line-height: 1.5; max-width: 260px; }
 .dash-empty-block__links { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 
 .bento-label {
@@ -521,5 +536,5 @@ select.tc-input { cursor: pointer; }
   padding: 48px 20px; text-align: center; color: var(--tc-sub);
 }
 .tc-empty__icon { font-size: 2rem; opacity: 0.35; }
-.tc-empty__title { font-size: 0.95rem; font-weight: 600; color: var(--tc-ink); }
-.tc-empty__text { font-size: 0.85rem; max-width: 34ch; line-height: 1.6; }
+.tc-empty__title { font-size: var(--fs-lg); font-weight: 600; color: var(--tc-ink); }
+.tc-empty__text { font-size: var(--fs-base); max-width: 34ch; line-height: 1.6; }
