@@ -578,6 +578,27 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             </details>
           )}
 
+          <!-- ── Wpisz wynik — uczestnik meczu SGL ─────────────────────── -->
+          <!-- Widoczny client-side przez player-score-sgl.ts tylko gdy user jest uczestnikiem meczu. -->
+          {(tournament.status === 'ACT' || tournament.status === 'FIN') && (
+            <div
+              id="sgl-player-score-panel"
+              style="display:none;margin-bottom:24px;"
+              data-tournament-id={tournament.id}
+              data-tournament-status={tournament.status}
+              data-tournament-type={tournament.tournament_type}
+              data-created-by={tournament.created_by_username}
+            >
+              <div class="tc-card">
+                <div class="tc-card-header">
+                  <span class="tc-card-title">Twoje mecze</span>
+                  <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
+                </div>
+                <div id="sgl-player-matches-list"></div>
+              </div>
+            </div>
+          )}
+
           <!-- SSR data dla JS -->
           {tournament && (
             <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
@@ -747,6 +768,26 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                 </div>
               </div>
             </details>
+          )}
+
+          <!-- ── Wpisz wynik — uczestnik meczu DBE ─────────────────────── -->
+          {(tournament.status === 'ACT' || tournament.status === 'FIN') && (
+            <div
+              id="sgl-player-score-panel"
+              style="display:none;margin-bottom:24px;"
+              data-tournament-id={tournament.id}
+              data-tournament-status={tournament.status}
+              data-tournament-type={tournament.tournament_type}
+              data-created-by={tournament.created_by_username}
+            >
+              <div class="tc-card">
+                <div class="tc-card-header">
+                  <span class="tc-card-title">Twoje mecze</span>
+                  <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
+                </div>
+                <div id="sgl-player-matches-list"></div>
+              </div>
+            </div>
           )}
 
           <!-- SSR data dla JS -->
@@ -1564,6 +1605,7 @@ import '@/lib/tournaments/rr-matrix';
 import '@/lib/tournaments/self-registration';
 import '@/lib/tournaments/player-score-rr';
 import '@/lib/tournaments/player-score-amr';
+import '@/lib/tournaments/player-score-sgl';
 import '@/lib/tournaments/ldr-actions';
 
 import '@/lib/tournaments/org-panel';

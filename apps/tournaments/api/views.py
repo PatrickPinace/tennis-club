@@ -208,7 +208,7 @@ class RoundRobinMatchScoreView(APIView):
         # Organizator / staff — pełny dostęp do wszystkich typów turniejów.
         # Uczestnik meczu RR — może wpisać wynik setów oraz WDR (bez CNC).
         # Uczestnik meczu AMR STATIC — może wpisać zwykły wynik (bez WDR/CNC).
-        # SGL: tylko organizer/staff.
+        # Uczestnik meczu SGL/DBE — self-reported, trust-first (bez CNC/WDR).
         is_rnd_participant = (
             tournament.tournament_type == Tournament.TournamentType.ROUND_ROBIN
             and match.participant1 is not None
@@ -231,9 +231,21 @@ class RoundRobinMatchScoreView(APIView):
                     if p is not None and p.user is not None:
                         amr_users.add(p.user)
                 is_amr_participant = request.user in amr_users
-        if not is_organizer and not is_rnd_participant and not is_amr_participant:
+        is_sgl_dbe_participant = (
+            tournament.tournament_type in (
+                Tournament.TournamentType.SINGLE_ELIMINATION,
+                Tournament.TournamentType.DOUBLE_ELIMINATION,
+            )
+            and match.participant1 is not None
+            and match.participant2 is not None
+            and request.user in (
+                match.participant1.user,
+                match.participant2.user,
+            )
+        )
+        if not is_organizer and not is_rnd_participant and not is_amr_participant and not is_sgl_dbe_participant:
             return Response(
-                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu (RR lub AMR).'},
+                {'detail': 'Brak uprawnień. Wymagane: organizator turnieju, is_staff lub uczestnik meczu.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
