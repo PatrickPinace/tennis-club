@@ -132,7 +132,7 @@ const winRate       = matchesPlayed > 0 ? Math.round(matchesWon / matchesPlayed 
 
 // Greeting: "Witaj" dla nowego usera (brak meczów i turniejów), "Witaj z powrotem" dla aktywnych
 const greeting = firstName
-  ? (matchesPlayed === 0 && tStats === null ? `Witaj, ${firstName}!!!` : `Witaj z powrotem, ${firstName}!!!`)
+  ? (matchesPlayed === 0 && tStats === null ? `Witaj, ${firstName}!` : `Witaj z powrotem, ${firstName}!`)
   : undefined;
 
 // Data pod greeting — "pon · 25 maja 2026 · 14:32"
