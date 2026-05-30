@@ -52,6 +52,8 @@ function makeAutocomplete(
         close();
       });
     });
+    // Auto-zaznacz pierwszy wynik — Enter od razu go doda
+    setHL(0);
   }
 
   const excludeParam = tournamentId ? `&exclude_tournament=${tournamentId}` : '';
