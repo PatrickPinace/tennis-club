@@ -67,14 +67,22 @@ const isLiveData = liveTournaments.length > 0;
 
 function activityDate(iso: string): string {
   try {
+    // "YYYY-MM-DD" → compare by calendar date, not milliseconds
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (iso === todayStr) return 'dziś';
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (iso === yesterday.toISOString().slice(0, 10)) return 'wczoraj';
+      const d = new Date(iso + 'T12:00:00');
+      const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
+      if (diffDays < 7) return `${diffDays} dni temu`;
+      return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+    }
     const d = new Date(iso);
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000);
-    if (diffDays === 0) {
-      // match_date = "YYYY-MM-DD" (no time component) → show "dziś" instead of misleading hour
-      if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return 'dziś';
-      return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-    }
+    if (diffDays === 0) return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
     if (diffDays === 1) return 'wczoraj';
     if (diffDays < 7)  return `${diffDays} dni temu`;
     return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
