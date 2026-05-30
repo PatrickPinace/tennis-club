@@ -77,8 +77,9 @@
   --tc-muted: #6b7280;
   --tc-faint: #3a3f47;
 
-  --tc-hot: #ff6b35;
-  --tc-win: #22c55e;
+  --tc-hot:  #ff6b35;
+  --tc-win:  #22c55e;
+  --tc-warn: #f59e0b;
 
   /* Akcent: limonka (tennis ball) — domyślny */
   --tc-accent:        #c8f161;
@@ -148,8 +149,9 @@
   --tc-muted: #71717a;
   --tc-faint: #c4c4c1;
 
-  --tc-hot: #b91c1c;
-  --tc-win: #16a34a;
+  --tc-hot:  #b91c1c;
+  --tc-win:  #16a34a;
+  --tc-warn: #d97706;
 
   /* Akcent: limonka light */
   --tc-accent:        #5a7d22;
@@ -399,8 +401,8 @@ input, select, textarea { font-family: inherit; }
   height: 20px;
   padding: 0 6px;
   border-radius: 99px;
-  background: var(--tc-accent-soft);
-  color: var(--tc-accent-ink);
+  background: var(--tc-chip-bg);
+  color: var(--tc-muted);
   font-size: 0.72rem;
   font-weight: 700;
 }

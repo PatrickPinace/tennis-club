@@ -85,17 +85,17 @@ export default function MatchEditForm({ matchId, initialSets }: Props) {
 
       if (res.ok) {
         setMsg('Zapisano!');
-        setMsgColor('#22c55e');
+        setMsgColor('var(--tc-win)');
         setTimeout(() => window.location.reload(), 800);
       } else {
         const err = await res.json().catch(() => ({}));
         setMsg(err.detail || Object.values(err)[0] || `Błąd ${res.status}`);
-        setMsgColor('var(--danger)');
+        setMsgColor('var(--tc-hot)');
         setLoading(false);
       }
     } catch {
       setMsg('Błąd sieci.');
-      setMsgColor('var(--danger)');
+      setMsgColor('var(--tc-hot)');
       setLoading(false);
     }
   };
