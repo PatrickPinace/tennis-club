@@ -2,6 +2,8 @@
 // Topbar.astro — przepisany wg projektu grafika
 // Search bar + CTA "+ Nowa Rezerwacja" + user chip z inicjałami
 import { url } from '@/lib/url';
+import NotificationBell from '@/components/NotificationBell.tsx';
+import UserChip from '@/components/UserChip.tsx';
 
 // Link "Wersja klasyczna" → Django.
 // PUBLIC_CLASSIC_URL: w dev = http://localhost:8000 (Django na osobnym porcie).
@@ -73,45 +75,12 @@ const {
       </div>
     )}
 
-    <!-- Notifications bell -->
-    <div class="topbar__notif-wrap">
-      <button
-        class="topbar__icon-btn"
-        id="notif-btn"
-        onclick="toggleNotifPanel(); event.stopPropagation();"
-        aria-label="Powiadomienia"
-        title="Powiadomienia"
-      >
-        <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
-        </svg>
-        {unreadCount !== null && unreadCount > 0 && (
-          <span class="topbar__notif-dot" id="notif-count" aria-label={`${unreadCount} nieprzeczytanych powiadomień`}>
-            {unreadCount > 99 ? '99+' : unreadCount}
-          </span>
-        )}
-        {(unreadCount === null || unreadCount === 0) && (
-          <span class="topbar__notif-dot" id="notif-count" style="display:none;">0</span>
-        )}
-      </button>
-
-      <!-- Notifications panel -->
-      <div class="topbar__notif-panel" id="notif-panel" style="display:none;" role="dialog" aria-label="Powiadomienia">
-        <div class="topbar__notif-arrow" aria-hidden="true"></div>
-        <div class="topbar__notif-header">
-          <span class="topbar__notif-title">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="flex-shrink:0;">
-              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
-            </svg>
-            Powiadomienia
-          </span>
-          <button onclick="readAllNotif()" class="topbar__notif-mark">Oznacz wszystkie</button>
-        </div>
-        <div id="notif-list" class="topbar__notif-list">
-          <div class="topbar__notif-empty">Brak nowych powiadomień</div>
-        </div>
-      </div>
-    </div>
+    <!-- Notifications bell (React island) -->
+    <NotificationBell
+      client:load
+      initialUnread={unreadCount ?? 0}
+      notificationsUrl={url('/notifications')}
+    />
 
     {showCta && (
       <a href={ctaHref} class="topbar__cta">
@@ -119,45 +88,13 @@ const {
       </a>
     )}
 
-    <!-- User chip — wypełniany przez JS po sprawdzeniu /api/auth/me/ -->
-    <div class="topbar__user-wrap">
-      <!-- Stan zalogowany (domyślnie ukryty, JS go pokazuje) -->
-      <div class="topbar__user" id="user-chip" style="display:none;" role="button" tabindex="0" aria-label="Menu użytkownika">
-        <div class="topbar__user-avatar" aria-hidden="true" id="user-avatar">??</div>
-        <div class="topbar__user-info">
-          <span class="topbar__user-name" id="user-name">—</span>
-          <span class="topbar__user-surname" id="user-surname"></span>
-        </div>
-        <svg class="topbar__user-caret" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/>
-        </svg>
-        <!-- Dropdown menu -->
-        <div class="topbar__user-menu" id="user-menu" style="display:none;">
-          <a href={url('/tournaments/manage')} class="topbar__user-menu-item topbar__user-menu-link">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-              <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
-            </svg>
-            Moje turnieje
-          </a>
-          <a href={url('/profile')} class="topbar__user-menu-item topbar__user-menu-link">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-            </svg>
-            Mój profil
-          </a>
-          <div class="topbar__user-menu-divider"></div>
-          <button class="topbar__user-menu-item" id="logout-btn">
-            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11 4a1 1 0 10-2 0v4a1 1 0 102 0V7zm-3 1a1 1 0 10-2 0v3a1 1 0 102 0V8z" clip-rule="evenodd"/>
-            </svg>
-            Wyloguj
-          </button>
-        </div>
-      </div>
-      <!-- Stan niezalogowany -->
-      <a href={url('/login')} class="topbar__login-link" id="login-link">Zaloguj się</a>
-    </div>
+    <!-- User chip (React island) -->
+    <UserChip
+      client:load
+      profileUrl={url('/profile')}
+      manageUrl={url('/tournaments/manage')}
+      loginUrl={url('/login')}
+    />
 
     <!-- Link do wersji klasycznej (Django) -->
     <a href={classicUrl} class="topbar__classic-link" title="Wróć do wersji klasycznej">
@@ -279,8 +216,8 @@ const {
     width: 260px;
   }
 
-  /* ── Icon buttons (bell, theme) ───────────────────────────────────────── */
-  .topbar__icon-btn {
+  /* ── Icon buttons (bell, theme) — bell is React island, needs :global ── */
+  :global(.topbar__icon-btn) {
     width: 38px; height: 38px;
     border-radius: 8px;
     background: var(--tc-card-bg);
@@ -292,12 +229,12 @@ const {
     position: relative;
     cursor: pointer;
   }
-  .topbar__icon-btn:hover { border-color: var(--tc-accent-border); color: var(--tc-ink); }
+  :global(.topbar__icon-btn:hover) { border-color: var(--tc-accent-border); color: var(--tc-ink); }
 
-  /* ── Notification bell ────────────────────────────────────────────────── */
-  .topbar__notif-wrap { position: relative; }
+  /* ── Notification bell (React island — must be :global) ──────────────── */
+  :global(.topbar__notif-wrap) { position: relative; }
 
-  .topbar__notif-dot {
+  :global(.topbar__notif-wrap .topbar__notif-dot) {
     position: absolute; top: 3px; right: 3px;
     min-width: 16px; height: 16px;
     background: var(--tc-hot); color: #fff;
@@ -307,7 +244,7 @@ const {
     padding: 0 3px;
   }
 
-  .topbar__notif-panel {
+  :global(.topbar__notif-panel) {
     position: absolute; right: 0; top: calc(100% + 8px);
     width: 340px;
     background: var(--tc-card-bg);
@@ -324,7 +261,7 @@ const {
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 
-  .topbar__notif-arrow {
+  :global(.topbar__notif-arrow) {
     position: absolute; top: -6px; right: 14px;
     width: 11px; height: 11px;
     background: var(--tc-card-bg);
@@ -333,43 +270,35 @@ const {
     transform: rotate(45deg);
   }
 
-  .topbar__notif-title {
+  :global(.topbar__notif-title) {
     display: flex; align-items: center; gap: 7px;
     font-weight: 700; font-size: 0.875rem; color: var(--tc-ink);
   }
 
-  .topbar__notif-header {
+  :global(.topbar__notif-header) {
     display: flex; justify-content: space-between; align-items: center;
     padding: 13px 16px;
     border-bottom: 1px solid var(--tc-card-border);
     background: var(--tc-card-bg);
   }
 
-  .topbar__notif-mark {
+  :global(.topbar__notif-mark) {
     font-size: 0.75rem; color: var(--tc-accent);
     background: none; border: none; cursor: pointer;
     font-family: var(--font-sans);
     padding: 3px 8px; border-radius: 5px;
     transition: background 0.1s;
   }
-  .topbar__notif-mark:hover { background: var(--tc-accent-soft); }
+  :global(.topbar__notif-mark:hover) { background: var(--tc-accent-soft); }
 
-  .topbar__notif-list {
+  :global(.topbar__notif-list) {
     max-height: 380px; overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--tc-card-border) transparent;
   }
-  .topbar__notif-list::-webkit-scrollbar { width: 4px; }
-  .topbar__notif-list::-webkit-scrollbar-track { background: transparent; }
-  .topbar__notif-list::-webkit-scrollbar-thumb { background: var(--tc-card-border); border-radius: 4px; }
-
-  .topbar__notif-empty {
-    padding: 32px 20px;
-    text-align: center;
-    color: var(--tc-muted); font-size: 0.84rem;
-    display: flex; align-items: center; justify-content: center;
-    min-height: 80px;
-  }
+  :global(.topbar__notif-list::-webkit-scrollbar) { width: 4px; }
+  :global(.topbar__notif-list::-webkit-scrollbar-track) { background: transparent; }
+  :global(.topbar__notif-list::-webkit-scrollbar-thumb) { background: var(--tc-card-border); border-radius: 4px; }
 
   /* ── CTA button ───────────────────────────────────────────────────────── */
   .topbar__cta {
@@ -388,8 +317,8 @@ const {
   }
   .topbar__cta:active { transform: translateY(0); }
 
-  /* ── User chip ────────────────────────────────────────────────────────── */
-  .topbar__user {
+  /* ── User chip (React island — must be :global) ──────────────────────── */
+  :global(.topbar__user) {
     display: flex; align-items: center; gap: 8px;
     padding: 5px 8px 5px 5px;
     border-radius: 8px; cursor: pointer;
@@ -397,9 +326,9 @@ const {
     border: 1px solid var(--tc-card-border);
     background: var(--tc-card-bg);
   }
-  .topbar__user:hover { background: var(--tc-overlay); border-color: var(--tc-accent-border); }
+  :global(.topbar__user:hover) { background: var(--tc-overlay); border-color: var(--tc-accent-border); }
 
-  .topbar__user-avatar {
+  :global(.topbar__user-avatar) {
     width: 28px; height: 28px; border-radius: 50%;
     background: var(--tc-accent-soft);
     border: 1.5px solid var(--tc-accent);
@@ -407,14 +336,14 @@ const {
     display: grid; place-items: center; flex-shrink: 0;
   }
 
-  .topbar__user-info {
+  :global(.topbar__user-info) {
     display: flex; flex-direction: column;
     line-height: 1.15;
   }
-  .topbar__user-name   { font-size: 0.78rem; font-weight: 700; color: var(--tc-ink); }
-  .topbar__user-surname { font-size: 0.72rem; color: var(--tc-muted); }
+  :global(.topbar__user-name)    { font-size: 0.78rem; font-weight: 700; color: var(--tc-ink); }
+  :global(.topbar__user-surname) { font-size: 0.72rem; color: var(--tc-muted); }
 
-  .topbar__user-caret { color: var(--tc-faint); flex-shrink: 0; }
+  :global(.topbar__user-caret) { color: var(--tc-faint); flex-shrink: 0; }
 
   .topbar__theme-btn { margin-left: 2px; }
 
@@ -436,10 +365,10 @@ const {
     .topbar__classic-link { display: none; }
   }
 
-  /* ── User wrap (auth state) ────────────────────────────────────────── */
-  .topbar__user-wrap { position: relative; }
+  /* ── User wrap (React island — must be :global) ──────────────────── */
+  :global(.topbar__user-wrap) { position: relative; }
 
-  .topbar__login-link {
+  :global(.topbar__login-link) {
     display: inline-flex; align-items: center;
     padding: 0 14px; height: 36px;
     border: 1px solid var(--tc-card-border);
@@ -449,13 +378,13 @@ const {
     text-decoration: none;
     transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
-  .topbar__login-link:hover {
+  :global(.topbar__login-link:hover) {
     background: var(--tc-overlay);
     color: var(--tc-ink);
     border-color: var(--tc-accent-border);
   }
 
-  .topbar__user-menu {
+  :global(.topbar__user-menu) {
     position: absolute; right: 0; top: calc(100% + 6px);
     background: var(--tc-card-bg);
     border: 1px solid var(--tc-card-border);
@@ -466,7 +395,7 @@ const {
     overflow: hidden;
   }
 
-  .topbar__user-menu-item {
+  :global(.topbar__user-menu-item) {
     display: flex; align-items: center; gap: 8px;
     width: 100%; padding: 10px 14px;
     font-size: 0.875rem; font-weight: 500; color: var(--tc-ink);
@@ -475,18 +404,18 @@ const {
     transition: background 0.1s;
     text-align: left;
   }
-  .topbar__user-menu-item:hover { background: var(--tc-overlay); }
+  :global(.topbar__user-menu-item:hover) { background: var(--tc-overlay); }
 
-  .topbar__user-menu-link {
+  :global(.topbar__user-menu-link) {
     text-decoration: none;
     display: flex; align-items: center; gap: 8px;
     width: 100%; padding: 10px 14px;
     font-size: 0.875rem; font-weight: 500; color: var(--tc-ink);
     transition: background 0.1s;
   }
-  .topbar__user-menu-link:hover { background: var(--tc-overlay); }
+  :global(.topbar__user-menu-link:hover) { background: var(--tc-overlay); }
 
-  .topbar__user-menu-divider {
+  :global(.topbar__user-menu-divider) {
     height: 1px; background: var(--tc-card-border);
     margin: 2px 0;
   }
@@ -504,7 +433,7 @@ const {
     .topbar__search { display: none; }
     .topbar__cta { display: none; }
     .topbar__classic-link { display: none; }
-    .topbar__user-info { display: none; }
+    :global(.topbar__user-info) { display: none; }
   }
 
   /* ── Notification panel items (wstrzykiwane przez JS) ────────── */
@@ -579,216 +508,3 @@ const {
   }
 </style>
 
-<script>
-  import { getCsrf, escHtml as escHtmlShared } from '@/lib/client-utils';
-
-  const _API = (document.querySelector('meta[name="api-base"]') as HTMLMetaElement)?.content
-             ?? 'http://localhost:8000';
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function fmtTime(iso: string): string {
-    try {
-      const d = new Date(iso);
-      const now = new Date();
-      const diff = (now.getTime() - d.getTime()) / 1000;
-      if (diff < 60) return 'przed chwilą';
-      if (diff < 3600) return `${Math.floor(diff / 60)} min temu`;
-      if (diff < 86400) return `${Math.floor(diff / 3600)} godz. temu`;
-      return d.toLocaleDateString('pl-PL', { day: '2-digit', month: 'short' });
-    } catch { return iso; }
-  }
-
-  // ── Notifications panel ───────────────────────────────────────────────────
-  let notifPanelOpen = false;
-  let notifLoaded = false;
-
-  function toggleNotifPanel() {
-    const panel = document.getElementById('notif-panel') as HTMLElement | null;
-    if (!panel) return;
-    notifPanelOpen = !notifPanelOpen;
-    panel.style.display = notifPanelOpen ? 'block' : 'none';
-    if (notifPanelOpen && !notifLoaded) {
-      loadNotifications();
-    }
-  }
-  // Eksponuj globalnie — wymagane przez onclick="" w HTML
-  (window as any).toggleNotifPanel = toggleNotifPanel;
-
-  async function loadNotifications() {
-    const list = document.getElementById('notif-list');
-    if (!list) return;
-    list.innerHTML = '<div class="topbar__notif-empty" style="padding:16px;text-align:center;font-size:0.8rem;color:var(--tc-muted);">Ładowanie…</div>';
-    try {
-      const res = await fetch(`${_API}/api/notifications/`, { credentials: 'include' });
-      if (!res.ok) throw new Error();
-      const data: Array<{id:number;message:string;created_at:string;is_read:boolean}> = await res.json();
-      notifLoaded = true;
-      renderNotifList(data);
-    } catch {
-      list.innerHTML = '<div class="topbar__notif-empty">Nie udało się pobrać powiadomień.</div>';
-    }
-  }
-
-  function renderNotifList(notifications: Array<{id:number;message:string;created_at:string;is_read:boolean}>) {
-    const list = document.getElementById('notif-list');
-    if (!list) return;
-    const unread = notifications.filter(n => !n.is_read);
-    const recent = notifications.slice(0, 10);
-    if (!recent.length) {
-      list.innerHTML = '<div class="topbar__notif-empty">Brak powiadomień.</div>';
-      updateBadge(0);
-      return;
-    }
-    list.innerHTML = recent.map(n => `
-      <div class="topbar__notif-item${n.is_read ? '' : ' topbar__notif-item--unread'}"
-           data-notif-id="${n.id}">
-        <div class="topbar__notif-dot"></div>
-        <div class="topbar__notif-body">
-          <p class="topbar__notif-msg">${escHtmlNotif(n.message)}</p>
-          <time class="topbar__notif-time">${fmtTime(n.created_at)}</time>
-        </div>
-      </div>`).join('')
-      + `<div class="topbar__notif-footer"><a href="${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/notifications">Zobacz wszystkie powiadomienia →</a></div>`;
-    updateBadge(unread.length);
-    // Kliknięcie → mark as read
-    list.querySelectorAll<HTMLElement>('.topbar__notif-item--unread').forEach(el => {
-      el.addEventListener('click', () => markRead(parseInt(el.dataset.notifId!), el));
-    });
-  }
-
-  const escHtmlNotif = escHtmlShared;
-
-  async function markRead(id: number, el: HTMLElement) {
-    try {
-      const res = await fetch(`${_API}/api/notifications/${id}/read/`, {
-        method: 'PATCH', credentials: 'include',
-        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        el.classList.remove('topbar__notif-item--unread');
-        el.style.cursor = 'default';
-        // Zmniejsz badge
-        const badge = document.getElementById('notif-count');
-        if (badge) {
-          const cur = parseInt(badge.textContent ?? '0', 10);
-          updateBadge(Math.max(0, cur - 1));
-        }
-      }
-    } catch { /* cicha degradacja */ }
-  }
-
-  async function readAllNotif() {
-    try {
-      await fetch(`${_API}/api/notifications/read-all/`, {
-        method: 'POST', credentials: 'include',
-        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
-      });
-      updateBadge(0);
-      notifLoaded = false;
-      loadNotifications();
-    } catch { /* cicha degradacja */ }
-  }
-  (window as any).readAllNotif = readAllNotif;
-
-  function updateBadge(count: number) {
-    const badge = document.getElementById('notif-count');
-    if (!badge) return;
-    if (count > 0) {
-      badge.textContent = count > 99 ? '99+' : String(count);
-      badge.style.display = '';
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-
-  async function fetchUnreadCount() {
-    try {
-      const res = await fetch(`${_API}/api/notifications/`, {
-        credentials: 'include', redirect: 'manual',
-      });
-      if (res.type === 'opaqueredirect' || !res.ok) return;
-      const data: Array<{is_read: boolean}> = await res.json();
-      const count = data.filter(n => !n.is_read).length;
-      updateBadge(count);
-    } catch { /* niezalogowany lub błąd — ukryj badge */ }
-  }
-
-  // Odśwież badge przy każdym załadowaniu strony
-  fetchUnreadCount();
-
-  // Zamknij panel po kliknięciu poza nim
-  document.addEventListener('click', (e) => {
-    const wrap = document.querySelector('.topbar__notif-wrap');
-    if (wrap && !wrap.contains(e.target as Node) && notifPanelOpen) {
-      toggleNotifPanel();
-    }
-  });
-
-  // ── Auth state w topbarze ──────────────────────────────────────────────────
-  // Sprawdza /api/auth/me/ i wypełnia user chip lub pokazuje link "Zaloguj się"
-  (async function initUserChip() {
-    const API = _API;
-    const chip      = document.getElementById('user-chip') as HTMLElement | null;
-    const loginLink = document.getElementById('login-link') as HTMLElement | null;
-    const avatar    = document.getElementById('user-avatar') as HTMLElement | null;
-    const nameEl    = document.getElementById('user-name') as HTMLElement | null;
-    const surnameEl = document.getElementById('user-surname') as HTMLElement | null;
-    const userMenu  = document.getElementById('user-menu') as HTMLElement | null;
-    const logoutBtn = document.getElementById('logout-btn') as HTMLElement | null;
-
-    try {
-      const res = await fetch(`${API}/api/auth/me/`, {
-        credentials: 'include',
-        redirect: 'manual',
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.authenticated && data.user) {
-          const u = data.user;
-          const initials = ((u.first_name?.[0] ?? '') + (u.last_name?.[0] ?? '')).toUpperCase()
-                          || u.username.slice(0, 2).toUpperCase();
-
-          if (avatar) avatar.textContent = initials;
-          if (nameEl) nameEl.textContent = u.first_name || u.username;
-          if (surnameEl) surnameEl.textContent = u.last_name || '';
-
-          if (chip) chip.style.display = 'flex';
-          if (loginLink) loginLink.style.display = 'none';
-
-          // Dropdown user menu
-          if (chip && userMenu) {
-            chip.addEventListener('click', (e) => {
-              e.stopPropagation();
-              userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none';
-            });
-            document.addEventListener('click', () => {
-              userMenu.style.display = 'none';
-            });
-          }
-
-          // Logout
-          if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
-              await fetch(`${API}/api/auth/logout/`, {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: '{}',
-              });
-              window.location.href = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '') + '/login';
-            });
-          }
-          return;
-        }
-      }
-    } catch {
-      // brak połączenia — pokazuj link logowania
-    }
-
-    // Niezalogowany
-    if (chip) chip.style.display = 'none';
-    if (loginLink) loginLink.style.display = 'flex';
-  })();
-</script>

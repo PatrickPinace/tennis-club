@@ -38,6 +38,12 @@ const EMPTY_LABELS: Record<Period, [string, string]> = {
   month: ['Brak aktywności w tym miesiącu', 'Tu pojawią się mecze z ostatnich 30 dni.'],
 };
 
+function parseLocalDate(s: string): number {
+  // "YYYY-MM-DD" → parse as local midnight (not UTC)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return new Date(s + 'T00:00:00').getTime();
+  return new Date(s).getTime();
+}
+
 function filterItems(items: ActivityItem[], period: Period): ActivityItem[] {
   const now = Date.now();
   let fromMs: number;
@@ -51,7 +57,7 @@ function filterItems(items: ActivityItem[], period: Period): ActivityItem[] {
     fromMs = now - 30 * 86_400_000;
   }
   return items.filter(item => {
-    const ts = new Date(item.timestamp).getTime();
+    const ts = parseLocalDate(item.timestamp);
     return !isNaN(ts) && ts >= fromMs;
   });
 }
@@ -62,8 +68,8 @@ function bestPeriod(items: ActivityItem[]): Period {
   const todayMs = todayStart.getTime();
   const weekMs = Date.now() - 7 * 86_400_000;
 
-  if (items.some(i => new Date(i.timestamp).getTime() >= todayMs)) return 'today';
-  if (items.some(i => new Date(i.timestamp).getTime() >= weekMs)) return 'week';
+  if (items.some(i => parseLocalDate(i.timestamp) >= todayMs)) return 'today';
+  if (items.some(i => parseLocalDate(i.timestamp) >= weekMs)) return 'week';
   return 'month';
 }
 
