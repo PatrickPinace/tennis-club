@@ -2299,6 +2299,17 @@ class LadderView(APIView):
             user_participant = next(
                 (p for p in participants if p.user_id == request.user.pk), None
             )
+            # Debel LDR: partner pary może też wyzywać — sprawdź TeamMember
+            if user_participant is None:
+                from apps.tournaments.models import TeamMember as _TM
+                tm = _TM.objects.filter(
+                    user=request.user,
+                    participant__tournament=tournament,
+                ).exclude(participant__status='WDN').select_related('participant').first()
+                if tm:
+                    user_participant = next(
+                        (p for p in participants if p.id == tm.participant_id), None
+                    )
             if user_participant:
                 my_participant_id = user_participant.id
 
