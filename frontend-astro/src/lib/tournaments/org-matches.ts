@@ -259,6 +259,9 @@ export async function handleScoreSubmit(
   const msgEl = document.querySelector<HTMLElement>(`.org-form-msg[data-match-id="${matchId}"]`);
   const btn = form.querySelector<HTMLButtonElement>('.org-save-btn');
 
+  // Disable natychmiast — blokuje podwójne kliknięcie zanim cokolwiek sprawdzimy
+  if (btn) btn.disabled = true;
+
   const getVal = (name: string): number | null => {
     const v = (form.elements.namedItem(name) as HTMLInputElement)?.value;
     return v !== '' && v != null ? parseInt(v, 10) : null;
@@ -290,27 +293,19 @@ export async function handleScoreSubmit(
     // Walidacja tenisowa dla SGL / DBE / LDR — AMR i RND mają własne reguły backendowe
     if (cfg.isSGL || cfg.isDBE || cfg.isLDR) {
       // Set 1 wymagany
-      if (s1p1 === null || s1p2 === null) {
-        if (msgEl) { msgEl.textContent = 'Set 1 jest wymagany.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
-        return;
-      }
+      const rejectValidation = (msg: string) => {
+        if (msgEl) { msgEl.textContent = msg; msgEl.className = 'org-form-msg org-form-msg--err'; }
+        if (btn) btn.disabled = false;
+      };
+      if (s1p1 === null || s1p2 === null) { rejectValidation('Set 1 jest wymagany.'); return; }
       const checks: Array<[number, number, number]> = [[s1p1, s1p2, 1]];
       if (s2p1 !== null && s2p2 !== null) checks.push([s2p1, s2p2, 2]);
-      else if (s2p1 !== null || s2p2 !== null) {
-        if (msgEl) { msgEl.textContent = 'Set 2: wpisz wynik dla obu stron.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
-        return;
-      }
+      else if (s2p1 !== null || s2p2 !== null) { rejectValidation('Set 2: wpisz wynik dla obu stron.'); return; }
       if (s3p1 !== null && s3p2 !== null) checks.push([s3p1, s3p2, 3]);
-      else if (s3p1 !== null || s3p2 !== null) {
-        if (msgEl) { msgEl.textContent = 'Set 3: wpisz wynik dla obu stron.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
-        return;
-      }
+      else if (s3p1 !== null || s3p2 !== null) { rejectValidation('Set 3: wpisz wynik dla obu stron.'); return; }
       for (const [a, b, n] of checks) {
         const err = validateTennisSet(a, b, n);
-        if (err) {
-          if (msgEl) { msgEl.textContent = err; msgEl.className = 'org-form-msg org-form-msg--err'; }
-          return;
-        }
+        if (err) { rejectValidation(err); return; }
       }
     }
 
@@ -318,7 +313,6 @@ export async function handleScoreSubmit(
     if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
   }
 
-  if (btn) btn.disabled = true;
   if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
 
   const csrf = getCsrf();
