@@ -4,6 +4,8 @@ interface Props {
   myId: number;
   today: string;
   matchesUrl: string;
+  isModal?: boolean;
+  onClose?: () => void;
 }
 
 interface UserSuggestion {
@@ -187,7 +189,7 @@ function SetInput({
   );
 }
 
-export default function AddMatchForm({ myId, today, matchesUrl }: Props) {
+export default function AddMatchForm({ myId, today, matchesUrl, isModal = false, onClose }: Props) {
   const [isDouble, setIsDouble] = useState(false);
 
   const [opponentId, setOpponentId] = useState<number | null>(null);
@@ -324,17 +326,30 @@ export default function AddMatchForm({ myId, today, matchesUrl }: Props) {
   const p2Label = isDouble ? 'Rywal / P' : 'Rywal';
 
   return (
-    <div className="add-wrap">
-      <div className="add-header">
-        <h1 className="add-title">Dodaj mecz towarzyski</h1>
-        <p className="add-subtitle">Zapisz wynik rozegranego meczu.</p>
-      </div>
+    <div className={isModal ? "" : "add-wrap"}>
+      {!isModal && (
+        <nav className="tc-breadcrumb" aria-label="Nawigacja">
+          <a href={matchesUrl} className="tc-breadcrumb-link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }}>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Moje mecze
+          </a>
+        </nav>
+      )}
+
+      {!isModal && (
+        <div className="add-header">
+          <h1 className="add-title">Dodaj mecz towarzyski</h1>
+          <p className="add-subtitle">Zapisz wynik rozegranego meczu.</p>
+        </div>
+      )}
 
       {generalError && (
         <div className="add-alert add-alert--err" role="alert">{generalError}</div>
       )}
 
-      <div className="tc-card add-card">
+      <div className={isModal ? "" : "tc-card add-card"}>
         <form onSubmit={handleSubmit} noValidate>
 
           <div className="af-field">
@@ -415,7 +430,11 @@ export default function AddMatchForm({ myId, today, matchesUrl }: Props) {
           </div>
 
           <div className="af-actions">
-            <a href={matchesUrl} className="tc-btn tc-btn-ghost">Anuluj</a>
+            {isModal ? (
+              <button type="button" className="tc-btn tc-btn-ghost" onClick={onClose}>Anuluj</button>
+            ) : (
+              <a href={matchesUrl} className="tc-btn tc-btn-ghost">Anuluj</a>
+            )}
             <button type="submit" className="tc-btn tc-btn-primary" disabled={loading}>
               {loading ? 'Zapisuję…' : 'Zapisz mecz'}
             </button>

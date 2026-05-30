@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import AddMatchForm from './AddMatchForm';
 
 interface MatchRow {
   id: number | string;
@@ -19,6 +20,7 @@ interface Props {
   matches: MatchRow[];
   userDisplayName: string | null;
   addMatchUrl: string;
+  myId?: number;
 }
 
 type FormatFilter = 'all' | 'SNG' | 'DBL';
@@ -43,11 +45,28 @@ const CheckIcon = () => (
   </svg>
 );
 
-export default function MatchHistory({ matches, userDisplayName, addMatchUrl }: Props) {
+export default function MatchHistory({ matches, userDisplayName, addMatchUrl, myId }: Props) {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
   const [search, setSearch] = useState('');
   const [showBanner, setShowBanner] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  useEffect(() => {
+    const handleOpenModal = () => setShowAddModal(true);
+    window.addEventListener('open-add-match-modal', handleOpenModal);
+    
+    // Auto open if URL hash is #add-match
+    if (window.location.hash === '#add-match') {
+      setShowAddModal(true);
+      // Clear hash so it doesn't reopen on reload
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+
+    return () => {
+      window.removeEventListener('open-add-match-modal', handleOpenModal);
+    };
+  }, []);
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('added') === '1') {
@@ -182,7 +201,13 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl }: 
             </p>
             {total === 0 && (
               <div className="dash-empty-block__links">
-                <a href={addMatchUrl} className="dash-btn-primary">Dodaj pierwszy mecz</a>
+                <button 
+                  onClick={(e) => { e.preventDefault(); setShowAddModal(true); }} 
+                  className="dash-btn-primary"
+                  style={{ border: 'none', cursor: 'pointer' }}
+                >
+                  Dodaj pierwszy mecz
+                </button>
               </div>
             )}
           </div>
@@ -206,6 +231,31 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl }: 
           </div>
         )}
       </section>
+
+      {showAddModal && (
+        <div className="res-popup-backdrop" role="dialog" aria-modal="true" onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
+          <div className="res-popup" style={{ maxWidth: 600 }}>
+            <div className="res-popup__header">
+              <div>
+                <div className="res-popup__title">Dodaj mecz towarzyski</div>
+                <div className="res-popup__subtitle">Zapisz wynik rozegranego meczu</div>
+              </div>
+              <button className="res-popup__close" aria-label="Zamknij" onClick={() => setShowAddModal(false)}>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </button>
+            </div>
+            <div className="res-popup__body">
+              <AddMatchForm
+                myId={myId ?? 0}
+                today={new Date().toISOString().slice(0, 10)}
+                matchesUrl={addMatchUrl.replace(/\/add\/?$/, '')}
+                isModal={true}
+                onClose={() => setShowAddModal(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

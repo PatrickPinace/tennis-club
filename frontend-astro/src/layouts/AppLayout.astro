@@ -14,6 +14,7 @@ interface Props {
   showSearch?: boolean;
   showCta?: boolean;
   ctaLabel?: string;
+  ctaLabelMobile?: string;
   ctaHref?: string;
   /** Liczba nieprzeczytanych powiadomień z Django API (null = niezalogowany) */
   unreadCount?: number | null;
@@ -26,6 +27,7 @@ const {
   showSearch = true,
   showCta = true,
   ctaLabel,
+  ctaLabelMobile,
   ctaHref,
   unreadCount = null,
 } = Astro.props;
@@ -71,6 +73,7 @@ const currentPath = Astro.url.pathname;
       showSearch={showSearch}
       showCta={showCta}
       ctaLabel={ctaLabel}
+      ctaLabelMobile={ctaLabelMobile}
       ctaHref={ctaHref}
       unreadCount={unreadCount}
     />

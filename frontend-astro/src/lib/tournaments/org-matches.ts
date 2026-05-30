@@ -117,14 +117,24 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     : '';
 
   const hasParticipants = m.participant1_id && m.participant2_id;
+
+  // Skrócone nazwy graczy do etykiet nad polami setów
+  const p1Short = isDoubles
+    ? escHtml(`${(m.participant1_name ?? '?').split(' ').pop()}`)
+    : escHtml((m.participant1_name ?? '?'));
+  const p2Short = isDoubles
+    ? escHtml(`${(m.participant2_name ?? '?').split(' ').pop()}`)
+    : escHtml((m.participant2_name ?? '?'));
+
   const wdrSection = hasParticipants ? `
     <div class="org-wdr-section">
       <label class="org-wdr-label">
         <input type="checkbox" name="walkover" class="org-wdr-checkbox" data-match-id="${m.id}">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="color:var(--danger,#ef4444);opacity:0.7;"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
         Walkover (WDR)
       </label>
       <div class="org-wdr-winner" style="display:none;">
-        <label style="font-size:0.78rem;color:var(--text-muted);">Zwycięzca:</label>
+        <label style="font-size:0.78rem;color:var(--tc-muted);font-weight:600;">Zwycięzca:</label>
         <select name="winner_participant_id" class="org-wdr-select">
           <option value="">— wybierz —</option>
           <option value="${m.participant1_id}">${p1}</option>
@@ -136,10 +146,53 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const cancelSection = (m.status !== 'CNC') ? `
     <div class="org-cancel-section">
       <button type="button" class="org-cancel-match-btn" data-match-id="${m.id}"
-        title="Anuluj mecz (CNC)">Anuluj mecz</button>
+        title="Anuluj mecz (CNC)">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+        Anuluj mecz
+      </button>
     </div>` : '';
 
-  const btnLabel = (m.status === 'CMP' || m.status === 'WDR') ? 'Koryguj' : 'Zapisz wynik';
+  const btnLabel = (m.status === 'CMP' || m.status === 'WDR') ? 'Koryguj wynik' : 'Zapisz wynik';
+
+  // Formularz setów — bez spinnerów, czyste inputy z etykietami graczy
+  const setsHtml = cfg.isAMR ? `
+    <div class="org-sets-row">
+      <div class="org-set-group">
+        <div class="org-set-label">Gemy</div>
+        <div class="org-set-inputs">
+          <input class="org-set-input" type="number" min="0" max="${cfg.pointsPerMatch}"
+            name="set1_p1" placeholder="—" value="${v(m.set1_p1_score)}" title="${p1Short}">
+          <span class="org-set-sep">:</span>
+          <input class="org-set-input" type="number" min="0" max="${cfg.pointsPerMatch}"
+            name="set1_p2" placeholder="—" value="${v(m.set1_p2_score)}" title="${p2Short}">
+        </div>
+      </div>
+    </div>
+    <div style="font-size:0.72rem;color:var(--tc-muted);margin-bottom:8px;">
+      Suma musi wynosić ${cfg.pointsPerMatch} gemów
+    </div>` : `
+    <div class="org-score-players-row">
+      <span class="org-score-player-label" title="${p1}">${p1Short}</span>
+      <span class="org-score-player-label--vs">vs</span>
+      <span class="org-score-player-label" title="${p2}">${p2Short}</span>
+    </div>
+    <div class="org-sets-row">
+      ${[1,2,3].map(s => {
+        const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+        const v2 = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+        return `
+        <div class="org-set-group">
+          <div class="org-set-label">Set ${s}</div>
+          <div class="org-set-inputs">
+            <input class="org-set-input" type="number" min="0" max="99"
+              name="set${s}_p1" placeholder="—" value="${v1}">
+            <span class="org-set-sep">:</span>
+            <input class="org-set-input" type="number" min="0" max="99"
+              name="set${s}_p2" placeholder="—" value="${v2}">
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
 
   return `
     <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
@@ -155,55 +208,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       </div>
       <form class="org-score-form" data-match-id="${m.id}">
         <div class="org-form-row">
-          ${cfg.isAMR ? `
-          <div class="org-sets-row">
-            <div class="org-set-group">
-              <div class="org-set-label">Gemy</div>
-              <div class="org-set-inputs">
-                <div class="org-score-spinner">
-                  <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-                  <input class="org-set-input" type="number" min="0" max="${cfg.pointsPerMatch}"
-                    name="set1_p1" placeholder="—" value="${v(m.set1_p1_score)}">
-                  <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-                </div>
-                <span class="org-set-sep">:</span>
-                <div class="org-score-spinner">
-                  <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-                  <input class="org-set-input" type="number" min="0" max="${cfg.pointsPerMatch}"
-                    name="set1_p2" placeholder="—" value="${v(m.set1_p2_score)}">
-                  <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:8px;">
-            Suma musi wynosić ${cfg.pointsPerMatch} gemów
-          </div>` : `
-          <div class="org-sets-row">
-            ${[1,2,3].map(s => {
-              const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
-              const v2 = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
-              return `
-              <div class="org-set-group">
-                <div class="org-set-label">Set ${s}</div>
-                <div class="org-set-inputs">
-                  <div class="org-score-spinner">
-                    <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-                    <input class="org-set-input" type="number" min="0" max="99"
-                      name="set${s}_p1" placeholder="—" value="${v1}">
-                    <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-                  </div>
-                  <span class="org-set-sep">:</span>
-                  <div class="org-score-spinner">
-                    <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-                    <input class="org-set-input" type="number" min="0" max="99"
-                      name="set${s}_p2" placeholder="—" value="${v2}">
-                    <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-                  </div>
-                </div>
-              </div>`;
-            }).join('')}
-          </div>`}
+          ${setsHtml}
           <div class="org-scheduled-group">
             <div class="org-scheduled-label">Termin</div>
             <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
@@ -423,23 +428,6 @@ export function applyMatchFilter(
       });
     });
   }
-
-  // Spin buttons ▲/▼
-  container.querySelectorAll<HTMLButtonElement>('.org-spin-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = btn.closest('.org-score-spinner')?.querySelector<HTMLInputElement>('.org-set-input');
-      if (!input) return;
-      const cur = input.value === '' ? 0 : parseInt(input.value, 10);
-      const max = parseInt(input.max || '99', 10);
-      const min = parseInt(input.min || '0', 10);
-      if (btn.classList.contains('org-spin-up')) {
-        input.value = String(Math.min(cur + 1, max));
-      } else {
-        input.value = String(Math.max(cur - 1, min));
-      }
-      input.dispatchEvent(new Event('input'));
-    });
-  });
 
   // WDR checkbox toggle
   container.querySelectorAll<HTMLInputElement>('.org-wdr-checkbox').forEach(cb => {

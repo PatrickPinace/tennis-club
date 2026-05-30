@@ -909,11 +909,6 @@ export default function CourtReservations({
           <div className="rv-grid-footer__hint">
             Kliknij lub <strong>przeciągnij myszą</strong> po wolnych slotach, aby wybrać zakres godzin.
           </div>
-          <button className="tr-btn-primary" style={{ padding: '8px 18px', fontSize: '0.84rem' }} onClick={() => {
-            document.querySelector('.rv-grid-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }}>
-            + Nowa rezerwacja
-          </button>
         </div>
       </section>
 
