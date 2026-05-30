@@ -198,7 +198,8 @@ class RoundRobinMatchScoreView(APIView):
         # ── Pobierz mecz ─────────────────────────────────────────────────────
         try:
             match = TournamentsMatch.objects.select_related(
-                'participant1__user', 'participant2__user'
+                'participant1__user', 'participant2__user',
+                'participant3__user', 'participant4__user',
             ).get(pk=match_pk, tournament=tournament)
         except TournamentsMatch.DoesNotExist:
             return Response({'detail': 'Mecz nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
@@ -632,21 +633,32 @@ class RoundRobinMatchScoreView(APIView):
             _p1 = match.participant1
             _p2 = match.participant2
             _winner_name = winner.display_name if winner else None
-            for _participant in (_p1, _p2):
-                if _participant and _participant.user and _participant.user.pk != request.user.pk:
-                    if match.status == TournamentsMatch.Status.WALKOVER.value:
-                        _msg = (
-                            f'🏆 Walkover w turnieju „{tournament.name}": '
-                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
-                            f'Wygrał: {_winner_name or "?"}.'
-                        )
-                    else:
-                        _msg = (
-                            f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
-                            f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
-                            f'Wygrał: {_winner_name or "?"}.'
-                        )
-                    notify(_participant.user, _msg)
+
+            # Zbierz unikalnych userów ze wszystkich slotów (p1–p4).
+            # p3/p4 wypełnione tylko przy AMR/MEX deblu — dla singla są None.
+            _seen_user_pks: set = set()
+            for _slot in (match.participant1, match.participant2,
+                          match.participant3, match.participant4):
+                if not (_slot and _slot.user):
+                    continue
+                if _slot.user.pk == request.user.pk:
+                    continue
+                if _slot.user.pk in _seen_user_pks:
+                    continue
+                _seen_user_pks.add(_slot.user.pk)
+                if match.status == TournamentsMatch.Status.WALKOVER.value:
+                    _msg = (
+                        f'🏆 Walkover w turnieju „{tournament.name}": '
+                        f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
+                        f'Wygrał: {_winner_name or "?"}.'
+                    )
+                else:
+                    _msg = (
+                        f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
+                        f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
+                        f'Wygrał: {_winner_name or "?"}.'
+                    )
+                notify(_slot.user, _msg)
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
