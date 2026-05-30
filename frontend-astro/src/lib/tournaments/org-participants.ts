@@ -8,6 +8,7 @@ function makeAutocomplete(
   apiBase: string,
   onSelect: (user: {id:number; display:string}) => void,
   tournamentId?: string,
+  onConfirm?: () => void,
 ) {
   let timer: ReturnType<typeof setTimeout>;
   let abort: AbortController | null = null;
@@ -103,6 +104,7 @@ function makeAutocomplete(
       onSelect({ id: Number(item.dataset.uid), display: item.dataset.name! });
       inputEl.value = item.dataset.name!;
       close();
+      if (onConfirm) onConfirm();
     } else if (e.key === 'Escape') { close(); }
   });
 
@@ -233,7 +235,12 @@ export function initParticipantsPanel(cfg: OrgPanelConfig) {
     const addBtn   = panel.querySelector<HTMLButtonElement>('#org-add-user-btn')!;
     let selectedUser: {id:number; display:string} | null = null;
 
-    makeAutocomplete(searchEl, sugEl, apiBase, (u) => { selectedUser = u.id ? u : null; }, tournamentId);
+    makeAutocomplete(
+      searchEl, sugEl, apiBase,
+      (u) => { selectedUser = u.id ? u : null; },
+      tournamentId,
+      () => addBtn.click(),
+    );
 
     addBtn.addEventListener('click', async () => {
       if (!selectedUser) {
