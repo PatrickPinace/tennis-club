@@ -8,6 +8,7 @@ function makeAutocomplete(
   apiBase: string,
   onSelect: (user: {id:number; display:string}) => void,
   tournamentId?: string,
+  onConfirm?: () => void,
 ) {
   let timer: ReturnType<typeof setTimeout>;
   let abort: AbortController | null = null;
@@ -17,8 +18,12 @@ function makeAutocomplete(
     return Array.from(dropEl.querySelectorAll<HTMLElement>('.org-sug-item'));
   }
   function setHL(idx: number) {
-    getItems().forEach((el, i) => el.classList.toggle('org-sug-item--selected', i === idx));
+    const items = getItems();
+    items.forEach((el, i) => el.classList.toggle('org-sug-item--selected', i === idx));
     highlightIdx = idx;
+    if (idx >= 0 && items[idx]) {
+      items[idx].scrollIntoView({ block: 'nearest' });
+    }
   }
   function close() {
     dropEl.style.display = 'none';
@@ -52,6 +57,8 @@ function makeAutocomplete(
         close();
       });
     });
+    // Auto-zaznacz pierwszy wynik — Enter od razu go doda
+    setHL(0);
   }
 
   const excludeParam = tournamentId ? `&exclude_tournament=${tournamentId}` : '';
@@ -97,6 +104,7 @@ function makeAutocomplete(
       onSelect({ id: Number(item.dataset.uid), display: item.dataset.name! });
       inputEl.value = item.dataset.name!;
       close();
+      if (onConfirm) onConfirm();
     } else if (e.key === 'Escape') { close(); }
   });
 
@@ -227,7 +235,12 @@ export function initParticipantsPanel(cfg: OrgPanelConfig) {
     const addBtn   = panel.querySelector<HTMLButtonElement>('#org-add-user-btn')!;
     let selectedUser: {id:number; display:string} | null = null;
 
-    makeAutocomplete(searchEl, sugEl, apiBase, (u) => { selectedUser = u.id ? u : null; }, tournamentId);
+    makeAutocomplete(
+      searchEl, sugEl, apiBase,
+      (u) => { selectedUser = u.id ? u : null; },
+      tournamentId,
+      () => addBtn.click(),
+    );
 
     addBtn.addEventListener('click', async () => {
       if (!selectedUser) {
