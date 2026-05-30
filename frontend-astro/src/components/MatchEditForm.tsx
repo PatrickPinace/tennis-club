@@ -41,28 +41,50 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
       return isNaN(n) ? null : n;
     };
 
-    const v1p1 = getVal(sets.p1_set1), v1p2 = getVal(sets.p2_set1);
-    if (v1p1 === null || v1p2 === null || v1p1 < 0 || v1p2 < 0) {
-      setMsg('Set 1 jest wymagany — wpisz wynik dla obu stron.');
+    const checkTennisSet = (a: number, b: number, n: number): string | null => {
+      if (a < 0 || b < 0) return `Set ${n}: wynik nie może być ujemny.`;
+      const hi = Math.max(a, b), lo = Math.min(a, b);
+      if (hi >= 10) {
+        if (hi > 20) return `Set ${n}: super tie-break nie może mieć więcej niż 20 punktów (${a}:${b}).`;
+        if (hi - lo < 2) return `Set ${n}: super tie-break wymaga przewagi ≥ 2 punktów (${a}:${b}).`;
+        if (hi > 10 && lo !== hi - 2) return `Set ${n}: po 10:10 gra trwa do różnicy 2 punktów — ${a}:${b} jest niemożliwe.`;
+        return null;
+      }
+      if (hi < 6) return `Set ${n}: zwycięzca musi mieć co najmniej 6 gemów.`;
+      if (hi === 6 && lo <= 4) return null;
+      if (hi === 7 && (lo === 5 || lo === 6)) return null;
+      return `Set ${n}: wynik ${a}:${b} jest niemożliwy w standardowym secie tenisowym.`;
+    };
+
+    const fail = (m: string) => {
+      setMsg(m);
       setMsgColor('var(--tc-hot)');
       setLoading(false);
-      return;
+    };
+
+    const v1p1 = getVal(sets.p1_set1), v1p2 = getVal(sets.p2_set1);
+    if (v1p1 === null || v1p2 === null) {
+      return fail('Set 1 jest wymagany — wpisz wynik dla obu stron.');
     }
+    const e1 = checkTennisSet(v1p1, v1p2, 1);
+    if (e1) return fail(e1);
 
     const v2p1 = getVal(sets.p1_set2), v2p2 = getVal(sets.p2_set2);
-    if ((v2p1 === null) !== (v2p2 === null) || (v2p1 !== null && v2p1 < 0) || (v2p2 !== null && v2p2 < 0)) {
-      setMsg('Wpisz wynik dla obu stron w secie 2.');
-      setMsgColor('var(--tc-hot)');
-      setLoading(false);
-      return;
+    if ((v2p1 === null) !== (v2p2 === null)) {
+      return fail('Wpisz wynik dla obu stron w secie 2.');
+    }
+    if (v2p1 !== null && v2p2 !== null) {
+      const e2 = checkTennisSet(v2p1, v2p2, 2);
+      if (e2) return fail(e2);
     }
 
     const v3p1 = getVal(sets.p1_set3), v3p2 = getVal(sets.p2_set3);
-    if ((v3p1 === null) !== (v3p2 === null) || (v3p1 !== null && v3p1 < 0) || (v3p2 !== null && v3p2 < 0)) {
-      setMsg('Wpisz wynik dla obu stron w secie 3.');
-      setMsgColor('var(--tc-hot)');
-      setLoading(false);
-      return;
+    if ((v3p1 === null) !== (v3p2 === null)) {
+      return fail('Wpisz wynik dla obu stron w secie 3.');
+    }
+    if (v3p1 !== null && v3p2 !== null) {
+      const e3 = checkTennisSet(v3p1, v3p2, 3);
+      if (e3) return fail(e3);
     }
 
     const body: Record<string, number | null> = {

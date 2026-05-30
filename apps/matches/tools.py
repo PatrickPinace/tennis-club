@@ -7,6 +7,32 @@ from django.db import models
 import logging
 logger = logging.getLogger(__name__)
 
+def validate_tennis_set(a, b, set_num):
+    """Waliduje wynik pojedynczego seta tenisowego.
+    Zwraca None gdy OK, lub komunikat błędu (str) gdy niemożliwy.
+    Reguły: standardowy set 6:0–6:4, 7:5, 7:6 (tie-break). Super tie-break: do 10
+    z przewagą 2, max 20 (przy hi>10 lo musi być dokładnie hi-2).
+    """
+    if a < 0 or b < 0:
+        return f'Set {set_num}: wynik nie może być ujemny.'
+    hi, lo = max(a, b), min(a, b)
+    if hi >= 10:
+        if hi > 20:
+            return f'Set {set_num}: super tie-break nie może mieć więcej niż 20 punktów ({a}:{b}).'
+        if hi - lo < 2:
+            return f'Set {set_num}: super tie-break wymaga przewagi ≥ 2 punktów ({a}:{b}).'
+        if hi > 10 and lo != hi - 2:
+            return f'Set {set_num}: po 10:10 gra trwa do różnicy 2 punktów — {a}:{b} jest niemożliwe.'
+        return None
+    if hi < 6:
+        return f'Set {set_num}: zwycięzca musi mieć co najmniej 6 gemów.'
+    if hi == 6 and lo <= 4:
+        return None
+    if hi == 7 and lo in (5, 6):
+        return None
+    return f'Set {set_num}: wynik {a}:{b} jest niemożliwy w standardowym secie tenisowym.'
+
+
 def _calculate_set_winner(p1_score, p2_score):
     """Określa zwycięzcę seta na podstawie wyników.
 

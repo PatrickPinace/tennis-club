@@ -486,6 +486,21 @@ class RoundRobinMatchScoreView(APIView):
                     sets_to_win = elim_cfg.sets_to_win
                 except Exception:
                     sets_to_win = 2  # bezpieczny default
+
+                # Walidacja tenisowa setów (defence-in-depth — frontend ma własną)
+                from apps.matches.tools import validate_tennis_set as _vts
+                for _s in (1, 2, 3):
+                    _a = fields[f'set{_s}_p1']
+                    _b = fields[f'set{_s}_p2']
+                    if _a is not None and _b is not None:
+                        _err = _vts(_a, _b, _s)
+                        if _err:
+                            return Response({'detail': _err}, status=status.HTTP_400_BAD_REQUEST)
+                    elif (_a is None) != (_b is None):
+                        return Response(
+                            {'detail': f'Set {_s}: wpisz wynik dla obu stron lub żaden.'},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
             else:
                 # ── Walidacja gemów per set (RND) ─────────────────────────────────
                 config_for_validation = getattr(tournament, 'round_robin_config', None)

@@ -243,17 +243,44 @@ export default function AddMatchForm({ myId, today, matchesUrl, isModal = false,
       }
     }
 
+    const checkTennisSet = (a: number, b: number, n: number): string | null => {
+      if (a < 0 || b < 0) return `Set ${n}: wynik nie może być ujemny.`;
+      const hi = Math.max(a, b), lo = Math.min(a, b);
+      if (hi >= 10) {
+        if (hi > 20) return `Set ${n}: super tie-break nie może mieć więcej niż 20 punktów (${a}:${b}).`;
+        if (hi - lo < 2) return `Set ${n}: super tie-break wymaga przewagi ≥ 2 punktów (${a}:${b}).`;
+        if (hi > 10 && lo !== hi - 2) return `Set ${n}: po 10:10 gra trwa do różnicy 2 punktów — ${a}:${b} jest niemożliwe.`;
+        return null;
+      }
+      if (hi < 6) return `Set ${n}: zwycięzca musi mieć co najmniej 6 gemów.`;
+      if (hi === 6 && lo <= 4) return null;
+      if (hi === 7 && (lo === 5 || lo === 6)) return null;
+      return `Set ${n}: wynik ${a}:${b} jest niemożliwy w standardowym secie tenisowym.`;
+    };
+
     const v1p1 = intVal(s1p1), v1p2 = intVal(s1p2);
-    if (v1p1 === null || v1p2 === null || v1p1 < 0 || v1p2 < 0)
+    if (v1p1 === null || v1p2 === null) {
       errs.s1 = 'Set 1 jest wymagany — wpisz wynik dla obu stron.';
+    } else {
+      const e = checkTennisSet(v1p1, v1p2, 1);
+      if (e) errs.s1 = e;
+    }
 
     const v2p1 = intVal(s2p1), v2p2 = intVal(s2p2);
-    if ((v2p1 === null) !== (v2p2 === null) || (v2p1 !== null && v2p1 < 0) || (v2p2 !== null && v2p2 < 0))
+    if ((v2p1 === null) !== (v2p2 === null)) {
       errs.s2 = 'Wpisz wynik dla obu stron w secie 2.';
+    } else if (v2p1 !== null && v2p2 !== null) {
+      const e = checkTennisSet(v2p1, v2p2, 2);
+      if (e) errs.s2 = e;
+    }
 
     const v3p1 = intVal(s3p1), v3p2 = intVal(s3p2);
-    if ((v3p1 === null) !== (v3p2 === null) || (v3p1 !== null && v3p1 < 0) || (v3p2 !== null && v3p2 < 0))
+    if ((v3p1 === null) !== (v3p2 === null)) {
       errs.s3 = 'Wpisz wynik dla obu stron w secie 3.';
+    } else if (v3p1 !== null && v3p2 !== null) {
+      const e = checkTennisSet(v3p1, v3p2, 3);
+      if (e) errs.s3 = e;
+    }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
