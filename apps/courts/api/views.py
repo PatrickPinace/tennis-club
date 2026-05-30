@@ -365,7 +365,22 @@ class CancelReservationView(APIView):
                 status=http_status.HTTP_409_CONFLICT,
             )
 
+        # Pobierz dane do notyfikacji przed usunięciem
+        _owner = reservation.court.facility.owner if reservation.court else None
+        _date_str = reservation.start_time.strftime('%d.%m.%Y %H:%M')
+        _court_label = f'kort nr {reservation.court.court_number}' if reservation.court else 'kort'
+        _user_name = request.user.get_full_name() or request.user.username
+
         reservation.delete()
+
+        # Powiadom ownera o anulowaniu (guard: owner istnieje i nie jest samym anulującym)
+        if _owner and _owner.pk != request.user.pk:
+            from notifications.helpers import notify
+            notify(
+                _owner,
+                f'❌ {_user_name} anulował rezerwację ({_court_label}, {_date_str}).',
+            )
+
         return Response(status=http_status.HTTP_204_NO_CONTENT)
 
 
@@ -518,5 +533,21 @@ class CancelSeriesView(APIView):
                 status=http_status.HTTP_404_NOT_FOUND,
             )
 
+        # Pobierz dane do notyfikacji przed usunięciem (po delete queryset pusty)
+        _first = deleted_qs.select_related('court__facility').order_by('start_time').first()
+        _owner = _first.court.facility.owner if (_first and _first.court) else None
+        _court_label = f'kort nr {_first.court.court_number}' if (_first and _first.court) else 'kort'
+        _first_str = _first.start_time.strftime('%d.%m.%Y %H:%M') if _first else '?'
+        _user_name = request.user.get_full_name() or request.user.username
+
         count, _ = deleted_qs.delete()
+
+        # Jedna zbiorcza notyfikacja do ownera (guard: owner istnieje i nie jest anulującym)
+        if _owner and _owner.pk != request.user.pk:
+            from notifications.helpers import notify
+            notify(
+                _owner,
+                f'❌ {_user_name} anulował serię {count} rezerwacji ({_court_label}, pierwsza: {_first_str}).',
+            )
+
         return Response({'cancelled': count}, status=http_status.HTTP_200_OK)
