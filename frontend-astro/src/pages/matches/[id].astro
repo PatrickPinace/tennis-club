@@ -101,28 +101,31 @@ const iAmParticipant = iAmP1 || iAmP2;
   currentUser={currentUser}
 >
 
-  <!-- Breadcrumb + akcje -->
-  <div class="match-topbar">
-    <nav class="breadcrumb" aria-label="Nawigacja okruszkowa">
-      <a href={url('/matches')} class="breadcrumb__link">Mecze</a>
-      <span class="breadcrumb__sep" aria-hidden="true">›</span>
-      <span class="breadcrumb__current">Mecz #{matchId}</span>
-    </nav>
-    {canEdit && (
-      <MatchEditForm
-        client:load
-        matchId={matchId}
-        initialSets={{
-          p1_set1: String(match.p1_set1 ?? ''),
-          p2_set1: String(match.p2_set1 ?? ''),
-          p1_set2: String(match.p1_set2 ?? ''),
-          p2_set2: String(match.p2_set2 ?? ''),
-          p1_set3: String(match.p1_set3 ?? ''),
-          p2_set3: String(match.p2_set3 ?? ''),
-        }}
-      />
-    )}
-  </div>
+  {canEdit ? (
+    <MatchEditForm
+      client:load
+      matchId={matchId}
+      matchesUrl={url('/matches')}
+      p1Label={team1.map(u => u.first_name || u.username).join(' / ')}
+      p2Label={team2.map(u => u.first_name || u.username).join(' / ')}
+      initialSets={{
+        p1_set1: String(match.p1_set1 ?? ''),
+        p2_set1: String(match.p2_set1 ?? ''),
+        p1_set2: String(match.p1_set2 ?? ''),
+        p2_set2: String(match.p2_set2 ?? ''),
+        p1_set3: String(match.p1_set3 ?? ''),
+        p2_set3: String(match.p2_set3 ?? ''),
+      }}
+    />
+  ) : (
+    <div class="match-topbar">
+      <nav class="breadcrumb" aria-label="Nawigacja okruszkowa">
+        <a href={url('/matches')} class="breadcrumb__link">Mecze</a>
+        <span class="breadcrumb__sep" aria-hidden="true">›</span>
+        <span class="breadcrumb__current">Mecz #{matchId}</span>
+      </nav>
+    </div>
+  )}
 
   <!-- Header karty meczu -->
   <div class={`match-header tc-card ${resultClass}`}>
@@ -142,7 +145,7 @@ const iAmParticipant = iAmP1 || iAmP2;
     <!-- Sędziowanie: gracze vs wynik -->
     <div class="match-scoreboard">
       <!-- Drużyna 1 -->
-      <div class={`match-team ${p1Won ? 'match-team--winner' : ''}`}>
+      <div class={`match-team ${p1Won ? 'match-team--winner' : p2Won ? 'match-team--loser' : ''}`}>
         {team1.map(u => (
           <div class="match-team__player">
             <div class={`tc-avatar tc-avatar-md${u.id === myId ? ' tc-avatar--me' : ''}`} aria-hidden="true">
@@ -154,7 +157,6 @@ const iAmParticipant = iAmP1 || iAmP2;
             </div>
           </div>
         ))}
-        {p1Won && <span class="team-won-badge">Wygrali ✓</span>}
       </div>
 
       <!-- Wynik setów + badge "Twoja wygrana/porażka" na środku -->
@@ -181,7 +183,7 @@ const iAmParticipant = iAmP1 || iAmP2;
       </div>
 
       <!-- Drużyna 2 -->
-      <div class={`match-team match-team--right ${p2Won ? 'match-team--winner' : ''}`}>
+      <div class={`match-team match-team--right ${p2Won ? 'match-team--winner' : p1Won ? 'match-team--loser' : ''}`}>
         {team2.map(u => (
           <div class="match-team__player">
             <div class={`tc-avatar tc-avatar-md${u.id === myId ? ' tc-avatar--me' : ''}`} aria-hidden="true">
@@ -193,7 +195,6 @@ const iAmParticipant = iAmP1 || iAmP2;
             </div>
           </div>
         ))}
-        {p2Won && <span class="team-won-badge">Wygrali ✓</span>}
       </div>
     </div>
 
@@ -216,52 +217,7 @@ const iAmParticipant = iAmP1 || iAmP2;
   </div>
 
 
-  <!-- Szczegółowa tabela setów -->
-  {sets.length > 0 && (
-    <div class="tc-card" style="margin-top:20px;">
-      <div class="tc-card-header">
-        <span class="tc-card-title">Wynik setów</span>
-      </div>
-      <div class="sets-table-wrap">
-      <table class="tc-table sets-table">
-        <thead>
-          <tr>
-            <th>Gracz</th>
-            {sets.map((_, i) => <th class="col-num">Set {i + 1}</th>)}
-            <th class="col-num">Sety</th>
-            <th class="col-num">Gemy</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr class={p1Won ? 'row--winner' : ''}>
-            <td>
-              <div class="sets-player">
-                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">{userInitials(match.p1)}</div>
-                <span>{userName(match.p1)}{match.match_double && match.p3 ? ` / ${userName(match.p3)}` : ''}</span>
-                {p1Won && <span class="tc-badge tc-badge-success" style="margin-left:6px;">Wygrana</span>}
-              </div>
-            </td>
-            {sets.map(([a]) => <td class="col-num">{a}</td>)}
-            <td class="col-num font-bold">{match.p1_win_set}</td>
-            <td class="col-num">{match.p1_win_gem}</td>
-          </tr>
-          <tr class={p2Won ? 'row--winner' : ''}>
-            <td>
-              <div class="sets-player">
-                <div class="tc-avatar tc-avatar-sm" aria-hidden="true">{userInitials(match.p2)}</div>
-                <span>{userName(match.p2)}{match.match_double && match.p4 ? ` / ${userName(match.p4)}` : ''}</span>
-                {p2Won && <span class="tc-badge tc-badge-success" style="margin-left:6px;">Wygrana</span>}
-              </div>
-            </td>
-            {sets.map(([, b]) => <td class="col-num">{b}</td>)}
-            <td class="col-num font-bold">{match.p2_win_set}</td>
-            <td class="col-num">{match.p2_win_gem}</td>
-          </tr>
-        </tbody>
-      </table>
-      </div><!-- /sets-table-wrap -->
-    </div>
-  )}
+
 
   <!-- Info gdy uczestnik nie może edytować (P3) -->
   {!canEdit && iAmParticipant && (
@@ -276,29 +232,28 @@ const iAmParticipant = iAmP1 || iAmP2;
   )}
 
 
-  <!-- Powrót -->
-  <div style="margin-top:28px;">
-    <a href={url('/matches')} class="tc-btn tc-btn-ghost tc-btn-sm">← Wróć do listy meczów</a>
-  </div>
+
 
 </AppLayout>
 
 <style>
-  .match-topbar {
+  :global(.match-topbar) {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 20px; gap: 12px;
+    width: 100%;
+    flex-wrap: wrap;
   }
-  .match-topbar .breadcrumb { margin-bottom: 0; }
+  :global(.match-topbar) :global(.breadcrumb) { margin-bottom: 0; }
 
-  .breadcrumb {
+  :global(.breadcrumb) {
     display: flex; align-items: center; gap: 6px;
     font-size: 0.8rem; color: var(--tc-sub);
     margin-bottom: 20px;
   }
-  .breadcrumb__link { color: var(--tc-accent); text-decoration: none; }
-  .breadcrumb__link:hover { text-decoration: underline; }
-  .breadcrumb__sep { color: var(--tc-muted); }
-  .breadcrumb__current { color: var(--tc-ink); font-weight: 500; }
+  :global(.breadcrumb__link) { color: var(--tc-accent); text-decoration: none; }
+  :global(.breadcrumb__link:hover) { text-decoration: underline; }
+  :global(.breadcrumb__sep) { color: var(--tc-muted); }
+  :global(.breadcrumb__current) { color: var(--tc-ink); font-weight: 500; }
 
   /* ── Match header card ───────────────────────────────────────────────── */
   .match-header { padding: 24px 28px; }
@@ -324,8 +279,11 @@ const iAmParticipant = iAmP1 || iAmP2;
     display: grid;
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    gap: 24px;
-    padding: 8px 0 20px;
+    gap: 32px;
+    padding: 16px 0 24px;
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
   }
 
   .match-team {
@@ -339,6 +297,12 @@ const iAmParticipant = iAmP1 || iAmP2;
     font-weight: 700; color: var(--tc-ink);
   }
 
+  .match-team--loser .tc-avatar {
+    border: 1.5px solid var(--tc-hot);
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--tc-hot);
+  }
+
   .match-team__player {
     display: flex; align-items: center; gap: 10px;
   }
@@ -347,7 +311,7 @@ const iAmParticipant = iAmP1 || iAmP2;
   }
 
   .match-team__name {
-    font-size: 0.95rem; color: var(--tc-sub);
+    font-size: 1.05rem; color: var(--tc-sub);
     display: flex; align-items: center; gap: 6px;
   }
 
@@ -431,43 +395,104 @@ const iAmParticipant = iAmP1 || iAmP2;
     width: 40px; height: 40px;
     font-size: 0.85rem;
   }
+  .match-scoreboard .tc-avatar-md {
+    width: 46px; height: 46px;
+    font-size: 0.95rem;
+  }
 
   /* ── Edit form ───────────────────────────────────────────────────────── */
-  .edit-sets-row {
-    display: flex; gap: 20px; flex-wrap: wrap;
+  :global(.edit-sets) {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
   }
-  .edit-set-group {
-    display: flex; flex-direction: column; gap: 6px;
+  :global(.edit-set) {
+    flex: 1;
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 10px;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
-  .edit-set-label {
-    font-size: 0.75rem; font-weight: 600; color: var(--tc-sub); text-transform: uppercase; letter-spacing: 0.04em;
+  :global(.edit-set--opt) {
+    opacity: 0.85;
   }
-  .edit-set-inputs {
-    display: flex; align-items: center; gap: 6px;
+  :global(.edit-set-label) {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--tc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+    white-space: nowrap;
   }
-  .edit-spinner {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  :global(.edit-required) {
+    color: var(--tc-accent);
   }
-  .edit-set-input {
-    width: 48px; height: 36px; text-align: center;
-    border: 1px solid var(--tc-card-border); border-radius: 6px;
-    background: var(--tc-chip-bg); color: var(--tc-ink);
-    font-size: 1rem; font-weight: 700; font-family: var(--font-mono);
+  :global(.edit-optional) {
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--tc-muted);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  :global(.edit-set-row) {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+  }
+  :global(.edit-set-col) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  :global(.edit-set-who) {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--tc-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  :global(.edit-num-input) {
+    width: 58px;
+    text-align: center;
+    padding: 8px 4px;
+    border-radius: 8px;
+    border: 1px solid var(--tc-card-border);
+    background: var(--tc-card-bg);
+    color: var(--tc-ink);
+    font-size: 1.15rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    outline: none;
     -moz-appearance: textfield;
+    transition: border-color 0.12s, box-shadow 0.12s;
   }
-  .edit-set-input:focus { outline: none; border-color: var(--tc-accent); box-shadow: 0 0 0 2px var(--tc-accent-soft); }
-  .edit-set-input::-webkit-outer-spin-button,
-  .edit-set-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-  .edit-spin-btn {
-    width: 48px; height: 20px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.6rem; border: 1px solid var(--tc-card-border); border-radius: 4px;
-    background: var(--tc-chip-bg); color: var(--tc-sub);
-    cursor: pointer; transition: background 0.1s, color 0.1s, border-color 0.1s;
+  :global(.edit-num-input:focus) {
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 3px var(--tc-accent-soft);
   }
-  .edit-spin-btn:hover { background: var(--tc-accent); color: var(--tc-accent-ink); border-color: var(--tc-accent); }
-  .edit-spin-btn:active { transform: scale(0.94); }
-  .edit-set-sep { color: var(--tc-muted); font-weight: 700; }
+  :global(.edit-num-input::-webkit-outer-spin-button),
+  :global(.edit-num-input::-webkit-inner-spin-button) {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  :global(.edit-set-sep) {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--tc-muted);
+    margin-top: 20px;
+    flex-shrink: 0;
+  }
 
 
   /* ── Match meta (status, reported_by) ───────────────────────────────── */
@@ -511,7 +536,7 @@ const iAmParticipant = iAmP1 || iAmP2;
   }
 
   /* ── Edit form hint ──────────────────────────────────────────────────── */
-  .edit-form-hint {
+  :global(.edit-form-hint) {
     margin-top: 10px; margin-bottom: 0;
     font-size: 0.75rem; color: var(--tc-muted);
   }
@@ -522,7 +547,7 @@ const iAmParticipant = iAmP1 || iAmP2;
   /* ── Mobile ──────────────────────────────────────────────────────────── */
   @media (max-width: 640px) {
     /* Topbar: breadcrumb i przycisk "Edytuj" jeden pod drugim */
-    .match-topbar {
+    :global(.match-topbar) {
       flex-direction: column;
       align-items: flex-start;
       gap: 8px;
@@ -539,13 +564,16 @@ const iAmParticipant = iAmP1 || iAmP2;
       padding: 4px 0 14px;
     }
 
-    /* Prawa drużyna: na mobilu wyrównana do lewej jak lewa */
+    /* Drużyny: wyśrodkowane na mobilu dla spójności z wynikami */
+    .match-team,
     .match-team--right {
-      align-items: flex-start;
-      text-align: left;
+      align-items: center;
+      text-align: center;
     }
+    .match-team__player,
     .match-team--right .match-team__player {
       flex-direction: row;
+      justify-content: center;
     }
 
     /* Wynik setów — wyśrodkowany separator między drużynami */
@@ -563,8 +591,14 @@ const iAmParticipant = iAmP1 || iAmP2;
     /* Tabela setów — scroll poziomy */
     .sets-table { min-width: 360px; }
 
-    /* Formularz edycji — sety obok siebie ale mniejszy gap */
-    .edit-sets-row { gap: 12px; }
+    /* Formularz edycji — sety w kolumnie na komórkach */
+    :global(.edit-sets) {
+      flex-direction: column;
+      gap: 10px;
+    }
+    :global(.edit-num-input) {
+      width: 52px;
+    }
 
   }
 </style>

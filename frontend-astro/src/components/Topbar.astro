@@ -1,18 +1,18 @@
 ---
-// Topbar.astro — przepisany wg projektu grafika
-// Search bar + CTA "+ Nowa Rezerwacja" + user chip z inicjałami
+// Topbar.astro — layout Lucjana (grupy, separatory, ctaLabelMobile)
+//              + React islands: NotificationBell, UserChip (nasze)
 import { url } from '@/lib/url';
 import NotificationBell from '@/components/NotificationBell.tsx';
 import UserChip from '@/components/UserChip.tsx';
 
 interface Props {
-  greeting?: string;   // "Witaj z powrotem, Marcin!" — opcjonalny heading w treści
-  greetingSub?: string; // "pon · 25 maja 2026 · 14:32" — linia pod greeting
+  greeting?: string;
+  greetingSub?: string;
   showSearch?: boolean;
   showCta?: boolean;
   ctaLabel?: string;
+  ctaLabelMobile?: string;
   ctaHref?: string;
-  /** Liczba nieprzečytanych powiadomień z API (null = ukryj odznakę) */
   unreadCount?: number | null;
 }
 const {
@@ -21,6 +21,7 @@ const {
   showSearch = true,
   showCta = true,
   ctaLabel = '+ Nowa Rezerwacja',
+  ctaLabelMobile,
   ctaHref = '/courts/reservations',
   unreadCount = null,
 } = Astro.props;
@@ -28,99 +29,112 @@ const {
 
 <header class="topbar">
   <div class="topbar__inner">
-  <!-- Left: greeting text lub tytuł -->
-  <div class="topbar__left">
-    <button
-      class="topbar__hamburger"
-      id="sidebar-toggle"
-      onclick="toggleSidebar()"
-      aria-label="Menu"
-      style="display:none;"
-    >
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <line x1="3" y1="6" x2="21" y2="6"/>
-        <line x1="3" y1="12" x2="21" y2="12"/>
-        <line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    </button>
 
-    {greeting && (
-      <div class="topbar__greeting-wrap">
-        <h1 class="topbar__greeting">{greeting}</h1>
-        {greetingSub && <div class="topbar__greeting-sub">{greetingSub}</div>}
-      </div>
-    )}
-  </div>
-
-  <!-- Right: search + bell + CTA + user -->
-  <div class="topbar__right">
-
-    {showSearch && (
-      <div class="topbar__search">
-        <svg class="topbar__search-icon" width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+    <!-- Left: greeting -->
+    <div class="topbar__left">
+      <button
+        class="topbar__hamburger"
+        id="sidebar-toggle"
+        onclick="toggleSidebar()"
+        aria-label="Menu"
+        style="display:none;"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
-        <input
-          type="search"
-          class="topbar__search-input"
-          placeholder="Szukaj rezerwacji, graczy..."
-          aria-label="Szukaj"
-        />
+      </button>
+
+      {greeting && (
+        <div class="topbar__greeting-wrap">
+          <h1 class="topbar__greeting">{greeting}</h1>
+          {greetingSub && <div class="topbar__greeting-sub">{greetingSub}</div>}
+        </div>
+      )}
+    </div>
+
+    <!-- Right: search + CTA + bell + user + theme -->
+    <div class="topbar__right">
+
+      {showSearch && (
+        <div class="topbar__group topbar__group--search">
+          <div class="topbar__search">
+            <svg class="topbar__search-icon" width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+            </svg>
+            <input
+              type="search"
+              class="topbar__search-input"
+              placeholder="Szukaj rezerwacji, graczy..."
+              aria-label="Szukaj"
+            />
+          </div>
+        </div>
+      )}
+
+      {showSearch && showCta && <div class="topbar__sep-v" aria-hidden="true"></div>}
+
+      {showCta && (
+        <div class="topbar__group topbar__group--actions">
+          <a href={ctaHref} class="topbar__cta">
+            <span class="topbar__cta-desktop">{ctaLabel}</span>
+            <span class="topbar__cta-mobile">{ctaLabelMobile || ctaLabel}</span>
+          </a>
+        </div>
+      )}
+
+      {(showSearch || showCta) && <div class="topbar__sep-v" aria-hidden="true"></div>}
+
+      <!-- Notifications bell (React island) -->
+      <NotificationBell
+        client:load
+        initialUnread={unreadCount ?? 0}
+        notificationsUrl={url('/notifications')}
+      />
+
+      <!-- User chip (React island) -->
+      <UserChip
+        client:load
+        profileUrl={url('/profile')}
+        manageUrl={url('/tournaments/manage')}
+        loginUrl={url('/login')}
+      />
+
+      <div class="topbar__sep-v" aria-hidden="true"></div>
+
+      <div class="topbar__group topbar__group--sys">
+        <button
+          class="topbar__icon-btn topbar__theme-btn"
+          onclick="toggleTheme()"
+          aria-label="Zmień motyw"
+          title="Zmień motyw"
+        >
+          <svg id="theme-icon-dark" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="display:none;" aria-hidden="true">
+            <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+          </svg>
+          <svg id="theme-icon-light" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
+          </svg>
+        </button>
       </div>
-    )}
 
-    <!-- Notifications bell (React island) -->
-    <NotificationBell
-      client:load
-      initialUnread={unreadCount ?? 0}
-      notificationsUrl={url('/notifications')}
-    />
-
-    {showCta && (
-      <a href={ctaHref} class="topbar__cta">
-        {ctaLabel}
-      </a>
-    )}
-
-    <!-- User chip (React island) -->
-    <UserChip
-      client:load
-      profileUrl={url('/profile')}
-      manageUrl={url('/tournaments/manage')}
-      loginUrl={url('/login')}
-    />
-
-    <!-- Theme toggle — dyskretny -->
-    <button
-      class="topbar__icon-btn topbar__theme-btn"
-      onclick="toggleTheme()"
-      aria-label="Zmień motyw"
-      title="Zmień motyw"
-    >
-      <svg id="theme-icon-dark" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" style="display:none;" aria-hidden="true">
-        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
-      </svg>
-      <svg id="theme-icon-light" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"/>
-      </svg>
-    </button>
+    </div>
   </div>
-  </div><!-- /topbar__inner -->
 </header>
 
 <style>
   .topbar {
     height: var(--topbar-height);
     background: var(--tc-sidebar-bg);
-    border-bottom: 1px solid var(--tc-card-border);
+    border-bottom: 1px solid var(--tc-sidebar-border);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     position: sticky; top: 0; z-index: 50;
+    box-sizing: border-box;
   }
 
   .topbar__inner {
-    max-width: var(--content-max);
-    margin: 0 auto;
     padding: 0 var(--content-px);
     height: 100%;
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -132,96 +146,86 @@ const {
   }
 
   .topbar__greeting-wrap {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 0; overflow: hidden;
   }
 
   .topbar__greeting {
-    font-size: 1.35rem;
-    font-weight: 800;
-    color: var(--tc-ink);
-    letter-spacing: -0.025em;
-    white-space: nowrap;
-    line-height: 1;
+    font-size: 1.35rem; font-weight: 800; color: var(--tc-ink);
+    letter-spacing: -0.025em; white-space: nowrap; line-height: 1;
+    overflow: hidden; text-overflow: ellipsis;
   }
 
   .topbar__greeting-sub {
-    font-size: 0.78rem;
-    color: var(--tc-muted);
-    font-weight: 500;
-    white-space: nowrap;
+    font-size: 0.78rem; color: var(--tc-muted); font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   .topbar__hamburger {
     display: none;
     align-items: center; justify-content: center;
     width: 36px; height: 36px; border-radius: 8px;
-    background: none; border: none;
-    color: var(--tc-muted);
-    transition: background 0.12s, color 0.12s;
-    flex-shrink: 0;
-    cursor: pointer;
+    background: none; border: none; color: var(--tc-muted);
+    transition: background 0.12s, color 0.12s; flex-shrink: 0; cursor: pointer;
   }
   .topbar__hamburger:hover { background: var(--tc-overlay); color: var(--tc-ink); }
 
-  /* ── Right group ──────────────────────────────────────────────────────── */
+  /* ── Right group ─────────────────────────────────────────────────────── */
   .topbar__right {
-    display: flex; align-items: center; gap: 8px;
-    flex-shrink: 0;
+    display: flex; align-items: center; gap: 16px; flex-shrink: 0;
   }
 
-  /* ── Search ───────────────────────────────────────────────────────────── */
-  .topbar__search {
-    position: relative;
-    display: flex; align-items: center;
+  .topbar__group {
+    display: flex; align-items: center; gap: 8px; height: 38px;
   }
+
+  .topbar__sep-v {
+    width: 1px; height: 20px;
+    background: var(--tc-card-border); flex-shrink: 0;
+  }
+
+  /* ── Search ──────────────────────────────────────────────────────────── */
+  .topbar__search { position: relative; display: flex; align-items: center; }
 
   .topbar__search-icon {
-    position: absolute; left: 10px;
-    color: var(--tc-muted);
-    pointer-events: none;
-    flex-shrink: 0;
+    position: absolute; left: 11px; color: var(--tc-muted); pointer-events: none; flex-shrink: 0;
   }
 
   .topbar__search-input {
-    background: var(--tc-input-bg);
-    border: 1px solid var(--tc-card-border);
-    color: var(--tc-ink);
-    border-radius: 8px;
-    padding: 7px 14px 7px 32px;
-    font-size: 0.85rem;
-    font-family: var(--font-sans);
+    height: 38px;
+    background: var(--tc-input-bg); border: 1px solid var(--tc-card-border);
+    color: var(--tc-ink); border-radius: 8px;
+    padding: 0 14px 0 32px; font-size: 0.85rem; font-family: var(--font-sans);
     width: 220px;
-    transition: border-color 0.15s, box-shadow 0.15s, width 0.2s;
-    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, width 0.2s, background-color 0.15s;
+    outline: none; box-sizing: border-box;
   }
   .topbar__search-input::placeholder { color: var(--tc-muted); }
   .topbar__search-input:hover { border-color: var(--tc-accent-border); }
   .topbar__search-input:focus {
     border-color: var(--tc-accent-border);
     box-shadow: 0 0 0 3px var(--tc-accent-soft);
-    width: 260px;
+    width: 260px; background: var(--tc-card-bg-2);
   }
 
-  /* ── Icon buttons (bell, theme) — bell is React island, needs :global ── */
+  /* ── Icon buttons (bell, theme) — React islands need :global ─────────── */
   :global(.topbar__icon-btn) {
-    width: 38px; height: 38px;
-    border-radius: 8px;
-    background: var(--tc-card-bg);
-    border: 1px solid var(--tc-card-border);
-    display: grid; place-items: center;
-    color: var(--tc-sub);
-    transition: border-color 0.15s, color 0.15s;
-    flex-shrink: 0;
-    position: relative;
-    cursor: pointer;
+    width: 38px; height: 38px; border-radius: 8px;
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+    display: grid; place-items: center; color: var(--tc-sub);
+    transition: border-color 0.15s, color 0.15s, background-color 0.15s, transform 0.15s;
+    flex-shrink: 0; position: relative; cursor: pointer; box-sizing: border-box;
   }
-  :global(.topbar__icon-btn:hover) { border-color: var(--tc-accent-border); color: var(--tc-ink); }
+  :global(.topbar__icon-btn:hover) {
+    border-color: var(--tc-accent-border); color: var(--tc-ink); background: var(--tc-overlay);
+  }
+  :global(.topbar__icon-btn:active) { transform: scale(0.96); }
 
-  /* ── Notification bell (React island — must be :global) ──────────────── */
+  /* ── Notification bell (React island) ───────────────────────────────── */
   :global(.topbar__notif-wrap) { position: relative; }
+
+  :global(.topbar__notif-wrap .topbar__icon-btn svg) { transition: transform 0.15s ease; }
+  :global(.topbar__notif-wrap .topbar__icon-btn:hover svg) { transform: scale(1.08); }
 
   :global(.topbar__notif-wrap .topbar__notif-dot) {
     position: absolute; top: 3px; right: 3px;
@@ -229,33 +233,25 @@ const {
     background: var(--tc-hot); color: #fff;
     border-radius: 99px; font-size: 0.6rem; font-weight: 700;
     display: grid; place-items: center;
-    border: 2px solid var(--tc-sidebar-bg);
-    padding: 0 3px;
+    border: 2px solid var(--tc-sidebar-bg); padding: 0 3px;
   }
 
   :global(.topbar__notif-panel) {
-    position: absolute; right: 0; top: calc(100% + 8px);
-    width: 340px;
-    background: var(--tc-card-bg);
-    border: 1px solid var(--tc-card-border);
+    position: absolute; right: 0; top: calc(100% + 8px); width: 340px;
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
     border-radius: var(--radius-md);
     box-shadow: 0 8px 30px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
-    z-index: 200;
-    overflow: hidden;
-    animation: notif-enter 0.15s ease;
+    z-index: 200; overflow: hidden; animation: notif-enter 0.15s ease;
   }
-
   @keyframes notif-enter {
     from { opacity: 0; transform: translateY(-6px) scale(0.98); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   :global(.topbar__notif-arrow) {
-    position: absolute; top: -6px; right: 14px;
-    width: 11px; height: 11px;
+    position: absolute; top: -6px; right: 14px; width: 11px; height: 11px;
     background: var(--tc-card-bg);
-    border-top: 1px solid var(--tc-card-border);
-    border-left: 1px solid var(--tc-card-border);
+    border-top: 1px solid var(--tc-card-border); border-left: 1px solid var(--tc-card-border);
     transform: rotate(45deg);
   }
 
@@ -266,212 +262,53 @@ const {
 
   :global(.topbar__notif-header) {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 13px 16px;
-    border-bottom: 1px solid var(--tc-card-border);
+    padding: 13px 16px; border-bottom: 1px solid var(--tc-card-border);
     background: var(--tc-card-bg);
   }
 
   :global(.topbar__notif-mark) {
     font-size: 0.75rem; color: var(--tc-accent);
     background: none; border: none; cursor: pointer;
-    font-family: var(--font-sans);
-    padding: 3px 8px; border-radius: 5px;
+    font-family: var(--font-sans); padding: 3px 8px; border-radius: 5px;
     transition: background 0.1s;
   }
   :global(.topbar__notif-mark:hover) { background: var(--tc-accent-soft); }
 
   :global(.topbar__notif-list) {
     max-height: 380px; overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--tc-card-border) transparent;
+    scrollbar-width: thin; scrollbar-color: var(--tc-card-border) transparent;
   }
   :global(.topbar__notif-list::-webkit-scrollbar) { width: 4px; }
   :global(.topbar__notif-list::-webkit-scrollbar-track) { background: transparent; }
   :global(.topbar__notif-list::-webkit-scrollbar-thumb) { background: var(--tc-card-border); border-radius: 4px; }
 
-  /* ── CTA button ───────────────────────────────────────────────────────── */
-  .topbar__cta {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 0 14px; height: 36px;
-    background: var(--tc-accent); color: var(--tc-accent-ink);
-    border-radius: 8px;
-    font-size: 0.8125rem; font-weight: 700;
-    text-decoration: none; white-space: nowrap;
-    transition: box-shadow 0.15s, transform 0.1s;
-    box-shadow: 0 2px 8px var(--tc-accent-glow);
-  }
-  .topbar__cta:hover {
-    box-shadow: 0 4px 12px var(--tc-accent-glow);
-    transform: translateY(-1px);
-  }
-  .topbar__cta:active { transform: translateY(0); }
-
-  /* ── User chip (React island — must be :global) ──────────────────────── */
-  :global(.topbar__user) {
-    display: flex; align-items: center; gap: 8px;
-    padding: 5px 8px 5px 5px;
-    border-radius: 8px; cursor: pointer;
-    transition: border-color 0.15s, background 0.12s;
-    border: 1px solid var(--tc-card-border);
-    background: var(--tc-card-bg);
-  }
-  :global(.topbar__user:hover) { background: var(--tc-overlay); border-color: var(--tc-accent-border); }
-
-  :global(.topbar__user-avatar) {
-    width: 28px; height: 28px; border-radius: 50%;
-    background: var(--tc-accent-soft);
-    border: 1.5px solid var(--tc-accent);
-    color: var(--tc-accent); font-weight: 800; font-size: 0.68rem;
-    display: grid; place-items: center; flex-shrink: 0;
-  }
-
-  :global(.topbar__user-info) {
-    display: flex; flex-direction: column;
-    line-height: 1.15;
-  }
-  :global(.topbar__user-name)    { font-size: 0.78rem; font-weight: 700; color: var(--tc-ink); }
-  :global(.topbar__user-surname) { font-size: 0.72rem; color: var(--tc-muted); }
-
-  :global(.topbar__user-caret) { color: var(--tc-faint); flex-shrink: 0; }
-
-  .topbar__theme-btn { margin-left: 2px; }
-
-  /* ── Classic version link ─────────────────────────────────────────────── */
-  .topbar__classic-link {
-    font-size: 0.75rem; font-weight: 500;
-    color: var(--tc-faint);
-    text-decoration: none;
-    white-space: nowrap;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background 0.12s, color 0.12s;
-  }
-  .topbar__classic-link:hover {
-    background: var(--tc-overlay);
-    color: var(--tc-muted);
-  }
-  @media (max-width: 768px) {
-    .topbar__classic-link { display: none; }
-  }
-
-  /* ── User wrap (React island — must be :global) ──────────────────── */
-  :global(.topbar__user-wrap) { position: relative; }
-
-  :global(.topbar__login-link) {
-    display: inline-flex; align-items: center;
-    padding: 0 14px; height: 36px;
-    border: 1px solid var(--tc-card-border);
-    border-radius: 8px;
-    font-size: 0.875rem; font-weight: 600;
-    color: var(--tc-sub);
-    text-decoration: none;
-    transition: background 0.12s, color 0.12s, border-color 0.12s;
-  }
-  :global(.topbar__login-link:hover) {
-    background: var(--tc-overlay);
-    color: var(--tc-ink);
-    border-color: var(--tc-accent-border);
-  }
-
-  :global(.topbar__user-menu) {
-    position: absolute; right: 0; top: calc(100% + 6px);
-    background: var(--tc-card-bg);
-    border: 1px solid var(--tc-card-border);
-    border-radius: var(--radius-sm);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-    z-index: 200;
-    min-width: 140px;
-    overflow: hidden;
-  }
-
-  :global(.topbar__user-menu-item) {
-    display: flex; align-items: center; gap: 8px;
-    width: 100%; padding: 10px 14px;
-    font-size: 0.875rem; font-weight: 500; color: var(--tc-ink);
-    background: none; border: none; cursor: pointer;
-    font-family: var(--font-sans);
-    transition: background 0.1s;
-    text-align: left;
-  }
-  :global(.topbar__user-menu-item:hover) { background: var(--tc-overlay); }
-
-  :global(.topbar__user-menu-link) {
-    text-decoration: none;
-    display: flex; align-items: center; gap: 8px;
-    width: 100%; padding: 10px 14px;
-    font-size: 0.875rem; font-weight: 500; color: var(--tc-ink);
-    transition: background 0.1s;
-  }
-  :global(.topbar__user-menu-link:hover) { background: var(--tc-overlay); }
-
-  :global(.topbar__user-menu-divider) {
-    height: 1px; background: var(--tc-card-border);
-    margin: 2px 0;
-  }
-
-  /* ── Responsive ───────────────────────────────────────────────────────── */
-  @media (max-width: 1024px) {
-    .topbar__hamburger { display: flex !important; }
-    .topbar__search-input { width: 160px; }
-    .topbar__search-input:focus { width: 200px; }
-  }
-
-  @media (max-width: 640px) {
-    .topbar__inner { padding: 0 14px; gap: 8px; }
-    .topbar__greeting-wrap { display: none; }
-    .topbar__search { display: none; }
-    .topbar__cta { display: none; }
-    .topbar__classic-link { display: none; }
-    :global(.topbar__user-info) { display: none; }
-  }
-
-  /* ── Notification panel items (wstrzykiwane przez JS) ────────── */
   :global(.topbar__notif-item) {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 11px 16px;
-    border-bottom: 1px solid var(--tc-card-border);
-    transition: background 0.1s;
-    cursor: default;
+    display: flex; align-items: flex-start; gap: 10px; padding: 11px 16px;
+    border-bottom: 1px solid var(--tc-card-border); transition: background 0.1s; cursor: default;
   }
   :global(.topbar__notif-item:last-child) { border-bottom: none; }
   :global(.topbar__notif-item:hover) { background: var(--tc-overlay); }
 
   :global(.topbar__notif-dot) {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 5px;
-    background: transparent;
+    width: 7px; height: 7px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 5px; background: transparent;
   }
 
   :global(.topbar__notif-body) { flex: 1; min-width: 0; }
 
   :global(.topbar__notif-msg) {
-    font-size: 0.82rem; color: var(--tc-ink); line-height: 1.45;
-    margin: 0 0 3px;
+    font-size: 0.82rem; color: var(--tc-ink); line-height: 1.45; margin: 0 0 3px;
     word-break: break-word;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
-  :global(.topbar__notif-time) {
-    font-size: 0.7rem; color: var(--tc-muted);
-    display: block;
-  }
+  :global(.topbar__notif-time) { font-size: 0.7rem; color: var(--tc-muted); display: block; }
 
   :global(.topbar__notif-item--unread) {
-    background: var(--tc-accent-soft);
-    border-left: 3px solid var(--tc-accent);
-    padding-left: 13px;
-    cursor: pointer;
+    background: var(--tc-accent-soft); border-left: 3px solid var(--tc-accent);
+    padding-left: 13px; cursor: pointer;
   }
-  :global(.topbar__notif-item--unread .topbar__notif-dot) {
-    background: var(--tc-accent);
-  }
-  :global(.topbar__notif-item--unread .topbar__notif-msg) {
-    font-weight: 600;
-  }
+  :global(.topbar__notif-item--unread .topbar__notif-dot) { background: var(--tc-accent); }
+  :global(.topbar__notif-item--unread .topbar__notif-msg) { font-weight: 600; }
   :global(.topbar__notif-item--unread:hover) {
     background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
   }
@@ -479,23 +316,133 @@ const {
   :global(.topbar__notif-item--link:focus-visible) { outline: 2px solid var(--tc-accent); outline-offset: -2px; }
 
   :global(.topbar__notif-footer) {
-    padding: 9px 16px;
-    border-top: 1px solid var(--tc-card-border);
-    text-align: center;
-    background: var(--tc-card-bg-2);
+    padding: 9px 16px; border-top: 1px solid var(--tc-card-border);
+    text-align: center; background: var(--tc-card-bg-2);
   }
   :global(.topbar__notif-footer a) {
-    font-size: 0.78rem; color: var(--tc-accent);
-    text-decoration: none; font-weight: 600;
+    font-size: 0.78rem; color: var(--tc-accent); text-decoration: none; font-weight: 600;
   }
   :global(.topbar__notif-footer a:hover) { text-decoration: underline; }
 
   :global(.topbar__notif-empty) {
-    padding: 32px 20px;
-    text-align: center;
-    color: var(--tc-muted); font-size: 0.84rem;
-    display: flex; align-items: center; justify-content: center;
-    min-height: 80px;
+    padding: 32px 20px; text-align: center; color: var(--tc-muted); font-size: 0.84rem;
+    display: flex; align-items: center; justify-content: center; min-height: 80px;
+  }
+
+  /* ── CTA button ──────────────────────────────────────────────────────── */
+  .topbar__cta {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 0 16px; height: 38px;
+    background: var(--tc-accent); color: var(--tc-accent-ink);
+    border-radius: 8px; font-size: 0.8125rem; font-weight: 700;
+    text-decoration: none; white-space: nowrap;
+    transition: box-shadow 0.15s, transform 0.1s, background-color 0.15s;
+    box-shadow: 0 2px 6px var(--tc-accent-soft); box-sizing: border-box;
+  }
+  .topbar__cta:hover { box-shadow: 0 4px 12px var(--tc-accent-glow); transform: translateY(-1px); }
+  .topbar__cta:active { transform: translateY(0); }
+  .topbar__cta-desktop { display: inline; }
+  .topbar__cta-mobile  { display: none; }
+
+  /* ── User chip (React island) — :global ──────────────────────────────── */
+  :global(.topbar__user-wrap) { position: relative; }
+
+  :global(.topbar__user) {
+    height: 38px; display: flex; align-items: center; gap: 8px;
+    padding: 0 10px 0 5px; border-radius: 8px; cursor: pointer;
+    transition: border-color 0.15s, background 0.12s, transform 0.15s;
+    border: 1px solid var(--tc-card-border); background: var(--tc-card-bg);
+    box-sizing: border-box; user-select: none;
+  }
+  :global(.topbar__user:hover) {
+    background: var(--tc-overlay); border-color: var(--tc-accent-border);
+    transform: translateY(-0.5px);
+  }
+  :global(.topbar__user:active) { transform: translateY(0) scale(0.99); }
+
+  :global(.topbar__user-avatar) {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--tc-accent-soft); border: 1.5px solid var(--tc-accent);
+    color: var(--tc-accent); font-weight: 800; font-size: 0.68rem;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+
+  :global(.topbar__user-info) {
+    display: flex; flex-direction: row; align-items: baseline; gap: 4px; line-height: 1;
+  }
+  :global(.topbar__user-name)    { font-size: 0.8125rem; font-weight: 700; color: var(--tc-ink); white-space: nowrap; }
+  :global(.topbar__user-surname) { font-size: 0.8125rem; font-weight: 500; color: var(--tc-sub); white-space: nowrap; }
+
+  :global(.topbar__user-caret) {
+    color: var(--tc-faint); flex-shrink: 0;
+    transition: transform 0.15s ease, color 0.15s ease;
+  }
+  :global(.topbar__user:hover .topbar__user-caret) {
+    color: var(--tc-muted); transform: translateY(0.5px);
+  }
+
+  :global(.topbar__login-link) {
+    display: inline-flex; align-items: center; padding: 0 14px; height: 38px;
+    border: 1px solid var(--tc-card-border); border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; color: var(--tc-sub);
+    text-decoration: none; transition: background 0.12s, color 0.12s, border-color 0.12s;
+    box-sizing: border-box;
+  }
+  :global(.topbar__login-link:hover) {
+    background: var(--tc-overlay); color: var(--tc-ink); border-color: var(--tc-accent-border);
+  }
+
+  :global(.topbar__user-menu) {
+    position: absolute; right: 0; top: calc(100% + 6px);
+    background: var(--tc-card-bg); border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-sm); box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    z-index: 200; min-width: 145px; overflow: hidden;
+  }
+
+  :global(.topbar__user-menu-item) {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    font-size: 0.875rem; font-weight: 500; color: var(--tc-ink);
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-sans); transition: background 0.1s; text-align: left;
+  }
+  :global(.topbar__user-menu-item:hover) { background: var(--tc-overlay); }
+
+  :global(.topbar__user-menu-link) {
+    text-decoration: none; display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    font-size: 0.875rem; font-weight: 500; color: var(--tc-ink); transition: background 0.1s;
+  }
+  :global(.topbar__user-menu-link:hover) { background: var(--tc-overlay); }
+
+  :global(.topbar__user-menu-divider) { height: 1px; background: var(--tc-card-border); margin: 2px 0; }
+
+  /* ── Theme button ────────────────────────────────────────────────────── */
+  .topbar__theme-btn svg { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+  .topbar__theme-btn:hover svg { transform: rotate(30deg) scale(1.08); }
+
+  /* ── Responsive ──────────────────────────────────────────────────────── */
+  @media (max-width: 1024px) {
+    .topbar__hamburger { display: flex !important; }
+    .topbar__search-input { width: 160px; }
+    .topbar__search-input:focus { width: 200px; }
+    .topbar__right { gap: 12px; }
+  }
+
+  @media (max-width: 768px) {
+    .topbar__sep-v { display: none; }
+    .topbar__right { gap: 10px; }
+  }
+
+  @media (max-width: 640px) {
+    .topbar__inner { padding: 0 14px; gap: 8px; }
+    .topbar__greeting-wrap { display: none; }
+    .topbar__search { display: none; }
+    :global(.topbar__user-info) { display: none; }
+    .topbar__sep-v { display: none; }
+    .topbar__right { gap: 8px; }
+    .topbar__cta-desktop { display: none; }
+    .topbar__cta-mobile  { display: inline; }
+    .topbar__cta { padding: 0 10px; height: 32px; font-size: 0.78rem; border-radius: 6px; }
   }
 </style>
-
