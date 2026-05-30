@@ -20,16 +20,25 @@ function getInitials(name: string): string {
     <div class="tc-card-header">
       <span class="tc-card-title">Uczestnicy ({count})</span>
     </div>
-    <div class="td-participants">
+    <div class="td-participants-grid">
       {participants.map(p => (
-        <div class="td-participant">
-          <div class="tc-avatar tc-avatar-sm" aria-hidden="true">
-            {getInitials(p.display_name)}
+        <div class="td-participant-card">
+          <div class="td-participant-card__avatar-wrap">
+            <div class="td-participant-card__avatar" aria-hidden="true">
+              {getInitials(p.display_name)}
+            </div>
+            {p.seed_number && (
+              <span class="td-participant-card__seed" title={`Rozstawienie #${p.seed_number}`}>
+                #{p.seed_number}
+              </span>
+            )}
           </div>
-          <span class="td-participant__name">{p.display_name}</span>
-          {p.seed_number && (
-            <span class="td-seed">#{p.seed_number}</span>
-          )}
+          <div class="td-participant-card__info">
+            <div class="td-participant-card__name">{p.display_name}</div>
+            <div class="td-participant-card__status">
+              {p.seed_number ? `Rozstawiony #${p.seed_number}` : 'Uczestnik'}
+            </div>
+          </div>
         </div>
       ))}
     </div>

@@ -1,116 +1,315 @@
-  /* ═══════════════════════════════════════════════════════════════════════════
-     BRACKET (SGL/DBE drabinka) — tc-* design tokens
-     ═══════════════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRABINKA TURNIEJOWA (SGL/DBE) — profesjonalna wizualizacja z liniami łączącymi
+   Ten plik zawiera style CSS dla wizualnej reprezentacji drabinki turniejowej.
+   Zawiera układ kolumnowy, połączenia między meczami oraz responsywne dostosowanie.
+   ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Kontener drabinki – zapewnia przewijanie poziome */
+.bracket-container {
+  padding: 20px 16px 28px;
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Główna linia flex – układa rundy obok siebie */
+.bkt-wrap {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  min-width: max-content;
+}
+
+/* Kolumna rundy – zawiera etykietę i mecze */
+.bkt-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  max-width: 230px;
+  flex: 1;
+}
+
+/* Etykieta rundy (np. Ćwierćfinał) */
+.bkt-col-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tc-muted);
+  margin-bottom: 8px;
+  text-align: center;
+  flex-shrink: 0;
+  padding: 0 32px;
+}
+
+/* Lista meczów w danej rundzie */
+.bkt-col-matches {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-around;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   SLOT = niewidoczny kontener wokół każdej karty meczu.
+   Trzyma pseudo-elementy rysujące linie łączące.
+
+   Strategia łączników:
+   • Prawe ramię poziome      →  .bkt-slot::after        (ukryte w ostatniej kolumnie)
+   • Pionowy kręgosłup – góra →  .bkt-slot--connector-top::before
+     (od środka w dół — łączy ten slot z jego parą poniżej)
+   • Pionowy kręgosłup – dół  →  .bkt-slot--connector-bottom::before
+     (od środka w górę — łączy ten slot z jego parą powyżej)
+   • Lewe wejście poziome     →  .bkt-slot--has-entry .bkt-match::before
+     (rysowane na karcie meczu w kolumnach od drugiej wzwyż)
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Przestrzeń wokół pojedynczego meczu – trzyma linie łączące */
+.bkt-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  /* 28px lewo  = miejsce na linię wejściową (kolumny od drugiej)
+     28px prawo = miejsce na ramię do następnej kolumny */
+  padding: 8px 28px 8px 0;
+}
+
+/* Pierwsza kolumna – nie potrzebuje lewego marginesu na linię */
+.bkt-col:first-child .bkt-slot {
+  padding-left: 0;
+}
+
+/* Kolejne kolumny – lewy margines na linię wejściową */
+.bkt-slot--has-entry {
+  padding-left: 28px;
+}
+
+/* Pozioma linia łącząca z następną kolumną (prawe ramię) */
+.bkt-slot::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 28px;
+  height: 2px;
+  background: var(--tc-card-border);
+  transform: translateY(-50%);
+}
+
+/* Ostatnia kolumna – ukrywa prawe ramię */
+.bkt-col--final .bkt-slot::after {
+  display: none;
+}
+
+/* Pionowa linia łącząca w dół (górna połowa pary) */
+.bkt-slot--connector-top::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 2px;
+  /* 50% tego slota = od środka do dołu;
+     razem z ::before dolnego slota tworzy pełną pionową linię */
+  height: 50%;
+  background: var(--tc-card-border);
+}
+
+/* Pionowa linia łącząca w górę (dolna połowa pary) */
+.bkt-slot--connector-bottom::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 50%;
+  width: 2px;
+  height: 50%;
+  background: var(--tc-card-border);
+}
+
+/* Pozioma linia wchodząca z lewej (przy kolejnych kolumnach) */
+.bkt-slot--has-entry .bkt-match::before {
+  content: '';
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  width: 28px;
+  height: 2px;
+  background: var(--tc-card-border);
+  transform: translateY(-50%);
+}
+
+/* Karta meczu – podstawowy element wizualny drabinki */
+.bkt-match {
+  background: var(--tc-card-bg);
+  border: 1px solid var(--tc-card-border);
+  border-radius: 10px;
+  overflow: hidden;
+  width: 100%;
+  box-shadow: 0 2px 8px var(--tc-shadow-soft);
+  transition: transform 0.18s ease, border-color 0.18s, box-shadow 0.18s;
+  position: relative;
+  z-index: 1;
+}
+
+/* Styl meczu zakończonego */
+.bkt-match--done {
+  border-color: color-mix(in srgb, var(--tc-accent) 40%, var(--tc-card-border));
+}
+
+/* Efekt podświetlenia przy najechaniu */
+.bkt-match:hover {
+  transform: translateY(-2px);
+  border-color: var(--tc-accent-border);
+  box-shadow: 0 8px 24px var(--tc-shadow-soft);
+}
+
+/* Wiersz gracza w karcie meczu */
+.bkt-player {
+  display: flex;
+  align-items: center;
+  padding: 8px 11px;
+  font-size: 0.8rem;
+  color: var(--tc-sub);
+  border-bottom: 1px solid var(--tc-card-border);
+  gap: 6px;
+  transition: background 0.14s;
+}
+
+.bkt-player:last-child {
+  border-bottom: none;
+}
+
+/* Styl zwycięzcy meczu */
+.bkt-player--winner {
+  color: var(--tc-ink);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--tc-accent) 10%, transparent);
+}
+
+/* Numer rozstawienia (seed) gracza */
+.bkt-player-seed {
+  font-size: 0.65rem;
+  color: var(--tc-muted);
+  font-weight: 700;
+  flex-shrink: 0;
+  min-width: 16px;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+}
+
+/* Nazwa gracza */
+.bkt-player-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Etykieta wyniku meczu */
+.bkt-score {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--tc-accent);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+/* Neutralny wynik (gdy nie ma zwycięzcy) */
+.bkt-score-neutral {
+  padding: 3px 11px 5px;
+  font-size: 0.7rem;
+  color: var(--tc-muted);
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+}
+
+/* Pasek wyświetlający „Mecz o 3. miejsce" */
+.bkt-third-label {
+  display: block;
+  font-size: 0.64rem;
+  color: var(--tc-muted);
+  text-align: center;
+  padding: 3px 8px 2px;
+  background: color-mix(in srgb, var(--tc-card-border) 40%, transparent);
+  border-bottom: 1px solid var(--tc-card-border);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Placeholder dla nieznanych meczów (TBD) */
+.bkt-match--tbd {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.bkt-match--tbd .bkt-player {
+  color: var(--tc-muted);
+  font-style: italic;
+}
+
+/* ── Sekcje eliminacji podwójnej (Double Elimination) ─────────────────── */
+
+/* Sekcja drabinki – np. Winners, Losers */
+.bkt-section {
+  margin-bottom: 32px;
+}
+
+/* Nagłówek sekcji drabinki (np. Winners Bracket, Losers Bracket) */
+.bkt-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tc-muted);
+  margin-bottom: 12px;
+  padding: 5px 0 7px;
+  border-bottom: 1px solid var(--tc-card-border);
+}
+
+/* Sekcja Wielkiego Finału */
+.bkt-section--gf {
+  margin-bottom: 0;
+}
+
+.bkt-section-title--gf {
+  color: var(--tc-accent);
+}
+
+/* ── Responsywność: mniejsze karty na urządzeniach mobilnych ─────────── */
+@media (max-width: 640px) {
   .bracket-container {
-    padding: 16px;
-    overflow-x: auto;
-  }
-  .bkt-wrap {
-    display: flex;
-    gap: 24px;
-    align-items: stretch;   /* kolumny tej samej wysokości — potrzebne do centrowania */
-    min-width: max-content;
-  }
-  .bkt-col {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    min-width: 160px;
-  }
-  .bkt-col-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--tc-muted);
-    margin-bottom: 10px;
-    text-align: center;
-    flex-shrink: 0;
-  }
-  .bkt-col-matches {
-    display: flex;
-    flex-direction: column;
-    flex: 1;                        /* zajmij całą dostępną wysokość kolumny */
-    justify-content: space-around;  /* rozłóż mecze równomiernie w pionie */
-    gap: 0;
-  }
-  .bkt-match {
-    background: var(--tc-chip-bg);
-    border: 1px solid var(--tc-card-border);
-    border-radius: 8px;
-    overflow: hidden;
-    min-width: 160px;
-  }
-  .bkt-match--done {
-    border-color: var(--tc-accent-border);
-  }
-  .bkt-player {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 7px 10px;
-    font-size: 0.82rem;
-    color: var(--tc-sub);
-    border-bottom: 1px solid var(--tc-card-border);
-    gap: 6px;
-  }
-  .bkt-player:last-child { border-bottom: none; }
-  .bkt-player--winner {
-    color: var(--tc-ink);
-    font-weight: 700;
-    background: var(--tc-accent-soft);
-  }
-  .bkt-player-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .bkt-score {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--tc-accent);
-    font-family: var(--font-mono);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .bkt-score-neutral {
-    padding: 3px 10px 5px;
-    font-size: 0.73rem;
-    color: var(--tc-muted);
-    text-align: right;
-  }
-  .bkt-third-label {
-    display: block;
-    font-size: 0.68rem;
-    color: var(--tc-muted);
-    text-align: center;
-    padding: 3px 6px 2px;
-    background: var(--tc-card-border-soft);
-    border-bottom: 1px solid var(--tc-card-border);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    padding: 16px 10px 20px;
   }
 
-  /* ── Double Elimination sekcje ────────────────────────────────────────────── */
-  .bkt-section {
-    margin-bottom: 28px;
+  .bkt-col {
+    min-width: 155px;
   }
-  .bkt-section-title {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--tc-muted);
-    margin-bottom: 10px;
-    padding: 4px 0 6px;
-    border-bottom: 1px solid var(--tc-card-border);
+
+  .bkt-player {
+    font-size: 0.75rem;
+    padding: 7px 9px;
   }
-  .bkt-section--gf {
-    margin-bottom: 0;
+
+  .bkt-slot {
+    padding-right: 20px;
   }
-  .bkt-section-title--gf {
-    color: var(--tc-accent);
+
+  .bkt-slot--has-entry {
+    padding-left: 20px;
   }
+
+  .bkt-slot::after,
+  .bkt-slot--has-entry .bkt-match::before {
+    width: 20px;
+  }
+
+  .bkt-slot--has-entry .bkt-match::before {
+    left: -20px;
+    width: 20px;
+  }
+}

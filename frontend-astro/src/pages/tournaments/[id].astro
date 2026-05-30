@@ -161,16 +161,16 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
   <!-- ── Turniej znaleziony ─────────────────────────────────────────────────── -->
   {tournament && (
     <>
-      <PageHeader
-        eyebrow="Rozgrywki"
-        title={tournament.name}
-        subtitle={tournament.description || `${FORMAT_LABEL[tournament.match_format] ?? tournament.match_format} · ${isRoundRobin ? 'Liga (każdy z każdym)' : isSingleElimination ? 'Eliminacja pojedyncza' : isDoubleElimination ? 'Eliminacja podwójna' : isMexicano ? 'Mexicano' : isAmericano ? 'Americano' : isLadder ? 'Drabinka Liderów' : tournament.tournament_type}`}
-        centered={true}
-      />
-
-      <!-- Header info row -->
-      <div class="td-info-row">
-        <div class="td-info-badges">
+      <div class="td-header-card">
+        <div class="td-header-card__eyebrow">Rozgrywki</div>
+        <h1 class="td-header-card__title">{tournament.name}</h1>
+        {tournament.description ? (
+          <p class="td-header-card__desc">{tournament.description}</p>
+        ) : (
+          <p class="td-header-card__desc">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format} · {isRoundRobin ? 'Liga (każdy z każdym)' : isSingleElimination ? 'Eliminacja pojedyncza' : isDoubleElimination ? 'Eliminacja podwójna' : isMexicano ? 'Mexicano' : isAmericano ? 'Americano' : isLadder ? 'Drabinka Liderów' : tournament.tournament_type}</p>
+        )}
+        
+        <div class="td-header-card__badges">
           <span class={`tc-badge ${STATUS_BADGE[tournament.status] ?? 'tc-badge-neutral'}`}>
             {STATUS_LABEL[tournament.status] ?? tournament.status}
           </span>
@@ -179,27 +179,28 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
           {!tournament.is_ranked && <span class="tc-badge tc-badge-neutral" style="opacity:0.7;">Towarzyski</span>}
         </div>
-        <div class="td-info-meta">
+        
+        <div class="td-header-card__meta">
           {(tournament.start_date || tournament.end_date) && (
             <span class="td-meta-item">
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
               {fmtDate(tournament.start_date)}{tournament.end_date ? ` – ${fmtDate(tournament.end_date)}` : ''}
             </span>
           )}
           {tournament.facility_name && (
             <span class="td-meta-item">
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
               {tournament.facility_name}
             </span>
           )}
           <span class="td-meta-item">
-            <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
-              {tournament.participant_count} uczestników
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
+            {tournament.participant_count} uczestników
           </span>
           {tournament.matches_progress && tournament.matches_progress.total > 0 && (
             <span class="td-meta-item td-meta-progress">
-              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-              {tournament.matches_progress.done}/{tournament.matches_progress.total} meczów
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              <span>{tournament.matches_progress.done}/{tournament.matches_progress.total} meczów</span>
               <span class="td-progress-bar-wrap">
                 <span
                   class="td-progress-bar-fill"
