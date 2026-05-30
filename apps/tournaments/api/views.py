@@ -621,7 +621,7 @@ class RoundRobinMatchScoreView(APIView):
         # Guard request.user: nie powiadamiamy usera który właśnie wpisał wynik.
         _final_statuses = (
             TournamentsMatch.Status.COMPLETED.value,
-            TournamentsMatch.Status.WALKOVER.value,
+            TournamentsMatch.Status.WITHDRAWN.value,
         )
         if match.status in _final_statuses and _old_status != match.status:
             from notifications.helpers import notify
