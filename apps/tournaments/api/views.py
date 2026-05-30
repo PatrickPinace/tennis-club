@@ -2473,14 +2473,23 @@ class LadderChallengeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Pobierz uczestnika zalogowanego usera
-        try:
-            challenger = Participant.objects.get(
-                tournament=tournament,
+        # Pobierz uczestnika zalogowanego usera (kapitan lub partner pary)
+        challenger = Participant.objects.filter(
+            tournament=tournament,
+            user=request.user,
+            status__in=['ACT', 'REG'],
+        ).first()
+        if challenger is None:
+            # Debel LDR: sprawdź czy user jest partnerem pary (TeamMember)
+            from apps.tournaments.models import TeamMember as _TM
+            tm = _TM.objects.filter(
                 user=request.user,
-                status__in=['ACT', 'REG'],
-            )
-        except Participant.DoesNotExist:
+                participant__tournament=tournament,
+                participant__status__in=['ACT', 'REG'],
+            ).select_related('participant').first()
+            if tm:
+                challenger = tm.participant
+        if challenger is None:
             return Response(
                 {'detail': 'Nie jesteś uczestnikiem tego turnieju.'},
                 status=status.HTTP_403_FORBIDDEN,
