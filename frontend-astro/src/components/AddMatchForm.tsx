@@ -355,6 +355,17 @@ export default function AddMatchForm({ myId, today, matchesUrl, isModal = false,
   return (
     <div className={isModal ? '' : 'add-wrap'}>
       {!isModal && (
+        <nav className="tc-breadcrumb" aria-label="Nawigacja">
+          <a href={matchesUrl} className="tc-breadcrumb-link">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }}>
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            Moje mecze
+          </a>
+        </nav>
+      )}
+
+      {!isModal && (
         <div className="add-header">
           <h1 className="add-title">Dodaj mecz towarzyski</h1>
           <p className="add-subtitle">Zapisz wynik rozegranego meczu.</p>

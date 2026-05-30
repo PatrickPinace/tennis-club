@@ -428,8 +428,6 @@
     font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.07em; color: var(--tc-sub);
     padding: 6px 0 8px;
-    border-top: 1px solid var(--tc-card-border);
-    margin-top: 4px;
   }
 
   .org-loading {
@@ -449,7 +447,7 @@
 
   /* ── Matches header + toolbar (scoped — static HTML) ────────────────── */
   .org-matches-header {
-    display: flex; align-items: flex-start; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 10px; padding: 16px 20px 10px;
   }
   .org-matches-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -459,7 +457,7 @@
     transform: translateY(-50%); font-size: 0.95rem;
     color: var(--tc-muted); pointer-events: none;
   }
-  .org-matches-list-wrap { padding: 0 20px 16px; }
+  .org-matches-list-wrap { padding: 0 20px 6px; }
 
   /* ── View toggle (Lista / Macierz) ──────────────────────────────────── */
   .view-toggle {

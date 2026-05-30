@@ -20,7 +20,6 @@ interface Props {
   matches: MatchRow[];
   userDisplayName: string | null;
   addMatchUrl: string;
-  myId?: number;
   today?: string;
 }
 
@@ -247,7 +246,7 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
               <AddMatchForm
                 myId={myId}
                 today={todayStr}
-                matchesUrl={addMatchUrl}
+                matchesUrl={addMatchUrl.replace(/\/add\/?$/, '')}
                 isModal={true}
                 onClose={() => setShowAddModal(false)}
               />

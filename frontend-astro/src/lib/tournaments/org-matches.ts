@@ -65,7 +65,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const timeChip = m.scheduled_time
     ? (() => { try {
         const d = new Date(m.scheduled_time!);
-        return `<span class="org-match-time">${d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})} ${d.toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})}</span>`;
+        return `<span class="org-match-time">${d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})}</span>`;
       } catch { return ''; } })()
     : '';
 
@@ -105,7 +105,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
             <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
           </div>
           <div class="org-match-right">
-            ${timeChip}${scoreChip}${statusBadge}
+            ${scoreChip}${timeChip}${statusBadge}
           </div>
         </div>
       </div>`;
@@ -202,7 +202,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
           <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
         </div>
         <div class="org-match-right">
-          ${timeChip}${scoreChip}${statusBadge}
+          ${scoreChip}${timeChip}${statusBadge}
           <span class="org-match-chevron">▼</span>
         </div>
       </div>

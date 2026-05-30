@@ -116,7 +116,35 @@ export function renderBracket(data: BracketRound[] | DBEBracketData) {
     container.innerHTML = '<div class="org-matches-empty">Brak danych drabinki.</div>';
     return;
   }
-  container.innerHTML = `<div class="bkt-wrap">${roundsHtml(rounds, true)}</div>`;
+
+  let thirdPlaceMatch: BracketRound['matches'][number] | null = null;
+  const cleanRounds = rounds.map(r => {
+    const matchesWithoutThird = r.matches.filter(m => {
+      if (m.is_third_place) {
+        thirdPlaceMatch = m;
+        return false;
+      }
+      return true;
+    });
+    return {
+      ...r,
+      matches: matchesWithoutThird
+    };
+  });
+
+  let html = `<div class="bkt-wrap">${roundsHtml(cleanRounds, true)}</div>`;
+
+  if (thirdPlaceMatch) {
+    html += `
+      <div class="bkt-third-place-container">
+        <div class="bkt-third-place-header">Mecz o 3. miejsce</div>
+        <div class="bkt-third-place-box">
+          ${matchCard(thirdPlaceMatch)}
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML = html;
 }
 
 export async function loadBracket(cfg: OrgPanelConfig) {

@@ -255,32 +255,8 @@ def _ensure_third_place_match(tournament, total_rounds: int):
 
 def build_bracket_data(tournament) -> list[dict]:
     """
-    Buduje strukturę drabinki pogrupowaną po rundach dla endpointu GET /bracket/.
-
-    Zwraca listę rund:
-    [
-      {
-        "round": 1,
-        "round_label": "Runda 1",   # lub "Finał", "Półfinał", "Ćwierćfinał", "Mecz o 3. miejsce"
-        "matches": [ { match_data }, ... ]
-      },
-      ...
-    ]
-
-    match_data:
-    {
-      "id": int,
-      "match_index": int,
-      "status": str,
-      "status_display": str,
-      "is_bye": bool,
-      "is_third_place": bool,
-      "participant1": { "id", "display_name", "seed_number", "user_id" } | null,
-      "participant2": { "id", "display_name", "seed_number", "user_id" } | null,
-      "winner_id": int | null,
-      "score": str | null,        # "6:4 7:5" lub null
-      "scheduled_time": str | null,
-    }
+    Buduje kompletną strukturę drabinki SGL pogrupowaną po rundach dla endpointu GET /bracket/.
+    Generuje wirtualne placeholdery TBD dla meczów, które nie zostały jeszcze utworzone w bazie.
     """
     from apps.tournaments.models import TournamentsMatch
 
@@ -292,19 +268,33 @@ def build_bracket_data(tournament) -> list[dict]:
             'participant2__user',
             'winner',
         )
-        .order_by('round_number', 'match_index')
     )
 
-    # Oblicz total_rounds dla etykiet
+    matches_map = {(m.round_number, m.match_index): m for m in matches_qs}
+
     r1_count = sum(1 for m in matches_qs if m.round_number == 1)
+    if r1_count < 1:
+        # Fallback: oszacuj na podstawie aktywnych graczy
+        p_count = tournament.participants.exclude(status__in=['OUT', 'WDN', 'BYE']).count()
+        if p_count >= 2:
+            r1_count = 2**math.ceil(math.log2(p_count)) // 2
+        else:
+            r1_count = 1
+
     bracket_size = r1_count * 2
     if bracket_size >= 2:
         total_rounds = int(math.log2(bracket_size))
     else:
         total_rounds = 1
 
+    third_place_configured = False
+    try:
+        config = tournament.elimination_config
+        third_place_configured = config.third_place_match
+    except Exception:
+        pass
+
     def round_label(round_number: int, match_index: int, tr: int) -> str:
-        # Mecz o 3. miejsce: ta sama runda co finał, match_index=2
         if round_number == tr and match_index == 2:
             return 'Mecz o 3. miejsce'
         if round_number == tr:
@@ -334,41 +324,55 @@ def build_bracket_data(tournament) -> list[dict]:
                 parts.append(f'{s1}:{s2}')
         return ' '.join(parts) if parts else None
 
-    # Grupuj po round_number
-    rounds_dict: dict[int, list] = {}
-    for m in matches_qs:
-        rounds_dict.setdefault(m.round_number, []).append(m)
-
     rounds_out = []
-    seen_labels: dict[int, str] = {}
 
-    for round_num in sorted(rounds_dict.keys()):
-        round_matches = rounds_dict[round_num]
+    for round_num in range(1, total_rounds + 1):
+        expected_matches = r1_count // (2 ** (round_num - 1))
+        if expected_matches < 1:
+            expected_matches = 1
+
+        if round_num == total_rounds and third_place_configured:
+            expected_matches = 2
+
         match_list = []
         round_label_str = None
 
-        for m in sorted(round_matches, key=lambda x: x.match_index):
-            is_bye = m.participant2 is None
-            is_third = (round_num == total_rounds and m.match_index == 2)
-            lbl = round_label(round_num, m.match_index, total_rounds)
-            if round_label_str is None:
-                # Etykieta rundy — dla finału/SF etykieta na podstawie pierwszego meczu (index=1)
-                if m.match_index == 1:
-                    round_label_str = lbl
+        for match_idx in range(1, expected_matches + 1):
+            m = matches_map.get((round_num, match_idx))
+            is_third = (round_num == total_rounds and match_idx == 2)
+            lbl = round_label(round_num, match_idx, total_rounds)
+            if round_label_str is None or match_idx == 1:
+                round_label_str = lbl
 
-            match_list.append({
-                'id': m.pk,
-                'match_index': m.match_index,
-                'status': m.status,
-                'status_display': m.get_status_display(),
-                'is_bye': is_bye,
-                'is_third_place': is_third,
-                'participant1': participant_data(m.participant1),
-                'participant2': participant_data(m.participant2),
-                'winner_id': m.winner_id,
-                'score': score_str(m),
-                'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
-            })
+            if m:
+                is_bye = m.participant2 is None and m.status == TournamentsMatch.Status.COMPLETED.value
+                match_list.append({
+                    'id': m.pk,
+                    'match_index': m.match_index,
+                    'status': m.status,
+                    'status_display': m.get_status_display(),
+                    'is_bye': is_bye,
+                    'is_third_place': is_third,
+                    'participant1': participant_data(m.participant1),
+                    'participant2': participant_data(m.participant2),
+                    'winner_id': m.winner_id,
+                    'score': score_str(m),
+                    'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
+                })
+            else:
+                match_list.append({
+                    'id': None,
+                    'match_index': match_idx,
+                    'status': 'WAI',
+                    'status_display': 'Oczekuje',
+                    'is_bye': False,
+                    'is_third_place': is_third,
+                    'participant1': None,
+                    'participant2': None,
+                    'winner_id': None,
+                    'score': None,
+                    'scheduled_time': None,
+                })
 
         rounds_out.append({
             'round': round_num,
@@ -381,17 +385,9 @@ def build_bracket_data(tournament) -> list[dict]:
 
 def build_dbe_bracket_data(tournament) -> dict:
     """
-    Buduje strukturę drabinki DBE dla endpointu GET /bracket/.
-
-    Zwraca słownik:
-    {
-      "type": "dbe",
-      "winners": [ { "round": int, "round_label": str, "matches": [...] }, ... ],
-      "losers":  [ { "round": int, "round_label": str, "matches": [...] }, ... ],
-      "grand_final": { "round": 1, "round_label": "Wielki Finał", "matches": [...] } | null,
-    }
-
-    match shape identyczny jak w build_bracket_data() (dla SGL).
+    Buduje kompletną strukturę drabinki DBE dla endpointu GET /bracket/.
+    Generuje wirtualne placeholdery TBD dla wszystkich brakujących meczów
+    w Winners Bracket, Losers Bracket i Grand Final, aby zachować symetrię w UI.
     """
     from apps.tournaments.models import TournamentsMatch
     BT = TournamentsMatch.BracketType
@@ -400,8 +396,9 @@ def build_dbe_bracket_data(tournament) -> dict:
         TournamentsMatch.objects
         .filter(tournament=tournament)
         .select_related('participant1__user', 'participant2__user', 'winner')
-        .order_by('bracket_type', 'round_number', 'match_index')
     )
+
+    matches_map = {(m.bracket_type, m.round_number, m.match_index): m for m in all_matches}
 
     def participant_data(p):
         if p is None:
@@ -439,8 +436,30 @@ def build_dbe_bracket_data(tournament) -> dict:
             'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
         }
 
-    # Oblicz wb_total_rounds dla etykiet WB
+    def placeholder_dict(bracket_type, round_number, match_index):
+        return {
+            'id': None,
+            'match_index': match_index,
+            'bracket_type': bracket_type,
+            'status': 'WAI',
+            'status_display': 'Oczekuje',
+            'is_bye': False,
+            'is_third_place': False,
+            'participant1': None,
+            'participant2': None,
+            'winner_id': None,
+            'score': None,
+            'scheduled_time': None,
+        }
+
     wb_r1_count = sum(1 for m in all_matches if m.bracket_type == BT.WINNERS and m.round_number == 1)
+    if wb_r1_count < 1:
+        p_count = tournament.participants.exclude(status__in=['OUT', 'WDN', 'BYE']).count()
+        if p_count >= 2:
+            wb_r1_count = 2**math.ceil(math.log2(p_count)) // 2
+        else:
+            wb_r1_count = 1
+
     bracket_size = wb_r1_count * 2 if wb_r1_count > 0 else 2
     wb_total = int(math.log2(bracket_size)) if bracket_size >= 2 else 1
     lb_total = 2 * (wb_total - 1)
@@ -457,42 +476,54 @@ def build_dbe_bracket_data(tournament) -> dict:
             return 'Finał LB'
         return f'LB Runda {rn}'
 
-    # Grupuj po bracket_type i round_number
-    wb_rounds: dict[int, list] = {}
-    lb_rounds: dict[int, list] = {}
-    gf_matches: list = []
+    winners_rounds = []
+    for rn in range(1, wb_total + 1):
+        expected_matches = wb_r1_count // (2 ** (rn - 1))
+        if expected_matches < 1:
+            expected_matches = 1
+        matches = []
+        for mi in range(1, expected_matches + 1):
+            m = matches_map.get((BT.WINNERS, rn, mi))
+            if m:
+                matches.append(match_dict(m))
+            else:
+                matches.append(placeholder_dict(BT.WINNERS, rn, mi))
+        winners_rounds.append({
+            'round': rn,
+            'round_label': wb_round_label(rn),
+            'matches': matches,
+        })
 
-    for m in all_matches:
-        if m.bracket_type == BT.WINNERS:
-            wb_rounds.setdefault(m.round_number, []).append(m)
-        elif m.bracket_type == BT.LOSERS:
-            lb_rounds.setdefault(m.round_number, []).append(m)
-        elif m.bracket_type == BT.GRAND_FINAL:
-            gf_matches.append(m)
+    losers_rounds = []
+    for rn in range(1, lb_total + 1):
+        rn_effective = math.ceil(rn / 2)
+        expected_matches = wb_r1_count // (2 ** rn_effective)
+        if expected_matches < 1:
+            expected_matches = 1
+        matches = []
+        for mi in range(1, expected_matches + 1):
+            m = matches_map.get((BT.LOSERS, rn, mi))
+            if m:
+                matches.append(match_dict(m))
+            else:
+                matches.append(placeholder_dict(BT.LOSERS, rn, mi))
+        losers_rounds.append({
+            'round': rn,
+            'round_label': lb_round_label(rn),
+            'matches': matches,
+        })
 
-    def build_rounds(rounds_dict: dict, label_fn) -> list[dict]:
-        result = []
-        for rn in sorted(rounds_dict.keys()):
-            matches = sorted(rounds_dict[rn], key=lambda x: x.match_index)
-            result.append({
-                'round': rn,
-                'round_label': label_fn(rn),
-                'matches': [match_dict(m) for m in matches],
-            })
-        return result
-
-    gf_section = None
-    if gf_matches:
-        gf_section = {
-            'round': 1,
-            'round_label': 'Wielki Finał',
-            'matches': [match_dict(m) for m in gf_matches],
-        }
+    gf_match = matches_map.get((BT.GRAND_FINAL, 1, 1))
+    gf_section = {
+        'round': 1,
+        'round_label': 'Wielki Finał',
+        'matches': [match_dict(gf_match) if gf_match else placeholder_dict(BT.GRAND_FINAL, 1, 1)],
+    }
 
     return {
         'type': 'dbe',
-        'winners': build_rounds(wb_rounds, wb_round_label),
-        'losers': build_rounds(lb_rounds, lb_round_label),
+        'winners': winners_rounds,
+        'losers': losers_rounds,
         'grand_final': gf_section,
     }
 

@@ -65,7 +65,7 @@
   .org-match--cancelled:hover { opacity: 0.65; }
   
   .org-match--pending {
-    border-left: none; /* Usunięcie zwykłego paska */
+    /* Zachowujemy lewe obramowanie, aby zaokrąglenie karty rysowało się prawidłowo */
   }
   .org-match--pending::before {
     content: '';
@@ -87,13 +87,59 @@
   .org-match-header:hover { background: var(--tc-overlay, rgba(0,0,0,0.015)); }
   .org-match--done.org-match:not([data-status="CMP"]):not([data-status="WDR"]) .org-match-header { cursor: default; }
 
-  /* ── vs separator i nazwy graczy ──────────────────────────────────────── */
-  .org-match-players { font-size: 0.84rem; color: var(--tc-ink); }
-  .vs {
+  .org-match-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* Teksty i typografia wewnątrz karty meczu */
+  .org-match-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+    flex: 1;
+  }
+  .org-match-label {
+    font-size: 0.7rem;
+    font-weight: 700;
     color: var(--tc-muted);
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 4px;
+    padding: 1.5px 5px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    line-height: 1.25;
+  }
+  .org-match-players {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--tc-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .org-match-players .vs {
     font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--tc-muted);
+    margin: 0 4px;
+    text-transform: uppercase;
+  }
+  .org-match-time {
+    font-size: 0.72rem;
+    color: var(--tc-muted);
     font-weight: 500;
-    margin: 0 3px;
+  }
+  .org-match-score {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--tc-ink);
+    font-family: var(--font-mono);
   }
 
   /* ── Formularz w karcie ─────────────────────────────────────────────────── */
@@ -157,7 +203,7 @@
 
   /* Prosty input wyniku (bez spinnerów) */
   .org-set-input {
-    width: 60px; height: 38px; text-align: center;
+    width: 46px; height: 38px; text-align: center;
     font-size: 1.05rem; font-weight: 700;
     border: 1px solid var(--tc-card-border); border-radius: 6px;
     background: var(--tc-input-bg); color: var(--tc-ink);
@@ -315,7 +361,7 @@
   .org-finish-trigger-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 12px;
     flex-wrap: wrap;
   }
@@ -654,3 +700,73 @@
   background: var(--tc-surface-alt, var(--surface-2));
 }
 .org-seed-hint strong { color: var(--tc-sub); }
+
+/* Ukrycie zduplikowanego statusu i listy uczestników w panelu organizatora dla aktywnych/zakończonych turniejów */
+[data-tournament-status="ACT"] #org-status-section,
+[data-tournament-status="FIN"] #org-status-section,
+[data-tournament-status="CNC"] #org-status-section,
+[data-tournament-status="ACT"] #org-participants-section,
+[data-tournament-status="FIN"] #org-participants-section,
+[data-tournament-status="CNC"] #org-participants-section {
+  display: none !important;
+}
+
+/* ── Dostosowanie do urządzeń mobilnych (RWD) ───────────────────────────── */
+
+@media (max-width: 600px) {
+  /* Nagłówek panelu organizatora - układ pionowy */
+  .org-card .tc-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+  .org-card .tc-card-header > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Zmniejszenie paddingów karty na bardzo małych ekranach, by zyskać przestrzeń */
+  .org-matches-header {
+    padding: 12px 12px 8px;
+  }
+  .org-matches-list-wrap {
+    padding: 0 12px 6px;
+  }
+  #org-finish-section {
+    padding: 0 12px 16px;
+  }
+  .org-match-header {
+    padding: 10px 10px;
+  }
+
+  /* Rozciągnięcie paska filtrów meczów na całą szerokość (segment control) */
+  .org-matches-toolbar {
+    width: 100%;
+  }
+  .org-filter-group {
+    width: 100%;
+    display: flex;
+  }
+  .org-filter-btn {
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+    padding: 4px 6px;
+    font-size: 0.72rem;
+  }
+
+  /* Przyciski zakończenia i anulowania turnieju na pełną szerokość i w pionie */
+  .org-finish-trigger-row {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+  .org-finish-trigger-row .org-finish-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

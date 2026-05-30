@@ -24,8 +24,8 @@
 .bkt-col {
   display: flex;
   flex-direction: column;
-  min-width: 200px;
-  max-width: 230px;
+  min-width: 240px;
+  max-width: 280px;
   flex: 1;
 }
 
@@ -97,8 +97,9 @@
   transform: translateY(-50%);
 }
 
-/* Ostatnia kolumna – ukrywa prawe ramię */
-.bkt-col--final .bkt-slot::after {
+/* Ostatnia kolumna – ukrywa prawe ramię oraz pionowe łączniki */
+.bkt-col--final .bkt-slot::after,
+.bkt-col--final .bkt-slot::before {
   display: none;
 }
 
@@ -127,15 +128,11 @@
 }
 
 /* Pozioma linia wchodząca z lewej (przy kolejnych kolumnach) */
-.bkt-slot--has-entry .bkt-match::before {
-  content: '';
-  position: absolute;
-  left: -28px;
-  top: 50%;
-  width: 28px;
-  height: 2px;
-  background: var(--tc-card-border);
-  transform: translateY(-50%);
+.bkt-slot--has-entry {
+  background-image: linear-gradient(to right, var(--tc-card-border), var(--tc-card-border));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: 28px 2px;
 }
 
 /* Karta meczu – podstawowy element wizualny drabinki */
@@ -212,10 +209,7 @@
   color: var(--tc-accent);
   font-family: var(--font-mono, monospace);
   white-space: nowrap;
-  flex-shrink: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 80px;
+  flex-shrink: 0;
   background: color-mix(in srgb, var(--tc-accent) 12%, transparent);
   padding: 2px 5px;
   border-radius: 4px;
@@ -283,6 +277,33 @@
   color: var(--tc-accent);
 }
 
+/* ── Mecz o 3. miejsce (wyciągnięty poza główną drabinkę) ──────────────── */
+.bkt-third-place-container {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--tc-card-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  clear: both;
+}
+
+.bkt-third-place-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tc-muted);
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.bkt-third-place-box {
+  width: 240px;
+  max-width: 100%;
+}
+
 /* ── Responsywność: mniejsze karty na urządzeniach mobilnych ─────────── */
 @media (max-width: 640px) {
   .bracket-container {
@@ -304,15 +325,14 @@
 
   .bkt-slot--has-entry {
     padding-left: 20px;
+    background-size: 20px 2px;
   }
 
-  .bkt-slot::after,
-  .bkt-slot--has-entry .bkt-match::before {
+  .bkt-slot::after {
     width: 20px;
   }
 
-  .bkt-slot--has-entry .bkt-match::before {
-    left: -20px;
-    width: 20px;
+  .bkt-third-place-box {
+    width: 160px;
   }
 }
