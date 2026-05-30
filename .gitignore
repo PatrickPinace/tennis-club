@@ -74,10 +74,11 @@ tennis_club_projekt_dump.txt
 db.sqlite3
 .aider*
 
-# Local development environment overrides
+# Lokalne środowisko testowe
 docker-compose.yml
 docker-compose.override.yml
 nginx.conf
 DEPLOYMENT.md
 .antigravity.rules
 /doc
+/scripts
