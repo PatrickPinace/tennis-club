@@ -71,14 +71,12 @@ Klucze potrzebne do działania (Settings → Secrets and variables → Actions):
 |--------|------|
 | `PatrickPinace` | Roboczy — tu commitujemy i testujemy lokalnie |
 | `OVHTennis` | Produkcja — merge tu = automatyczny deploy |
-| `Skorpi86` | Branch Lucjana — zmiany mergujemy selektywnie do `PatrickPinace` |
+| `Skorpi86` | Branch Lucjana |
 
 **Workflow:**
 ```
 PatrickPinace  →  merge → OVHTennis  →  push  →  auto-deploy
 ```
-
-Nigdy nie commituj bezpośrednio na `OVHTennis` — zawsze przez merge z `PatrickPinace`.
 
 ---
 
