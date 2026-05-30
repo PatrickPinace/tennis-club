@@ -213,7 +213,12 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
       const checkSet = (a: number, b: number, n: number): string | null => {
         if (a < 0 || b < 0) return `Set ${n}: wynik nie może być ujemny.`;
         const hi = Math.max(a, b), lo = Math.min(a, b);
-        if (hi >= 10) return (hi - lo < 2) ? `Set ${n}: super tie-break wymaga przewagi ≥ 2 punktów (${a}:${b}).` : null;
+        if (hi >= 10) {
+          if (hi > 20) return `Set ${n}: super tie-break nie może mieć więcej niż 20 punktów (${a}:${b}).`;
+          if (hi - lo < 2) return `Set ${n}: super tie-break wymaga przewagi ≥ 2 punktów (${a}:${b}).`;
+          if (hi > 10 && lo !== hi - 2) return `Set ${n}: po 10:10 gra trwa do różnicy 2 punktów — ${a}:${b} jest niemożliwe.`;
+          return null;
+        }
         if (hi < 6) return `Set ${n}: zwycięzca musi mieć co najmniej 6 gemów.`;
         if (hi === 6 && lo <= 4) return null;
         if (hi === 7 && (lo === 5 || lo === 6)) return null;

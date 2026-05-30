@@ -233,9 +233,12 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
 function validateTennisSet(a: number, b: number, setNum: number): string | null {
   if (a < 0 || b < 0) return `Set ${setNum}: wynik nie może być ujemny.`;
   const hi = Math.max(a, b), lo = Math.min(a, b);
-  // Super tie-break (do 10+)
+  // Super tie-break (do 10, z przewagą ≥ 2; realistyczny max ~20)
   if (hi >= 10) {
+    if (hi > 20) return `Set ${setNum}: super tie-break nie może mieć więcej niż 20 punktów (${a}:${b}).`;
     if (hi - lo < 2) return `Set ${setNum}: super tie-break wymaga przewagi co najmniej 2 punktów (${a}:${b}).`;
+    // przy hi > 10 loser musi mieć przynajmniej hi-2 (kontynuujemy aż ktoś wygra 2)
+    if (hi > 10 && lo !== hi - 2) return `Set ${setNum}: po 10:10 gra trwa do różnicy 2 punktów — ${a}:${b} jest niemożliwe.`;
     return null;
   }
   // Standardowy set: zwycięzca musi mieć 6 lub 7

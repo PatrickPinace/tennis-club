@@ -658,7 +658,7 @@ class RoundRobinMatchScoreView(APIView):
                 if _slot.user.pk in _seen_user_pks:
                     continue
                 _seen_user_pks.add(_slot.user.pk)
-                if match.status == TournamentsMatch.Status.WALKOVER.value:
+                if match.status == TournamentsMatch.Status.WITHDRAWN.value:
                     _msg = (
                         f'🏆 Walkover w turnieju „{tournament.name}": '
                         f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
