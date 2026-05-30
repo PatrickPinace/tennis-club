@@ -52,7 +52,9 @@ function roundsHtml(rounds: BracketRound[], isFirst = false): string {
 
     const slotsHtml = r.matches.map((m, i) => {
       const isEven = i % 2 === 0;
-      const connectorClass = isEven ? 'bkt-slot--connector-top' : 'bkt-slot--connector-bottom';
+      // Mecze BYE nie tworzą par z konektorem — zwycięzca awansuje automatycznie
+      const isByeMatch = m.is_bye === true;
+      const connectorClass = isByeMatch ? '' : (isEven ? 'bkt-slot--connector-top' : 'bkt-slot--connector-bottom');
       const entryClass = hasEntry ? ' bkt-slot--has-entry' : '';
       return `<div class="bkt-slot ${connectorClass}${entryClass}">${matchCard(m)}</div>`;
     }).join('');

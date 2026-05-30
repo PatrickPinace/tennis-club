@@ -102,7 +102,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
         <div class="org-match-header">
           <div class="org-match-meta">
             <span class="org-match-label">${roundLabel}</span>
-            <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+            <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
           </div>
           <div class="org-match-right">
             ${timeChip}${scoreChip}${statusBadge}
@@ -199,7 +199,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       <div class="org-match-header">
         <div class="org-match-meta">
           <span class="org-match-label">${roundLabel}</span>
-          <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+          <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
         </div>
         <div class="org-match-right">
           ${timeChip}${scoreChip}${statusBadge}
