@@ -1815,6 +1815,23 @@ class TournamentParticipantView(APIView):
             f' Partner: {partner_name}' if partner_name else '',
         )
 
+        # Notyfikuj dodanego uczestnika (nie notyfikuj gdy organizator dodaje siebie)
+        if target_user and target_user.pk != request.user.pk:
+            from notifications.helpers import notify
+            notify(
+                target_user,
+                f'🎾 Dodano Cię do turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
+            )
+        # Notyfikuj partnera (debel) — jeśli istnieje i jest inną osobą
+        if partner_user and partner_user.pk != request.user.pk and partner_user.pk != target_user.pk:
+            from notifications.helpers import notify
+            notify(
+                partner_user,
+                f'🎾 Dodano Cię do turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
+            )
+
         return Response({
             'id': participant.pk,
             'display_name': participant.display_name,
