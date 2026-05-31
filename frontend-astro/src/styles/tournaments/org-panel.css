@@ -309,6 +309,34 @@
   .org-form-msg--ok  { color: var(--tc-win); }
   .org-form-msg--err { color: var(--danger); }
 
+  /* ── Force-confirm — inline warning box po 409 downstream_locked ──── */
+  .org-force-confirm {
+    background: color-mix(in srgb, #f59e0b 10%, var(--tc-card-bg));
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 0.78rem;
+  }
+  .org-force-confirm__msg { color: var(--tc-ink); line-height: 1.45; }
+  .org-force-confirm__actions {
+    display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap;
+  }
+  .org-force-cancel {
+    font-size: 0.78rem; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--tc-card-border); border-radius: 6px;
+    padding: 5px 14px; background: transparent; color: var(--tc-ink);
+    transition: background 0.12s;
+  }
+  .org-force-cancel:hover { background: var(--tc-chip-bg); }
+  .org-force-confirm-btn {
+    font-size: 0.78rem; font-weight: 600; cursor: pointer;
+    border: none; border-radius: 6px; padding: 5px 14px;
+    background: var(--danger, #dc2626); color: #fff;
+    transition: filter 0.12s;
+  }
+  .org-force-confirm-btn:hover { filter: brightness(0.88); }
+
   .org-matches-empty {
     text-align: center; padding: 20px 0;
     font-size: 0.82rem; color: var(--tc-muted);
