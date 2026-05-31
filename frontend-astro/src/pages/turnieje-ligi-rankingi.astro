@@ -1,0 +1,61 @@
+---
+import PublicLayout from '@/layouts/PublicLayout.astro';
+import { url } from '@/lib/url';
+
+export const prerender = true;
+---
+
+<PublicLayout
+  title="Turnieje, Ligi i Rankingi Tenisowe"
+  description="Organizuj turnieje tenisowe, ligi i rankingi online. Single elimination, double elimination, round robin, americano, drabinki. Automatyczne wyniki i powiadomienia."
+>
+  <section class="py-16 px-8 max-[480px]:py-8 max-[480px]:px-4 bg-bg">
+    <div class="max-w-[860px] mx-auto">
+      <h1 class="text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold text-[#0f172a] tracking-[-0.02em] mb-4">
+        Turnieje, ligi i rankingi tenisowe
+      </h1>
+      <p class="text-[1.1rem] text-[#64748b] mb-10 max-w-[65ch]">
+        Wszystkie popularne formaty rozgrywek w jednym miejscu. Organizator ustawia format,
+        system prowadzi drabinkę i przelicza rankingi automatycznie.
+      </p>
+
+      <div class="grid grid-cols-3 max-[640px]:grid-cols-1 gap-6 mb-12">
+        <div class="tc-card p-5 text-center">
+          <div class="text-[1.8rem] mb-2">🥊</div>
+          <h2 class="font-bold text-[0.95rem] mb-1 text-[#0f172a]">Single Elimination</h2>
+          <p class="text-[0.85rem] text-[#64748b]">Klasyczna drabinka pucharowa z przegranym odpada.</p>
+        </div>
+        <div class="tc-card p-5 text-center">
+          <div class="text-[1.8rem] mb-2">🔁</div>
+          <h2 class="font-bold text-[0.95rem] mb-1 text-[#0f172a]">Double Elimination</h2>
+          <p class="text-[0.85rem] text-[#64748b]">Winners + Losers Bracket. Grand Final. Dwie szanse.</p>
+        </div>
+        <div class="tc-card p-5 text-center">
+          <div class="text-[1.8rem] mb-2">🔄</div>
+          <h2 class="font-bold text-[0.95rem] mb-1 text-[#0f172a]">Round Robin</h2>
+          <p class="text-[0.85rem] text-[#64748b]">Każdy z każdym. Tabela, punkty, remisy HEAD-to-HEAD.</p>
+        </div>
+        <div class="tc-card p-5 text-center">
+          <div class="text-[1.8rem] mb-2">🌀</div>
+          <h2 class="font-bold text-[0.95rem] mb-1 text-[#0f172a]">Americano / Mexicano</h2>
+          <p class="text-[0.85rem] text-[#64748b]">Rotacyjny format z mieszanymi parami. Singiel i debel.</p>
+        </div>
+        <div class="tc-card p-5 text-center">
+          <div class="text-[1.8rem] mb-2">📶</div>
+          <h2 class="font-bold text-[0.95rem] mb-1 text-[#0f172a]">Drabinka rankingowa</h2>
+          <p class="text-[0.85rem] text-[#64748b]">Wyzwania, seedowanie, swap pozycji po wygranej.</p>
+        </div>
+        <div class="tc-card p-5 text-center">
+          <div class="text-[1.8rem] mb-2">🏅</div>
+          <h2 class="font-bold text-[0.95rem] mb-1 text-[#0f172a]">Rankingi globalne</h2>
+          <p class="text-[0.85rem] text-[#64748b]">Punkty po FIN turnieju, ranking SNG i DBL osobno.</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4 flex-wrap">
+        <a href={url('/register')} class="tc-btn tc-btn-primary">Stwórz turniej</a>
+        <a href={url('/dla-klubow')} class="tc-btn tc-btn-secondary">Więcej o systemie</a>
+      </div>
+    </div>
+  </section>
+</PublicLayout>

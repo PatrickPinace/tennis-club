@@ -1,0 +1,37 @@
+---
+import PublicLayout from '@/layouts/PublicLayout.astro';
+import { url } from '@/lib/url';
+
+export const prerender = true;
+---
+
+<PublicLayout
+  title="Cennik"
+  description="Cennik systemu zarządzania klubem tenisowym. Skontaktuj się z nami, aby otrzymać ofertę dopasowaną do Twojego klubu."
+>
+  <section class="py-16 px-8 max-[480px]:py-8 max-[480px]:px-4 bg-bg">
+    <div class="max-w-[860px] mx-auto">
+      <h1 class="text-[clamp(1.8rem,4vw,2.6rem)] font-extrabold text-[#0f172a] tracking-[-0.02em] mb-4">
+        Cennik
+      </h1>
+      <p class="text-[1.1rem] text-[#64748b] mb-10 max-w-[65ch]">
+        Oferta dopasowana do wielkości klubu i zakresu funkcji. Skontaktuj się z nami,
+        aby otrzymać indywidualną wycenę.
+      </p>
+
+      <div class="tc-card p-8 mb-8 text-center max-w-[480px]">
+        <div class="text-[2rem] mb-3">📬</div>
+        <h2 class="text-[1.2rem] font-bold mb-2 text-[#0f172a]">Indywidualna oferta</h2>
+        <p class="text-[0.95rem] text-[#64748b] mb-6">
+          Napisz do nas z informacją o liczbie kortów, graczy i potrzebnych funkcjach.
+          Odpowiemy w ciągu 24 godzin.
+        </p>
+        <a href={url('/kontakt')} class="tc-btn tc-btn-primary">Zapytaj o ofertę</a>
+      </div>
+
+      <p class="text-[0.85rem] text-[#94a3b8]">
+        Rejestracja i testowanie systemu jest bezpłatne.
+      </p>
+    </div>
+  </section>
+</PublicLayout>

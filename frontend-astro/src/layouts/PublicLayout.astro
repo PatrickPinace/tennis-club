@@ -5,12 +5,26 @@ import { getCurrentUser } from '@/lib/api';
 
 interface Props {
   title?: string;
+  description?: string;
+  canonical?: string;
+  ogImage?: string;
 }
 
-const { title = 'Tennis Club' } = Astro.props;
+const {
+  title = 'Tennis Club',
+  description = 'Portal tenisowy — rezerwacje kortów, turnieje, ligi i rankingi dla klubów i graczy.',
+  canonical,
+  ogImage,
+} = Astro.props;
 
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
 const currentUser = await getCurrentUser(sessionCookie);
+
+const SITE = import.meta.env.PUBLIC_SITE_URL ?? 'https://portal.raketon.pl';
+const canonicalUrl = canonical ?? (SITE + Astro.url.pathname);
+const ogImageUrl = ogImage ?? `${SITE}/og-default.png`;
+const plausibleDomain = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN ?? '';
+const fullTitle = `${title} — Tennis Club`;
 ---
 
 <!doctype html>
@@ -18,15 +32,50 @@ const currentUser = await getCurrentUser(sessionCookie);
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{title} — Tennis Club</title>
+  <title>{fullTitle}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalUrl} />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonicalUrl} />
+  <meta property="og:image" content={ogImageUrl} />
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:site_name" content="Tennis Club" />
+
+  <!-- Twitter / X card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={fullTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImageUrl} />
+
   <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+
+  <!-- Plausible analytics — tylko gdy PUBLIC_PLAUSIBLE_DOMAIN ustawiony (prod) -->
+  {plausibleDomain && (
+    <script
+      is:inline
+      defer
+      data-domain={plausibleDomain}
+      src="https://plausible.io/js/script.js"
+    />
+  )}
 </head>
 
 <body class="flex flex-col min-h-screen bg-bg text-text font-['Times_New_Roman',Times,serif]">
   <nav class="sticky top-0 z-[200] bg-white/95 backdrop-blur-[10px] border-b border-border h-[64px] sm:h-[72px] flex items-center">
-    <div class="max-w-content mx-auto w-full px-4 sm:px-8 flex justify-between items-center">
-      <a href={url('/')} class="text-[1.1rem] sm:text-2xl font-extrabold text-[#16a34a] no-underline tracking-[-0.02em] whitespace-nowrap">🎾 Tennis Club</a>
-      <div class="nav-actions">
+    <div class="max-w-content mx-auto w-full px-4 sm:px-8 flex justify-between items-center gap-4">
+      <a href={url('/')} class="text-[1.1rem] sm:text-2xl font-extrabold text-[#16a34a] no-underline tracking-[-0.02em] whitespace-nowrap shrink-0">🎾 Tennis Club</a>
+      <!-- Linki nawigacyjne — desktop only -->
+      <div class="hidden lg:flex gap-6 text-[0.875rem] font-medium text-[#475569]">
+        <a href={url('/dla-klubow')} class="hover:text-[#16a34a] transition-colors no-underline">Dla klubów</a>
+        <a href={url('/rezerwacje-kortow')} class="hover:text-[#16a34a] transition-colors no-underline">Rezerwacje</a>
+        <a href={url('/turnieje-ligi-rankingi')} class="hover:text-[#16a34a] transition-colors no-underline">Turnieje</a>
+        <a href={url('/cennik')} class="hover:text-[#16a34a] transition-colors no-underline">Cennik</a>
+      </div>
+      <div class="nav-actions shrink-0">
         {currentUser ? (
           <a href={url('/dashboard')} class="tc-btn tc-btn-primary tc-btn-sm">Panel główny</a>
         ) : (

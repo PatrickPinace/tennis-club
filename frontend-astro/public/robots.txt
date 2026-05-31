@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /matches
+Disallow: /profile
+Disallow: /notifications
+Disallow: /courts
+Disallow: /tournaments/create
+Disallow: /tournaments/manage
+Disallow: /api/
+
+Sitemap: https://portal.raketon.pl/sitemap.xml
