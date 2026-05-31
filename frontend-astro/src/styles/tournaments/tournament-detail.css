@@ -172,6 +172,8 @@
   /* ── Standings table ────────────────────────────────────────────────────── */
   .td-standings-table { min-width: 560px; }
   .col-num { text-align: right; white-space: nowrap; }
+  .tc-table th.col-num,
+  th.col-num { text-align: right; }
   .col-muted { color: var(--tc-sub); }
   .td-pts { font-weight: 800; color: var(--tc-ink); font-family: var(--font-mono); }
 
@@ -277,15 +279,31 @@
     border-top: 1px solid var(--tc-card-border);
   }
   .td-round:first-of-type .td-round__label { border-top: none; }
-  .td-round__matches { display: flex; flex-direction: column; gap: 6px; }
+  .td-round__matches {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 768px) {
+    .td-round__matches {
+      grid-template-columns: 1fr;
+    }
+  }
 
   .td-match {
+    position: relative;
     display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 10px 14px;
-    border-radius: 8px; border: 1px solid var(--tc-card-border);
+    gap: 12px; padding: 12px 16px;
+    border-radius: 12px; border: 1px solid var(--tc-card-border);
     background: var(--tc-chip-bg);
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
   }
-  .td-match--done { background: var(--tc-card-bg); }
+  .td-match:hover {
+    transform: translateY(-1px);
+    border-color: var(--tc-accent-border);
+    box-shadow: 0 4px 12px var(--tc-shadow-soft);
+  }
+  .td-match--done { background: var(--tc-card-bg-2); }
   .td-match--live {
     border-color: var(--tc-accent-border);
     background: var(--tc-accent-soft);
@@ -298,17 +316,95 @@
     font-size: 0.875rem; font-weight: 600; color: var(--tc-ink);
     flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .td-match__name--winner { color: var(--tc-win); }
+  .td-match__name:first-child {
+    text-align: right;
+    padding-right: 48px;
+  }
+  .td-match__name:last-child {
+    text-align: left;
+    padding-left: 48px;
+  }
+  .td-match__name--winner {
+    color: var(--tc-win);
+    font-weight: 700;
+  }
   .td-match__vs {
-    font-size: 0.72rem; font-weight: 700; color: var(--tc-muted);
-    text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.68rem; font-weight: 800; color: var(--tc-muted);
+    text-transform: uppercase; letter-spacing: 0.08em; flex-shrink: 0;
+    opacity: 0.7;
+  }
+  .td-match:has(.td-match__score) .td-match__vs {
+    display: none;
   }
 
   .td-match__right { flex-shrink: 0; }
+  .td-match:has(.td-match__score) .td-match__right {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
   .td-match__score {
-    font-size: 0.875rem; font-weight: 700; color: var(--tc-ink);
+    font-size: 0.82rem; font-weight: 700; color: var(--tc-ink);
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+    background: var(--tc-overlay);
+    border: 1px solid var(--tc-card-border);
+    padding: 3px 8px;
+    border-radius: 6px;
+  }
+
+  @media (max-width: 480px) {
+    .td-match {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      position: relative;
+    }
+    .td-match__players {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+    .td-match__name {
+      font-size: 0.85rem;
+      width: 100%;
+    }
+    .td-match__name:first-child {
+      text-align: left;
+      padding-right: 0;
+    }
+    .td-match__name:last-child {
+      text-align: left;
+      padding-left: 0;
+    }
+    .td-match__vs {
+      display: none;
+    }
+    .td-match:has(.td-match__score) .td-match__vs {
+      display: none;
+    }
+    .td-match__right {
+      flex-shrink: 0;
+      margin-left: 12px;
+    }
+    .td-match:has(.td-match__score) .td-match__right {
+      position: static;
+      transform: none;
+    }
+    .td-match__score {
+      font-size: 0.78rem;
+      padding: 3px 8px;
+    }
   }
   .td-match__status-lbl {
     font-size: 0.75rem; color: var(--tc-sub); font-weight: 600;
