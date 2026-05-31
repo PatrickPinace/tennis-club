@@ -2435,6 +2435,7 @@ class LadderView(APIView):
                     score_parts.append(f'{s1}:{s2}')
             recent_matches.append({
                 'match_id': m.id,
+                'status': m.status,
                 'challenger': {
                     'id': m.participant1.id if m.participant1 else None,
                     'display_name': m.participant1.display_name if m.participant1 else None,
@@ -2444,6 +2445,7 @@ class LadderView(APIView):
                     'display_name': m.participant2.display_name if m.participant2 else None,
                 },
                 'winner_id': m.winner_id,
+                'winner_name': m.winner.display_name if m.winner else None,
                 'score': ' '.join(score_parts) if score_parts else None,
                 'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
             })
