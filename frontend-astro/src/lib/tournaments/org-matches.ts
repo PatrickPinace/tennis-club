@@ -320,47 +320,126 @@ export async function handleScoreSubmit(
 
   const csrf = getCsrf();
 
-  try {
-    const res = await fetch(
-      `${cfg.apiBase}/api/tournaments/${cfg.tournamentId}/matches/${matchId}/score/`,
-      {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(csrf ? { 'X-CSRFToken': csrf } : {}),
-        },
-        body: JSON.stringify(body),
-      }
-    );
+  // Usuwa inline confirm jeśli był wyświetlony (np. anuluj)
+  const clearForceConfirm = () => {
+    form.querySelector('.org-force-confirm')?.remove();
+  };
 
-    if (res.ok) {
-      const data = await res.json();
-      if (msgEl) {
-        msgEl.textContent = data.winner_name
-          ? `Zapisano! Zwycięzca: ${data.winner_name}`
-          : 'Zapisano wynik.';
-        msgEl.className = 'org-form-msg org-form-msg--ok';
+  // Opis downstream meczu w czytelnej formie: "WB R2 mecz 1 (CMP)"
+  const downstreamLabel = (d: {bracket: string; round: number; index: number; status: string}): string => {
+    const brackets: Record<string, string> = { W: 'WB', L: 'LB', GF: 'Wielki Finał' };
+    const b = brackets[d.bracket] ?? d.bracket;
+    const statusLabel: Record<string, string> = { CMP: 'zakończony', WDR: 'walkover' };
+    const s = statusLabel[d.status] ?? d.status;
+    return d.bracket === 'GF' ? `Wielki Finał (${s})` : `${b} R${d.round} mecz ${d.index} (${s})`;
+  };
+
+  const doFetch = async (withForce: boolean) => {
+    const sendBody = withForce ? { ...body, force: true } : body;
+    try {
+      const res = await fetch(
+        `${cfg.apiBase}/api/tournaments/${cfg.tournamentId}/matches/${matchId}/score/`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrf ? { 'X-CSRFToken': csrf } : {}),
+          },
+          body: JSON.stringify(sendBody),
+        }
+      );
+
+      if (res.ok) {
+        clearForceConfirm();
+        const data = await res.json();
+        if (msgEl) {
+          msgEl.textContent = data.winner_name
+            ? `Zapisano! Zwycięzca: ${data.winner_name}`
+            : 'Zapisano wynik.';
+          msgEl.className = 'org-form-msg org-form-msg--ok';
+        }
+        await refreshMatchesData();
+        if (cfg.isSGL || cfg.isDBE) {
+          await cbs.loadBracket();
+        } else if (cfg.isAMR) {
+          await cbs.loadAmericanoStandings();
+          document.dispatchEvent(new CustomEvent('amr-match-scored'));
+        } else {
+          await cbs.loadStandings();
+        }
+        if (btn) btn.disabled = false;
+        return;
       }
-      await refreshMatchesData();
-      if (cfg.isSGL || cfg.isDBE) {
-        await cbs.loadBracket();
-      } else if (cfg.isAMR) {
-        await cbs.loadAmericanoStandings();
-        document.dispatchEvent(new CustomEvent('amr-match-scored'));
-      } else {
-        await cbs.loadStandings();
-      }
-    } else {
+
       const err = await res.json().catch(() => ({}));
+
+      // Hard-lock LDR
+      if (res.status === 409 && err?.code === 'ladder_locked') {
+        clearForceConfirm();
+        if (msgEl) { msgEl.textContent = err.detail ?? 'Mecze ladder nie mogą być edytowane po zakończeniu.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+        if (btn) btn.disabled = false;
+        return;
+      }
+
+      // Downstream lock — organizer widzi confirm, nie-org widzi komunikat
+      if (res.status === 409 && err?.code === 'downstream_locked') {
+        clearForceConfirm();
+        if (!err?.force_allowed) {
+          if (msgEl) { msgEl.textContent = 'Wynik nie może być już zmieniony — skontaktuj się z organizatorem.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+          if (btn) btn.disabled = false;
+          return;
+        }
+
+        // Organizer: pokaż inline confirm z opisem downstream
+        const actionsEl = form.querySelector<HTMLElement>('.org-form-actions');
+        if (!actionsEl) { if (btn) btn.disabled = false; return; }
+
+        const downstream: Array<{bracket: string; round: number; index: number; status: string}> = err?.downstream ?? [];
+        const listText = downstream.length
+          ? downstream.map(downstreamLabel).join(', ')
+          : 'kolejne mecze';
+
+        const confirmEl = document.createElement('div');
+        confirmEl.className = 'org-force-confirm';
+        confirmEl.innerHTML = `
+          <div class="org-force-confirm__msg">
+            Następujące mecze są już rozegrane: <strong>${listText}</strong>.
+            Po zapisie ich uczestnicy mogą się zmienić, ale wyniki zostaną.
+          </div>
+          <div class="org-force-confirm__actions">
+            <button type="button" class="org-force-cancel tc-btn tc-btn-ghost">Anuluj</button>
+            <button type="button" class="org-force-confirm-btn tc-btn tc-btn-danger">Zapisz mimo to</button>
+          </div>`;
+
+        actionsEl.after(confirmEl);
+        if (msgEl) { msgEl.textContent = ''; msgEl.className = 'org-form-msg'; }
+        if (btn) btn.disabled = false;
+
+        confirmEl.querySelector<HTMLButtonElement>('.org-force-cancel')!.addEventListener('click', () => {
+          clearForceConfirm();
+        });
+        confirmEl.querySelector<HTMLButtonElement>('.org-force-confirm-btn')!.addEventListener('click', () => {
+          clearForceConfirm();
+          if (btn) btn.disabled = true;
+          doFetch(true);
+        });
+        return;
+      }
+
+      // Pozostałe błędy
+      clearForceConfirm();
       const msg = err?.detail || err?.error || `Błąd ${res.status}`;
       if (msgEl) { msgEl.textContent = msg; msgEl.className = 'org-form-msg org-form-msg--err'; }
+      if (btn) btn.disabled = false;
+    } catch {
+      clearForceConfirm();
+      if (msgEl) { msgEl.textContent = 'Błąd sieci.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
+      if (btn) btn.disabled = false;
     }
-  } catch {
-    if (msgEl) { msgEl.textContent = 'Błąd sieci.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
-  } finally {
-    if (btn) btn.disabled = false;
-  }
+  };
+
+  await doFetch(false);
 }
 
 export function renderMatches(cfg: OrgPanelConfig, state: MatchState, cbs?: MatchCallbacks) {

@@ -581,6 +581,48 @@ class RoundRobinMatchScoreView(APIView):
                     )
                 match.scheduled_time = parsed
 
+        # ── Guard re-edycji: downstream lock + organizer force flow ─────────
+        # Bazuje na starym statusie meczu (przed save), aby odróżnić 1. submit od re-edit.
+        _is_reedit = match.status in (
+            TournamentsMatch.Status.COMPLETED.value,
+            TournamentsMatch.Status.WITHDRAWN.value,
+        )
+        if _is_reedit:
+            _force = data.get('force') is True  # jawny JSON boolean true
+            from apps.tournaments.bracket import is_safe_to_reedit as _is_safe
+            _safe, _downstream = _is_safe(match, tournament)
+            if not _safe:
+                if _downstream and _downstream[0].get('type') == 'ladder':
+                    return Response(
+                        {
+                            'detail': 'Mecze ladder nie mogą być edytowane po zakończeniu.',
+                            'code': 'ladder_locked',
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                # SGL / DBE downstream
+                if _force and not is_organizer:
+                    return Response(
+                        {'detail': 'Force jest dostępny wyłącznie dla organizatora lub staff.'},
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+                if _force and is_organizer:
+                    logger.warning(
+                        '[score] FORCE re-edit by user=%s tournament=%d match=%d',
+                        request.user.pk, tournament.pk, match.pk,
+                    )
+                    # kontynuuj — organizer świadomie wymusza korektę
+                else:
+                    return Response(
+                        {
+                            'detail': 'Wyniku nie można już bezpiecznie zmienić — kolejny mecz został rozegrany.',
+                            'code': 'downstream_locked',
+                            'downstream': _downstream,
+                            'force_allowed': bool(is_organizer),
+                        },
+                        status=status.HTTP_409_CONFLICT,
+                    )
+
         # ── Zapisz wynik ─────────────────────────────────────────────────────
         _old_status = match.status  # zapamiętaj przed save — guard antyspam notyfikacji
         match.set1_p1_score = fields['set1_p1']
@@ -2393,6 +2435,7 @@ class LadderView(APIView):
                     score_parts.append(f'{s1}:{s2}')
             recent_matches.append({
                 'match_id': m.id,
+                'status': m.status,
                 'challenger': {
                     'id': m.participant1.id if m.participant1 else None,
                     'display_name': m.participant1.display_name if m.participant1 else None,
@@ -2402,6 +2445,7 @@ class LadderView(APIView):
                     'display_name': m.participant2.display_name if m.participant2 else None,
                 },
                 'winner_id': m.winner_id,
+                'winner_name': m.winner.display_name if m.winner else None,
                 'score': ' '.join(score_parts) if score_parts else None,
                 'scheduled_time': m.scheduled_time.isoformat() if m.scheduled_time else None,
             })

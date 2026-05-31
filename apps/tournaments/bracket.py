@@ -1064,3 +1064,150 @@ def generate_americano_matches_static(tournament, participants_qs, config) -> tu
         match_count, requested_rounds, n, fmt, tournament.pk,
     )
     return match_count, f'Wygenerowano {match_count} meczów Americano ({requested_rounds} rund, {n} graczy, {fmt}).'
+
+
+# ── Re-edit safety guard ──────────────────────────────────────────────────────
+
+def is_safe_to_reedit(match, tournament) -> tuple[bool, list[dict]]:
+    """
+    Sprawdza czy re-edycja meczu CMP/WDR jest bezpieczna z perspektywy drabinki.
+
+    Zwraca (True, []) jeśli edycja jest bezpieczna (żaden downstream mecz nie jest CMP/WDR).
+    Zwraca (False, downstream) jeśli co najmniej jeden downstream mecz jest już CMP/WDR.
+
+    downstream item: {'bracket': 'W'|'L'|'GF', 'round': int, 'index': int, 'status': str}
+    Specjalny sentinel dla LDR: [{'type': 'ladder'}] — seed swap nie jest idempotentny.
+
+    RND i AMR nie mają drabinki — re-edit zawsze bezpieczny.
+    GF (DBE) nie ma downstream — zawsze bezpieczny.
+    """
+    from apps.tournaments.models import Tournament, TournamentsMatch
+
+    TT = Tournament.TournamentType
+    FINAL_STATUSES = (
+        TournamentsMatch.Status.COMPLETED.value,
+        TournamentsMatch.Status.WITHDRAWN.value,
+    )
+    BT = TournamentsMatch.BracketType
+
+    t_type = tournament.tournament_type
+
+    if t_type in (TT.ROUND_ROBIN, TT.AMERICANO):
+        return True, []
+
+    if t_type == TT.LADDER:
+        # Seed swap nie jest idempotentny — hard-lock re-edycji
+        return False, [{'type': 'ladder'}]
+
+    downstream: list[dict] = []
+
+    if t_type == TT.SINGLE_ELIMINATION:
+        wb_total = _wb_total_rounds(tournament)
+        r = match.round_number
+        m = match.match_index
+        if r < wb_total:
+            next_r = r + 1
+            next_m = _next_match_index(m)
+            nxt = TournamentsMatch.objects.filter(
+                tournament=tournament,
+                bracket_type=BT.WINNERS,
+                round_number=next_r,
+                match_index=next_m,
+            ).values('status').first()
+            if nxt and nxt['status'] in FINAL_STATUSES:
+                downstream.append({'bracket': 'W', 'round': next_r, 'index': next_m, 'status': nxt['status']})
+        # Finał i mecz o 3. miejsce nie mają downstream — safe
+        return (len(downstream) == 0), downstream
+
+    if t_type == TT.DOUBLE_ELIMINATION:
+        bt = match.bracket_type
+        r = match.round_number
+        m = match.match_index
+
+        if bt == BT.GRAND_FINAL:
+            return True, []
+
+        if bt == BT.WINNERS:
+            wb_total = _wb_total_rounds(tournament)
+
+            if r >= wb_total:
+                # WB Final: zwycięzca → GF, przegrany → LB Final
+                gf = TournamentsMatch.objects.filter(
+                    tournament=tournament,
+                    bracket_type=BT.GRAND_FINAL,
+                    round_number=1,
+                    match_index=1,
+                ).values('status').first()
+                if gf and gf['status'] in FINAL_STATUSES:
+                    downstream.append({'bracket': 'GF', 'round': 1, 'index': 1, 'status': gf['status']})
+
+                lb_final_round = 2 * (wb_total - 1)
+                if lb_final_round >= 1:
+                    lb_fin = TournamentsMatch.objects.filter(
+                        tournament=tournament,
+                        bracket_type=BT.LOSERS,
+                        round_number=lb_final_round,
+                        match_index=1,
+                    ).values('status').first()
+                    if lb_fin and lb_fin['status'] in FINAL_STATUSES:
+                        downstream.append({'bracket': 'L', 'round': lb_final_round, 'index': 1, 'status': lb_fin['status']})
+            else:
+                # Zwykły mecz WB: zwycięzca → WB next, przegrany → LB drop-in
+                next_wb_r = r + 1
+                next_wb_m = _next_match_index(m)
+                nxt_wb = TournamentsMatch.objects.filter(
+                    tournament=tournament,
+                    bracket_type=BT.WINNERS,
+                    round_number=next_wb_r,
+                    match_index=next_wb_m,
+                ).values('status').first()
+                if nxt_wb and nxt_wb['status'] in FINAL_STATUSES:
+                    downstream.append({'bracket': 'W', 'round': next_wb_r, 'index': next_wb_m, 'status': nxt_wb['status']})
+
+                lb_r = _lb_round_for_wb_drop(r)
+                lb_m = _lb_drop_index(m, r, wb_total)
+                nxt_lb = TournamentsMatch.objects.filter(
+                    tournament=tournament,
+                    bracket_type=BT.LOSERS,
+                    round_number=lb_r,
+                    match_index=lb_m,
+                ).values('status').first()
+                if nxt_lb and nxt_lb['status'] in FINAL_STATUSES:
+                    downstream.append({'bracket': 'L', 'round': lb_r, 'index': lb_m, 'status': nxt_lb['status']})
+
+        elif bt == BT.LOSERS:
+            wb_total = _wb_total_rounds(tournament)
+            lb_final_round = 2 * (wb_total - 1)
+
+            if r >= lb_final_round:
+                # LB Final: zwycięzca → GF
+                gf = TournamentsMatch.objects.filter(
+                    tournament=tournament,
+                    bracket_type=BT.GRAND_FINAL,
+                    round_number=1,
+                    match_index=1,
+                ).values('status').first()
+                if gf and gf['status'] in FINAL_STATUSES:
+                    downstream.append({'bracket': 'GF', 'round': 1, 'index': 1, 'status': gf['status']})
+            else:
+                # Zwykłe mecze LB — formuła z _advance_winner_in_lb
+                next_lb_r = r + 1
+                if r % 2 == 0:
+                    # parzysta (konsolidacja) → nieparzysta (drop-in): index zachowany
+                    next_lb_m = m
+                else:
+                    # nieparzysta (drop-in) → parzysta (konsolidacja): ceil(m/2)
+                    next_lb_m = math.ceil(m / 2)
+                nxt_lb = TournamentsMatch.objects.filter(
+                    tournament=tournament,
+                    bracket_type=BT.LOSERS,
+                    round_number=next_lb_r,
+                    match_index=next_lb_m,
+                ).values('status').first()
+                if nxt_lb and nxt_lb['status'] in FINAL_STATUSES:
+                    downstream.append({'bracket': 'L', 'round': next_lb_r, 'index': next_lb_m, 'status': nxt_lb['status']})
+
+        return (len(downstream) == 0), downstream
+
+    # Fallback dla nieznanych typów — bezpieczne (nie blokuj)
+    return True, []
