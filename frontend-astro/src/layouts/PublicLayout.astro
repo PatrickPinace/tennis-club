@@ -8,6 +8,8 @@ interface Props {
   description?: string;
   canonical?: string;
   ogImage?: string;
+  /** Opcjonalny JSON-LD string (serialize przed przekazaniem) — wstrzykiwany do <head> */
+  jsonLd?: string;
 }
 
 const {
@@ -15,6 +17,7 @@ const {
   description = 'Portal tenisowy — rezerwacje kortów, turnieje, ligi i rankingi dla klubów i graczy.',
   canonical,
   ogImage,
+  jsonLd,
 } = Astro.props;
 
 const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
@@ -56,6 +59,9 @@ const fullTitle = `${title} — Tennis Club`;
   <meta name="twitter:image" content={ogImageUrl} />
 
   <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
+
+  <!-- Structured data — JSON-LD (opcjonalny, przekazywany przez prop) -->
+  {jsonLd && <script type="application/ld+json" is:inline set:html={jsonLd} />}
 
   <!-- Plausible analytics — tylko gdy PUBLIC_PLAUSIBLE_DOMAIN ustawiony (prod) -->
   {plausibleDomain && (
@@ -127,9 +133,39 @@ const fullTitle = `${title} — Tennis Club`;
     <slot />
   </main>
 
-  <footer class="py-2 max-[480px]:py-1 px-4 bg-bg-secondary border-t border-border text-center text-text-muted text-[0.875rem]">
+  <footer class="px-4 pt-8 pb-4 bg-bg-secondary border-t border-border text-[0.875rem]">
     <div class="max-w-content mx-auto">
-      <p class="max-[480px]:text-[0.8rem]">&copy; {new Date().getFullYear()} Tennis Club. Wszystkie prawa zastrzeżone.</p>
+      <!-- Kolumny linków -->
+      <div class="flex flex-wrap gap-x-12 gap-y-6 mb-6">
+        <div>
+          <div class="font-semibold text-[#0f172a] mb-2 text-[0.8rem] uppercase tracking-wide">Portal</div>
+          <ul class="space-y-1.5 list-none p-0 m-0">
+            <li><a href={url('/dla-klubow')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Dla klubów</a></li>
+            <li><a href={url('/rezerwacje-kortow')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Rezerwacje kortów</a></li>
+            <li><a href={url('/turnieje-ligi-rankingi')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Turnieje i rankingi</a></li>
+            <li><a href={url('/cennik')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Cennik</a></li>
+            <li><a href={url('/kontakt')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Kontakt</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="font-semibold text-[#0f172a] mb-2 text-[0.8rem] uppercase tracking-wide">Konto</div>
+          <ul class="space-y-1.5 list-none p-0 m-0">
+            <li><a href={url('/register')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Zarejestruj się</a></li>
+            <li><a href={url('/login')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Zaloguj się</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="font-semibold text-[#0f172a] mb-2 text-[0.8rem] uppercase tracking-wide">Prawne</div>
+          <ul class="space-y-1.5 list-none p-0 m-0">
+            <li><a href={url('/polityka-prywatnosci')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Polityka prywatności</a></li>
+            <li><a href={url('/regulamin')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Regulamin</a></li>
+          </ul>
+        </div>
+      </div>
+      <!-- Copyright -->
+      <div class="border-t border-border pt-3 text-center text-text-muted text-[0.8rem]">
+        &copy; {new Date().getFullYear()} Tennis Club / portal.raketon.pl. Wszystkie prawa zastrzeżone.
+      </div>
     </div>
   </footer>
 </body>

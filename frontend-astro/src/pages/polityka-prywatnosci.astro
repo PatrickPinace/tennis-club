@@ -1,0 +1,72 @@
+---
+import PublicLayout from '@/layouts/PublicLayout.astro';
+
+export const prerender = true;
+---
+
+<PublicLayout
+  title="Polityka Prywatności"
+  description="Polityka prywatności portalu Tennis Club — informacje o przetwarzaniu danych osobowych, analityce i plikach cookie."
+>
+  <section class="py-12 px-8 max-[480px]:py-8 max-[480px]:px-4 bg-bg">
+    <div class="max-w-[720px] mx-auto prose-like">
+
+      <h1 class="text-[clamp(1.6rem,3.5vw,2.2rem)] font-extrabold text-[#0f172a] tracking-[-0.02em] mb-2">
+        Polityka prywatności
+      </h1>
+      <p class="text-[0.85rem] text-[#94a3b8] mb-8">Ostatnia aktualizacja: 2026-05-31</p>
+
+      <div class="space-y-8 text-[0.975rem] text-[#334155] leading-[1.7]">
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">1. Administrator danych</h2>
+          <p>Administratorem danych osobowych jest operator serwisu Tennis Club dostępnego pod adresem <strong>portal.raketon.pl</strong>. Kontakt: <a href="mailto:kontakt@raketon.pl" class="text-[#16a34a] hover:underline">kontakt@raketon.pl</a>.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">2. Jakie dane zbieramy</h2>
+          <p>W ramach korzystania z serwisu przetwarzamy:</p>
+          <ul class="list-disc pl-5 mt-2 space-y-1">
+            <li><strong>Dane konta:</strong> adres e-mail, imię i nazwisko, hasło (w postaci zahashowanej) — podawane dobrowolnie przy rejestracji.</li>
+            <li><strong>Dane aktywności:</strong> wyniki meczów, rezerwacje kortów, uczestnictwo w turniejach — generowane w trakcie korzystania z serwisu.</li>
+            <li><strong>Dane techniczne:</strong> adres IP, przeglądarka, czas wizyty — przetwarzane przez serwer w ramach standardowych logów.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">3. Analityka — Plausible Analytics</h2>
+          <p>Serwis korzysta z narzędzia <strong>Plausible Analytics</strong> do pomiaru ruchu na stronach publicznych. Plausible działa bez plików cookie, nie zbiera danych osobowych i nie przekazuje danych do Google ani Meta. Przetwarzanie odbywa się anonimowo — nie jesteś identyfikowany jako konkretna osoba. Więcej informacji: <a href="https://plausible.io/data-policy" target="_blank" rel="noopener noreferrer" class="text-[#16a34a] hover:underline">plausible.io/data-policy</a>.</p>
+          <p class="mt-2 text-[0.875rem] text-[#64748b]">Plausible nie wymaga banera cookie zgodnie z GDPR i ePrivacy, ponieważ nie stosuje żadnych mechanizmów śledzenia między sesjami.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">4. Podstawa prawna przetwarzania</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Wykonanie umowy (art. 6 ust. 1 lit. b RODO) — obsługa konta, rezerwacji i turniejów.</li>
+            <li>Uzasadniony interes administratora (art. 6 ust. 1 lit. f RODO) — bezpieczeństwo serwisu, anonimowa analityka ruchu.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">5. Twoje prawa</h2>
+          <p>Masz prawo do dostępu do danych, ich sprostowania, usunięcia, ograniczenia przetwarzania oraz przenoszenia danych. W celu realizacji tych praw skontaktuj się z nami pod adresem <a href="mailto:kontakt@raketon.pl" class="text-[#16a34a] hover:underline">kontakt@raketon.pl</a>.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">6. Pliki cookie</h2>
+          <p>Serwis używa wyłącznie technicznego pliku cookie sesji (<code>sessionid</code>) niezbędnego do utrzymania stanu zalogowania. Nie stosujemy plików cookie reklamowych ani śledzących. Analityka Plausible działa bez żadnych plików cookie.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">7. Zmiany polityki</h2>
+          <p>Zastrzegamy prawo do aktualizacji niniejszej polityki. O istotnych zmianach poinformujemy poprzez powiadomienie w serwisie lub e-mail. Data ostatniej aktualizacji jest widoczna na górze strony.</p>
+        </div>
+
+        <p class="text-[0.825rem] text-[#94a3b8] border-t border-border pt-4">
+          Dokument ma charakter informacyjny i może wymagać uzupełnienia przez radcę prawnego w zależności od zakresu działalności.
+        </p>
+
+      </div>
+    </div>
+  </section>
+</PublicLayout>

@@ -1,0 +1,85 @@
+---
+import PublicLayout from '@/layouts/PublicLayout.astro';
+
+export const prerender = true;
+---
+
+<PublicLayout
+  title="Regulamin"
+  description="Regulamin korzystania z portalu Tennis Club — zasady korzystania z serwisu, rejestracji konta i uczestnictwa w turniejach."
+>
+  <section class="py-12 px-8 max-[480px]:py-8 max-[480px]:px-4 bg-bg">
+    <div class="max-w-[720px] mx-auto">
+
+      <h1 class="text-[clamp(1.6rem,3.5vw,2.2rem)] font-extrabold text-[#0f172a] tracking-[-0.02em] mb-2">
+        Regulamin
+      </h1>
+      <p class="text-[0.85rem] text-[#94a3b8] mb-8">Ostatnia aktualizacja: 2026-05-31</p>
+
+      <div class="space-y-8 text-[0.975rem] text-[#334155] leading-[1.7]">
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">1. Postanowienia ogólne</h2>
+          <p>Niniejszy regulamin określa zasady korzystania z serwisu Tennis Club dostępnego pod adresem <strong>portal.raketon.pl</strong>, służącego do zarządzania aktywnością tenisową — rezerwacjami kortów, turniejami, ligami i rankingami.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">2. Rejestracja i konto</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Korzystanie z funkcji serwisu wymaga założenia konta przy użyciu prawidłowego adresu e-mail.</li>
+            <li>Użytkownik jest zobowiązany do podania prawdziwych danych i zachowania hasła w tajemnicy.</li>
+            <li>Jedno konto może być obsługiwane przez jedną osobę fizyczną.</li>
+            <li>Operator zastrzega prawo do usunięcia konta naruszającego regulamin.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">3. Zasady korzystania</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Użytkownik zobowiązuje się do korzystania z serwisu zgodnie z prawem i dobrymi obyczajami.</li>
+            <li>Zabrania się wpisywania fałszywych wyników meczów, rezerwowania kortów bez zamiaru gry oraz działań zakłócających działanie serwisu.</li>
+            <li>Wpisywanie wyników meczów jest możliwe przez uczestników meczu lub organizatora turnieju — zgodnie z przyjętym modelem uprawnień.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">4. Rezerwacje kortów</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Rezerwacje wymagają akceptacji managera obiektu.</li>
+            <li>Anulowanie rezerwacji powinno nastąpić z odpowiednim wyprzedzeniem określonym przez klub.</li>
+            <li>Operator serwisu nie ponosi odpowiedzialności za faktyczną dostępność kortów — to leży po stronie zarządzającego obiektem.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">5. Turnieje i rankingi</h2>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Organizatorem turnieju jest użytkownik, który go tworzy — odpowiada za prawidłowe prowadzenie rozgrywek.</li>
+            <li>Rankingi obliczane są automatycznie na podstawie wyników wpisanych w serwisie.</li>
+            <li>W przypadku sporów dotyczących wyników decyzja należy do organizatora turnieju.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">6. Odpowiedzialność operatora</h2>
+          <p>Serwis jest udostępniany w stanie „takim, jakim jest". Operator dokłada starań, aby działał bez zakłóceń, jednak nie gwarantuje ciągłości dostępu. Operator nie ponosi odpowiedzialności za treści wpisywane przez użytkowników.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">7. Zmiany regulaminu</h2>
+          <p>Operator zastrzega prawo do zmiany regulaminu. Użytkownicy zostaną poinformowani o istotnych zmianach z odpowiednim wyprzedzeniem. Dalsze korzystanie z serwisu po wejściu w życie zmian oznacza ich akceptację.</p>
+        </div>
+
+        <div>
+          <h2 class="text-[1.1rem] font-bold text-[#0f172a] mb-2">8. Kontakt</h2>
+          <p>W sprawie regulaminu lub konta prosimy o kontakt: <a href="mailto:kontakt@raketon.pl" class="text-[#16a34a] hover:underline">kontakt@raketon.pl</a>.</p>
+        </div>
+
+        <p class="text-[0.825rem] text-[#94a3b8] border-t border-border pt-4">
+          Dokument ma charakter informacyjny i może wymagać uzupełnienia przez radcę prawnego w zależności od zakresu działalności.
+        </p>
+
+      </div>
+    </div>
+  </section>
+</PublicLayout>

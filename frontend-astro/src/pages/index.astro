@@ -3,9 +3,34 @@ import PublicLayout from '@/layouts/PublicLayout.astro';
 import { url } from '@/lib/url';
 
 const title = "Znajdź Partnera do Gry";
+const SITE = import.meta.env.PUBLIC_SITE_URL ?? 'https://portal.raketon.pl';
+
+const jsonLd = JSON.stringify([
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Tennis Club",
+    "url": SITE,
+    "logo": `${SITE}/favicon.ico`,
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "email": "kontakt@raketon.pl",
+      "contactType": "customer support",
+      "availableLanguage": "Polish"
+    },
+    "sameAs": []
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Tennis Club",
+    "url": SITE,
+    "description": "Portal tenisowy — rezerwacje kortów, turnieje, ligi i rankingi dla klubów i graczy."
+  }
+]);
 ---
 
-<PublicLayout title={title}>
+<PublicLayout title={title} jsonLd={jsonLd}>
   <!-- Hero Section -->
   <header class="relative flex flex-1 items-center justify-center text-center py-10 px-8 max-[1024px]:py-[60px] max-[1024px]:px-4 max-[480px]:py-1 max-[480px]:px-0 bg-surface bg-[url('/static/img/01.png')] bg-no-repeat bg-center bg-cover text-white overflow-hidden [text-shadow:2px_2px_4px_rgba(0,0,0,0.6)]">
     <div class="absolute inset-0 bg-black/25 z-[1]"></div>
