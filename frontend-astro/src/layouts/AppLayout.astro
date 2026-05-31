@@ -44,6 +44,7 @@ const currentPath = Astro.url.pathname;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title} — Tennis Club</title>
+  <meta name="robots" content="noindex, nofollow" />
   <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
   <!-- Adres Django API — używany przez client-side JS do fetchów -->
   <!-- W dev bez PUBLIC_API_BASE_URL: pusty string = relative URL → Vite proxy /api/* → :8000 -->
