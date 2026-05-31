@@ -341,10 +341,17 @@
     display: none;
   }
 
-  .td-match__right { flex-shrink: 0; }
+  .td-match__right {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-shrink: 0;
+  }
   .td-match:has(.td-match__score) .td-match__right {
     position: absolute;
     left: 50%;
+    right: auto;
     top: 50%;
     transform: translate(-50%, -50%);
   }
