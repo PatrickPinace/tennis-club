@@ -152,6 +152,7 @@ const iAmParticipant = iAmP1 || iAmP2;
               {userInitials(u)}
             </div>
             <div class="match-team__name">
+              {p1Won && <span class="winner-trophy" title="Zwycięzca" style="margin-right: 6px; font-size: 0.95rem;">🏆</span>}
               {userName(u)}
               {u.id === myId && <span class="me-badge">Ty</span>}
             </div>
@@ -192,6 +193,7 @@ const iAmParticipant = iAmP1 || iAmP2;
             <div class="match-team__name">
               {u.id === myId && <span class="me-badge">Ty</span>}
               {userName(u)}
+              {p2Won && <span class="winner-trophy" title="Zwycięzca" style="margin-left: 6px; font-size: 0.95rem;">🏆</span>}
             </div>
           </div>
         ))}
