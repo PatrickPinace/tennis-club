@@ -1,0 +1,11 @@
+frontend/node_modules/
+frontend/dist/
+frontend/.astro/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+venv/
+__pycache__/
+*.pyc
+.git/
+workdir/
