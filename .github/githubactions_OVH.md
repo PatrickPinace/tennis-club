@@ -71,7 +71,8 @@ Klucze potrzebne do działania (Settings → Secrets and variables → Actions):
 |--------|------|
 | `PatrickPinace` | Roboczy — tu commitujemy i testujemy lokalnie |
 | `OVHTennis` | Produkcja — merge tu = automatyczny deploy |
-| `Skorpi86` | Branch Lucjana |
+| `main` | Branch Lucjana — tu pracuje, synchronizowany z OVHTennis |
+| `Skorpi86` | Archiwalny — nieużywany |
 
 **Workflow:**
 ```
