@@ -20,10 +20,6 @@ const initials = displayName
   .map((w: string) => w[0].toUpperCase())
   .join('');
 const roleLabel = currentUser?.is_staff ? 'Administrator' : 'Członek';
-
-const _classicBase = import.meta.env.PUBLIC_CLASSIC_URL ?? '';
-const classicUrl = (_classicBase ? _classicBase.replace(/\/$/, '') : '') + '/tournaments';
-
 const navItems = [
   { href: url('/dashboard'),          label: 'Start',       match: ['/dashboard'] },
   { href: url('/courts/reservations'),label: 'Rezerwacje',  match: ['/courts/reservations', '/courts'] },
@@ -94,10 +90,6 @@ function isActive(item: { match: string[] }): boolean {
       </>
     )}
 
-    <div class="sidebar-nav__sep" aria-hidden="true"></div>
-    <a href={classicUrl} class="sidebar-nav__link sidebar-nav__link--classic">
-      ← Wersja klasyczna
-    </a>
   </nav>
 
   <!-- User footer — widoczny tylko dla zalogowanych -->
@@ -246,11 +238,6 @@ function isActive(item: { match: string[] }): boolean {
     font-weight: 600;
   }
 
-  .sidebar-nav__link--classic {
-    opacity: 0.5;
-    font-size: 0.775rem;
-  }
-  .sidebar-nav__link--classic:hover { opacity: 0.8; }
 
   /* ── User footer ─────────────────────────────────────────────────────────── */
   .sidebar-user {
