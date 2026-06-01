@@ -64,14 +64,24 @@
      (rysowane na karcie meczu w kolumnach od drugiej wzwyż)
    ───────────────────────────────────────────────────────────────────────── */
 
+/* Para slotów — odpowiada jednemu slotowi w następnej rundzie.
+   flex: 1 na parze = flex: 1 na pojedynczym slocie → środki się pokrywają. */
+.bkt-pair {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.bkt-pair .bkt-slot {
+  flex: 1;
+}
+
 /* Przestrzeń wokół pojedynczego meczu – trzyma linie łączące */
 .bkt-slot {
   position: relative;
   display: flex;
   align-items: center;
   flex: 1;
-  /* 28px lewo  = miejsce na linię wejściową (kolumny od drugiej)
-     28px prawo = miejsce na ramię do następnej kolumny */
   padding: 8px 28px 8px 0;
 }
 
@@ -183,6 +193,13 @@
   background: color-mix(in srgb, var(--tc-accent) 10%, transparent);
 }
 
+/* Wiersz BYE — wyszarzony placeholder dla wyrównania wysokości karty */
+.bkt-player--bye {
+  color: var(--tc-muted);
+  font-style: italic;
+  opacity: 0.5;
+}
+
 /* Numer rozstawienia (seed) gracza */
 .bkt-player-seed {
   font-size: 0.65rem;
@@ -256,16 +273,7 @@
   margin-bottom: 32px;
 }
 
-/* Wyłączenie rysowania linii dla Drabinki Przegranych (Losers Bracket), zachowując oryginalne marginesy/szerokość */
-.bkt-section--losers .bkt-slot::after,
-.bkt-section--losers .bkt-slot::before,
-.bkt-section--losers .bkt-slot--connector-top::before,
-.bkt-section--losers .bkt-slot--connector-bottom::before {
-  display: none !important;
-}
-.bkt-section--losers .bkt-slot--has-entry {
-  background-image: none !important;
-}
+/* Losers bracket — connectory włączone tak samo jak winners */
 
 /* Nagłówek sekcji drabinki (np. Winners Bracket, Losers Bracket) */
 .bkt-section-title {

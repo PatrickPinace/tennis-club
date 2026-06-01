@@ -18,6 +18,15 @@ function matchCard(m: BracketRound['matches'][number]): string {
   const p1Seed = m.participant1?.seed_number ? `<span class="bkt-player-seed">${m.participant1.seed_number}</span>` : '';
   const p2Seed = m.participant2?.seed_number ? `<span class="bkt-player-seed">${m.participant2.seed_number}</span>` : '';
 
+  // Karta BYE: p2 = null — renderujemy wiersz BYE żeby karta miała tę samą wysokość
+  const p2Row = m.is_bye
+    ? `<div class="bkt-player bkt-player--bye"><span class="bkt-player-name">BYE</span></div>`
+    : `<div class="bkt-player${p2Won ? ' bkt-player--winner' : ''}">
+        ${p2Seed}
+        <span class="bkt-player-name">${escHtml(p2Name)}</span>
+        ${p2Won && score ? `<span class="bkt-score">${escHtml(score)}</span>` : ''}
+      </div>`;
+
   return `
     <div class="bkt-match${isDone ? ' bkt-match--done' : ''}${isTbd ? ' bkt-match--tbd' : ''}" data-match-id="${m.id}">
       ${labelBadge}
@@ -26,11 +35,7 @@ function matchCard(m: BracketRound['matches'][number]): string {
         <span class="bkt-player-name">${escHtml(p1Name)}</span>
         ${p1Won && score ? `<span class="bkt-score">${escHtml(score)}</span>` : ''}
       </div>
-      <div class="bkt-player${p2Won ? ' bkt-player--winner' : ''}">
-        ${p2Seed}
-        <span class="bkt-player-name">${escHtml(p2Name)}</span>
-        ${p2Won && score ? `<span class="bkt-score">${escHtml(score)}</span>` : ''}
-      </div>
+      ${p2Row}
       ${isDone && !p1Won && !p2Won && score ? `<div class="bkt-score-neutral">${escHtml(score)}</div>` : ''}
     </div>`;
 }
@@ -57,14 +62,34 @@ function roundsHtml(rounds: BracketRound[], isFirst = false, hideLabels = false)
     const isFinal = roundIdx === rounds.length - 1;
     const hasEntry = roundIdx > 0;
 
-    const slotsHtml = r.matches.map((m, i) => {
-      const isEven = i % 2 === 0;
-      // Mecze BYE nie tworzą par z konektorem — zwycięzca awansuje automatycznie
-      const isByeMatch = m.is_bye === true;
-      const connectorClass = isByeMatch ? '' : (isEven ? 'bkt-slot--connector-top' : 'bkt-slot--connector-bottom');
-      const entryClass = hasEntry ? ' bkt-slot--has-entry' : '';
-      return `<div class="bkt-slot ${connectorClass}${entryClass}">${matchCard(m)}</div>`;
-    }).join('');
+    const matches = r.matches;
+    const nextRound = rounds[roundIdx + 1];
+    // Parujemy tylko gdy następna runda ma dokładnie połowę meczów (klasyczny bracket)
+    const shouldPair = !isFinal && nextRound != null && nextRound.matches.length === Math.ceil(matches.length / 2) && matches.length > 1;
+
+    let html = '';
+    const entryClass = hasEntry ? ' bkt-slot--has-entry' : '';
+
+    if (shouldPair) {
+      for (let i = 0; i < matches.length; i += 2) {
+        const top = matches[i];
+        const bot = matches[i + 1];
+        if (bot === undefined) {
+          html += `<div class="bkt-slot${entryClass}">${matchCard(top)}</div>`;
+        } else {
+          html += `<div class="bkt-pair">` +
+            `<div class="bkt-slot bkt-slot--connector-top${entryClass}">${matchCard(top)}</div>` +
+            `<div class="bkt-slot bkt-slot--connector-bottom${entryClass}">${matchCard(bot)}</div>` +
+            `</div>`;
+        }
+      }
+    } else {
+      // feeding round lub ostatnia runda — brak pionowych connectorów
+      for (const m of matches) {
+        html += `<div class="bkt-slot${entryClass}">${matchCard(m)}</div>`;
+      }
+    }
+    const slotsHtml = html;
 
     const labelHtml = hideLabels ? '' : `<div class="bkt-col-label">${escHtml(cleanRoundLabel(r.round_label))}</div>`;
 
