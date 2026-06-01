@@ -4,7 +4,7 @@
 # Env wymagany w runtime: DJANGO_API_URL=http://tennis-web:8000
 
 # ── Stage 1: build ────────────────────────────────────────────────────────────
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ ENV ASTRO_BASE=/astro
 RUN npm run build
 
 # ── Stage 2: runtime ──────────────────────────────────────────────────────────
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 
 WORKDIR /app
 
