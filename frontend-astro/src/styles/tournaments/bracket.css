@@ -256,6 +256,17 @@
   margin-bottom: 32px;
 }
 
+/* Wyłączenie rysowania linii dla Drabinki Przegranych (Losers Bracket), zachowując oryginalne marginesy/szerokość */
+.bkt-section--losers .bkt-slot::after,
+.bkt-section--losers .bkt-slot::before,
+.bkt-section--losers .bkt-slot--connector-top::before,
+.bkt-section--losers .bkt-slot--connector-bottom::before {
+  display: none !important;
+}
+.bkt-section--losers .bkt-slot--has-entry {
+  background-image: none !important;
+}
+
 /* Nagłówek sekcji drabinki (np. Winners Bracket, Losers Bracket) */
 .bkt-section-title {
   font-size: 0.7rem;

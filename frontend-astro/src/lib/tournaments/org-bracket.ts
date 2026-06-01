@@ -45,7 +45,14 @@ function matchCard(m: BracketRound['matches'][number]): string {
  * The left horizontal entry (::after on .bkt-slot--has-entry) connects from
  * the previous column (all columns except the first).
  */
-function roundsHtml(rounds: BracketRound[], isFirst = false): string {
+function cleanRoundLabel(label: string): string {
+  return label
+    .replace(/\b(WB|LB)\b/gi, '')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function roundsHtml(rounds: BracketRound[], isFirst = false, hideLabels = false): string {
   return rounds.map((r, roundIdx) => {
     const isFinal = roundIdx === rounds.length - 1;
     const hasEntry = roundIdx > 0;
@@ -59,9 +66,11 @@ function roundsHtml(rounds: BracketRound[], isFirst = false): string {
       return `<div class="bkt-slot ${connectorClass}${entryClass}">${matchCard(m)}</div>`;
     }).join('');
 
+    const labelHtml = hideLabels ? '' : `<div class="bkt-col-label">${escHtml(cleanRoundLabel(r.round_label))}</div>`;
+
     return `
     <div class="bkt-col${isFinal ? ' bkt-col--final' : ''}">
-      <div class="bkt-col-label">${escHtml(r.round_label)}</div>
+      ${labelHtml}
       <div class="bkt-col-matches">${slotsHtml}</div>
     </div>`;
   }).join('');
@@ -87,22 +96,22 @@ export function renderBracket(data: BracketRound[] | DBEBracketData) {
 
     if (hasWinners) {
       html += `<div class="bkt-section">
-        <div class="bkt-section-title">Winners Bracket</div>
+        <div class="bkt-section-title">Zwycięzcy</div>
         <div class="bkt-wrap">${roundsHtml(dbe.winners, true)}</div>
       </div>`;
     }
 
     if (hasLosers) {
-      html += `<div class="bkt-section">
-        <div class="bkt-section-title">Losers Bracket</div>
+      html += `<div class="bkt-section bkt-section--losers">
+        <div class="bkt-section-title">Przegrani</div>
         <div class="bkt-wrap">${roundsHtml(dbe.losers, true)}</div>
       </div>`;
     }
 
     if (hasGF && dbe.grand_final) {
       html += `<div class="bkt-section bkt-section--gf">
-        <div class="bkt-section-title bkt-section-title--gf">Wielki Finał</div>
-        <div class="bkt-wrap">${roundsHtml([dbe.grand_final])}</div>
+        <div class="bkt-section-title bkt-section-title--gf">🏆 Wielki Finał</div>
+        <div class="bkt-wrap">${roundsHtml([dbe.grand_final], false, true)}</div>
       </div>`;
     }
 

@@ -466,15 +466,15 @@ def build_dbe_bracket_data(tournament) -> dict:
 
     def wb_round_label(rn: int) -> str:
         if rn == wb_total:
-            return 'Finał WB'
+            return 'Finał'
         if rn == wb_total - 1:
-            return 'Półfinał WB'
-        return f'WB Runda {rn}'
+            return 'Półfinał'
+        return f'Runda {rn}'
 
     def lb_round_label(rn: int) -> str:
         if rn == lb_total:
-            return 'Finał LB'
-        return f'LB Runda {rn}'
+            return 'Finał'
+        return f'Runda {rn}'
 
     winners_rounds = []
     for rn in range(1, wb_total + 1):
@@ -549,27 +549,22 @@ def _wb_total_rounds(tournament) -> int:
 
 def _lb_round_for_wb_drop(wb_round: int) -> int:
     """
-    Runda LB do której trafia przegrany z danej rundy WB.
-
-    Standard DBE mapping:
-      WB_R1 → LB_R1  (2*1 - 1 = 1)
-      WB_R2 → LB_R3  (2*2 - 1 = 3)
-      WB_R3 → LB_R5  (2*3 - 1 = 5)
-      WB_Rn → LB_R(2n-1)
+    Legacy mapping:
+      WB_R1 -> LB_R1
+      WB_R2 -> LB_R2
+      WB_R3 -> LB_R4
+      WB_Rn -> LB_R((n-1)*2)
     """
-    return 2 * wb_round - 1
+    if wb_round == 1:
+        return 1
+    return (wb_round - 1) * 2
 
 
 def _lb_drop_index(wb_index: int, wb_round: int, wb_total_rounds: int) -> int:
     """
-    Indeks meczu w LB dla przegranego z meczu WB.
-
-    W WB_R1: pary (1,2)→LB_1, (3,4)→LB_2 itd.
-      lb_index = ceil(wb_index / 2)
-
-    W WB_Rn (n>1): jeden przegrany z każdego meczu WB wchodzi do LB
-      jako participant2 (z góry) w meczu o tym samym indeksie co WB.
-      lb_index = wb_index
+    Legacy index mapping:
+      WB_R1 -> LB_R1: ceil(wb_index / 2)
+      WB_R2+ -> LB_R_even: wb_index (same index)
     """
     if wb_round == 1:
         return math.ceil(wb_index / 2)
@@ -578,22 +573,18 @@ def _lb_drop_index(wb_index: int, wb_round: int, wb_total_rounds: int) -> int:
 
 def _lb_drop_slot(wb_index: int, wb_round: int) -> str:
     """
-    Który slot (participant1/participant2) zajmuje przegrany wpadający do LB.
-
-    W LB rundy drop-in (2n-1 dla n>1): przegrani WB zawsze wchodzą jako participant2
-    (zwycięzcy z poprzedniej rundy LB są już w participant1).
-
-    W LB_R1: para (wb_1,wb_2) → lb_1 — wb_index nieparzyste=p1, parzyste=p2.
+    Legacy slot mapping:
+      WB_R1 -> LB_R1: participant1 if wb_index is odd else participant2
+      WB_R2+ -> LB_R_even: participant1
     """
     if wb_round == 1:
         return 'participant1' if wb_index % 2 == 1 else 'participant2'
-    return 'participant2'
+    return 'participant1'
 
 
 def _get_or_create_bracket_match(tournament, bracket_type, round_number, match_index, **defaults):
     """
-    Lazy-create meczu w podanej drabince. Idempotentny.
-    Zwraca (match, created).
+    Lazy-create match in bracket. Idempotent.
     """
     from apps.tournaments.models import TournamentsMatch
     with transaction.atomic():
@@ -612,8 +603,7 @@ def _get_or_create_bracket_match(tournament, bracket_type, round_number, match_i
 
 def _set_match_slot(match, slot_field: str, participant) -> bool:
     """
-    Ustaw slot uczestnika w meczu. Zwraca True jeśli nastąpiła zmiana.
-    Wywołujący musi zapisać mecz jeśli True.
+    Set slot participant. Returns True if changed.
     """
     current = getattr(match, slot_field)
     if current != participant:
@@ -624,28 +614,19 @@ def _set_match_slot(match, slot_field: str, participant) -> bool:
 
 def _auto_complete_if_bye(bracket_match, tournament):
     """
-    Jeśli jeden ze slotów meczu to BYE (None), auto-zakończ mecz i wywołaj advance.
-
-    Przypadki:
-    - participant1=None, participant2=X → winner=X, status=CMP
-    - participant1=X, participant2=None → winner=X, status=CMP
-    - oboje None → błąd logiczny, pomijamy
-    - oboje znani → normalny mecz, nic nie robimy
-
-    Po auto-CMP wywołuje advance_dbe_match rekurencyjnie, aby dalej propagować awans.
+    Auto complete match if only one participant is present due to BYEs.
     """
     from apps.tournaments.models import TournamentsMatch
     p1 = bracket_match.participant1
     p2 = bracket_match.participant2
 
     if p1 is not None and p2 is not None:
-        return  # Oboje znani — normalny mecz
+        return
     if p1 is None and p2 is None:
-        return  # Brak obu — mecz jeszcze nie gotowy
+        return
 
     winner = p1 if p1 is not None else p2
     if bracket_match.status == TournamentsMatch.Status.COMPLETED.value and bracket_match.winner == winner:
-        # Już auto-zakończony — idempotentny
         return
 
     bracket_match.status = TournamentsMatch.Status.COMPLETED.value
@@ -653,23 +634,17 @@ def _auto_complete_if_bye(bracket_match, tournament):
     bracket_match.save(update_fields=['status', 'winner'])
 
     logger.info(
-        '[dbe] Auto-BYE: mecz [%s] R%d/M%d → CMP, winner=%s (turniej id=%d).',
+        '[dbe] Auto-BYE: match [%s] R%d/M%d -> CMP, winner=%s (tournament id=%d).',
         bracket_match.bracket_type, bracket_match.round_number, bracket_match.match_index,
         winner.display_name, tournament.pk,
     )
 
-    # Propaguj awans rekurencyjnie
     advance_dbe_match(bracket_match, tournament)
 
 
 def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
     """
-    Umieszcza przegranego z meczu WB w odpowiednim meczu losers bracket.
-
-    Przypadki:
-    - WB Final (round == wb_total_rounds): przegrany trafia do LB Final
-      (ostatnia runda LB = 2*(wb_total_rounds-1), match_index=1, slot=p2)
-    - Pozostałe rundy WB: oblicz LB round i index z mapowania standardowego DBE
+    Place WB loser to LB.
     """
     from apps.tournaments.models import TournamentsMatch
     BT = TournamentsMatch.BracketType
@@ -678,10 +653,8 @@ def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
     wb_index = match.match_index
 
     if wb_round == wb_total_rounds:
-        # WB Final loser → LB Final (slot participant2, zwycięzca LB konsolidacji już w p1)
-        lb_final_round = 2 * (wb_total_rounds - 1)
+        lb_final_round = 2 * wb_total_rounds - 2
         if lb_final_round < 1:
-            # Edge case: bracket_size=2 (1 mecz WB, brak LB) → brak LB
             return
         lb_match, created = _get_or_create_bracket_match(
             tournament=match.tournament,
@@ -689,20 +662,36 @@ def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
             round_number=lb_final_round,
             match_index=1,
         )
-        changed = _set_match_slot(lb_match, 'participant2', loser)
+        changed = _set_match_slot(lb_match, 'participant1', loser)
         if not created and changed:
-            lb_match.save(update_fields=['participant2'])
+            lb_match.save(update_fields=['participant1'])
         elif created:
-            lb_match.save(update_fields=['participant2'])
+            lb_match.save(update_fields=['participant1'])
         logger.info(
-            '[dbe] WB Final przegrany %s → LB Final (R%d/M1, slot p2), turniej id=%d.',
+            '[dbe] WB Final loser %s -> LB Final (R%d/M1, slot p1), tournament id=%d.',
             loser.display_name, lb_final_round, match.tournament.pk,
         )
         return
 
     lb_round = _lb_round_for_wb_drop(wb_round)
-    lb_index = _lb_drop_index(wb_index, wb_round, wb_total_rounds)
-    lb_slot = _lb_drop_slot(wb_index, wb_round)
+    
+    if wb_round == 1:
+        # Krzyzowanie w R1: przeciwna polowka
+        r1_count = TournamentsMatch.objects.filter(
+            tournament=match.tournament,
+            bracket_type=BT.WINNERS,
+            round_number=1,
+        ).count()
+        half = r1_count // 2 if r1_count > 1 else 1
+        if wb_index <= half:
+            lb_index = wb_index
+            lb_slot = 'participant1'
+        else:
+            lb_index = wb_index - half
+            lb_slot = 'participant2'
+    else:
+        lb_index = _lb_drop_index(wb_index, wb_round, wb_total_rounds)
+        lb_slot = _lb_drop_slot(wb_index, wb_round)
 
     lb_match, created = _get_or_create_bracket_match(
         tournament=match.tournament,
@@ -717,42 +706,31 @@ def _advance_loser_to_lb(match, loser, wb_total_rounds: int):
         lb_match.save(update_fields=[lb_slot])
 
     logger.info(
-        '[dbe] WB_R%d/M%d przegrany %s → LB_R%d/M%d (slot %s), turniej id=%d.',
+        '[dbe] WB_R%d/M%d loser %s -> LB_R%d/M%d (slot %s), tournament id=%d.',
         wb_round, wb_index, loser.display_name,
         lb_round, lb_index, lb_slot, match.tournament.pk,
     )
 
-    # Structural BYE in LB drop-in rounds: when WB BYEs reduce the effective bracket size,
-    # some LB matches never receive one of their participants.
-    # For LB R1: p2 slot may be empty if the partner WB R1 match was a BYE.
-    # For LB R3+: p1 slot may be empty if the corresponding LB consolidation match never existed.
-    # In both cases, auto-complete the LB match so the single player can advance.
     lb_match.refresh_from_db()
     if lb_round == 1:
-        # LB R1: check if partner WB R1 loser will ever arrive (other slot)
-        _auto_complete_if_bye(lb_match, match.tournament)
-    else:
-        # LB R3+ (odd drop-in): p1 comes from LB (lb_round-1)/same_index.
-        # If that consolidation match doesn't exist, p1 will never arrive.
-        feeder_exists = TournamentsMatch.objects.filter(
+        partner_wb_index = wb_index + 1 if wb_index % 2 == 1 else wb_index - 1
+        partner_wb_match = TournamentsMatch.objects.filter(
             tournament=match.tournament,
-            bracket_type=BT.LOSERS,
-            round_number=lb_round - 1,
-            match_index=lb_index,
-        ).exists()
-        if not feeder_exists:
-            _auto_complete_if_bye(lb_match, match.tournament)
+            bracket_type=BT.WINNERS,
+            round_number=1,
+            match_index=partner_wb_index,
+        ).first()
+        if partner_wb_match:
+            is_partner_bye = partner_wb_match.status == TournamentsMatch.Status.COMPLETED.value and (
+                partner_wb_match.participant1 is None or partner_wb_match.participant2 is None
+            )
+            if is_partner_bye:
+                _auto_complete_if_bye(lb_match, match.tournament)
 
 
 def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
     """
-    Przesuwa zwycięzcę meczu losers bracket do następnej rundy LB lub do Grand Final.
-
-    LB ma 2*(wb_total_rounds-1) rund.
-    Rundy LB parzyste (konsolidacja): ceil(index/2) w następnej rundzie, p1/p2 z indeksu
-    Rundy LB nieparzyste (drop-in): indeks zachowany → następna runda parzysta
-
-    Jeśli to była ostatnia runda LB → zwycięzca wchodzi do Grand Final jako p2.
+    Advance LB winner.
     """
     from apps.tournaments.models import TournamentsMatch
     BT = TournamentsMatch.BracketType
@@ -760,25 +738,26 @@ def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
     tournament = match.tournament
     lb_round = match.round_number
     lb_index = match.match_index
-    lb_final_round = 2 * (wb_total_rounds - 1)
+    lb_final_round = 2 * wb_total_rounds - 2
 
     if lb_round >= lb_final_round:
-        # LB Final zakończony → zwycięzca do Grand Final
         _try_create_grand_final(tournament, winner_from_lb=winner, wb_total_rounds=wb_total_rounds)
         return
 
-    # Awans w LB
     next_lb_round = lb_round + 1
 
-    if lb_round % 2 == 0:
-        # Runda parzysta (konsolidacja) → następna runda nieparzysta (drop-in)
-        # Indeks zachowany — czekamy na przegranego WB
-        next_lb_index = lb_index
-        next_lb_slot = 'participant1'
+    if lb_round % 2 != 0:
+        # Odwracanie parowania przy przejściu z nieparzystej do parzystej
+        m_count = TournamentsMatch.objects.filter(
+            tournament=tournament,
+            bracket_type=BT.LOSERS,
+            round_number=lb_round,
+        ).count()
+        next_lb_index = m_count - lb_index + 1 if m_count >= lb_index else lb_index
+        next_lb_slot = 'participant2'
     else:
-        # Runda nieparzysta (drop-in lub R1) → następna parzysta (konsolidacja)
         next_lb_index = math.ceil(lb_index / 2)
-        next_lb_slot = _participant_slot(lb_index)
+        next_lb_slot = 'participant1' if lb_index % 2 == 1 else 'participant2'
 
     lb_next, created = _get_or_create_bracket_match(
         tournament=tournament,
@@ -793,30 +772,10 @@ def _advance_winner_in_lb(match, winner, wb_total_rounds: int):
         lb_next.save(update_fields=[next_lb_slot])
 
     logger.info(
-        '[dbe] LB_R%d/M%d zwycięzca %s → LB_R%d/M%d (slot %s), turniej id=%d.',
+        '[dbe] LB_R%d/M%d winner %s -> LB_R%d/M%d (slot %s), tournament id=%d.',
         lb_round, lb_index, winner.display_name,
         next_lb_round, next_lb_index, next_lb_slot, tournament.pk,
     )
-
-    # Structural BYE propagation: when advancing into a consolidation round (even LB round),
-    # the other slot is fed by the partner LB match from the previous odd round.
-    # If that partner match never existed (because its WB R1 feeders were all BYEs),
-    # the slot will never be filled → auto-complete the next LB match now.
-    if next_lb_round % 2 == 0:
-        # Determine which LB match feeds the other slot
-        if next_lb_slot == 'participant1':
-            partner_lb_index = lb_index + 1  # even index partner
-        else:
-            partner_lb_index = lb_index - 1  # odd index partner
-        partner_exists = TournamentsMatch.objects.filter(
-            tournament=tournament,
-            bracket_type=BT.LOSERS,
-            round_number=lb_round,
-            match_index=partner_lb_index,
-        ).exists()
-        if not partner_exists:
-            lb_next.refresh_from_db()
-            _auto_complete_if_bye(lb_next, tournament)
 
 
 def _try_create_grand_final(tournament, winner_from_lb=None, winner_from_wb=None, wb_total_rounds: int = 0):
