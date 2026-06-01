@@ -259,7 +259,7 @@ VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY')
 # Ensure logs directory exists
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
+    os.makedirs(LOG_DIR, exist_ok=True)
 
 # List of apps to log separately
 LOGGED_APPS = [

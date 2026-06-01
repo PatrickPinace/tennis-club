@@ -9,11 +9,11 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Kopiuj manifesty i instaluj zależności (warstwa cache)
-COPY frontend-astro/package.json frontend-astro/package-lock.json ./
+COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --ignore-scripts
 
 # Kopiuj kod źródłowy
-COPY frontend-astro/ ./
+COPY frontend/ ./
 
 # Zbuduj z prefiksem /astro/
 # BASE_URL jest używane przez Astro statically — musi być znane przy buildzie
