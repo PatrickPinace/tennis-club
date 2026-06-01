@@ -21,6 +21,8 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     set1_p1_score: number|null; set1_p2_score: number|null;
     set2_p1_score: number|null; set2_p2_score: number|null;
     set3_p1_score: number|null; set3_p2_score: number|null;
+    round_number?: number; match_index?: number; bracket_type?: string;
+    scheduled_time?: string | null;
   };
   type PPart = { id: number; user_id: number | null };
 
@@ -59,15 +61,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
       const list = document.getElementById('player-matches-list');
       if (!list) return;
 
-      function spinner(name: string, val: string): string {
-        return `<div class="org-score-spinner">
-          <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-          <input class="org-set-input" type="number" min="0" max="99"
-            name="${name}" placeholder="—" value="${val}">
-          <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-        </div>`;
-      }
-
       function renderMatchCard(m: PMatch): string {
         const p1 = escHtml(m.participant1_name ?? '—');
         const p2 = escHtml(m.participant2_name ?? '—');
@@ -87,9 +80,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           return `<div class="org-set-group">
             <div class="org-set-label">Set ${s}</div>
             <div class="org-set-inputs">
-              ${spinner(`set${s}_p1`, v1)}
+              <input class="org-set-input" type="number" min="0" max="99"
+                name="set${s}_p1" placeholder="—" value="${v1}">
               <span class="org-set-sep">:</span>
-              ${spinner(`set${s}_p2`, v2)}
+              <input class="org-set-input" type="number" min="0" max="99"
+                name="set${s}_p2" placeholder="—" value="${v2}">
             </div>
           </div>`;
         }).join('');
@@ -98,7 +93,8 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           <div class="org-wdr-section">
             <label class="org-wdr-label">
               <input type="checkbox" class="org-wdr-checkbox ps-wdr-cb" data-match-id="${m.id}">
-              Walkover — ktoś się wycofuje
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="color:var(--danger,#ef4444);opacity:0.7;"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              Walkover (WDR)
             </label>
             <div class="org-wdr-winner" style="display:none;">
               <label style="font-size:0.78rem;color:var(--text-muted);">Kto się wycofuje:</label>
@@ -110,11 +106,20 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             </div>
           </div>` : '';
 
+        const stVal = m.scheduled_time
+          ? (() => { try { return new Date(m.scheduled_time!).toISOString().slice(0,16); } catch { return ''; } })()
+          : '';
+
         const form = (!isCnc) ? `
           <form class="org-score-form" data-match-id="${m.id}"
             data-p1-id="${m.participant1_id ?? ''}" data-p2-id="${m.participant2_id ?? ''}">
             <div class="org-form-row ps-sets-wrap">
               <div class="org-sets-row">${setsHtml}</div>
+              <div class="org-scheduled-group">
+                <div class="org-scheduled-label">Termin</div>
+                <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
+                  name="scheduled_time" value="${stVal}">
+              </div>
             </div>
             ${wdrSection}
             <div class="org-form-actions">
@@ -130,13 +135,37 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           (!isDone && !isCnc) ? 'org-match--pending' : '',
         ].filter(Boolean).join(' ');
 
+        const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
+        const roundLabel = m.bracket_type === 'GF'
+          ? `GF M${m.match_index}`
+          : m.round_number != null && m.match_index != null
+            ? `${bracketPrefix}R${m.round_number} M${m.match_index}`
+            : '';
+
+        const statusBadge = m.status === 'CMP'
+          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
+          : m.status === 'WDR'
+            ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
+            : m.status === 'CNC'
+              ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
+              : m.status === 'INP'
+                ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
+                : m.status === 'SCH'
+                  ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
+                  : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
           <div class="org-match-header">
             <div class="org-match-meta">
-              <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+              ${roundLabel ? `
+              <div class="org-match-meta-top">
+                <span class="org-match-label">${roundLabel}</span>
+                <span class="org-status-mobile">${statusBadge}</span>
+              </div>` : ''}
+              <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
             </div>
             <div class="org-match-right">
-              ${scoreChip}
+              ${scoreChip}<span class="org-status-desktop">${statusBadge}</span>
               ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
             </div>
           </div>
@@ -152,19 +181,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const card = header.closest<HTMLElement>('.org-match');
           if (!card || card.dataset.status === 'CNC') return;
           card.classList.toggle('is-open');
-        });
-      });
-
-      // Spinnery ▲/▼
-      list.querySelectorAll<HTMLButtonElement>('.org-spin-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const input = btn.closest('.org-score-spinner')?.querySelector<HTMLInputElement>('.org-set-input');
-          if (!input) return;
-          const cur = input.value === '' ? 0 : parseInt(input.value, 10);
-          input.value = String(btn.classList.contains('org-spin-up')
-            ? Math.min(cur + 1, 99)
-            : Math.max(cur - 1, 0));
-          input.dispatchEvent(new Event('input'));
         });
       });
 
@@ -259,9 +275,13 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const loserIdInt = loserId ? parseInt(loserId, 10) : null;
           const winnerId = loserIdInt === p1Id ? p2Id : p1Id;
 
+          const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
+          const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+
           let body: Record<string, unknown>;
           if (isWalkover) {
             body = { walkover: true, winner_participant_id: winnerId };
+            if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
           } else {
             const fd = new FormData(form);
             const scoreBody: Record<string, number|null> = {};
@@ -285,6 +305,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             }
 
             body = scoreBody;
+            if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
           }
 
           btn.textContent = 'Zapisuję…';

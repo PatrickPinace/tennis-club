@@ -7,6 +7,14 @@ export function initConfigForm(cfg: OrgPanelConfig) {
   const form = document.getElementById('org-config-form') as HTMLFormElement | null;
   if (!form) return;
 
+  const accordion = document.getElementById('org-config-accordion');
+  const header = document.getElementById('org-config-accordion-header');
+  if (accordion && header) {
+    header.addEventListener('click', () => {
+      accordion.classList.toggle('is-open');
+    });
+  }
+
   const cfgEl = document.getElementById('ssr-config-data');
   if (cfgEl) {
     try {
@@ -50,6 +58,16 @@ export function initConfigForm(cfg: OrgPanelConfig) {
   });
 }
 
+function updateAccordionSummary(config: any) {
+  const badge = document.getElementById('org-config-summary-badge');
+  if (!badge) return;
+
+  const ptsWin = Number(config.points_for_win) >= 0 ? `+${config.points_for_win}` : config.points_for_win;
+  const ptsLoss = Number(config.points_for_loss) >= 0 ? `+${config.points_for_loss}` : config.points_for_loss;
+
+  badge.textContent = `Mecz: ${config.sets_to_win} sety / ${config.games_per_set} gemów · Wygrana: ${ptsWin} pkt / Przegrana: ${ptsLoss} pkt`;
+}
+
 async function handleConfigSubmit(e: Event, cfg: OrgPanelConfig) {
   e.preventDefault();
   const form = e.currentTarget as HTMLFormElement;
@@ -84,7 +102,10 @@ async function handleConfigSubmit(e: Event, cfg: OrgPanelConfig) {
       const data = await res.json();
 
       const cfgEl = document.getElementById('ssr-config-data');
-      if (cfgEl && data.config) cfgEl.textContent = JSON.stringify(data.config);
+      if (cfgEl && data.config) {
+        cfgEl.textContent = JSON.stringify(data.config);
+        updateAccordionSummary(data.config);
+      }
 
       if (data.standings) {
         renderStandingsRows(data.standings as StandingsRowRR[]);
@@ -108,3 +129,4 @@ async function handleConfigSubmit(e: Event, cfg: OrgPanelConfig) {
     if (btn) btn.disabled = false;
   }
 }
+

@@ -84,11 +84,14 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
         <div class="org-match-header">
           <div class="org-match-meta">
-            <span class="org-match-label">${roundLabel}</span>
+            <div class="org-match-meta-top">
+              <span class="org-match-label">${roundLabel}</span>
+              <span class="org-status-mobile">${statusBadge}</span>
+            </div>
             <span class="org-match-players">${m.participant1_id ? p1 : p2}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
           </div>
           <div class="org-match-right">
-            ${statusBadge}
+            <span class="org-status-desktop">${statusBadge}</span>
             <span style="font-size:0.72rem;color:var(--text-dim);margin-left:4px;">wolny los</span>
           </div>
         </div>
@@ -101,11 +104,14 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
         <div class="org-match-header">
           <div class="org-match-meta">
-            <span class="org-match-label">${roundLabel}</span>
+            <div class="org-match-meta-top">
+              <span class="org-match-label">${roundLabel}</span>
+              <span class="org-status-mobile">${statusBadge}</span>
+            </div>
             <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
           </div>
           <div class="org-match-right">
-            ${scoreChip}${timeChip}${statusBadge}
+            ${scoreChip}${timeChip}<span class="org-status-desktop">${statusBadge}</span>
           </div>
         </div>
       </div>`;
@@ -171,11 +177,6 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     <div style="font-size:0.72rem;color:var(--tc-muted);margin-bottom:8px;">
       Suma musi wynosić ${cfg.pointsPerMatch} gemów
     </div>` : `
-    <div class="org-score-players-row">
-      <span class="org-score-player-label" title="${p1}">${p1Short}</span>
-      <span class="org-score-player-label--vs">vs</span>
-      <span class="org-score-player-label" title="${p2}">${p2Short}</span>
-    </div>
     <div class="org-sets-row">
       ${[1,2,3].map(s => {
         const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
@@ -198,11 +199,14 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
       <div class="org-match-header">
         <div class="org-match-meta">
-          <span class="org-match-label">${roundLabel}</span>
+          <div class="org-match-meta-top">
+            <span class="org-match-label">${roundLabel}</span>
+            <span class="org-status-mobile">${statusBadge}</span>
+          </div>
           <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
         </div>
         <div class="org-match-right">
-          ${scoreChip}${timeChip}${statusBadge}
+          ${scoreChip}${timeChip}<span class="org-status-desktop">${statusBadge}</span>
           <span class="org-match-chevron">▼</span>
         </div>
       </div>

@@ -21,6 +21,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     participant3_name: string|null; participant4_name: string|null;
     score: string|null;
     set1_p1_score: number|null; set1_p2_score: number|null;
+    scheduled_time?: string | null;
   };
   type APart = { id: number; user_id: number|null };
 
@@ -57,15 +58,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
       const list = document.getElementById('amr-player-matches-list');
       if (!list) return;
 
-      function spinner(name: string, val: string): string {
-        return `<div class="org-score-spinner">
-          <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-          <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
-            name="${name}" placeholder="—" value="${val}">
-          <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-        </div>`;
-      }
-
       function renderCard(m: AMatch): string {
         const isDoubles = m.participant3_id != null || m.participant4_id != null;
         // AMR debel: Team A = p1+p4, Team B = p2+p3
@@ -86,6 +78,10 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           : isDone ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">WO</span>`
           : '';
 
+        const stVal = m.scheduled_time
+          ? (() => { try { return new Date(m.scheduled_time!).toISOString().slice(0,16); } catch { return ''; } })()
+          : '';
+
         const form = (!isCnc) ? `
           <form class="org-score-form amr-ps-form" data-match-id="${m.id}">
             <div class="org-form-row">
@@ -93,11 +89,18 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
                 <div class="org-set-group">
                   <div class="org-set-label">Gemy</div>
                   <div class="org-set-inputs">
-                    ${spinner('set1_p1', v1)}
+                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                      name="set1_p1" placeholder="—" value="${v1}">
                     <span class="org-set-sep">:</span>
-                    ${spinner('set1_p2', v2)}
+                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                      name="set1_p2" placeholder="—" value="${v2}">
                   </div>
                 </div>
+              </div>
+              <div class="org-scheduled-group">
+                <div class="org-scheduled-label">Termin</div>
+                <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
+                  name="scheduled_time" value="${stVal}">
               </div>
             </div>
             <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:10px;">
@@ -116,13 +119,32 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           (!isDone && !isCnc) ? 'org-match--pending' : '',
         ].filter(Boolean).join(' ');
 
+        const roundLabel = ''; // AMR matches list does not define round in simple layout, but we can keep structure consistent
+
+        const statusBadge = m.status === 'CMP'
+          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
+          : m.status === 'WDR'
+            ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
+            : m.status === 'CNC'
+              ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
+              : m.status === 'INP'
+                ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
+                : m.status === 'SCH'
+                  ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
+                  : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
           <div class="org-match-header">
             <div class="org-match-meta">
-              <span class="org-match-players">${p1}<span class="vs">vs</span>${p2}</span>
+              ${roundLabel ? `
+              <div class="org-match-meta-top">
+                <span class="org-match-label">${roundLabel}</span>
+                <span class="org-status-mobile">${statusBadge}</span>
+              </div>` : ''}
+              <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
             </div>
             <div class="org-match-right">
-              ${scoreChip}
+              ${scoreChip}<span class="org-status-desktop">${statusBadge}</span>
               ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
             </div>
           </div>
@@ -138,19 +160,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const card = header.closest<HTMLElement>('.org-match');
           if (!card || card.dataset.status === 'CNC') return;
           card.classList.toggle('is-open');
-        });
-      });
-
-      // Spinnery ▲/▼
-      list.querySelectorAll<HTMLButtonElement>('.org-spin-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const input = btn.closest('.org-score-spinner')?.querySelector<HTMLInputElement>('.org-set-input');
-          if (!input) return;
-          const cur = input.value === '' ? 0 : parseInt(input.value, 10);
-          input.value = String(btn.classList.contains('org-spin-up')
-            ? Math.min(cur + 1, pointsPerMatch)
-            : Math.max(cur - 1, 0));
-          input.dispatchEvent(new Event('input'));
         });
       });
 
@@ -184,11 +193,15 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const fd = new FormData(form);
           const g1 = fd.get('set1_p1');
           const g2 = fd.get('set1_p2');
+          const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
+          const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+
           const body = {
             set1_p1: (g1 !== null && g1 !== '') ? parseInt(g1 as string, 10) : null,
             set1_p2: (g2 !== null && g2 !== '') ? parseInt(g2 as string, 10) : null,
             set2_p1: null, set2_p2: null,
             set3_p1: null, set3_p2: null,
+            ...(scheduledTimeVal !== undefined ? { scheduled_time: scheduledTimeVal } : {}),
           };
 
           btn.disabled = true;

@@ -579,47 +579,140 @@
   }
   .view-toggle__btn:hover:not(.view-toggle__btn--active) { color: var(--tc-sub); }
 
-  /* ── Config form ─────────────────────────────────────────────────────── */
-  .org-config-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-  }
-  .org-config-group {
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .org-config-group-label {
+  /* ── Config form (Wizard Consistency) ─────────────────────────────────── */
+  .cfg-group-label {
     font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.06em; color: var(--tc-sub);
-    padding-bottom: 4px; border-bottom: 1px solid var(--tc-card-border);
-    margin-bottom: 2px;
+    letter-spacing: 0.08em; color: var(--tc-muted);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--tc-card-border-soft);
+    margin-bottom: 14px;
+    margin-top: 20px;
+    text-align: left;
+    width: 100%;
   }
-  .org-field-label {
-    display: flex; flex-direction: column; gap: 3px; align-items: center;
-    font-size: 0.78rem; color: var(--tc-sub); text-align: center;
+  .cfg-group-label:first-of-type {
+    margin-top: 0;
   }
-  .org-field-input {
-    height: 32px; padding: 0 8px;
-    font-size: 0.88rem; font-weight: 600;
+
+  .cfg-spinners-row {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin-bottom: 16px;
+    justify-content: flex-start;
+  }
+  @media (max-width: 640px) {
+    .cfg-spinners-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 16px 12px;
+    }
+  }
+  .cfg-spinner-col {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    min-width: 0;
+  }
+  .cfg-spinner-label {
+    font-size: 0.72rem; color: var(--tc-sub); text-align: center;
+    white-space: normal;
+    line-height: 1.25;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 90px;
+  }
+  .cfg-hint {
+    font-size: 0.68rem; color: var(--tc-muted); text-align: center;
+  }
+
+  .cfg-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    width: 58px;
+  }
+  .cfg-spin-btn {
+    width: 100% !important; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6rem; line-height: 1;
+    background: var(--tc-chip-bg);
     border: 1px solid var(--tc-card-border);
-    border-radius: var(--radius-sm);
-    background: var(--tc-input-bg); color: var(--tc-ink);
-    font-family: var(--font-sans);
-    transition: border-color 0.12s;
-    width: 100%; box-sizing: border-box;
+    border-radius: var(--radius-xs);
+    color: var(--tc-sub);
+    cursor: pointer; user-select: none;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
-  .org-field-input:focus {
+  .cfg-spin-btn:hover {
+    background: var(--tc-accent);
+    color: var(--tc-accent-ink);
+    border-color: var(--tc-accent);
+  }
+  .cfg-spin-btn:active { transform: scale(0.94); }
+
+  .cfg-spin-input {
+    width: 100% !important; height: 38px; text-align: center;
+    font-size: 0.85rem; font-weight: 700;
+    font-family: var(--font-mono);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-xs);
+    background: var(--tc-input-bg); color: var(--tc-ink);
     outline: none;
+    -moz-appearance: textfield; appearance: textfield;
+  }
+  .cfg-spin-input::-webkit-outer-spin-button,
+  .cfg-spin-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .cfg-spin-input:focus {
     border-color: var(--tc-accent);
     box-shadow: 0 0 0 2px var(--tc-accent-soft);
   }
-  .org-field-input:disabled {
-    opacity: 0.45; cursor: not-allowed; background: var(--tc-chip-bg);
+
+  @media (max-width: 480px) {
+    .org-accordion-summary {
+      display: none !important;
+    }
+    .cfg-spinner {
+      width: 48px !important;
+    }
+    .cfg-spin-input {
+      font-size: 0.74rem !important;
+      height: 32px !important;
+    }
+    .cfg-spin-btn {
+      height: 18px !important;
+      font-size: 0.5rem !important;
+    }
   }
-  .org-field-select { cursor: pointer; }
+
+  .cr-field {
+    display: flex; flex-direction: column; gap: 5px;
+    margin-top: 10px;
+    margin-bottom: 18px;
+    align-items: flex-start;
+  }
+  .cr-select {
+    cursor: pointer;
+    padding: 9px 12px; border-radius: var(--radius-xs);
+    border: 1px solid var(--tc-card-border);
+    background: var(--tc-input-bg); color: var(--tc-ink);
+    font-size: 0.88rem; font-family: var(--font-sans);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    width: 100%; box-sizing: border-box;
+    max-width: 320px;
+  }
+  .cr-select:focus {
+    border-color: var(--tc-accent);
+    box-shadow: 0 0 0 3px var(--tc-accent-soft);
+  }
+
+
 
   /* ── Player score entry (uczestnik wpisuje wynik meczu RR) ────────────── */
-  #player-matches-list { padding-top: 8px; }
+  #player-matches-list,
+  #sgl-player-matches-list,
+  #amr-player-matches-list {
+    padding: 0 20px 6px;
+  }
 
   /* ── Join bar (self-registration) ─────────────────────────────────────── */
   .join-bar {
@@ -800,3 +893,117 @@
     .ldr-challenge-card__actions { width: 100%; }
     .ldr-accept-btn, .ldr-reject-btn { flex: 1; text-align: center; }
   }
+
+  /* ── Accordion for Scoring Config ────────────────────────────────────────── */
+  .org-accordion {
+    border-top: 1px dashed var(--tc-card-border);
+    margin-top: 8px;
+  }
+  .org-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s ease;
+  }
+  .org-accordion-header:hover {
+    background-color: var(--tc-overlay, rgba(0,0,0,0.02));
+  }
+  .org-accordion-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+  .org-accordion-header-left .org-section-label {
+    padding: 0;
+    margin: 0;
+  }
+  .org-accordion-summary {
+    font-size: 0.72rem;
+    color: var(--tc-sub);
+    background: var(--tc-chip-bg);
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-weight: 500;
+    border: 1px solid var(--tc-card-border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70%;
+  }
+  @media (max-width: 640px) {
+    .org-accordion-header {
+      padding: 12px 16px;
+      align-items: center;
+    }
+    .org-accordion-header-left {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .org-accordion-summary {
+      white-space: normal;
+      word-break: break-word;
+      max-width: 100%;
+      margin-left: 0;
+      line-height: 1.3;
+    }
+  }
+  .org-accordion-arrow {
+    font-size: 0.65rem;
+    color: var(--tc-muted);
+    transition: transform 0.2s ease;
+    display: inline-block;
+    padding-left: 8px;
+  }
+  .org-accordion.is-open .org-accordion-arrow {
+    transform: rotate(180deg);
+  }
+  .org-accordion-content {
+    display: none;
+    animation: orgFadeIn 0.2s ease;
+  }
+  .org-accordion.is-open .org-accordion-content {
+    display: block;
+  }
+
+  @keyframes orgFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .lbl-pos {
+    color: var(--tc-win, #22c55e);
+    font-weight: 800;
+    margin-right: 2px;
+  }
+  .lbl-neg {
+    color: var(--tc-hot, #ef4444);
+    font-weight: 800;
+    margin-right: 2px;
+  }
+
+  @media (max-width: 480px) {
+    #matches-card .tc-card-header,
+    #amr-matches-card .tc-card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    #matches-card .tc-card-header > div {
+      width: 100%;
+      justify-content: space-between;
+    }
+    /* Player match lists — zmniejszony padding na telefonach (jak .org-matches-list-wrap) */
+    #player-matches-list,
+    #sgl-player-matches-list,
+    #amr-player-matches-list {
+      padding: 0 12px 6px;
+    }
+  }
+
+

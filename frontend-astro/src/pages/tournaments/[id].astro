@@ -1386,29 +1386,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                 )}
               </div>
 
-              <!-- Tabela standings (odświeżana) -->
-              <div style="padding:0 20px 4px;">
-                <div class="org-section-label">Tabela ligowa</div>
-              </div>
-              <div style="overflow-x:auto;">
-                <table class="tc-table td-standings-table" id="org-standings-table">
-                  <thead>
-                    <tr>
-                      <th style="width:36px;">#</th>
-                      <th>Gracz</th>
-                      <th class="col-num">Pkt</th>
-                      <th class="col-num">M</th>
-                      <th class="col-num">W</th>
-                      <th class="col-num">P</th>
-                      <th class="col-num">Wr%</th>
-                      <th class="col-num">Sety</th>
-                    </tr>
-                  </thead>
-                  <tbody id="org-standings-body">
-                    <tr><td colspan="8" class="org-loading">Ładowanie tabeli…</td></tr>
-                  </tbody>
-                </table>
-              </div>
+
 
               <!-- Lista meczów do wpisania wyników -->
               <div class="org-matches-header">
@@ -1428,124 +1406,140 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                 <div class="org-loading">Ładowanie meczów…</div>
               </div>
 
-              <!-- Konfiguracja RR (edycja) -->
-              <div style="padding:16px 20px 4px;">
-                <div class="org-section-label">Konfiguracja punktacji</div>
-              </div>
-              <form id="org-config-form" style="padding:0 20px 20px;" novalidate>
-                <div class="org-config-grid">
+              <!-- Konfiguracja RR (edycja) — Accordion -->
+              {tournament.config && (() => {
+                const config = tournament.config as any;
+                const ptsWin = Number(config.points_for_win) >= 0 ? `+${config.points_for_win}` : config.points_for_win;
+                const ptsLoss = Number(config.points_for_loss) >= 0 ? `+${config.points_for_loss}` : config.points_for_loss;
+                const summaryText = `Mecz: ${config.sets_to_win} sety / ${config.games_per_set} gemów · Wygrana: ${ptsWin} pkt / Przegrana: ${ptsLoss} pkt`;
+                return (
+                  <div class="org-accordion" id="org-config-accordion">
+                    <div class="org-accordion-header" id="org-config-accordion-header">
+                      <div class="org-accordion-header-left">
+                        <div class="org-section-label">Konfiguracja punktacji</div>
+                        <span class="org-accordion-summary" id="org-config-summary-badge">{summaryText}</span>
+                      </div>
+                      <span class="org-accordion-arrow">▼</span>
+                    </div>
+                    <div class="org-accordion-content" style="padding: 20px;">
+                      <form id="org-config-form" novalidate>
+                        <!-- Mechanika meczu -->
+                        <div class="cfg-group-label">Mechanika meczu</div>
+                        <div class="cfg-spinners-row">
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label" id="lbl-sets-to-win">Sety do wygrania</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="sets_to_win" min="1" max="5" step="1">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label" id="lbl-games-per-set">Gemy w secie</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="games_per_set" min="1" max="21" step="1">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label">Maks. uczestników</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="max_participants" min="2" max="128" step="1">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                        </div>
 
-                  <div class="org-config-group">
-                    <div class="org-config-group-label">Ogólne</div>
-                    <label class="org-field-label">Maks. uczestników
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="max_participants" min="2" max="128" step="1">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label" id="lbl-sets-to-win">Sety do wygrania meczu
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="sets_to_win" min="1" max="5" step="1">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label" id="lbl-games-per-set">Gemy do wygrania seta
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="games_per_set" min="1" max="21" step="1">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label">Tie-breaker (remis punktowy)
-                      <select class="org-field-input org-field-select" name="tie_breaker_priority">
-                        <option value="SETS">Bilans setów</option>
-                        <option value="GAMES">Bilans gemów</option>
-                        <option value="HEAD">Bezpośrednie spotkanie</option>
-                      </select>
-                    </label>
+                        <!-- Punkty -->
+                        <div class="cfg-group-label">Punkty</div>
+                        <div class="cfg-spinners-row">
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label">Wygrana</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_win" min="-100" max="100" step="0.5">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label">Przegrana</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_loss" min="-100" max="100" step="0.5">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label"><span class="lbl-pos">+</span> Set</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_set_win" min="-100" max="100" step="0.5">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label"><span class="lbl-neg">-</span> Set</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_set_loss" min="-100" max="100" step="0.5">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label"><span class="lbl-pos">+</span> Gem</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_gem_win" min="-100" max="100" step="0.1">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label"><span class="lbl-neg">-</span> Gem</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_gem_loss" min="-100" max="100" step="0.1">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label"><span class="lbl-pos">+</span> STB</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_win" min="-100" max="100" step="0.5">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                          <div class="cfg-spinner-col">
+                            <span class="cfg-spinner-label"><span class="lbl-neg">-</span> STB</span>
+                            <div class="cfg-spinner org-score-spinner">
+                              <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
+                              <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_loss" min="-100" max="100" step="0.5">
+                              <button type="button" class="cfg-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <!-- Rozbijanie remisów -->
+                        <div class="cfg-group-label">Rozbijanie remisów</div>
+                        <div class="cr-field">
+                          <select class="cr-select org-field-select" name="tie_breaker_priority">
+                            <option value="SETS">Bilans setów</option>
+                            <option value="GAMES">Bilans gemów</option>
+                            <option value="HEAD">Bezpośrednie spotkanie</option>
+                          </select>
+                        </div>
+
+                        <div class="org-form-actions" style="margin-top:20px;">
+                          <button type="submit" class="org-save-btn" id="org-config-save-btn">Zapisz konfigurację</button>
+                          <span class="org-form-msg" id="org-config-msg"></span>
+                        </div>
+                      </form>
+                    </div>
                   </div>
-
-                  <div class="org-config-group">
-                    <div class="org-config-group-label">Punkty za mecz</div>
-                    <label class="org-field-label">Za wygraną
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_win" min="-100" max="100" step="0.5">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label">Za przegraną
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_loss" min="-100" max="100" step="0.5">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                  </div>
-
-                  <div class="org-config-group">
-                    <div class="org-config-group-label">Punkty za sety</div>
-                    <label class="org-field-label">Za wygrany set
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_set_win" min="-100" max="100" step="0.5">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label">Za przegrany set
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_set_loss" min="-100" max="100" step="0.5">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                  </div>
-
-                  <div class="org-config-group">
-                    <div class="org-config-group-label">Punkty za gemy</div>
-                    <label class="org-field-label">Za wygrany gem
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_gem_win" min="-100" max="100" step="0.1">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label">Za przegrany gem
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_gem_loss" min="-100" max="100" step="0.1">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                  </div>
-
-                  <div class="org-config-group">
-                    <div class="org-config-group-label">Super tie-break</div>
-                    <label class="org-field-label">Za wygrany punkt (STB)
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_win" min="-100" max="100" step="0.5">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                    <label class="org-field-label">Za przegrany punkt (STB)
-                      <div class="org-score-spinner">
-                        <button type="button" class="org-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
-                        <input class="org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_loss" min="-100" max="100" step="0.5">
-                        <button type="button" class="org-spin-btn org-spin-down org-cfg-spin" tabindex="-1">▼</button>
-                      </div>
-                    </label>
-                  </div>
-
-                </div>
-
-                <div class="org-form-actions" style="margin-top:12px;">
-                  <button type="submit" class="org-save-btn" id="org-config-save-btn">Zapisz konfigurację</button>
-                  <span class="org-form-msg" id="org-config-msg"></span>
-                </div>
-              </form>
+                );
+              })()}
 
               <OrgFinishSection />
 
@@ -1584,6 +1578,9 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                     <div class="td-config-row"><span>Bonus wygr. set</span><strong>+{tournament.config.points_for_set_win} pkt</strong></div>
                     <div class="td-config-row"><span>Kara przegr. set</span><strong>{tournament.config.points_for_set_loss} pkt</strong></div>
                     <div class="td-config-row"><span>Bonus wygr. gem</span><strong>+{tournament.config.points_for_gem_win} pkt</strong></div>
+                    <div class="td-config-row"><span>Kara przegr. gem</span><strong>{tournament.config.points_for_gem_loss} pkt</strong></div>
+                    <div class="td-config-row"><span>Bonus wygr. punkt STB</span><strong>+{tournament.config.points_for_supertiebreak_win} pkt</strong></div>
+                    <div class="td-config-row"><span>Kara przegr. punkt STB</span><strong>{tournament.config.points_for_supertiebreak_loss} pkt</strong></div>
                   </div>
                 </div>
               </div>

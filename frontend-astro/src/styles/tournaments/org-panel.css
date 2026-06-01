@@ -94,6 +94,18 @@
     flex-shrink: 0;
   }
 
+  /* ── Chevron strzałka w karcie meczu — identyczna ze .org-accordion-arrow ── */
+  .org-match-chevron {
+    font-size: 0.65rem;
+    color: var(--tc-muted);
+    transition: transform 0.2s ease;
+    display: inline-block;
+    padding-left: 8px;
+  }
+  .org-match.is-open .org-match-chevron {
+    transform: rotate(180deg);
+  }
+
   /* Teksty i typografia wewnątrz karty meczu */
   .org-match-meta {
     display: flex;
@@ -102,6 +114,17 @@
     flex-wrap: wrap;
     min-width: 0;
     flex: 1;
+  }
+  .org-match-meta-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .org-status-mobile {
+    display: none !important;
+  }
+  .org-status-desktop {
+    display: inline-flex;
   }
   .org-match-label {
     font-size: 0.7rem;
@@ -175,7 +198,6 @@
   }
   .org-sets-row {
     display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
-    flex: 1;
   }
   .org-set-group {
     display: flex; flex-direction: column; gap: 6px;
@@ -796,5 +818,86 @@
   .org-finish-trigger-row .org-finish-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  /* Formularz wprowadzania wyników na telefonach */
+  .org-match-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  .org-match-players {
+    width: 100%;
+    white-space: normal;
+    font-size: 0.8rem;
+  }
+  .org-match-players .vs {
+    font-size: 0.68rem;
+  }
+  .org-match-label {
+    font-size: 0.65rem;
+  }
+  .org-status-mobile {
+    display: inline-flex !important;
+  }
+  .org-status-mobile .tc-badge {
+    font-size: 0.64rem !important;
+  }
+  .org-status-desktop {
+    display: none !important;
+  }
+
+  .org-form-row {
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .org-sets-row {
+    gap: 6px;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+  .org-set-group {
+    padding: 4px 6px;
+    gap: 4px;
+    border-radius: 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  .org-set-label {
+    font-size: 0.58rem;
+  }
+  .org-set-inputs {
+    gap: 4px;
+  }
+  .org-set-input {
+    width: 100%;
+    max-width: 38px;
+    height: 32px;
+    font-size: 0.95rem;
+    border-radius: 4px;
+  }
+  .org-set-sep {
+    font-size: 0.75rem;
+    margin: 0;
+  }
+  .org-scheduled-group {
+    width: 100%;
+  }
+  .org-datetime-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .org-wdr-winner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .org-wdr-select {
+    width: 100%;
+  }
+  .org-save-btn {
+    font-size: 0.76rem;
+    padding: 6px 14px;
+    border-radius: 6px;
   }
 }

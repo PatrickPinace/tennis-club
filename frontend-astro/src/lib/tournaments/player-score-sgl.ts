@@ -21,6 +21,8 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     set1_p1_score: number|null; set1_p2_score: number|null;
     set2_p1_score: number|null; set2_p2_score: number|null;
     set3_p1_score: number|null; set3_p2_score: number|null;
+    round_number?: number; match_index?: number; bracket_type?: string;
+    scheduled_time?: string | null;
   };
   type PPart = { id: number; user_id: number | null };
 
@@ -59,15 +61,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
       const list = document.getElementById('sgl-player-matches-list');
       if (!list) return;
 
-      function spinner(name: string, val: string): string {
-        return `<div class="org-score-spinner">
-          <button type="button" class="org-spin-btn org-spin-up" tabindex="-1">▲</button>
-          <input class="org-set-input" type="number" min="0" max="99"
-            name="${name}" placeholder="—" value="${escHtml(val)}">
-          <button type="button" class="org-spin-btn org-spin-down" tabindex="-1">▼</button>
-        </div>`;
-      }
-
       function renderMatchCard(m: PMatch): string {
         const p1 = escHtml(m.participant1_name ?? '—');
         const p2 = escHtml(m.participant2_name ?? '—');
@@ -87,18 +80,29 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           return `<div class="org-set-group">
             <div class="org-set-label">Set ${s}</div>
             <div class="org-set-inputs">
-              ${spinner(`set${s}_p1`, v1)}
+              <input class="org-set-input" type="number" min="0" max="99"
+                name="set${s}_p1" placeholder="—" value="${v1}">
               <span class="org-set-sep">:</span>
-              ${spinner(`set${s}_p2`, v2)}
+              <input class="org-set-input" type="number" min="0" max="99"
+                name="set${s}_p2" placeholder="—" value="${v2}">
             </div>
           </div>`;
         }).join('');
+
+        const stVal = m.scheduled_time
+          ? (() => { try { return new Date(m.scheduled_time!).toISOString().slice(0,16); } catch { return ''; } })()
+          : '';
 
         const form = (!isCnc) ? `
           <form class="org-score-form sgl-player-form" data-match-id="${m.id}"
             data-p1-id="${m.participant1_id ?? ''}" data-p2-id="${m.participant2_id ?? ''}">
             <div class="org-form-row">
               <div class="org-sets-row">${setsHtml}</div>
+              <div class="org-scheduled-group">
+                <div class="org-scheduled-label">Termin</div>
+                <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
+                  name="scheduled_time" value="${stVal}">
+              </div>
             </div>
             <div class="org-form-actions">
               <button type="submit" class="org-save-btn">${isDone ? 'Koryguj' : 'Zapisz wynik'}</button>
@@ -113,13 +117,37 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           (!isDone && !isCnc) ? 'org-match--pending' : '',
         ].filter(Boolean).join(' ');
 
+        const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
+        const roundLabel = m.bracket_type === 'GF'
+          ? `GF M${m.match_index}`
+          : m.round_number != null && m.match_index != null
+            ? `${bracketPrefix}R${m.round_number} M${m.match_index}`
+            : '';
+
+        const statusBadge = m.status === 'CMP'
+          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
+          : m.status === 'WDR'
+            ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
+            : m.status === 'CNC'
+              ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
+              : m.status === 'INP'
+                ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
+                : m.status === 'SCH'
+                  ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
+                  : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
           <div class="org-match-header">
             <div class="org-match-meta">
+              ${roundLabel ? `
+              <div class="org-match-meta-top">
+                <span class="org-match-label">${roundLabel}</span>
+                <span class="org-status-mobile">${statusBadge}</span>
+              </div>` : ''}
               <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
             </div>
             <div class="org-match-right">
-              ${scoreChip}
+              ${scoreChip}<span class="org-status-desktop">${statusBadge}</span>
               ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
             </div>
           </div>
@@ -138,17 +166,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         });
       });
 
-      // Spinnery ▲/▼
-      list.querySelectorAll<HTMLButtonElement>('.org-spin-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const input = btn.closest('.org-score-spinner')?.querySelector<HTMLInputElement>('.org-set-input');
-          if (!input) return;
-          const cur = input.value === '' ? 0 : parseInt(input.value, 10);
-          input.value = String(btn.classList.contains('org-spin-up')
-            ? Math.min(cur + 1, 99) : Math.max(cur - 1, 0));
-        });
-      });
-
       // Submit formularza
       list.querySelectorAll<HTMLFormElement>('.sgl-player-form').forEach(form => {
         form.addEventListener('submit', async (e) => {
@@ -162,11 +179,19 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           btn.disabled = true;
 
           const fd = new FormData(form);
-          const body: Record<string, number|null> = {};
+          const scoreBody: Record<string, number|null> = {};
           ['set1_p1','set1_p2','set2_p1','set2_p2','set3_p1','set3_p2'].forEach(k => {
             const v = fd.get(k);
-            body[k] = (v !== null && v !== '') ? parseInt(v as string, 10) : null;
+            scoreBody[k] = (v !== null && v !== '') ? parseInt(v as string, 10) : null;
           });
+
+          const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
+          const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+
+          const body = {
+            ...scoreBody,
+            ...(scheduledTimeVal !== undefined ? { scheduled_time: scheduledTimeVal } : {}),
+          };
 
           const reject = (text: string) => {
             msg.textContent = text;
