@@ -100,7 +100,7 @@ def advance_winner_in_bracket(match, tournament) -> bool:
     # Liczymy uczestników nie-BYE w turnieju (status REG/ACT/OUT, nie WDN)
     # Używamy liczby meczów w rundzie 1 jako proxy (każdy mecz R1 = 2 sloty)
     r1_matches = TournamentsMatch.objects.filter(
-        tournament=tournament, round_number=1
+        tournament=tournament, round_number=1, bracket_type=TournamentsMatch.BracketType.WINNERS
     ).count()
     # bracket_size = 2 * r1_matches (pary), total_rounds = log2(bracket_size)
     bracket_size = r1_matches * 2
@@ -272,7 +272,7 @@ def build_bracket_data(tournament) -> list[dict]:
 
     matches_map = {(m.round_number, m.match_index): m for m in matches_qs}
 
-    r1_count = sum(1 for m in matches_qs if m.round_number == 1)
+    r1_count = sum(1 for m in matches_qs if m.round_number == 1 and m.bracket_type == TournamentsMatch.BracketType.WINNERS)
     if r1_count < 1:
         # Fallback: oszacuj na podstawie aktywnych graczy
         p_count = tournament.participants.exclude(status__in=['OUT', 'WDN', 'BYE']).count()
