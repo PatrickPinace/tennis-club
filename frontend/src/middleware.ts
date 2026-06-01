@@ -55,10 +55,9 @@ export const onRequest = defineMiddleware((context, next) => {
     return context.redirect(BASE + '/dashboard');
   }
 
-  // Niezalogowany user wchodzi na chronioną trasę → /login?next=...
+  // Niezalogowany user wchodzi na chronioną trasę → /guest
   if (isPrivate && !loggedIn) {
-    const next_url = encodeURIComponent(pathname);
-    return context.redirect(`${BASE}/login?next=${next_url}`);
+    return context.redirect(`${BASE}/guest`);
   }
 
   return next();

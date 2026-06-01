@@ -4,6 +4,7 @@ interface Props {
   nextUrl: string;
   registerUrl: string;
   classicLoginUrl: string;
+  guestUrl: string;
 }
 
 function getCsrf(): string {
@@ -13,7 +14,7 @@ function getCsrf(): string {
     ?.split('=')[1] ?? '';
 }
 
-export default function LoginForm({ nextUrl, registerUrl, classicLoginUrl }: Props) {
+export default function LoginForm({ nextUrl, registerUrl, classicLoginUrl, guestUrl }: Props) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -100,6 +101,9 @@ export default function LoginForm({ nextUrl, registerUrl, classicLoginUrl }: Pro
 
       <p className="auth-footer-link" style={{ marginTop: '20px' }}>
         Nie masz konta? <a href={registerUrl}>Zarejestruj się →</a>
+      </p>
+      <p className="auth-footer-link" style={{ marginTop: '10px' }}>
+        <a href={guestUrl} style={{ color: 'var(--tc-muted)', fontSize: '0.82rem' }}>Przeglądaj turnieje i rankingi bez logowania →</a>
       </p>
       {classicLoginUrl && (
         <p className="auth-back-link">

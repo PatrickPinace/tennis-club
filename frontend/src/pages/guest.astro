@@ -1,0 +1,199 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import { url } from '@/lib/url';
+---
+
+<AppLayout title="Witaj w Tennis Club">
+  <div class="guest-wrap">
+
+    <!-- Hero -->
+    <div class="guest-hero">
+      <div class="guest-hero__icon">🎾</div>
+      <h1 class="guest-hero__title">Witaj w Tennis Club</h1>
+      <p class="guest-hero__sub">Ta sekcja dostępna jest dla zalogowanych użytkowników.<br>Możesz jednak już teraz przeglądać turnieje i rankingi — bez konta.</p>
+      <div class="guest-hero__actions">
+        <a href={url('/login')} class="tc-btn tc-btn-primary">Zaloguj się</a>
+        <a href={url('/register')} class="tc-btn tc-btn-secondary">Zarejestruj się</a>
+      </div>
+    </div>
+
+    <!-- Publiczne sekcje -->
+    <div class="guest-public">
+      <p class="guest-public__label">Dostępne bez logowania</p>
+      <div class="guest-public__cards">
+        <a href={url('/tournaments')} class="guest-card">
+          <span class="guest-card__icon">🏆</span>
+          <div>
+            <div class="guest-card__title">Turnieje</div>
+            <div class="guest-card__desc">Drabinki, wyniki, uczestnicy</div>
+          </div>
+          <span class="guest-card__arrow">→</span>
+        </a>
+        <a href={url('/rankings')} class="guest-card">
+          <span class="guest-card__icon">📊</span>
+          <div>
+            <div class="guest-card__title">Rankingi</div>
+            <div class="guest-card__desc">Tabela graczy singiel i debel</div>
+          </div>
+          <span class="guest-card__arrow">→</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Co zyskujesz po zalogowaniu -->
+    <div class="guest-perks">
+      <p class="guest-perks__label">Co zyskujesz po zalogowaniu?</p>
+      <div class="guest-perks__grid">
+        <div class="guest-perk">
+          <span class="guest-perk__icon">📅</span>
+          <div class="guest-perk__text">Rezerwuj korty i zarządzaj swoim kalendarzem gry</div>
+        </div>
+        <div class="guest-perk">
+          <span class="guest-perk__icon">⚔️</span>
+          <div class="guest-perk__text">Zapisuj wyniki meczów towarzyskich i śledź historię</div>
+        </div>
+        <div class="guest-perk">
+          <span class="guest-perk__icon">🥇</span>
+          <div class="guest-perk__text">Dołączaj do turniejów i wspinaj się w rankingu klubu</div>
+        </div>
+        <div class="guest-perk">
+          <span class="guest-perk__icon">🎯</span>
+          <div class="guest-perk__text">Twórz własne turnieje — liga, drabinka, Americano</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</AppLayout>
+
+<style>
+.guest-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* Hero */
+.guest-hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.guest-hero__icon {
+  font-size: 3rem;
+  line-height: 1;
+}
+.guest-hero__title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--tc-ink);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.guest-hero__sub {
+  font-size: 0.95rem;
+  color: var(--tc-sub);
+  line-height: 1.6;
+  max-width: 440px;
+  margin: 0;
+}
+.guest-hero__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+/* Publiczne karty */
+.guest-public__label,
+.guest-perks__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--tc-muted);
+  margin-bottom: 10px;
+}
+.guest-public__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.guest-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--tc-card-bg);
+  border: 1px solid var(--tc-card-border);
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--tc-ink);
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.guest-card:hover {
+  border-color: var(--tc-accent-border);
+  box-shadow: 0 4px 16px var(--tc-shadow-soft);
+  transform: translateY(-1px);
+}
+.guest-card__icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.guest-card__title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.guest-card__desc {
+  font-size: 0.8rem;
+  color: var(--tc-sub);
+  margin-top: 2px;
+}
+.guest-card__arrow {
+  margin-left: auto;
+  color: var(--tc-muted);
+  font-size: 1.1rem;
+}
+
+/* Perks */
+.guest-perks__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.guest-perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--tc-accent) 5%, var(--tc-card-bg));
+  border: 1px solid color-mix(in srgb, var(--tc-accent) 15%, var(--tc-card-border));
+  border-radius: 8px;
+}
+.guest-perk__icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.guest-perk__text {
+  font-size: 0.82rem;
+  color: var(--tc-sub);
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .guest-perks__grid {
+    grid-template-columns: 1fr;
+  }
+  .guest-wrap {
+    padding: 24px 12px 40px;
+    gap: 28px;
+  }
+}
+</style>

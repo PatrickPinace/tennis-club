@@ -37,7 +37,10 @@ const jsonLd = JSON.stringify([
     <div class="relative z-[2] max-w-[1200px] mx-auto px-4 max-[480px]:py-1 max-[480px]:px-0 w-full">
       <h1 class="font-serif text-[clamp(1.8rem,5vw,3rem)] max-[480px]:text-[1.0rem] font-black leading-[1.2] mb-4 max-[480px]:mb-2 text-white tracking-[-0.01em] max-[480px]:px-0">Znajdź Partnera do Gry w Tenisa Już Dziś</h1>
       <p class="text-[clamp(1rem,2vw,1.15rem)] max-[480px]:text-[0.8rem] mb-8 max-[480px]:mb-4 max-[480px]:px-5 text-white/95 max-w-[1100px] mx-auto leading-[1.5] max-[480px]:leading-[1.35] font-medium">Dołącz do naszej społeczności pasjonatów tenisa. Umawiaj się na mecze,<br class="hidden md:block">rezerwuj korty i podnoś swoje umiejętności.</p>
-
+      <div class="flex justify-center gap-3 pb-5 max-[480px]:pb-2 flex-wrap">
+        <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm !bg-[#22c55e] !border-[#22c55e] !py-3 !px-8 !text-base [text-shadow:none] hover:!bg-[#16a34a] hover:!border-[#16a34a] max-[480px]:!py-2 max-[480px]:!px-5 max-[480px]:!text-[0.85rem]">Dołącz teraz</a>
+        <a href={url('/guest')} class="tc-btn tc-btn-sm !py-3 !px-8 !text-base [text-shadow:none] !bg-white/15 !border-white/30 !text-white hover:!bg-white/25 max-[480px]:!py-2 max-[480px]:!px-5 max-[480px]:!text-[0.85rem]">Przeglądaj portal →</a>
+      </div>
     </div>
   </header>
 
