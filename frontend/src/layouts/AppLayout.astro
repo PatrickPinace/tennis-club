@@ -1,11 +1,12 @@
 ---
-// AppLayout.astro — bazowy app shell
-// Sidebar (zawsze ciemny) + Topbar + content area
 import Sidebar from '@/components/Sidebar.astro';
 import Topbar from '@/components/Topbar.astro';
 import '@/styles/global.css';
 import { url } from '@/lib/url';
 import { getCurrentUser, type CurrentUser } from '@/lib/api';
+
+const plausibleDomain = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN ?? '';
+const plausibleScriptUrl = import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT_URL ?? 'https://plausible.io/js/script.js';
 
 interface Props {
   title?: string;
@@ -52,6 +53,10 @@ const currentPath = Astro.url.pathname;
   <meta name="api-base" content={import.meta.env.PUBLIC_API_BASE_URL ?? ''} />
   <!-- Referrer-Policy: same-origin — wymagane przez Django CSRF Referer check dla HTTPS -->
   <meta name="referrer" content="same-origin" />
+
+  {plausibleDomain && (
+    <script is:inline defer data-domain={plausibleDomain} src={plausibleScriptUrl} />
+  )}
 
   <!-- Zapobiegaj FOIT: ustaw motyw PRZED renderowaniem -->
   <script is:inline>
