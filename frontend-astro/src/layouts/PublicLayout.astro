@@ -31,6 +31,8 @@ const cleanPath = BASE !== '/' ? rawPath.replace(new RegExp('^' + BASE.replace(/
 const canonicalUrl = canonical ?? (SITE + cleanPath);
 const ogImageUrl = ogImage ?? `${SITE}/og-default.png`;
 const plausibleDomain = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN ?? '';
+// Self-host: skrypt JS z naszej instancji Plausible; fallback na plausible.io dla cloud
+const plausibleScriptUrl = import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT_URL ?? 'https://plausible.io/js/script.js';
 const fullTitle = `${title} — Tennis Club`;
 ---
 
@@ -69,7 +71,7 @@ const fullTitle = `${title} — Tennis Club`;
       is:inline
       defer
       data-domain={plausibleDomain}
-      src="https://plausible.io/js/script.js"
+      src={plausibleScriptUrl}
     />
   )}
 </head>
