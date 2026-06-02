@@ -1,7 +1,7 @@
 from .models import TournamentsMatch, Tournament, MatchReaction
 from django.db.models import Q, Max
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, date
 from django.contrib.auth.models import User
 from types import SimpleNamespace
 from django.urls import reverse
@@ -144,7 +144,7 @@ def get_tournament_matches_as_friendly(user, filters=None):
             'description': f"Turniej: {match.tournament.name}",
             'match_date': (match.scheduled_time.date() if match.scheduled_time
                            else match.tournament.start_date.date() if match.tournament.start_date
-                           else timezone.now().date()),
+                           else date(2000, 1, 1)),
             'match_id': match.id, # Dodanie osobnego ID do URL
             'tournament_id': match.tournament.id, # Dodanie ID turnieju do URL
             'is_tournament': True, # Dodatkowa flaga do identyfikacji w szablonach
@@ -262,7 +262,7 @@ def get_single_tournament_match_as_friendly(match_id: int):
         p1_set3=match.set3_p1_score,
         p2_set3=match.set3_p2_score,
         match_double=is_double,
-        match_date=match.scheduled_time.date() if match.scheduled_time else match.tournament.start_date.date(),
+        match_date=match.scheduled_time.date() if match.scheduled_time else (match.tournament.start_date.date() if match.tournament.start_date else date(2000, 1, 1)),
         description=f"Turniej: {match.tournament.name}",
         is_tournament=True,
         tournament_id=match.tournament.id,
