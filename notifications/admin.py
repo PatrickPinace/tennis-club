@@ -1,10 +1,11 @@
 from django.contrib import admin
-from .models import Notifications
+from .models import Notifications, NotificationPreference
+
 
 @admin.register(Notifications)
 class NotificationsAdmin(admin.ModelAdmin):
-    list_display = ('user', 'message_preview', 'is_read', 'created_at')
-    list_filter = ('is_read', 'created_at')
+    list_display = ('user', 'message_preview', 'event_type', 'channel', 'delivery_status', 'is_read', 'created_at')
+    list_filter = ('event_type', 'channel', 'delivery_status', 'is_read', 'created_at')
     search_fields = ('user__username', 'message')
     list_select_related = ('user',)
     actions = ['mark_as_read', 'mark_as_unread']
@@ -22,3 +23,11 @@ class NotificationsAdmin(admin.ModelAdmin):
         updated = queryset.update(is_read=False)
         self.message_user(request, f"Oznaczono {updated} powiadomień jako nieprzeczytane.")
     mark_as_unread.short_description = "Oznacz wybrane jako nieprzeczytane"
+
+
+@admin.register(NotificationPreference)
+class NotificationPreferenceAdmin(admin.ModelAdmin):
+    list_display = ('user', 'event_type', 'channel', 'is_enabled')
+    list_filter = ('channel', 'event_type', 'is_enabled')
+    search_fields = ('user__username',)
+    list_select_related = ('user',)
