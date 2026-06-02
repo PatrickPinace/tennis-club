@@ -1941,6 +1941,7 @@ class TournamentParticipantView(APIView):
         if participant.status == 'WDN':
             return Response({'detail': 'Uczestnik jest już wycofany.'}, status=status.HTTP_409_CONFLICT)
 
+        participant_user = participant.user
         participant.status = 'WDN'
         participant.save(update_fields=['status'])
 
@@ -1948,6 +1949,16 @@ class TournamentParticipantView(APIView):
             '[participant] Wycofano uczestnika %s (id=%d) z turnieju "%s" (id=%d) przez %s.',
             participant.display_name, participant.pk, tournament.name, tournament.pk, request.user.username,
         )
+
+        # Powiadom uczestnika o usunięciu (guard: nie notyfikuj gdy usuwa siebie)
+        if participant_user and participant_user.pk != request.user.pk:
+            from notifications.helpers import notify
+            notify(
+                participant_user,
+                f'❌ Zostałeś wycofany z turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
+                event_type='tournament.participant.removed',
+            )
 
         return Response({
             'id': participant.pk,
