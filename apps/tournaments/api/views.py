@@ -721,13 +721,15 @@ class RoundRobinMatchScoreView(APIView):
                         f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"}. '
                         f'Wygrał: {_winner_name or "?"}.'
                     )
+                    _etype = 'tournament.match.walkover'
                 else:
                     _msg = (
                         f'📊 Wpisano wynik meczu w turnieju „{tournament.name}": '
                         f'{_p1.display_name if _p1 else "?"} vs {_p2.display_name if _p2 else "?"} — {_score_str}. '
                         f'Wygrał: {_winner_name or "?"}.'
                     )
-                notify(_slot.user, _msg, target_url=f'/tournaments/{tournament.pk}')
+                    _etype = 'tournament.match.score_entered'
+                notify(_slot.user, _msg, target_url=f'/tournaments/{tournament.pk}', event_type=_etype)
 
         # ── Odpowiedź ────────────────────────────────────────────────────────
         score_parts = []
@@ -1642,7 +1644,13 @@ class TournamentStatusView(APIView):
                 'FIN': f'🏁 Turniej „{tournament.name}" został zakończony.',
                 'CNC': f'❌ Turniej „{tournament.name}" został anulowany.',
             }
+            _etypes = {
+                'ACT': 'tournament.started',
+                'FIN': 'tournament.finished',
+                'CNC': 'tournament.cancelled',
+            }
             _msg = _msgs[new_status]
+            _etype = _etypes[new_status]
             _participants = (
                 _P.objects.filter(tournament=tournament, status__in=['ACT', 'REG'])
                 .select_related('user')
@@ -1651,7 +1659,7 @@ class TournamentStatusView(APIView):
             for _p in _participants:
                 # Nie notyfikuj organizatora o własnej akcji
                 if _p.user and _p.user.pk != request.user.pk:
-                    notify(_p.user, _msg, target_url=f'/tournaments/{tournament.pk}')
+                    notify(_p.user, _msg, target_url=f'/tournaments/{tournament.pk}', event_type=_etype)
 
         response_data = {
             'id': tournament.pk,
@@ -1891,6 +1899,7 @@ class TournamentParticipantView(APIView):
                 target_user,
                 f'🎾 Dodano Cię do turnieju „{tournament.name}".',
                 target_url=f'/tournaments/{tournament.pk}',
+                event_type='tournament.participant.added',
             )
         # Notyfikuj partnera (debel) — jeśli istnieje i jest inną osobą
         if partner_user and partner_user.pk != request.user.pk and partner_user.pk != target_user.pk:
@@ -1899,6 +1908,7 @@ class TournamentParticipantView(APIView):
                 partner_user,
                 f'🎾 Dodano Cię do turnieju „{tournament.name}".',
                 target_url=f'/tournaments/{tournament.pk}',
+                event_type='tournament.participant.added',
             )
 
         return Response({
@@ -2031,6 +2041,18 @@ class TournamentJoinView(APIView):
             '[join] Użytkownik %s zapisał się do turnieju "%s" (id=%d).',
             user.username, tournament.name, tournament.pk,
         )
+
+        # Powiadom organizatora (guard: nie notyfikuj gdy organizator zapisuje siebie)
+        organizer = tournament.created_by
+        if organizer and organizer.pk != user.pk:
+            from notifications.helpers import notify
+            _display = user.get_full_name().strip() or user.username
+            notify(
+                organizer,
+                f'🎾 {_display} zapisał się do turnieju „{tournament.name}".',
+                target_url=f'/tournaments/{tournament.pk}',
+                event_type='tournament.participant.joined',
+            )
 
         return Response({
             'id': participant.pk,
@@ -2657,6 +2679,7 @@ class LadderChallengeView(APIView):
                 f'🎾 {challenger.display_name} rzucił Ci wyzwanie w turnieju „{tournament.name}". '
                 f'Zaakceptuj lub odrzuć wyzwanie.',
                 target_url=f'/tournaments/{tournament.pk}',
+                event_type='tournament.ladder.challenge_sent',
             )
 
         return Response({
@@ -2749,6 +2772,7 @@ class LadderChallengeActionView(APIView):
                     f'✅ {challenged.display_name if challenged else "Przeciwnik"} zaakceptował Twoje wyzwanie '
                     f'w turnieju „{tournament.name}". Czas grać!',
                     target_url=f'/tournaments/{tournament.pk}',
+                    event_type='tournament.ladder.challenge_accepted',
                 )
             return Response({
                 'match_id': match.pk,
@@ -2780,6 +2804,7 @@ class LadderChallengeActionView(APIView):
                 f'❌ {challenged.display_name if challenged else "Przeciwnik"} odrzucił Twoje wyzwanie '
                 f'w turnieju „{tournament.name}".',
                 target_url=f'/tournaments/{tournament.pk}',
+                event_type='tournament.ladder.challenge_rejected',
             )
         return Response({
             'match_id': match.pk,

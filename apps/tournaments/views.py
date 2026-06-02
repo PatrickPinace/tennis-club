@@ -912,7 +912,7 @@ def request_join(request, pk):
 
     organizer = tournament.created_by
     notification_message = f'Użytkownik {display_name} poprosił o dołączenie do turnieju "{tournament.name}".'
-    notify(organizer, notification_message, target_url=f'/tournaments/{tournament.pk}')
+    notify(organizer, notification_message, target_url=f'/tournaments/{tournament.pk}', event_type='tournament.participant.joined')
 
     return redirect('tournaments:manage')
 
@@ -2096,7 +2096,7 @@ def create_challenge_match(request, pk):
     
     if challenged.user:
         notification_message = f"Gracz {challenger.display_name} rzucił Ci wyzwanie w turnieju '{tournament.name}'."
-        notify(challenged.user, notification_message, target_url=f'/tournaments/{tournament.pk}')
+        notify(challenged.user, notification_message, target_url=f'/tournaments/{tournament.pk}', event_type='tournament.ladder.challenge_sent')
 
     return redirect('tournaments:details_ladder', pk=tournament.pk)
 
@@ -2148,7 +2148,7 @@ def cancel_challenge(request, pk, match_pk):
     messages.success(request, success_message)
 
     if other_party_user:
-        notify(other_party_user, notification_message, target_url=f'/tournaments/{tournament.pk}')
+        notify(other_party_user, notification_message, target_url=f'/tournaments/{tournament.pk}', event_type='tournament.ladder.challenge_rejected')
 
     return redirect('tournaments:details_ladder', pk=tournament.pk)
 

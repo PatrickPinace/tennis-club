@@ -245,6 +245,7 @@ class CreateReservationView(APIView):
                     _owner,
                     f'🎾 Nowa rezerwacja od {_user_name} ({_court_label}, {_date_str}) oczekuje na Twoją akceptację.',
                     target_url='/courts/reservations',
+                    event_type='court.reservation.created',
                 )
 
             return Response({
@@ -316,6 +317,7 @@ class CreateReservationView(APIView):
                 _owner,
                 f'🎾 Nowa seria {len(reservations)} rezerwacji od {_user_name} ({_court_label}, pierwsza: {_first_str}) oczekuje na akceptację.',
                 target_url='/courts/reservations',
+                event_type='court.reservation.created',
             )
 
         return Response({
@@ -382,6 +384,7 @@ class CancelReservationView(APIView):
                 _owner,
                 f'❌ {_user_name} anulował rezerwację ({_court_label}, {_date_str}).',
                 target_url='/courts/reservations',
+                event_type='court.reservation.cancelled',
             )
 
         return Response(status=http_status.HTTP_204_NO_CONTENT)
@@ -491,12 +494,14 @@ class ReservationStatusView(APIView):
                     reservation.user,
                     f'✅ Twoja rezerwacja ({_court_label}, {_date_str}) została potwierdzona.',
                     target_url='/courts/reservations',
+                    event_type='court.reservation.accepted',
                 )
             else:
                 notify(
                     reservation.user,
                     f'❌ Twoja rezerwacja ({_court_label}, {_date_str}) została odrzucona.',
                     target_url='/courts/reservations',
+                    event_type='court.reservation.rejected',
                 )
 
         return Response({
@@ -554,6 +559,7 @@ class CancelSeriesView(APIView):
                 _owner,
                 f'❌ {_user_name} anulował serię {count} rezerwacji ({_court_label}, pierwsza: {_first_str}).',
                 target_url='/courts/reservations',
+                event_type='court.reservation.cancelled',
             )
 
         return Response({'cancelled': count}, status=http_status.HTTP_200_OK)

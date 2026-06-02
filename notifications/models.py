@@ -19,6 +19,7 @@ EVENT_TYPES = (
     ('tournament.ladder.challenge_sent', 'Wyzwanie wysłane'),
     ('tournament.ladder.challenge_accepted', 'Wyzwanie zaakceptowane'),
     ('tournament.ladder.challenge_rejected', 'Wyzwanie odrzucone'),
+    ('tournament.participant.joined', 'Uczestnik dołączył samodzielnie'),
 )
 
 CHANNEL_CHOICES = (
