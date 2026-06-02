@@ -204,14 +204,14 @@ const reservationItems: ActivityItem[] = rawReservations
     };
   });
 
-// Scal, posortuj malejąco po timestamp, ogranicz do 10 wpisów
+// Scal, posortuj malejąco po timestamp, ogranicz do 6 wpisów (maks. 3 per typ)
 const recentActivity: ActivityItem[] = [
-  ...matchItems,
-  ...notifItems,
-  ...reservationItems,
+  ...matchItems.slice(0, 3),
+  ...notifItems.slice(0, 3),
+  ...reservationItems.slice(0, 3),
 ]
   .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  .slice(0, 10);
+  .slice(0, 6);
 
 // ── Moje mecze — statystyki z historii meczów (spójne z "Ostatnią aktywnością") ─
 const matchesPlayed = matchHistoryRaw.length;
