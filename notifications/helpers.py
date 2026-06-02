@@ -32,12 +32,25 @@ def notify(
         return
     try:
         from django.utils import timezone
-        from notifications.models import Notifications
+        from notifications.models import Notifications, NotificationPreference
+        from notifications.preferences import group_key_for_event
+
+        resolved_type = event_type or 'generic'
+
+        # Sprawdź preferencje użytkownika — jeśli wyłączone, nie twórz notyfikacji
+        canonical = group_key_for_event(resolved_type)
+        if canonical:
+            pref = NotificationPreference.objects.filter(
+                user=user, event_type=canonical, channel='inapp'
+            ).only('is_enabled').first()
+            if pref is not None and not pref.is_enabled:
+                return
+
         Notifications.objects.create(
             user=user,
             message=message[:255],
             target_url=target_url[:500] if target_url else None,
-            event_type=event_type or 'generic',
+            event_type=resolved_type,
             channel='inapp',
             delivery_status='delivered',
             sent_at=timezone.now(),

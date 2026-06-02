@@ -6,6 +6,7 @@ export const prerender = false;
 import AppLayout from '@/layouts/AppLayout.astro';
 import PageHeader from '@/components/PageHeader.astro';
 import NotificationsList from '@/components/NotificationsList.tsx';
+import NotificationPreferences from '@/components/NotificationPreferences.tsx';
 import { getAllNotifications, getCurrentUser } from '@/lib/api';
 import { url } from '@/lib/url';
 
@@ -39,6 +40,7 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
       notifications={notifications}
       initialUnread={unreadCount}
     />
+    <NotificationPreferences client:load />
   </div>
 </div>
 </AppLayout>
@@ -169,5 +171,116 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
   @media (max-width: 480px) {
     .notif-item { padding: 12px 16px; }
     .notif-item--unread { padding-left: 13px; }
+  }
+
+  /* ── Preferences ─────────────────────────────────────────────── */
+  .pref-wrap {
+    margin-top: 32px;
+  }
+  .pref-header {
+    margin-bottom: 12px;
+  }
+  .pref-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--tc-ink);
+    margin: 0 0 4px;
+  }
+  .pref-sub {
+    font-size: 0.82rem;
+    color: var(--tc-sub);
+    margin: 0;
+  }
+  .pref-card {
+    padding: 0;
+    overflow: hidden;
+  }
+  .pref-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+  }
+  .pref-row--border {
+    border-bottom: 1px solid var(--tc-card-border);
+  }
+  .pref-row__text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+  .pref-row__label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--tc-ink);
+  }
+  .pref-row__desc {
+    font-size: 0.78rem;
+    color: var(--tc-sub);
+    line-height: 1.4;
+  }
+
+  /* Toggle switch */
+  .pref-toggle {
+    flex-shrink: 0;
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    border: none;
+    background: var(--tc-chip-bg);
+    position: relative;
+    cursor: pointer;
+    transition: background 0.18s;
+    outline: none;
+  }
+  .pref-toggle:focus-visible {
+    box-shadow: 0 0 0 2px var(--tc-accent);
+  }
+  .pref-toggle--on {
+    background: var(--tc-accent);
+  }
+  .pref-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .pref-toggle__knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform 0.18s;
+    pointer-events: none;
+  }
+  .pref-toggle--on .pref-toggle__knob {
+    transform: translateX(20px);
+  }
+
+  /* Status feedback */
+  .pref-status {
+    margin-top: 10px;
+    font-size: 0.78rem;
+    min-height: 18px;
+    color: transparent;
+    transition: color 0.15s;
+  }
+  .pref-status--saving { color: var(--tc-sub); }
+  .pref-status--saved  { color: var(--tc-accent); }
+  .pref-status--error  { color: var(--tc-danger, #ef4444); }
+
+  .pref-loading {
+    font-size: 0.82rem;
+    color: var(--tc-sub);
+    padding: 16px 0;
+  }
+
+  @media (max-width: 480px) {
+    .pref-row { padding: 12px 16px; gap: 12px; }
   }
 </style>
