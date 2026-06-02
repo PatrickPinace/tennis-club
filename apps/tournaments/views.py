@@ -21,7 +21,7 @@ from .tools import (calculate_round_robin_standings, calculate_americano_standin
 from .swiss_logic import (generate_swiss_matches_initial, generate_next_swiss_round, 
                           get_participant_standings_swiss)
 
-from notifications.views import add_notification, notify_user
+from notifications.helpers import notify
 from chats.forms import MessageForm
 from chats.models import TournamentMatchChatMessage, TournamentMatchChatImage
 
@@ -912,7 +912,7 @@ def request_join(request, pk):
 
     organizer = tournament.created_by
     notification_message = f'Użytkownik {display_name} poprosił o dołączenie do turnieju "{tournament.name}".'
-    notify_user(organizer, notification_message, 'info')
+    notify(organizer, notification_message, target_url=f'/tournaments/{tournament.pk}')
 
     return redirect('tournaments:manage')
 
@@ -2096,7 +2096,7 @@ def create_challenge_match(request, pk):
     
     if challenged.user:
         notification_message = f"Gracz {challenger.display_name} rzucił Ci wyzwanie w turnieju '{tournament.name}'."
-        notify_user(challenged.user, notification_message, 'info')
+        notify(challenged.user, notification_message, target_url=f'/tournaments/{tournament.pk}')
 
     return redirect('tournaments:details_ladder', pk=tournament.pk)
 
@@ -2148,7 +2148,7 @@ def cancel_challenge(request, pk, match_pk):
     messages.success(request, success_message)
 
     if other_party_user:
-        notify_user(other_party_user, notification_message, 'warning')
+        notify(other_party_user, notification_message, target_url=f'/tournaments/{tournament.pk}')
 
     return redirect('tournaments:details_ladder', pk=tournament.pk)
 

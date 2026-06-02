@@ -10,7 +10,7 @@ from .models import Profile
 from .forms import ProfileUpdateForm, UserUpdateForm, PasswordChangeForm, UserRegisterForm
 
 logger = logging.getLogger(__name__)
-from notifications.views import add_notification
+
 
 
 @login_required

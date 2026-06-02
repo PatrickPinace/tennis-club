@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404, HttpResponseRedirect
 from django.core.exceptions import PermissionDenied
 from .models import TennisFacility, Court, Reservation
 from .forms import ReservationForm, TennisFacilityForm, CourtForm
-from notifications.views import notify_user
+from notifications.helpers import notify
 from collections import defaultdict
 
 
@@ -305,7 +305,7 @@ class CreateReservationView(LoginRequiredMixin, CreateView):
             # Powiadomienie dla właściciela o nowej rezerwacji
             owner = reservation.court.facility.owner
             message = f"Nowa rezerwacja od {self.request.user.get_full_name()} na korcie nr {reservation.court.court_number} oczekuje na Twoją akceptację."
-            notify_user(owner, message)
+            notify(owner, message, target_url='/courts/reservations')
         
         return True
 
@@ -418,10 +418,10 @@ class UpdateReservationStatusView(LoginRequiredMixin, UserPassesTestMixin, View)
         # Logika powiadomień
         if new_status == 'CONFIRMED' and request.user == owner:
             message = f"Twoja rezerwacja na korcie '{reservation.court}' w dniu {reservation.start_time.strftime('%d.%m.%Y %H:%M')} została potwierdzona."
-            notify_user(user_to_notify, message)
+            notify(user_to_notify, message, target_url='/courts/reservations')
         elif new_status == 'REJECTED' and request.user == owner:
             message = f"Twoja rezerwacja na korcie '{reservation.court}' w dniu {reservation.start_time.strftime('%d.%m.%Y %H:%M')} została odrzucona."
-            notify_user(user_to_notify, message)
+            notify(user_to_notify, message, target_url='/courts/reservations')
         
         reservation.status = kwargs['status']
         reservation.save()
@@ -457,10 +457,10 @@ class DeleteReservationView(LoginRequiredMixin, UserPassesTestMixin, DeleteView)
 
         if self.request.user == owner and reservation.user != owner:
             message = f"Twoja rezerwacja na korcie '{reservation.court}' z dnia {reservation.start_time.strftime('%d.%m.%Y %H:%M')} została usunięta przez właściciela."
-            notify_user(reservation.user, message)
+            notify(reservation.user, message, target_url='/courts/reservations')
         elif self.request.user == reservation.user and reservation.status in ['PENDING', 'CONFIRMED']:
             message = f"Użytkownik {self.request.user.get_full_name()} anulował swoją rezerwację na korcie '{reservation.court}' na dzień {reservation.start_time.strftime('%d.%m.%Y %H:%M')}."
-            notify_user(owner, message)
+            notify(owner, message, target_url='/courts/reservations')
 
         return super().form_valid(form)
 
