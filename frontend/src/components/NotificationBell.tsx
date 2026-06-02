@@ -161,30 +161,26 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
             {!loading && notifications && notifications.length === 0 && (
               <div className="topbar__notif-empty">Brak powiadomień.</div>
             )}
-            {!loading && notifications && notifications.length > 0 && (
-              <>
-                {notifications.map(n => (
-                  <div
-                    key={n.id}
-                    className={`topbar__notif-item${n.is_read ? '' : ' topbar__notif-item--unread'}${n.target_url ? ' topbar__notif-item--link' : ''}`}
-                    onClick={() => handleItemClick(n)}
-                    style={{ cursor: (n.target_url || !n.is_read) ? 'pointer' : 'default' }}
-                    role={n.target_url ? 'link' : undefined}
-                    tabIndex={n.target_url ? 0 : undefined}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleItemClick(n); }}
-                  >
-                    <div className="topbar__notif-dot" />
-                    <div className="topbar__notif-body">
-                      <p className="topbar__notif-msg" dangerouslySetInnerHTML={{ __html: escHtml(n.message) }} />
-                      <time className="topbar__notif-time">{fmtTime(n.created_at)}</time>
-                    </div>
-                  </div>
-                ))}
-                <div className="topbar__notif-footer">
-                  <a href={notificationsUrl}>Zobacz wszystkie powiadomienia →</a>
+            {!loading && notifications && notifications.length > 0 && notifications.map(n => (
+              <div
+                key={n.id}
+                className={`topbar__notif-item${n.is_read ? '' : ' topbar__notif-item--unread'}${n.target_url ? ' topbar__notif-item--link' : ''}`}
+                onClick={() => handleItemClick(n)}
+                style={{ cursor: (n.target_url || !n.is_read) ? 'pointer' : 'default' }}
+                role={n.target_url ? 'link' : undefined}
+                tabIndex={n.target_url ? 0 : undefined}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') handleItemClick(n); }}
+              >
+                <div className="topbar__notif-dot" />
+                <div className="topbar__notif-body">
+                  <p className="topbar__notif-msg" dangerouslySetInnerHTML={{ __html: escHtml(n.message) }} />
+                  <time className="topbar__notif-time">{fmtTime(n.created_at)}</time>
                 </div>
-              </>
-            )}
+              </div>
+            ))}
+          </div>
+          <div className="topbar__notif-footer">
+            <a href={notificationsUrl}>Zobacz wszystkie powiadomienia →</a>
           </div>
         </div>
       )}

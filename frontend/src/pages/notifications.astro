@@ -35,12 +35,16 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
   />
 
   <div class="notif-wrap">
-    <NotificationsList
-      client:load
-      notifications={notifications}
-      initialUnread={unreadCount}
-    />
-    <NotificationPreferences client:load />
+    <div class="notif-col-main">
+      <NotificationsList
+        client:load
+        notifications={notifications}
+        initialUnread={unreadCount}
+      />
+    </div>
+    <div class="notif-col-side">
+      <NotificationPreferences client:load />
+    </div>
   </div>
 </div>
 </AppLayout>
@@ -48,6 +52,25 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
 <style is:global>
   .notif-wrap {
     padding: 0 var(--page-px, 28px) 40px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 24px;
+    align-items: start;
+  }
+  .notif-col-side {
+    position: sticky;
+    top: 80px;
+  }
+  .notif-col-side .pref-wrap {
+    margin-top: 0;
+  }
+  @media (max-width: 768px) {
+    .notif-wrap {
+      grid-template-columns: 1fr;
+    }
+    .notif-col-side {
+      position: static;
+    }
   }
 
   .notif-empty {
