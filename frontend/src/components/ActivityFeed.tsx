@@ -1,19 +1,23 @@
-// ActivityFeed.tsx — React island: activity feed z filtrami (dziś/tydzień/miesiąc)
-// Zastępuje vanilla JS z dashboard.astro — ten sam wygląd, zero zmian wizualnych.
-// Używa istniejących klas CSS z dashboard.astro <style> (BEM: activity-*, dash-*).
+// ActivityFeed.tsx — React island: mixed activity feed z filtrami (dziś/tydzień/miesiąc)
+// Typy aktywności: mecze (match), powiadomienia turniejowe (notification), rezerwacje (reservation).
+// Normalizacja do wspólnego FeedItem — reużywalne dla przyszłej strony /activity.
+// CSS z dashboard.astro <style is:global> (BEM: activity-*, dash-*).
 
 import { useState, useMemo } from 'react';
 
 // ── Typy ────────────────────────────────────────────────────────────────────
 
-interface ActivityItem {
-  type: string;
+export type FeedKind = 'match' | 'notification' | 'reservation';
+
+export interface ActivityItem {
+  kind: FeedKind;
   title: string;
   desc: string;
   score: string;
   time: string;
-  timestamp: string;
+  timestamp: string;  // ISO string lub "YYYY-MM-DD" — do sortowania i filtrowania
   result: 'win' | 'loss' | 'neutral';
+  href?: string;      // opcjonalny deep-link
 }
 
 interface Props {
@@ -34,8 +38,8 @@ const FILTERS: { id: Period; label: string }[] = [
 
 const EMPTY_LABELS: Record<Period, [string, string]> = {
   today: ['Brak aktywności dziś', 'Nic się nie wydarzyło jeszcze dzisiaj.'],
-  week:  ['Brak aktywności w tym tygodniu', 'Tu pojawią się mecze z ostatnich 7 dni.'],
-  month: ['Brak aktywności w tym miesiącu', 'Tu pojawią się mecze z ostatnich 30 dni.'],
+  week:  ['Brak aktywności w tym tygodniu', 'Tu pojawią się zdarzenia z ostatnich 7 dni.'],
+  month: ['Brak aktywności w tym miesiącu', 'Tu pojawią się zdarzenia z ostatnich 30 dni.'],
 };
 
 function parseLocalDate(s: string): number {
@@ -73,6 +77,14 @@ function bestPeriod(items: ActivityItem[]): Period {
   return 'month';
 }
 
+// ── Badge per typ aktywności ────────────────────────────────────────────────
+
+const KIND_BADGE: Record<FeedKind, { label: string; cls: string }> = {
+  match:        { label: 'Mecz',     cls: 'af-badge--match' },
+  notification: { label: 'Turniej',  cls: 'af-badge--notif' },
+  reservation:  { label: 'Kort',     cls: 'af-badge--court' },
+};
+
 // ── Komponent ───────────────────────────────────────────────────────────────
 
 export default function ActivityFeed({ items, matchesUrl, tournamentsUrl }: Props) {
@@ -85,7 +97,7 @@ export default function ActivityFeed({ items, matchesUrl, tournamentsUrl }: Prop
     <div className="dash-card" aria-labelledby="activity-heading">
       {/* Header */}
       <div className="dash-section-header">
-        <h2 className="dash-section-title" id="activity-heading">Aktywność</h2>
+        <h2 className="dash-section-title" id="activity-heading">Ostatnia aktywność</h2>
         <div className="activity-seg" role="group" aria-label="Filtruj aktywność">
           {FILTERS.map(f => (
             <button
@@ -117,24 +129,36 @@ export default function ActivityFeed({ items, matchesUrl, tournamentsUrl }: Prop
         </div>
       ) : (
         <ul className="activity-list" role="list">
-          {filtered.map((item, i) => (
-            <li key={`${item.timestamp}-${i}`} className="activity-item">
-              <div className={`activity-dot activity-dot--${item.result}`} aria-hidden="true" />
-              <div className="activity-item__body">
-                <div className="activity-item__title">{item.title}</div>
-                <div className="activity-item__desc">
-                  {item.desc}
-                  {item.score && item.score !== '—' && (
-                    <>
-                      <span className="activity-item__sep">·</span>
-                      <span className="activity-item__score">{item.score}</span>
-                    </>
-                  )}
+          {filtered.map((item, i) => {
+            const badge = KIND_BADGE[item.kind];
+            const titleNode = item.href
+              ? <a href={item.href} className="activity-item__title-link">{item.title}</a>
+              : item.title;
+            return (
+              <li key={`${item.timestamp}-${i}`} className="activity-item">
+                <div className={`activity-dot activity-dot--${item.result}`} aria-hidden="true" />
+                <div className="activity-item__body">
+                  <div className="activity-item__title">{titleNode}</div>
+                  <div className="activity-item__desc">
+                    <span className={`af-badge ${badge.cls}`}>{badge.label}</span>
+                    {item.desc && (
+                      <>
+                        <span className="activity-item__sep">·</span>
+                        {item.desc}
+                      </>
+                    )}
+                    {item.score && item.score !== '—' && (
+                      <>
+                        <span className="activity-item__sep">·</span>
+                        <span className="activity-item__score">{item.score}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="activity-item__time">{item.time}</div>
-            </li>
-          ))}
+                <div className="activity-item__time">{item.time}</div>
+              </li>
+            );
+          })}
         </ul>
       )}
 

@@ -53,6 +53,10 @@ export interface Notification {
   message: string;
   created_at: string;
   is_read: boolean;
+  target_url?: string | null;
+  event_type?: string | null;
+  channel?: string | null;
+  delivery_status?: string | null;
 }
 
 export interface NotificationsResponse {
