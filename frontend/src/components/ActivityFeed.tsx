@@ -24,6 +24,7 @@ interface Props {
   items: ActivityItem[];
   matchesUrl: string;
   tournamentsUrl: string;
+  activityUrl?: string;
 }
 
 // ── Filtrowanie ─────────────────────────────────────────────────────────────
@@ -87,7 +88,7 @@ const KIND_BADGE: Record<FeedKind, { label: string; cls: string }> = {
 
 // ── Komponent ───────────────────────────────────────────────────────────────
 
-export default function ActivityFeed({ items, matchesUrl, tournamentsUrl }: Props) {
+export default function ActivityFeed({ items, matchesUrl, tournamentsUrl, activityUrl }: Props) {
   const initialPeriod = useMemo(() => bestPeriod(items), []);
   const [period, setPeriod] = useState<Period>(initialPeriod);
 
@@ -167,7 +168,12 @@ export default function ActivityFeed({ items, matchesUrl, tournamentsUrl }: Prop
         <span className="activity-footer__count">
           <strong>{filtered.length}</strong> {filtered.length === 1 ? 'wpis' : 'wpisów'}
         </span>
-        <a href={matchesUrl} className="dash-link-sm">Historia meczów →</a>
+        <div className="activity-footer__links">
+          {activityUrl && (
+            <a href={activityUrl} className="dash-link-sm">Pełna aktywność →</a>
+          )}
+          <a href={matchesUrl} className="dash-link-sm">Historia meczów →</a>
+        </div>
       </div>
     </div>
   );

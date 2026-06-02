@@ -22,6 +22,7 @@ const PRIVATE_PATHS = [
   '/tournaments/manage',
   '/tournaments/create',
   '/notifications',
+  '/activity',
   '/profile/edit',
   '/courts',
 ];

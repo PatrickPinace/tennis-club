@@ -1,0 +1,247 @@
+---
+export const prerender = false;
+
+import AppLayout from '@/layouts/AppLayout.astro';
+import PageHeader from '@/components/PageHeader.astro';
+import ActivityPage from '@/components/ActivityPage.tsx';
+import {
+  getCurrentUser,
+  getMatchHistory,
+  getAllNotifications,
+  getMyReservations,
+} from '@/lib/api';
+import {
+  matchesToFeedItems,
+  notificationsToFeedItems,
+  reservationsToFeedItems,
+  sortByTimestampDesc,
+} from '@/lib/feedNormalizer';
+import { url } from '@/lib/url';
+
+const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
+
+const [currentUser, matchHistoryRaw, rawNotifications, rawReservations] = await Promise.all([
+  getCurrentUser(sessionCookie),
+  getMatchHistory(sessionCookie),
+  getAllNotifications(sessionCookie),
+  getMyReservations(sessionCookie),
+]);
+
+if (!currentUser) {
+  return Astro.redirect(url('/login') + '?next=' + encodeURIComponent(url('/activity')));
+}
+
+// Normalizacja — bez limitu czasu dla notyfikacji (cutoffMs=0), rezerwacje past+future
+const urlBase = url('').replace(/\/$/, '');
+const allItems = sortByTimestampDesc([
+  ...matchesToFeedItems(matchHistoryRaw, urlBase),
+  ...notificationsToFeedItems(rawNotifications, 0),
+  ...reservationsToFeedItems(rawReservations, urlBase, false),
+]);
+---
+
+<AppLayout title="Aktywność" currentUser={currentUser}>
+  <div class="page-narrow">
+    <PageHeader
+      title="Moja aktywność"
+      subtitle={`${allItems.length} zdarzeń łącznie`}
+      centered={true}
+    />
+
+    <ActivityPage
+      client:load
+      items={allItems}
+      matchesUrl={url('/matches')}
+      tournamentsUrl={url('/tournaments')}
+      courtsUrl={url('/courts/reservations')}
+    />
+  </div>
+</AppLayout>
+
+<style is:global>
+  /* ── Activity page layout ─────────────────────────────────────────────── */
+  .act-page {
+    padding: 0 var(--page-px, 28px) 48px;
+  }
+
+  /* ── Toolbar (filtry) ─────────────────────────────────────────────────── */
+  .act-toolbar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .act-seg {
+    display: flex;
+    padding: 2px;
+    background: var(--tc-chip-bg);
+    border-radius: 8px;
+    gap: 0;
+  }
+
+  .act-seg--time {
+    margin-left: auto;
+  }
+
+  .act-seg__btn {
+    padding: 5px 13px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--tc-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    font-family: inherit;
+    white-space: nowrap;
+  }
+
+  .act-seg__btn:hover { color: var(--tc-sub); }
+
+  .act-seg__btn--active {
+    background: var(--tc-card-bg);
+    color: var(--tc-ink);
+    box-shadow: var(--tc-shadow);
+  }
+
+  /* ── Lista wpisów ─────────────────────────────────────────────────────── */
+  .act-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .act-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--tc-card-border-soft);
+    transition: background 0.12s;
+  }
+
+  .act-item:last-child { border-bottom: none; }
+  .act-item:hover { background: var(--tc-overlay); }
+
+  .act-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
+
+  .act-dot--win     { background: var(--tc-accent); box-shadow: 0 0 6px var(--tc-accent-glow); }
+  .act-dot--loss    { background: var(--tc-hot); }
+  .act-dot--neutral { background: var(--tc-faint); }
+
+  .act-item__body  { flex: 1; min-width: 0; }
+
+  .act-item__title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--tc-ink);
+    margin-bottom: 3px;
+    line-height: 1.35;
+  }
+
+  .act-item__title-link {
+    color: inherit;
+    text-decoration: none;
+  }
+  .act-item__title-link:hover { color: var(--tc-accent); }
+
+  .act-item__meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    font-size: 0.73rem;
+    color: var(--tc-muted);
+  }
+
+  .act-item__desc  { color: var(--tc-muted); }
+
+  .act-item__score {
+    font-family: var(--font-mono-plex, 'IBM Plex Mono', monospace);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--tc-ink);
+  }
+
+  .act-sep { color: var(--tc-faint); }
+
+  .act-item__time {
+    font-size: 0.7rem;
+    color: var(--tc-faint);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-top: 4px;
+    font-family: var(--font-mono-plex, 'IBM Plex Mono', monospace);
+  }
+
+  /* ── Footer ───────────────────────────────────────────────────────────── */
+  .act-footer {
+    margin-top: 12px;
+    text-align: right;
+  }
+
+  .act-footer__count {
+    font-size: 0.72rem;
+    color: var(--tc-muted);
+  }
+
+  .act-footer__count strong {
+    color: var(--tc-ink);
+    font-weight: 700;
+  }
+
+  /* ── Empty state ──────────────────────────────────────────────────────── */
+  .act-empty {
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: 12px;
+    padding: 48px 32px;
+    text-align: center;
+  }
+
+  .act-empty__icon {
+    color: var(--tc-faint);
+    margin-bottom: 12px;
+  }
+
+  .act-empty__title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--tc-ink);
+    margin: 0 0 6px;
+  }
+
+  .act-empty__sub {
+    font-size: 0.82rem;
+    color: var(--tc-muted);
+    margin: 0 0 20px;
+  }
+
+  .act-empty__links {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* ── Responsive ───────────────────────────────────────────────────────── */
+  @media (max-width: 640px) {
+    .act-page { padding: 0 16px 40px; }
+    .act-seg--time { margin-left: 0; }
+    .act-toolbar { gap: 8px; }
+    .act-item { padding: 11px 14px; }
+  }
+</style>

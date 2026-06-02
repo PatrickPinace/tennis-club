@@ -19,6 +19,12 @@ import {
   type MatchHistoryEntry,
 } from '../lib/api';
 import type { ActivityItem } from '@/components/ActivityFeed';
+import {
+  matchesToFeedItems,
+  notificationsToFeedItems,
+  reservationsToFeedItems,
+  sortByTimestampDesc,
+} from '@/lib/feedNormalizer';
 import { url } from '@/lib/url';
 import ActivityFeed from '@/components/ActivityFeed.tsx';
 import BentoHero from '@/components/BentoHero.tsx';
@@ -68,150 +74,18 @@ const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
 const tournaments = liveTournaments;
 const isLiveData = liveTournaments.length > 0;
 
-// ── Normalizacja mixed activity feed ─────────────────────────────────────────
-//
-// Trzy źródła danych → wspólny ActivityItem[]:
-//   1. matchHistoryRaw  → kind='match'
-//   2. rawNotifications → kind='notification' (filtrowane po event_type)
-//   3. rawReservations  → kind='reservation'  (tylko przyszłe PENDING/CONFIRMED)
-//
-// Sortowanie: malejąco po timestamp (najnowsze na górze).
-// Limit: 10 wpisów — feed dashboardowy nie jest pełną historią.
+// ── Normalizacja mixed activity feed (via feedNormalizer.ts) ─────────────────
+const urlBase = url('').replace(/\/$/, '');
+const matchItems    = matchesToFeedItems(matchHistoryRaw, urlBase);
+const notifItems    = notificationsToFeedItems(rawNotifications, Date.now() - 30 * 86_400_000);
+const reservItems   = reservationsToFeedItems(rawReservations, urlBase, true);
 
-function relativeTime(iso: string): string {
-  try {
-    // "YYYY-MM-DD" → parsuj jako lokalny dzień
-    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
-      const todayStr = new Date().toISOString().slice(0, 10);
-      if (iso === todayStr) return 'dziś';
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      if (iso === yesterday.toISOString().slice(0, 10)) return 'wczoraj';
-      const d = new Date(iso + 'T12:00:00');
-      const diffDays = Math.floor((Date.now() - d.getTime()) / 86_400_000);
-      if (diffDays < 7) return `${diffDays} dni temu`;
-      return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-    }
-    // ISO datetime
-    const d = new Date(iso);
-    const diffMs = Date.now() - d.getTime();
-    if (diffMs < 3_600_000) {
-      const mins = Math.max(1, Math.floor(diffMs / 60_000));
-      return `${mins} min temu`;
-    }
-    const diffDays = Math.floor(diffMs / 86_400_000);
-    if (diffDays === 0) return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-    if (diffDays === 1) return 'wczoraj';
-    if (diffDays < 7)  return `${diffDays} dni temu`;
-    return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-  } catch { return iso; }
-}
-
-function isoTimestamp(iso: string): string {
-  // "YYYY-MM-DD" → convert to ISO for consistent sort
-  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso + 'T12:00:00';
-  return iso;
-}
-
-function matchScore(m: MatchHistoryEntry): string {
-  const parts: string[] = [];
-  if (m.p1_set1 !== null && m.p2_set1 !== null) parts.push(`${m.p1_set1}:${m.p2_set1}`);
-  if (m.p1_set2 !== null && m.p2_set2 !== null) parts.push(`${m.p1_set2}:${m.p2_set2}`);
-  if (m.p1_set3 !== null && m.p2_set3 !== null) parts.push(`${m.p1_set3}:${m.p2_set3}`);
-  return parts.join(', ') || '—';
-}
-
-function matchOpponent(m: MatchHistoryEntry): string {
-  const isP1Side =
-    (m.user === 'user-win'  && m.win === 'p1') ||
-    (m.user === 'user-loss' && m.win === 'p2');
-  const opp = isP1Side ? m.p2 : m.p1;
-  if (!opp) return 'Nieznany';
-  return [opp.first_name, opp.last_name].filter(Boolean).join(' ') || opp.username;
-}
-
-// Typy notyfikacji które mają sens w activity feedzie
-const FEED_NOTIFICATION_TYPES = new Set([
-  'tournament.started',
-  'tournament.finished',
-  'tournament.cancelled',
-  'tournament.participant.added',
-  'tournament.participant.joined',
-  'tournament.participant.removed',
-  'tournament.ladder.challenge_sent',
-  'tournament.ladder.challenge_accepted',
-  'tournament.ladder.challenge_rejected',
-  'tournament.match.score_entered',
-]);
-
-// 1. Mecze → ActivityItem
-const matchItems: ActivityItem[] = matchHistoryRaw.map(m => {
-  const isWin  = m.user === 'user-win';
-  const isDraw = m.user === 'user-draw';
-  const result = isWin ? 'win' : isDraw ? 'neutral' : 'loss';
-  const label  = isWin ? 'Wygrana' : isDraw ? 'Remis' : 'Porażka';
-  const fmt    = m.match_double ? 'Debel' : 'Singiel';
-  const score  = matchScore(m);
-  const href   = m.is_tournament && m.tournament_id
-    ? url(`/tournaments/${m.tournament_id}`)
-    : url(`/matches/${m.id}`);
-  return {
-    kind:      'match' as const,
-    title:     `${label} vs ${matchOpponent(m)}`,
-    desc:      fmt,
-    score,
-    time:      relativeTime(m.match_date),
-    timestamp: isoTimestamp(m.match_date),
-    result,
-    href,
-  };
-});
-
-// 2. Notyfikacje turniejowe/drabinkowe → ActivityItem (ostatnie 30 dni)
-const thirtyDaysAgo = Date.now() - 30 * 86_400_000;
-const notifItems: ActivityItem[] = rawNotifications
-  .filter(n => FEED_NOTIFICATION_TYPES.has(n.event_type ?? '') && new Date(n.created_at).getTime() >= thirtyDaysAgo)
-  .map(n => ({
-    kind:      'notification' as const,
-    title:     n.message,
-    desc:      '',
-    score:     '',
-    time:      relativeTime(n.created_at),
-    timestamp: n.created_at,
-    result:    'neutral' as const,
-    href:      n.target_url ?? undefined,
-  }));
-
-// 3. Rezerwacje kortów → ActivityItem (tylko przyszłe PENDING/CONFIRMED)
-const nowIso = new Date().toISOString();
-const reservationItems: ActivityItem[] = rawReservations
-  .filter(r => (r.status === 'PENDING' || r.status === 'CONFIRMED') && r.start_time > nowIso)
-  .map(r => {
-    const d = new Date(r.start_time);
-    const dateLabel = d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
-    const timeLabel = d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
-    const statusLabel = r.status === 'CONFIRMED' ? 'potwierdzona' : 'oczekująca';
-    const courtLabel = r.court_name ?? r.facility_name ?? 'Kort';
-    return {
-      kind:      'reservation' as const,
-      title:     `Rezerwacja ${courtLabel}`,
-      desc:      `${dateLabel}, ${timeLabel} · ${statusLabel}`,
-      score:     '',
-      time:      `${dateLabel} ${timeLabel}`,
-      timestamp: r.start_time,
-      result:    r.status === 'CONFIRMED' ? 'win' as const : 'neutral' as const,
-      href:      url('/courts/reservations'),
-    };
-  });
-
-// Scal, posortuj malejąco po timestamp, ogranicz do 6 wpisów (maks. 3 per typ)
-const recentActivity: ActivityItem[] = [
+// Dashboard teaserowy: maks. 3 per typ, limit 6
+const recentActivity: ActivityItem[] = sortByTimestampDesc([
   ...matchItems.slice(0, 3),
   ...notifItems.slice(0, 3),
-  ...reservationItems.slice(0, 3),
-]
-  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  .slice(0, 6);
+  ...reservItems.slice(0, 3),
+]).slice(0, 6);
 
 // ── Moje mecze — statystyki z historii meczów (spójne z "Ostatnią aktywnością") ─
 const matchesPlayed = matchHistoryRaw.length;
@@ -268,6 +142,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
         items={recentActivity}
         matchesUrl={url('/matches')}
         tournamentsUrl={url('/tournaments')}
+        activityUrl={url('/activity')}
       />
     </div>
   </div>
@@ -980,6 +855,12 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .activity-footer__count strong {
     color: var(--tc-ink);
     font-weight: 700;
+  }
+
+  .activity-footer__links {
+    display: flex;
+    gap: 12px;
+    align-items: center;
   }
 
   /* ── Activity feed — badge per typ zdarzenia ──────────────────────────── */
