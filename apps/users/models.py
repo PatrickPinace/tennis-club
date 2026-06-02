@@ -20,3 +20,16 @@ class Profile(models.Model):
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
         Profile.objects.create(user=instance)
+
+@receiver(post_save, sender=User)
+def send_welcome_email(sender, instance, created, **kwargs):
+    if created and instance.email:
+        from apps.utils.email_service import send_notification_email
+        subject = "Witaj w Klubie Tenisa Ziemnego!"
+        message = f"Witaj {instance.username},\n\nDziękujemy za założenie konta w naszym klubie."
+        send_notification_email(
+            subject=subject,
+            message=message,
+            recipient_list=[instance.email]
+        )
+

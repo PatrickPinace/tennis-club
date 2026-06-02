@@ -97,6 +97,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'apps.api',
     'corsheaders',
+    'gmailapi_backend',
 ]
 
 SITE_ID = 2
@@ -374,5 +375,16 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
 ]
+
+# --- GMAIL API EMAIL BACKEND CONFIGURATION ---
+EMAIL_BACKEND = 'gmailapi_backend.mail.GmailBackend'
+EMAIL_TIMEOUT = 5
+
+GMAIL_API_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID")
+GMAIL_API_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET")
+GMAIL_API_REFRESH_TOKEN = os.getenv("GMAIL_REFRESH_TOKEN")
+
+DEFAULT_FROM_EMAIL = "klubtenisaziemnego@gmail.com"
+
 
 
