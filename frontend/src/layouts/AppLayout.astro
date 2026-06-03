@@ -1,12 +1,14 @@
 ---
 import Sidebar from '@/components/Sidebar.astro';
 import Topbar from '@/components/Topbar.astro';
+import CookieBanner from '@/components/CookieBanner.astro';
 import '@/styles/global.css';
 import { url } from '@/lib/url';
 import { getCurrentUser, type CurrentUser } from '@/lib/api';
 
 const plausibleDomain = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN ?? '';
 const plausibleScriptUrl = import.meta.env.PUBLIC_PLAUSIBLE_SCRIPT_URL ?? 'https://plausible.io/js/script.js';
+const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
 
 interface Props {
   title?: string;
@@ -65,6 +67,42 @@ const currentPath = Astro.url.pathname;
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+
+  {gaMeasurementId && (
+    <>
+      <script is:inline define:vars={{ gaMeasurementId }}>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+
+        const storedConsent = localStorage.getItem('tc_cookie_consent');
+        let consent = null;
+        try {
+          consent = storedConsent ? JSON.parse(storedConsent) : null;
+        } catch(e) {}
+
+        gtag('consent', 'default', {
+          'analytics_storage': consent && consent.statistics ? 'granted' : 'denied',
+          'ad_storage': consent && consent.marketing ? 'granted' : 'denied',
+          'ad_user_data': consent && consent.marketing ? 'granted' : 'denied',
+          'ad_personalization': consent && consent.marketing ? 'granted' : 'denied'
+        });
+      </script>
+      <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}></script>
+      <script is:inline define:vars={{ gaMeasurementId }}>
+        gtag('js', new Date());
+        gtag('config', gaMeasurementId);
+
+        document.addEventListener('astro:page-load', () => {
+          if (typeof gtag === 'function') {
+            gtag('event', 'page_view', {
+              page_path: window.location.pathname,
+              page_location: window.location.href
+            });
+          }
+        });
+      </script>
+    </>
+  )}
 </head>
 
 <body>
@@ -132,6 +170,7 @@ const currentPath = Astro.url.pathname;
       window.readAllNotif = function() {};
     }
   </script>
+  <CookieBanner />
 </body>
 </html>
 

@@ -2,6 +2,7 @@
 import '@/styles/global.css';
 import { url } from '@/lib/url';
 import { getCurrentUser } from '@/lib/api';
+import CookieBanner from '@/components/CookieBanner.astro';
 
 interface Props {
   title?: string;
@@ -32,6 +33,7 @@ const canonicalUrl = canonical ?? (SITE + cleanPath);
 const ogImageUrl = ogImage ?? `${SITE}/og-default.png`;
 const plausibleDomain = import.meta.env.PUBLIC_PLAUSIBLE_DOMAIN ?? '';
 const fullTitle = `${title} — Tennis Club`;
+const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
 ---
 
 <!doctype html>
@@ -71,6 +73,42 @@ const fullTitle = `${title} — Tennis Club`;
       data-domain={plausibleDomain}
       src="https://plausible.io/js/script.js"
     />
+  )}
+
+  {gaMeasurementId && (
+    <>
+      <script is:inline define:vars={{ gaMeasurementId }}>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+
+        const storedConsent = localStorage.getItem('tc_cookie_consent');
+        let consent = null;
+        try {
+          consent = storedConsent ? JSON.parse(storedConsent) : null;
+        } catch(e) {}
+
+        gtag('consent', 'default', {
+          'analytics_storage': consent && consent.statistics ? 'granted' : 'denied',
+          'ad_storage': consent && consent.marketing ? 'granted' : 'denied',
+          'ad_user_data': consent && consent.marketing ? 'granted' : 'denied',
+          'ad_personalization': consent && consent.marketing ? 'granted' : 'denied'
+        });
+      </script>
+      <script async src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}></script>
+      <script is:inline define:vars={{ gaMeasurementId }}>
+        gtag('js', new Date());
+        gtag('config', gaMeasurementId);
+
+        document.addEventListener('astro:page-load', () => {
+          if (typeof gtag === 'function') {
+            gtag('event', 'page_view', {
+              page_path: window.location.pathname,
+              page_location: window.location.href
+            });
+          }
+        });
+      </script>
+    </>
   )}
 </head>
 
@@ -168,5 +206,6 @@ const fullTitle = `${title} — Tennis Club`;
       </div>
     </div>
   </footer>
+  <CookieBanner />
 </body>
 </html>
