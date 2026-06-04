@@ -16,4 +16,7 @@ urlpatterns = [
     path('profile/', api_views.api_user_profile, name='api_user_profile'),
     path('profile/update/', api_views.api_update_profile, name='api_update_profile'),
     path('csrf/', api_views.get_csrf_token, name='get_csrf_token'),
+    path('password/change/', api_views.api_change_password, name='api_change_password'),
+    path('password/reset/request/', api_views.api_password_reset_request, name='api_password_reset_request'),
+    path('password/reset/confirm/', api_views.api_password_reset_confirm, name='api_password_reset_confirm'),
 ]
