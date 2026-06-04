@@ -22,19 +22,6 @@ try {
   console.warn('[rankings] API error, using fallback demo data:', e);
 }
 
-// ── Fallback demo — gdy API niedostępne lub baza pusta ─────────────────────────
-if (players.length === 0) {
-  players = [
-    { position: 1, display_name: 'Tomasz Bąk',      points: 2840, matches_played: 62, matches_won: 51, matches_lost: 11, sets_won: 112, sets_lost: 44, win_rate: 82, match_type: 'SNG', season: 2026 },
-    { position: 2, display_name: 'Piotr Wiśniewski', points: 2710, matches_played: 58, matches_won: 46, matches_lost: 12, sets_won: 100, sets_lost: 40, win_rate: 79, match_type: 'SNG', season: 2026 },
-    { position: 3, display_name: 'Adam Kowalczyk',   points: 2590, matches_played: 55, matches_won: 43, matches_lost: 12, sets_won: 94,  sets_lost: 38, win_rate: 78, match_type: 'SNG', season: 2026 },
-    { position: 4, display_name: 'Marcin Kowalski',  points: 2440, matches_played: 48, matches_won: 34, matches_lost: 14, sets_won: 80,  sets_lost: 42, win_rate: 71, match_type: 'SNG', season: 2026 },
-    { position: 5, display_name: 'Rafał Nowak',      points: 2380, matches_played: 52, matches_won: 35, matches_lost: 17, sets_won: 78,  sets_lost: 48, win_rate: 67, match_type: 'SNG', season: 2026 },
-    { position: 6, display_name: 'Paweł Zając',      points: 2250, matches_played: 44, matches_won: 28, matches_lost: 16, sets_won: 64,  sets_lost: 44, win_rate: 64, match_type: 'SNG', season: 2026 },
-    { position: 7, display_name: 'Łukasz Dąbrowski', points: 2180, matches_played: 41, matches_won: 26, matches_lost: 15, sets_won: 60,  sets_lost: 40, win_rate: 63, match_type: 'SNG', season: 2026 },
-    { position: 8, display_name: 'Marek Wróbel',     points: 2050, matches_played: 38, matches_won: 23, matches_lost: 15, sets_won: 54,  sets_lost: 42, win_rate: 61, match_type: 'SNG', season: 2026 },
-  ];
-}
 
 const totalPlayers = players.length;
 
