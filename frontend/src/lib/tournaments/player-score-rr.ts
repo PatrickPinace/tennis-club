@@ -62,8 +62,17 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
       if (!list) return;
 
       function renderMatchCard(m: PMatch): string {
-        const p1 = escHtml(m.participant1_name ?? '—');
-        const p2 = escHtml(m.participant2_name ?? '—');
+        // Gracz zawsze po lewej — jeśli user jest participant2, swap stron wizualnie.
+        // Wartości inputów setów też zamieniamy (set_p1/set_p2 w formularzu = lewa/prawa strona),
+        // ale name atrybuty pozostają oryginalne bo payload do API zawsze idzie p1/p2 wg backendu.
+        const iAmP2 = m.participant2_id === myParticipant!.id;
+        const leftName  = iAmP2 ? m.participant2_name : m.participant1_name;
+        const rightName = iAmP2 ? m.participant1_name : m.participant2_name;
+        const leftId    = iAmP2 ? m.participant2_id   : m.participant1_id;
+        const rightId   = iAmP2 ? m.participant1_id   : m.participant2_id;
+
+        const p1 = escHtml(leftName  ?? '—');
+        const p2 = escHtml(rightName ?? '—');
         const isDone = m.status === 'CMP' || m.status === 'WDR';
         const isCnc  = m.status === 'CNC';
         const v = (n: number|null) => n !== null ? String(n) : '';
@@ -74,22 +83,27 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           : isDone ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">WO</span>`
           : '';
 
+        // Inputy setów: gdy user jest p2, lewy input (set_p1 w formularzu) = wynik p2 z backendu.
+        // name atrybuty: lewy input = set${s}_p1 gdy nie swap, set${s}_p2 gdy swap — API czyta
+        // set1_p1 jako wynik participant1, set1_p2 jako wynik participant2 i tak zostaje.
         const setsHtml = [1,2,3].map(s => {
-          const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
-          const v2 = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+          const origL = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+          const origR = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+          const [dispL, dispR] = iAmP2 ? [origR, origL] : [origL, origR];
+          const [nameL, nameR] = iAmP2 ? [`set${s}_p2`, `set${s}_p1`] : [`set${s}_p1`, `set${s}_p2`];
           return `<div class="org-set-group">
             <div class="org-set-label">Set ${s}</div>
             <div class="org-set-inputs">
               <input class="org-set-input" type="number" min="0" max="99"
-                name="set${s}_p1" placeholder="—" value="${v1}">
+                name="${nameL}" placeholder="—" value="${dispL}">
               <span class="org-set-sep">:</span>
               <input class="org-set-input" type="number" min="0" max="99"
-                name="set${s}_p2" placeholder="—" value="${v2}">
+                name="${nameR}" placeholder="—" value="${dispR}">
             </div>
           </div>`;
         }).join('');
 
-        const wdrSection = (m.participant1_id && m.participant2_id) ? `
+        const wdrSection = (leftId && rightId) ? `
           <div class="org-wdr-section">
             <label class="org-wdr-label">
               <input type="checkbox" class="org-wdr-checkbox ps-wdr-cb" data-match-id="${m.id}">
@@ -100,8 +114,8 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
               <label style="font-size:0.78rem;color:var(--text-muted);">Kto się wycofuje:</label>
               <select class="org-wdr-select ps-wdr-loser">
                 <option value="">— wybierz —</option>
-                <option value="${m.participant2_id}">${p1} wycofuje się</option>
-                <option value="${m.participant1_id}">${p2} wycofuje się</option>
+                <option value="${rightId}">${p1} wycofuje się</option>
+                <option value="${leftId}">${p2} wycofuje się</option>
               </select>
             </div>
           </div>` : '';

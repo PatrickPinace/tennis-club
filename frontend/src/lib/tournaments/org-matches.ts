@@ -17,16 +17,34 @@ export type MatchCallbacks = {
 function isPending(m: MatchData) { return PENDING_STATUSES.has(m.status); }
 function isDone(m: MatchData)    { return DONE_STATUSES.has(m.status); }
 
+function matchesSearch(m: MatchData, query: string): boolean {
+  // Wyszukiwanie jednego lub dwóch tokenów.
+  // Jeden token ("rusin") — pasuje jeśli którykolwiek uczestnik zawiera ten token.
+  // Dwa tokeny ("dubiel rusin") — pasuje jeśli każdy token trafia w innego uczestnika
+  // (czyli: dubiel gra z rusinem, niezależnie od kolejności).
+  const names = [
+    m.participant1_name ?? '',
+    m.participant2_name ?? '',
+    m.participant3_name ?? '',
+    m.participant4_name ?? '',
+  ].map(n => n.toLowerCase());
+
+  const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  if (tokens.length === 1) return names.some(n => n.includes(tokens[0]));
+
+  // Dwa lub więcej tokenów: każdy musi pasować do co najmniej jednego uczestnika,
+  // przy czym dwa różne tokeny mogą trafić w tego samego gracza (np. "tomasz rusin").
+  // Ale dla wyszukiwania pary chcemy żeby KAŻDY token był gdzieś w liście uczestników.
+  return tokens.every(tok => names.some(n => n.includes(tok)));
+}
+
 function filterMatches(state: MatchState): MatchData[] {
   let list = state.allMatches;
   if (state.activeFilter === 'pending') list = list.filter(isPending);
   else if (state.activeFilter === 'done') list = list.filter(isDone);
   if (state.searchQuery) {
-    const q = state.searchQuery.toLowerCase();
-    list = list.filter(m =>
-      (m.participant1_name ?? '').toLowerCase().includes(q) ||
-      (m.participant2_name ?? '').toLowerCase().includes(q)
-    );
+    list = list.filter(m => matchesSearch(m, state.searchQuery));
   }
   return list;
 }

@@ -1297,6 +1297,24 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             <div class="tc-card org-card">
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
+              <!-- Lista meczów do wpisania wyników -->
+              <div class="org-matches-header">
+                <div class="org-section-label">Wyniki meczów</div>
+                <div class="org-matches-toolbar">
+                  <div class="org-filter-group" id="org-filter-group">
+                    <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
+                    <button class="org-filter-btn" data-filter="done">Zakończone</button>
+                    <button class="org-filter-btn" data-filter="all">Wszystkie</button>
+                  </div>
+                  <div class="org-search-wrap">
+                    <input id="org-match-search" class="org-search-input" type="text" placeholder="Szukaj zawodnika lub pary…" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+              <div id="org-matches-list" class="org-matches-list-wrap">
+                <div class="org-loading">Ładowanie meczów…</div>
+              </div>
+
               <!-- ── Uczestnicy ───────────────────────────────────────────── -->
               <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
                 <div class="org-section-label" style="margin-bottom:8px;">Uczestnicy</div>
@@ -1390,26 +1408,6 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                     </button>
                   </div>
                 )}
-              </div>
-
-
-
-              <!-- Lista meczów do wpisania wyników -->
-              <div class="org-matches-header">
-                <div class="org-section-label">Wyniki meczów</div>
-                <div class="org-matches-toolbar">
-                  <div class="org-filter-group" id="org-filter-group">
-                    <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
-                    <button class="org-filter-btn" data-filter="done">Zakończone</button>
-                    <button class="org-filter-btn" data-filter="all">Wszystkie</button>
-                  </div>
-                  <div class="org-search-wrap">
-                    <input id="org-match-search" class="org-search-input" type="text" placeholder="Szukaj zawodnika…" autocomplete="off">
-                  </div>
-                </div>
-              </div>
-              <div id="org-matches-list" class="org-matches-list-wrap">
-                <div class="org-loading">Ładowanie meczów…</div>
               </div>
 
               <!-- Konfiguracja RR (edycja) — Accordion -->
