@@ -204,6 +204,94 @@ class MatchHistoryView(generics.ListAPIView):
         return Response(data)
 
 
+class ClubMatchesView(APIView):
+    """
+    GET /api/matches/club/ — ostatnie zakończone mecze turniejowe w klubie.
+
+    Scope celowo ograniczony do meczów turniejowych ze statusem COMPLETED
+    z turniejów FIN lub ACT. Mecze towarzyskie innych użytkowników są poza
+    zakresem (brak jawnej zgody na publiczność).
+
+    Parametry query:
+      ?limit=30          — liczba wyników (domyślnie 30, max 100)
+      ?match_double=0|1  — filtr singiel/debel
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.tournaments.models import TournamentsMatch, Tournament
+        from django.db.models import Q
+
+        try:
+            limit = min(int(request.GET.get('limit', 30)), 100)
+        except (ValueError, TypeError):
+            limit = 30
+
+        match_double = request.GET.get('match_double')
+
+        qs = TournamentsMatch.objects.filter(
+            status=TournamentsMatch.Status.COMPLETED.value,
+            tournament__status__in=['ACT', 'FIN'],
+        ).select_related(
+            'tournament',
+            'participant1__user', 'participant2__user',
+            'participant3__user', 'participant4__user',
+            'winner__user',
+        ).exclude(
+            tournament__tournament_type__in=[
+                Tournament.TournamentType.SINGLE_ELIMINATION.value,
+                Tournament.TournamentType.DOUBLE_ELIMINATION.value,
+            ],
+            round_number=1,
+            participant2__isnull=True,
+        ).order_by('-scheduled_time')
+
+        if match_double == '0':
+            qs = qs.filter(
+                Q(participant3__isnull=True) | Q(participant4__isnull=True)
+            ).exclude(tournament__match_format=Tournament.MatchFormat.DOUBLES.value)
+        elif match_double == '1':
+            qs = qs.filter(
+                Q(participant3__isnull=False, participant4__isnull=False) |
+                Q(tournament__match_format=Tournament.MatchFormat.DOUBLES.value)
+            )
+
+        qs = qs[:limit]
+
+        def player_name(participant):
+            if not participant or not participant.user:
+                return None
+            u = participant.user
+            full = ' '.join(filter(None, [u.first_name, u.last_name]))
+            return full or u.username
+
+        data = []
+        for m in qs:
+            is_double = bool(
+                m.participant3_id or m.participant4_id or
+                m.tournament.match_format == Tournament.MatchFormat.DOUBLES.value
+            )
+            match_date = m.scheduled_time.date() if m.scheduled_time else None
+            data.append({
+                'id': m.pk,
+                'tournament_id': m.tournament_id,
+                'tournament_name': m.tournament.name,
+                'tournament_type': m.tournament.tournament_type,
+                'p1': player_name(m.participant1),
+                'p2': player_name(m.participant2),
+                'p3': player_name(m.participant3) if is_double else None,
+                'p4': player_name(m.participant4) if is_double else None,
+                'set1': f"{m.set1_p1_score}:{m.set1_p2_score}" if m.set1_p1_score is not None else None,
+                'set2': f"{m.set2_p1_score}:{m.set2_p2_score}" if m.set2_p1_score is not None else None,
+                'set3': f"{m.set3_p1_score}:{m.set3_p2_score}" if m.set3_p1_score is not None else None,
+                'winner': player_name(m.winner) if m.winner_id else None,
+                'match_double': is_double,
+                'match_date': str(match_date) if match_date else None,
+            })
+
+        return Response(data)
+
+
 class MatchFiltersView(APIView):
     """API endpoint to get filter options for match history."""
     permission_classes = [IsAuthenticated]
