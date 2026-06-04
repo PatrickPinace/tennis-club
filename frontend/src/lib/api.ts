@@ -104,6 +104,8 @@ export interface MatchHistoryEntry {
   confirmed_by?: MatchUser | null;
   is_tournament?: boolean;
   tournament_id?: number | null;
+  tournament_name?: string | null;
+  tournament_type?: string | null;
 }
 
 export interface RankingData {
@@ -567,6 +569,7 @@ export interface ClubMatchEntry {
   set2: string | null;
   set3: string | null;
   winner: string | null;
+  winner_side: 'p1' | 'p2' | null;
   match_double: boolean;
   match_date: string | null;
 }

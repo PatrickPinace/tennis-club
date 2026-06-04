@@ -142,6 +142,8 @@ def get_tournament_matches_as_friendly(user, filters=None):
             'p1_set3': match.set3_p1_score or 0, 'p2_set3': match.set3_p2_score or 0,
             'match_double': is_double,
             'description': f"Turniej: {match.tournament.name}",
+            'tournament_name': match.tournament.name,
+            'tournament_type': match.tournament.tournament_type,
             'match_date': (match.scheduled_time.date() if match.scheduled_time
                            else match.tournament.start_date.date() if match.tournament.start_date
                            else date(2000, 1, 1)),

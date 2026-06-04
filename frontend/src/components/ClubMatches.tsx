@@ -34,17 +34,56 @@ function formatDate(iso: string | null): string {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function matchScore(m: ClubMatchEntry): string {
-  return [m.set1, m.set2, m.set3].filter(Boolean).join(', ') || '—';
+function parseSet(s: string | null): [number, number] | null {
+  if (!s) return null;
+  const [a, b] = s.split(':').map(n => parseInt(n, 10));
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return [a, b];
 }
 
-function matchup(m: ClubMatchEntry): string {
-  if (m.match_double) {
-    const team1 = [m.p1, m.p3].filter(Boolean).join(' / ') || '?';
-    const team2 = [m.p2, m.p4].filter(Boolean).join(' / ') || '?';
-    return `${team1} vs ${team2}`;
+// Agregat setów: zlicza wygrane sety per strona z set1/set2/set3.
+// Zwraca "2:1" (p1:p2) + listę pojedynczych setów do podtytułu.
+function aggregateSets(m: ClubMatchEntry): { aggregate: string; detail: string } {
+  const sets = [parseSet(m.set1), parseSet(m.set2), parseSet(m.set3)].filter(
+    (s): s is [number, number] => s !== null
+  );
+  if (sets.length === 0) return { aggregate: '—', detail: '' };
+  let p1 = 0, p2 = 0;
+  for (const [a, b] of sets) {
+    if (a > b) p1++;
+    else if (b > a) p2++;
   }
-  return `${m.p1 ?? '?'} vs ${m.p2 ?? '?'}`;
+  return {
+    aggregate: `${p1}:${p2}`,
+    detail: sets.map(([a, b]) => `${a}:${b}`).join(', '),
+  };
+}
+
+// "Marek Kowalski" → "M. Kowalski". Jeden segment (np. username) bez zmian.
+function shortName(name: string | null): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return parts[0] ?? '?';
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`;
+}
+
+// Zwraca dwie strony osobno, do JSX (chcemy umieścić ikonkę przy zwycięskiej).
+function teamNames(m: ClubMatchEntry): { teamA: string; teamB: string } {
+  if (m.match_double) {
+    const teamA = [m.p1, m.p3].filter(Boolean).map(shortName).join(' / ') || '?';
+    const teamB = [m.p2, m.p4].filter(Boolean).map(shortName).join(' / ') || '?';
+    return { teamA, teamB };
+  }
+  return { teamA: m.p1 ?? '?', teamB: m.p2 ?? '?' };
+}
+
+// Inicjały z imię+nazwisko (lub jednego słowa).
+function initials(name: string | null): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export default function ClubMatches({ matches, tournamentsUrl }: Props) {
@@ -90,7 +129,7 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         <div className="m-search-wrap">
           <SearchIcon />
           <input
-            className="m-search"
+            className="m-search m-search--wide"
             type="search"
             placeholder="Szukaj gracza lub turnieju…"
             autoComplete="off"
@@ -141,9 +180,9 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
 
       {/* Nagłówek tabeli — identyczny układ jak mine */}
       <div className="m-table-head">
-        <span></span>
-        <span>MECZ</span>
         <span>WYNIK</span>
+        <span>MECZ</span>
+        <span>SETY</span>
         <span>FORMAT</span>
         <span className="m-th-right">DATA</span>
       </div>
@@ -175,27 +214,52 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
       ) : (
         <div className="m-table-body">
           {filtered.map(m => {
-            const score = matchScore(m);
+            const { aggregate, detail } = aggregateSets(m);
             const fmt   = m.match_double ? 'Debel' : 'Singiel';
             const typeLabel = TOURNAMENT_TYPE_LABEL[m.tournament_type] ?? m.tournament_type;
+            const winnerInitials = initials(m.winner);
+            const { teamA, teamB } = teamNames(m);
+            const winSide = m.winner_side;
+            const [aggA, aggB] = aggregate.split(':');
             return (
               <a key={m.id} className="m-row" href={`${tournamentsUrl}/${m.tournament_id}`}>
-                {/* kolumna 1: pusty slot zamiast badge wyniku */}
-                <div className="cm-neutral-dot" aria-hidden="true" />
-                {/* kolumna 2: mecz + turniej jako podtytuł */}
+                {/* kolumna 1: badge z inicjałami zwycięzcy */}
+                <div
+                  className="m-result-badge m-result-badge--neutral"
+                  title={m.winner ? `Zwycięzca: ${m.winner}` : 'Brak zwycięzcy'}
+                >
+                  {winnerInitials}
+                </div>
+                {/* kolumna 2: team A vs team B z pucharkiem przy wygranej */}
                 <div className="m-opponent">
-                  <div className="m-opponent__name">{matchup(m)}</div>
+                  <div className={`m-opponent__name${m.match_double ? ' m-opponent__name--dbl' : ''}`}>
+                    <span className={winSide === 'p1' ? 'cm-team--win' : undefined}>
+                      {teamA}
+                      {winSide === 'p1' && <span className="cm-trophy" aria-label="zwycięzca" title="Zwycięzca">🏆</span>}
+                    </span>
+                    <span className="cm-vs"> vs </span>
+                    <span className={winSide === 'p2' ? 'cm-team--win' : undefined}>
+                      {teamB}
+                      {winSide === 'p2' && <span className="cm-trophy" aria-label="zwycięzca" title="Zwycięzca">🏆</span>}
+                    </span>
+                  </div>
                   <div className="m-opponent__type">
                     {m.tournament_name}
-                    {typeLabel && <span className="cm-type-sep">· {typeLabel}</span>}
+                    {typeLabel && <span className="cm-type-sep"> · {typeLabel}</span>}
                   </div>
                 </div>
-                {/* kolumna 3: wynik setów + zwycięzca */}
-                <div className="m-sets" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <span className="m-sets__score m-sets__score--draw">{score}</span>
-                  </div>
-                  {m.winner && <span className="m-sets__detail">✓ {m.winner}</span>}
+                {/* kolumna 3: agregat setów z kolorem per strona + szczegóły */}
+                <div className="m-sets">
+                  {aggB !== undefined ? (
+                    <span className="m-sets__score">
+                      <span className={winSide === 'p1' ? 'cm-agg--win' : 'cm-agg--lose'}>{aggA}</span>
+                      <span className="cm-agg-sep">:</span>
+                      <span className={winSide === 'p2' ? 'cm-agg--win' : 'cm-agg--lose'}>{aggB}</span>
+                    </span>
+                  ) : (
+                    <span className="m-sets__score m-sets__score--draw">{aggregate}</span>
+                  )}
+                  {detail && <span className="m-sets__detail">{detail}</span>}
                 </div>
                 {/* kolumna 4: format */}
                 <div className="m-format">{fmt}</div>

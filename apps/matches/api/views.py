@@ -199,6 +199,8 @@ class MatchHistoryView(generics.ListAPIView):
                 'p2_win_gem': m.get('p2_win_gem', 0),
                 'is_tournament': m.get('is_tournament', False),
                 'tournament_id': m.get('tournament_id'),
+                'tournament_name': m.get('tournament_name'),
+                'tournament_type': m.get('tournament_type'),
             })
 
         return Response(data)
@@ -220,7 +222,8 @@ class ClubMatchesView(APIView):
 
     def get(self, request):
         from apps.tournaments.models import TournamentsMatch, Tournament
-        from django.db.models import Q
+        from apps.tournaments.tools import _partner_user
+        from django.db.models import Q, Prefetch
 
         try:
             limit = min(int(request.GET.get('limit', 30)), 100)
@@ -237,6 +240,9 @@ class ClubMatchesView(APIView):
             'participant1__user', 'participant2__user',
             'participant3__user', 'participant4__user',
             'winner__user',
+        ).prefetch_related(
+            'participant1__members__user',
+            'participant2__members__user',
         ).exclude(
             tournament__tournament_type__in=[
                 Tournament.TournamentType.SINGLE_ELIMINATION.value,
@@ -265,6 +271,12 @@ class ClubMatchesView(APIView):
             full = ' '.join(filter(None, [u.first_name, u.last_name]))
             return full or u.username
 
+        def user_name(u):
+            if not u:
+                return None
+            full = ' '.join(filter(None, [u.first_name, u.last_name]))
+            return full or u.username
+
         data = []
         for m in qs:
             is_double = bool(
@@ -276,6 +288,27 @@ class ClubMatchesView(APIView):
                 else m.tournament.start_date.date() if m.tournament.start_date
                 else None
             )
+            # winner_side: po której stronie tabeli jest zwycięzca.
+            # Team A = participant1 + participant3, Team B = participant2 + participant4.
+            if m.winner_id and m.winner_id in (m.participant1_id, m.participant3_id):
+                winner_side = 'p1'
+            elif m.winner_id and m.winner_id in (m.participant2_id, m.participant4_id):
+                winner_side = 'p2'
+            else:
+                winner_side = None
+
+            # Deble mogą być w jednym z dwóch modeli:
+            # - 4 oddzielnych Participants (p1/p2/p3/p4 wypełnione)
+            # - team-model (format=DBL): participant1/2 to teamy, partner siedzi w members
+            if is_double and not m.participant3_id and not m.participant4_id:
+                p1_id = m.participant1.user_id if m.participant1 and m.participant1.user else None
+                p2_id = m.participant2.user_id if m.participant2 and m.participant2.user else None
+                p3 = user_name(_partner_user(m.participant1, p1_id))
+                p4 = user_name(_partner_user(m.participant2, p2_id))
+            else:
+                p3 = player_name(m.participant3) if is_double else None
+                p4 = player_name(m.participant4) if is_double else None
+
             data.append({
                 'id': m.pk,
                 'tournament_id': m.tournament_id,
@@ -283,12 +316,13 @@ class ClubMatchesView(APIView):
                 'tournament_type': m.tournament.tournament_type,
                 'p1': player_name(m.participant1),
                 'p2': player_name(m.participant2),
-                'p3': player_name(m.participant3) if is_double else None,
-                'p4': player_name(m.participant4) if is_double else None,
+                'p3': p3,
+                'p4': p4,
                 'set1': f"{m.set1_p1_score}:{m.set1_p2_score}" if m.set1_p1_score is not None else None,
                 'set2': f"{m.set2_p1_score}:{m.set2_p2_score}" if m.set2_p1_score is not None else None,
                 'set3': f"{m.set3_p1_score}:{m.set3_p2_score}" if m.set3_p1_score is not None else None,
                 'winner': player_name(m.winner) if m.winner_id else None,
+                'winner_side': winner_side,
                 'match_double': is_double,
                 'match_date': str(match_date) if match_date else None,
             })

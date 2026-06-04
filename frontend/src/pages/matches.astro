@@ -39,6 +39,13 @@ function userName(u: MatchUser | null): string {
   return full || u.username;
 }
 
+// Skrócona forma do debli: "Marek Kowalski" → "M. Kowalski". Username bez zmian.
+function shortName(u: MatchUser | null): string {
+  if (!u) return '?';
+  if (u.first_name && u.last_name) return `${u.first_name[0]}. ${u.last_name}`;
+  return u.last_name || u.first_name || u.username || '?';
+}
+
 
 function formatScore(m: MatchHistoryEntry): string {
   const sets: string[] = [];
@@ -97,7 +104,8 @@ function mapMatch(m: MatchHistoryEntry) {
   const opponent = userName(opponentObj);
 
   const isDouble = m.match_double;
-  const oppNames = oppTeam.map(p => userName(p)).filter(n => n !== '?');
+  // Dla debla skracamy do "M. Kowalski / J. Nowak" — żeby się mieściło w jednej linii.
+  const oppNames = oppTeam.map(p => isDouble ? shortName(p) : userName(p)).filter(n => n !== '?');
   const opponentFull = isDouble && oppNames.length > 1
     ? oppNames.join(' / ')
     : oppNames[0] ?? opponent;
@@ -106,11 +114,23 @@ function mapMatch(m: MatchHistoryEntry) {
   const tournamentId = m.tournament_id ?? null;
   const matchIdNum = typeof m.id === 'number' ? m.id : null;
 
+  const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
+    RND: 'Round Robin',
+    SGL: 'Eliminacja',
+    DBE: 'Elim. podwójna',
+    LDR: 'Drabinka',
+    AMR: 'Americano',
+    SWS: 'Szwajcarski',
+  };
+
   let typeLabel: string;
-  if (isTournament && m.description && m.description.startsWith('Turniej:')) {
-    typeLabel = m.description;
-  } else if (isTournament) {
-    typeLabel = 'Turniejowy';
+  if (isTournament) {
+    const tName = m.tournament_name
+      ?? (m.description?.startsWith('Turniej: ') ? m.description.slice('Turniej: '.length) : null);
+    const tType = m.tournament_type ? TOURNAMENT_TYPE_LABEL[m.tournament_type] ?? null : null;
+    if (tName && tType) typeLabel = `${tName} · ${tType}`;
+    else if (tName)     typeLabel = tName;
+    else                typeLabel = 'Turniejowy';
   } else {
     typeLabel = 'Towarzyski';
   }
@@ -262,18 +282,15 @@ const clubMatches = clubMatchesData ?? [];
     font-weight: 400;
   }
 
-  /* neutral dot w kolumnie 1 dla club (zamiast badge wyniku) */
-  .cm-neutral-dot {
-    width: 32px; height: 24px;
-    display: grid; place-items: center; flex-shrink: 0;
-  }
-  .cm-neutral-dot::after {
-    content: ''; display: block;
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--tc-faint);
-  }
-
   .cm-type-sep { color: var(--tc-faint); }
+
+  /* Mecze klubu — zwycięstwo per strona */
+  .cm-team--win { color: var(--tc-ink); font-weight: 700; }
+  .cm-vs { color: var(--tc-faint); font-weight: 500; }
+  .cm-trophy { margin-left: 4px; font-size: 0.85em; }
+  .cm-agg--win { color: var(--tc-accent); }
+  .cm-agg--lose { color: var(--tc-muted); }
+  .cm-agg-sep { color: var(--tc-faint); margin: 0 1px; }
 
   .m-score {
     font-family: var(--font-mono-plex, 'IBM Plex Mono', monospace);
@@ -433,6 +450,10 @@ const clubMatches = clubMatchesData ?? [];
   .m-search::placeholder { color: var(--tc-muted); }
   .m-search::-webkit-search-cancel-button { -webkit-appearance: none; }
 
+  /* wariant dla "Mecze klubu" — dłuższy placeholder */
+  .m-search--wide { width: 240px; }
+  .m-search--wide:focus { width: 280px; }
+
   /* ── Segmented controls ─────────────────────────────────────────────────── */
   .m-segmented {
     display: flex;
@@ -500,6 +521,14 @@ const clubMatches = clubMatchesData ?? [];
   .m-result-badge--win { background: var(--tc-accent-soft); border: 1px solid var(--tc-accent-border); color: var(--tc-accent); }
   .m-result-badge--loss { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--tc-hot); }
   .m-result-badge--draw { background: var(--tc-overlay); border: 1px solid var(--tc-card-border); color: var(--tc-muted); }
+  /* neutral: inicjały zwycięzcy w klubie — bez konotacji win/loss z perspektywy usera */
+  .m-result-badge--neutral {
+    background: var(--tc-chip-bg);
+    border: 1px solid var(--tc-card-border);
+    color: var(--tc-sub);
+    font-size: 0.62rem;
+    letter-spacing: 0.02em;
+  }
 
   .m-opponent { min-width: 0; }
   .m-opponent__name {
