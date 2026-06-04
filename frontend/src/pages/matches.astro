@@ -263,15 +263,18 @@ const clubMatches = clubMatchesData ?? [];
   }
 
   .cm-table-head {
-    grid-template-columns: 1fr 1fr auto 120px;
+    grid-template-columns: 220px 1fr 180px 100px;
   }
 
   .cm-row {
-    grid-template-columns: 1fr 1fr auto 120px;
+    grid-template-columns: 220px 1fr 180px 100px;
     cursor: default;
+    align-items: center;
   }
 
-  /* Hover na wierszach club — subtelny, bez zmiany koloru nazwy (brak osobnego href na wierszu) */
+  .cm-row > * { min-width: 0; }
+
+  /* Hover na wierszach club */
   .cm-row:hover { background: var(--tc-overlay); }
 
   .cm-row__tournament {
@@ -607,8 +610,8 @@ const clubMatches = clubMatchesData ?? [];
     .m-format { display: none; }
     .m-date { display: none; }
     /* Club: upraszczamy do 3 kolumn, chowamy date */
-    .cm-table-head { grid-template-columns: 1fr 1fr auto; }
-    .cm-row { grid-template-columns: 1fr 1fr auto; }
+    .cm-table-head { grid-template-columns: 180px 1fr 160px; }
+    .cm-row { grid-template-columns: 180px 1fr 160px; }
     .cm-row__date { display: none; }
     /* Filtry: sort przechodzi na nowy wiersz */
     .m-filters-row { flex-wrap: wrap; gap: 12px; }
