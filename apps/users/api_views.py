@@ -397,3 +397,134 @@ def get_csrf_token(request):
     return Response({
         'detail': 'CSRF cookie set'
     })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def api_change_password(request):
+    """
+    Zmiana hasła dla zalogowanego użytkownika.
+    POST /api/auth/password/change/
+    Body: { "old_password": "...", "new_password": "...", "new_password2": "..." }
+    Returns: { "success": true } | { "success": false, "error": "..." }
+    Auth: sesja Django. Gdy niezalogowany → 401.
+    """
+    if not request.user.is_authenticated:
+        return Response({'success': False, 'error': 'Unauthorized'}, status=status.HTTP_401_UNAUTHORIZED)
+
+    old_password  = request.data.get('old_password', '')
+    new_password  = request.data.get('new_password', '')
+    new_password2 = request.data.get('new_password2', '')
+
+    if not old_password or not new_password or not new_password2:
+        return Response({'success': False, 'error': 'Wszystkie pola są wymagane.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not request.user.check_password(old_password):
+        return Response({'success': False, 'error': 'Aktualne hasło jest nieprawidłowe.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if new_password != new_password2:
+        return Response({'success': False, 'error': 'Nowe hasła nie są identyczne.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({'success': False, 'error': 'Nowe hasło musi mieć co najmniej 8 znaków.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    request.user.set_password(new_password)
+    request.user.save()
+
+    # Zachowaj sesję po zmianie hasła (Django wylogowuje po set_password)
+    from django.contrib.auth import update_session_auth_hash
+    update_session_auth_hash(request, request.user)
+
+    return Response({'success': True})
+
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def api_password_reset_request(request):
+    """
+    Żądanie resetu hasła — wysyła link na email.
+    POST /api/auth/password/reset/request/
+    Body: { "email": "..." }
+    Returns: { "success": true } — zawsze (nie ujawniamy czy email istnieje)
+    """
+    import secrets
+    from django.utils import timezone
+    from datetime import timedelta
+    from apps.users.models import PasswordResetToken
+
+    email = request.data.get('email', '').strip().lower()
+    if not email:
+        return Response({'success': False, 'error': 'Podaj adres email.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Zawsze zwracamy success=true — nie ujawniamy czy email jest w bazie
+    try:
+        user = User.objects.get(email__iexact=email)
+    except User.DoesNotExist:
+        return Response({'success': True})
+
+    # Unieważnij stare tokeny
+    PasswordResetToken.objects.filter(user=user).delete()
+
+    token = secrets.token_urlsafe(32)
+    expires_at = timezone.now() + timedelta(hours=2)
+    PasswordResetToken.objects.create(user=user, token=token, expires_at=expires_at)
+
+    reset_url = f"{request.build_absolute_uri('/').rstrip('/')}/reset-password?token={token}"
+
+    from apps.utils.email_service import send_notification_email
+    send_notification_email(
+        subject='Reset hasła — Raketon',
+        message=f'Kliknij link aby zresetować hasło: {reset_url}\n\nLink wygaśnie za 2 godziny.',
+        recipient_list=[email],
+        html_message=f'''
+            <p>Otrzymaliśmy prośbę o reset hasła dla Twojego konta w portalu Raketon.</p>
+            <p><a href="{reset_url}" style="background:#22c55e;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">Ustaw nowe hasło →</a></p>
+            <p style="color:#888;font-size:0.85em;">Link wygaśnie za 2 godziny. Jeśli nie prosiłeś o reset — zignoruj tę wiadomość.</p>
+        ''',
+    )
+
+    return Response({'success': True})
+
+
+@api_view(['POST'])
+@authentication_classes([CsrfExemptSessionAuthentication])
+@permission_classes([AllowAny])
+def api_password_reset_confirm(request):
+    """
+    Potwierdzenie resetu hasła — ustawia nowe hasło po weryfikacji tokenu.
+    POST /api/auth/password/reset/confirm/
+    Body: { "token": "...", "new_password": "...", "new_password2": "..." }
+    Returns: { "success": true } | { "success": false, "error": "..." }
+    """
+    from django.utils import timezone
+    from apps.users.models import PasswordResetToken
+
+    token_value   = request.data.get('token', '').strip()
+    new_password  = request.data.get('new_password', '')
+    new_password2 = request.data.get('new_password2', '')
+
+    if not token_value or not new_password or not new_password2:
+        return Response({'success': False, 'error': 'Wszystkie pola są wymagane.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if new_password != new_password2:
+        return Response({'success': False, 'error': 'Hasła nie są identyczne.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if len(new_password) < 8:
+        return Response({'success': False, 'error': 'Hasło musi mieć co najmniej 8 znaków.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        reset_token = PasswordResetToken.objects.select_related('user').get(token=token_value)
+    except PasswordResetToken.DoesNotExist:
+        return Response({'success': False, 'error': 'Link jest nieprawidłowy lub już wykorzystany.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if reset_token.expires_at < timezone.now():
+        reset_token.delete()
+        return Response({'success': False, 'error': 'Link wygasł. Poproś o nowy reset hasła.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = reset_token.user
+    user.set_password(new_password)
+    user.save()
+    reset_token.delete()
+
+    return Response({'success': True})

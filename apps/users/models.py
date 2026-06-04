@@ -16,6 +16,19 @@ class Profile(models.Model):
     def __str__(self):
         return f'{self.user.username} Profile'
 
+class PasswordResetToken(models.Model):
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token      = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Token resetu hasła'
+
+    def __str__(self):
+        return f'PasswordResetToken({self.user.username}, expires={self.expires_at})'
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
