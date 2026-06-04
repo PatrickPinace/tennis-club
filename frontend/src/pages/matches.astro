@@ -518,23 +518,60 @@ const clubMatches = clubMatchesData ?? [];
 
   .m-table-card { padding: 0; }
 
-  .m-table-card .dash-section-header {
-    padding: 14px 20px;
+  /* ── Rząd 1: nagłówek + search ─────────────────────────────────────────── */
+  .m-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px 10px;
+    gap: 12px;
+  }
+
+  /* ── Rząd 2: filtry + sortowanie ───────────────────────────────────────── */
+  .m-filters-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 20px 12px;
     border-bottom: 1px solid var(--tc-card-border);
-    margin: 0;
   }
 
   .m-filter-groups {
     display: flex;
-    gap: 8px;
-    align-items: center;
+    align-items: flex-end;
+    gap: 16px;
     flex-wrap: wrap;
   }
 
+  .m-sort-group {
+    flex-shrink: 0;
+    padding-left: 16px;
+    border-left: 1px solid var(--tc-card-border-soft);
+  }
+
+  /* ── Labeled filter (etykieta + control) ───────────────────────────────── */
+  .m-labeled-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .m-filter-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--tc-faint);
+    padding-left: 2px;
+  }
+
+  /* ── Search ─────────────────────────────────────────────────────────────── */
   .m-search-wrap {
     position: relative;
     display: flex;
     align-items: center;
+    flex-shrink: 0;
   }
 
   .m-search__icon {
@@ -546,22 +583,23 @@ const clubMatches = clubMatchesData ?? [];
   }
 
   .m-search {
-    height: 30px;
+    height: 32px;
     padding: 0 10px 0 30px;
     background: var(--tc-chip-bg);
     border: 1px solid var(--tc-card-border);
     border-radius: 7px;
     color: var(--tc-ink);
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-family: var(--font-sans);
-    width: 160px;
+    width: 180px;
     outline: none;
     transition: border-color 0.15s, width 0.2s;
   }
-  .m-search:focus { border-color: var(--tc-accent); width: 200px; }
+  .m-search:focus { border-color: var(--tc-accent); width: 220px; }
   .m-search::placeholder { color: var(--tc-muted); }
   .m-search::-webkit-search-cancel-button { -webkit-appearance: none; }
 
+  /* ── Segmented controls ─────────────────────────────────────────────────── */
   .m-segmented {
     display: flex;
     padding: 2px;
@@ -570,7 +608,7 @@ const clubMatches = clubMatchesData ?? [];
   }
 
   .m-seg {
-    padding: 4px 11px;
+    padding: 4px 10px;
     background: transparent;
     border: none;
     border-radius: 5px;
@@ -580,6 +618,7 @@ const clubMatches = clubMatchesData ?? [];
     cursor: pointer;
     font-family: var(--font-sans);
     transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
   }
   .m-seg:hover { color: var(--tc-sub); }
 
@@ -655,15 +694,13 @@ const clubMatches = clubMatchesData ?? [];
 
   @media (max-width: 1024px) {
     .m-stats { grid-template-columns: repeat(2, 1fr); }
-    .m-filter-groups { flex-wrap: wrap; }
     .m-table-head { display: none; }
     .m-row { grid-template-columns: 32px 1fr auto; gap: 10px; }
     .m-sets__detail { display: none; }
     .m-format { display: none; }
     .m-date { display: none; }
-    .m-table-card .dash-section-header {
-      flex-direction: column; align-items: flex-start; gap: 10px;
-    }
+    .m-filters-row { flex-wrap: wrap; gap: 12px; }
+    .m-sort-group { border-left: none; padding-left: 0; padding-top: 4px; border-top: 1px solid var(--tc-card-border-soft); width: 100%; }
   }
 
   @media (max-width: 768px) {
@@ -672,40 +709,18 @@ const clubMatches = clubMatchesData ?? [];
     .m-stat-card__value { font-size: 1.6rem; }
     .m-row { padding: 12px 16px; }
 
-    .m-table-card .dash-section-header {
-      align-items: stretch;
-    }
-    
-    /* Pełnowymiarowe i czytelne filtry na telefonach */
-    .m-filter-groups {
-      width: 100%;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 10px;
-    }
-    .m-search-wrap {
-      width: 100%;
-    }
-    .m-search {
-      width: 100%;
-      height: 36px;
-      font-size: 0.8rem;
-      padding: 0 10px 0 30px;
-    }
-    .m-search:focus {
-      width: 100%;
-    }
-    .m-segmented {
-      width: 100%;
-      display: flex;
-    }
-    .m-seg {
-      flex: 1;
-      text-align: center;
-      padding: 7px 4px;
-      font-size: 0.75rem;
-    }
-    
+    .m-header-row { padding: 12px 16px 8px; flex-wrap: wrap; }
+    .m-search-wrap { width: 100%; }
+    .m-search { width: 100%; height: 36px; font-size: 0.8rem; }
+    .m-search:focus { width: 100%; }
+
+    .m-filters-row { padding: 0 16px 12px; flex-direction: column; align-items: stretch; }
+    .m-filter-groups { flex-direction: column; align-items: stretch; gap: 10px; }
+    .m-sort-group { border-top: 1px solid var(--tc-card-border-soft); padding-top: 10px; }
+    .m-labeled-filter { width: 100%; }
+    .m-segmented { width: 100%; }
+    .m-seg { flex: 1; text-align: center; padding: 6px 4px; font-size: 0.75rem; }
+
     .m-result-badge { width: 26px; height: 20px; font-size: 0.62rem; }
     .m-opponent__name { font-size: 0.82rem; }
     .m-sets__score { font-size: 0.95rem; }

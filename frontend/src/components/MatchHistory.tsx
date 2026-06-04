@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import AddMatchForm from './AddMatchForm';
 
 interface MatchRow {
@@ -145,64 +145,79 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
       </div>
 
       <section className="dash-card m-table-card">
-        <div className="dash-section-header">
+        {/* Rząd 1: tytuł + meta + search */}
+        <div className="m-header-row">
           <h2 className="dash-section-title">
             Historia meczów
             <span className="section-badge">{filtered.length}</span>
             {userDisplayName && <span className="m-my-chip">Twoja historia</span>}
           </h2>
+          <div className="m-search-wrap">
+            <SearchIcon />
+            <input
+              className="m-search"
+              type="search"
+              placeholder="Szukaj po nazwisku…"
+              autoComplete="off"
+              aria-label="Szukaj po przeciwniku"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Rząd 2: filtry treści + sortowanie odseparowane */}
+        <div className="m-filters-row">
           <div className="m-filter-groups">
-            <div className="m-search-wrap">
-              <SearchIcon />
-              <input
-                className="m-search"
-                type="search"
-                placeholder="Szukaj po nazwisku…"
-                autoComplete="off"
-                aria-label="Szukaj po przeciwniku"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+            <LabeledFilter label="Typ">
+              <SegmentedFilter
+                label="Typ meczu"
+                options={[
+                  { value: 'all',        label: 'Wszystkie'   },
+                  { value: 'friendly',   label: 'Towarzyskie' },
+                  { value: 'tournament', label: 'Turniejowe'  },
+                ]}
+                active={typeFilter}
+                onChange={v => setTypeFilter(v as TypeFilter)}
               />
-            </div>
-            <SegmentedFilter
-              label="Typ"
-              options={[
-                { value: 'all',        label: 'Wszystkie'   },
-                { value: 'friendly',   label: 'Towarzyskie' },
-                { value: 'tournament', label: 'Turniejowe'  },
-              ]}
-              active={typeFilter}
-              onChange={v => setTypeFilter(v as TypeFilter)}
-            />
-            <SegmentedFilter
-              label="Format"
-              options={[
-                { value: 'all', label: 'Wszystkie' },
-                { value: 'SNG', label: 'Singiel' },
-                { value: 'DBL', label: 'Debel' },
-              ]}
-              active={formatFilter}
-              onChange={v => setFormatFilter(v as FormatFilter)}
-            />
-            <SegmentedFilter
-              label="Wynik"
-              options={[
-                { value: 'all', label: 'Wszystkie' },
-                { value: 'win', label: 'Wygrane' },
-                { value: 'loss', label: 'Porażki' },
-              ]}
-              active={resultFilter}
-              onChange={v => setResultFilter(v as ResultFilter)}
-            />
-            <SegmentedFilter
-              label="Sortuj"
-              options={[
-                { value: 'desc', label: 'Najnowsze' },
-                { value: 'asc',  label: 'Najstarsze' },
-              ]}
-              active={sortOrder}
-              onChange={v => setSortOrder(v as SortOrder)}
-            />
+            </LabeledFilter>
+            <LabeledFilter label="Wynik">
+              <SegmentedFilter
+                label="Wynik"
+                options={[
+                  { value: 'all',  label: 'Wszystkie' },
+                  { value: 'win',  label: 'Wygrane'   },
+                  { value: 'loss', label: 'Porażki'   },
+                ]}
+                active={resultFilter}
+                onChange={v => setResultFilter(v as ResultFilter)}
+              />
+            </LabeledFilter>
+            <LabeledFilter label="Format">
+              <SegmentedFilter
+                label="Format"
+                options={[
+                  { value: 'all', label: 'Wszystkie' },
+                  { value: 'SNG', label: 'Singiel'   },
+                  { value: 'DBL', label: 'Debel'     },
+                ]}
+                active={formatFilter}
+                onChange={v => setFormatFilter(v as FormatFilter)}
+              />
+            </LabeledFilter>
+          </div>
+          <div className="m-sort-group">
+            <LabeledFilter label="Sortuj">
+              <SegmentedFilter
+                label="Sortowanie"
+                options={[
+                  { value: 'desc', label: 'Najnowsze'  },
+                  { value: 'asc',  label: 'Najstarsze' },
+                ]}
+                active={sortOrder}
+                onChange={v => setSortOrder(v as SortOrder)}
+              />
+            </LabeledFilter>
           </div>
         </div>
 
@@ -286,6 +301,15 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
         </div>
       )}
     </>
+  );
+}
+
+function LabeledFilter({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="m-labeled-filter">
+      <span className="m-filter-label">{label}</span>
+      {children}
+    </div>
   );
 }
 
