@@ -8,7 +8,9 @@ interface MatchRow {
   resultLetter: string;
   opponentFull: string;
   isDouble: boolean;
+  isTournament: boolean;
   date: string;
+  rawDate: string;   // "YYYY-MM-DD" — do sortowania
   score: string;
   setsScore: string;
   formatLabel: string;
@@ -25,6 +27,8 @@ interface Props {
 
 type FormatFilter = 'all' | 'SNG' | 'DBL';
 type ResultFilter = 'all' | 'win' | 'loss';
+type TypeFilter  = 'all' | 'friendly' | 'tournament';
+type SortOrder   = 'desc' | 'asc';
 
 const SearchIcon = () => (
   <svg className="m-search__icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -48,6 +52,8 @@ const CheckIcon = () => (
 export default function MatchHistory({ matches, userDisplayName, addMatchUrl, myId, today }: Props) {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
+  const [typeFilter,   setTypeFilter]   = useState<TypeFilter>('all');
+  const [sortOrder,    setSortOrder]    = useState<SortOrder>('desc');
   const [search, setSearch] = useState('');
   const [showBanner, setShowBanner] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -74,13 +80,19 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return matches.filter(m => {
+    let result = matches.filter(m => {
       if (formatFilter !== 'all' && m.format !== formatFilter) return false;
       if (resultFilter !== 'all' && m.result !== resultFilter) return false;
+      if (typeFilter === 'friendly'   && m.isTournament) return false;
+      if (typeFilter === 'tournament' && !m.isTournament) return false;
       if (q && !m.opponentFull.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [matches, formatFilter, resultFilter, search]);
+    if (sortOrder === 'asc') {
+      result = [...result].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+    }
+    return result;
+  }, [matches, formatFilter, resultFilter, typeFilter, sortOrder, search]);
 
   const total = matches.length;
   const wins = matches.filter(m => m.result === 'win').length;
@@ -153,6 +165,16 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
               />
             </div>
             <SegmentedFilter
+              label="Typ"
+              options={[
+                { value: 'all',        label: 'Wszystkie'   },
+                { value: 'friendly',   label: 'Towarzyskie' },
+                { value: 'tournament', label: 'Turniejowe'  },
+              ]}
+              active={typeFilter}
+              onChange={v => setTypeFilter(v as TypeFilter)}
+            />
+            <SegmentedFilter
               label="Format"
               options={[
                 { value: 'all', label: 'Wszystkie' },
@@ -171,6 +193,15 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
               ]}
               active={resultFilter}
               onChange={v => setResultFilter(v as ResultFilter)}
+            />
+            <SegmentedFilter
+              label="Sortuj"
+              options={[
+                { value: 'desc', label: 'Najnowsze' },
+                { value: 'asc',  label: 'Najstarsze' },
+              ]}
+              active={sortOrder}
+              onChange={v => setSortOrder(v as SortOrder)}
             />
           </div>
         </div>

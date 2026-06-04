@@ -6,6 +6,7 @@ import { useState, useMemo } from 'react';
 import type { ClubMatchEntry } from '@/lib/api';
 
 type FormatFilter = 'all' | 'SNG' | 'DBL';
+type SortOrder   = 'desc' | 'asc';
 
 const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
   RND: 'Round Robin',
@@ -42,6 +43,7 @@ function matchup(m: ClubMatchEntry): string {
 
 export default function ClubMatches({ matches, tournamentsUrl }: Props) {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
+  const [sortOrder,    setSortOrder]    = useState<SortOrder>('desc');
   const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
@@ -56,8 +58,13 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         )
       );
     }
+    if (sortOrder === 'asc') {
+      result = [...result].sort((a, b) =>
+        (a.match_date ?? '').localeCompare(b.match_date ?? '')
+      );
+    }
     return result;
-  }, [matches, formatFilter, search]);
+  }, [matches, formatFilter, sortOrder, search]);
 
   return (
     <div className="cm-wrap">
@@ -72,6 +79,18 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
               onClick={() => setFormatFilter(f)}
             >
               {f === 'all' ? 'Wszystkie' : f === 'SNG' ? 'Singiel' : 'Debel'}
+            </button>
+          ))}
+        </div>
+        <div className="m-seg" role="group" aria-label="Sortowanie">
+          {(['desc', 'asc'] as SortOrder[]).map(s => (
+            <button
+              key={s}
+              type="button"
+              className={`m-seg__btn${sortOrder === s ? ' m-seg__btn--active' : ''}`}
+              onClick={() => setSortOrder(s)}
+            >
+              {s === 'desc' ? 'Najnowsze' : 'Najstarsze'}
             </button>
           ))}
         </div>
