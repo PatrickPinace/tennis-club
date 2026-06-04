@@ -6,4 +6,5 @@ urlpatterns = [
     path('matches/<int:pk>/', views.MatchDetailView.as_view(), name='match-detail'),
     path('matches/history/', views.MatchHistoryView.as_view(), name='match-history'),
     path('matches/filters/', views.MatchFiltersView.as_view(), name='match-filters'),
+    path('matches/club/', views.ClubMatchesView.as_view(), name='match-club'),
 ]

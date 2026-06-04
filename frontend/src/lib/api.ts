@@ -104,6 +104,8 @@ export interface MatchHistoryEntry {
   confirmed_by?: MatchUser | null;
   is_tournament?: boolean;
   tournament_id?: number | null;
+  tournament_name?: string | null;
+  tournament_type?: string | null;
 }
 
 export interface RankingData {
@@ -551,6 +553,40 @@ export async function getRankings(
   const params = new URLSearchParams({ type: matchType });
   if (year !== undefined) params.set('year', String(year));
   const data = await apiFetch<PlayerRankingEntry[]>(`/api/rankings/list/?${params}`);
+  return data ?? [];
+}
+
+export interface ClubMatchEntry {
+  id: number;
+  tournament_id: number;
+  tournament_name: string;
+  tournament_type: string;
+  p1: string | null;
+  p2: string | null;
+  p3: string | null;
+  p4: string | null;
+  set1: string | null;
+  set2: string | null;
+  set3: string | null;
+  winner: string | null;
+  winner_side: 'p1' | 'p2' | null;
+  match_double: boolean;
+  match_date: string | null;
+}
+
+/**
+ * Zwraca ostatnie zakończone mecze turniejowe w klubie (scope publiczny).
+ * Endpoint: GET /api/matches/club/
+ * Auth: IsAuthenticated.
+ */
+export async function getClubMatches(
+  sessionCookie?: string,
+  limit = 30,
+): Promise<ClubMatchEntry[]> {
+  const data = await apiFetch<ClubMatchEntry[]>(
+    `/api/matches/club/?limit=${limit}`,
+    { sessionCookie },
+  );
   return data ?? [];
 }
 
