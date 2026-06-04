@@ -271,7 +271,11 @@ class ClubMatchesView(APIView):
                 m.participant3_id or m.participant4_id or
                 m.tournament.match_format == Tournament.MatchFormat.DOUBLES.value
             )
-            match_date = m.scheduled_time.date() if m.scheduled_time else None
+            match_date = (
+                m.scheduled_time.date() if m.scheduled_time
+                else m.tournament.start_date.date() if m.tournament.start_date
+                else None
+            )
             data.append({
                 'id': m.pk,
                 'tournament_id': m.tournament_id,

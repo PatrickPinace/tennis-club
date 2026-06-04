@@ -262,69 +262,18 @@ const clubMatches = clubMatchesData ?? [];
     font-weight: 400;
   }
 
-  .cm-table-head {
-    grid-template-columns: 220px 1fr 180px 100px;
+  /* neutral dot w kolumnie 1 dla club (zamiast badge wyniku) */
+  .cm-neutral-dot {
+    width: 32px; height: 24px;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .cm-neutral-dot::after {
+    content: ''; display: block;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--tc-faint);
   }
 
-  .cm-row {
-    grid-template-columns: 220px 1fr 180px 100px;
-    cursor: default;
-    align-items: center;
-  }
-
-  .cm-row > * { min-width: 0; }
-
-  /* Hover na wierszach club */
-  .cm-row:hover { background: var(--tc-overlay); }
-
-  .cm-row__tournament {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-  }
-
-  .cm-row__tourn-link {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--tc-ink);
-    text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .cm-row__tourn-link:hover { color: var(--tc-accent); }
-
-  .cm-row__matchup {
-    font-size: 0.84rem;
-    color: var(--tc-ink);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .cm-row__score {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 3px;
-  }
-
-  .cm-row__winner {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.72rem;
-    color: var(--tc-muted);
-    white-space: nowrap;
-  }
-
-  .cm-row__date {
-    text-align: right;
-    font-size: 0.78rem;
-    color: var(--tc-muted);
-    white-space: nowrap;
-  }
+  .cm-type-sep { color: var(--tc-faint); }
 
   .m-score {
     font-family: var(--font-mono-plex, 'IBM Plex Mono', monospace);
@@ -333,31 +282,7 @@ const clubMatches = clubMatchesData ?? [];
     color: var(--tc-ink);
   }
 
-  .m-badge {
-    display: inline-block;
-    padding: 1px 6px;
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    width: fit-content;
-  }
 
-  .m-badge--type {
-    background: var(--tc-chip-bg);
-    color: var(--tc-sub);
-    border: 1px solid var(--tc-card-border-soft);
-  }
-
-
-  @media (max-width: 768px) {
-    .cm-row {
-      grid-template-columns: 1fr auto !important;
-    }
-    .cm-row__score { display: none; }
-    .cm-row__date { display: none; }
-  }
 
   .m-my-chip {
     display: inline-flex;
@@ -603,17 +528,11 @@ const clubMatches = clubMatchesData ?? [];
 
   @media (max-width: 1024px) {
     .m-stats { grid-template-columns: repeat(2, 1fr); }
-    /* Mine: ukrywamy nagłówek tabeli i upraszczamy kolumny */
-    .m-table-head:not(.cm-table-head) { display: none; }
-    .m-row:not(.cm-row) { grid-template-columns: 32px 1fr auto; gap: 10px; }
+    .m-table-head { display: none; }
+    .m-row { grid-template-columns: 32px 1fr auto; gap: 10px; }
     .m-sets__detail { display: none; }
     .m-format { display: none; }
     .m-date { display: none; }
-    /* Club: upraszczamy do 3 kolumn, chowamy date */
-    .cm-table-head { grid-template-columns: 180px 1fr 160px; }
-    .cm-row { grid-template-columns: 180px 1fr 160px; }
-    .cm-row__date { display: none; }
-    /* Filtry: sort przechodzi na nowy wiersz */
     .m-filters-row { flex-wrap: wrap; gap: 12px; }
     .m-sort-group { border-left: none; padding-left: 0; padding-top: 0; border-top: none; }
   }
@@ -622,32 +541,19 @@ const clubMatches = clubMatchesData ?? [];
     .m-stats { gap: 8px; }
     .m-stat-card { padding: 14px 16px; }
     .m-stat-card__value { font-size: 1.6rem; }
-
-    /* Mine wiersze */
-    .m-row:not(.cm-row) { padding: 12px 16px; }
-
-    /* Nagłówki */
+    .m-row { padding: 12px 16px; }
     .m-header-row { padding: 12px 16px 8px; flex-wrap: wrap; }
     .m-search-wrap { width: 100%; }
     .m-search { width: 100%; height: 36px; font-size: 0.8rem; }
     .m-search:focus { width: 100%; }
-
-    /* Filtry */
     .m-filters-row { padding: 0 16px 12px; flex-direction: column; align-items: stretch; }
     .m-filter-groups { flex-direction: column; align-items: stretch; gap: 10px; }
     .m-sort-group { border-top: 1px solid var(--tc-card-border-soft); padding-top: 10px; }
     .m-labeled-filter { width: 100%; }
     .m-segmented { width: 100%; }
     .m-seg { flex: 1; text-align: center; padding: 6px 4px; font-size: 0.75rem; }
-
-    /* Badges i tekst */
     .m-result-badge { width: 26px; height: 20px; font-size: 0.62rem; }
     .m-opponent__name { font-size: 0.82rem; }
     .m-sets__score { font-size: 0.95rem; }
-
-    /* Club na mobile: pełna szerokość, tylko turniej + mecz */
-    .cm-table-head { display: none; }
-    .cm-row { grid-template-columns: 1fr 1fr; padding: 12px 16px; }
-    .cm-row__score { display: none; }
   }
 </style>

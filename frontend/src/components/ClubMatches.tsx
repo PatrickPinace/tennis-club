@@ -139,11 +139,12 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         </div>
       </div>
 
-      {/* Nagłówek tabeli */}
-      <div className="m-table-head cm-table-head">
-        <span>TURNIEJ</span>
+      {/* Nagłówek tabeli — identyczny układ jak mine */}
+      <div className="m-table-head">
+        <span></span>
         <span>MECZ</span>
         <span>WYNIK</span>
+        <span>FORMAT</span>
         <span className="m-th-right">DATA</span>
       </div>
 
@@ -172,33 +173,38 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
           )}
         </div>
       ) : (
-        <ul className="m-table-body" role="list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {filtered.map(m => (
-            <li key={m.id} className="m-row cm-row">
-              <div className="cm-row__tournament">
-                <a href={`${tournamentsUrl}/${m.tournament_id}`} className="cm-row__tourn-link">
-                  {m.tournament_name}
-                </a>
-                <span className="m-badge m-badge--type">
-                  {TOURNAMENT_TYPE_LABEL[m.tournament_type] ?? m.tournament_type}
-                </span>
-              </div>
-              <div className="cm-row__matchup">{matchup(m)}</div>
-              <div className="cm-row__score">
-                <span className="m-score">{matchScore(m)}</span>
-                {m.winner && (
-                  <span className="cm-row__winner">
-                    <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style={{ color: 'var(--tc-accent)' }}>
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-                    </svg>
-                    {m.winner}
-                  </span>
-                )}
-              </div>
-              <div className="cm-row__date">{formatDate(m.match_date)}</div>
-            </li>
-          ))}
-        </ul>
+        <div className="m-table-body">
+          {filtered.map(m => {
+            const score = matchScore(m);
+            const fmt   = m.match_double ? 'Debel' : 'Singiel';
+            const typeLabel = TOURNAMENT_TYPE_LABEL[m.tournament_type] ?? m.tournament_type;
+            return (
+              <a key={m.id} className="m-row" href={`${tournamentsUrl}/${m.tournament_id}`}>
+                {/* kolumna 1: pusty slot zamiast badge wyniku */}
+                <div className="cm-neutral-dot" aria-hidden="true" />
+                {/* kolumna 2: mecz + turniej jako podtytuł */}
+                <div className="m-opponent">
+                  <div className="m-opponent__name">{matchup(m)}</div>
+                  <div className="m-opponent__type">
+                    {m.tournament_name}
+                    {typeLabel && <span className="cm-type-sep">· {typeLabel}</span>}
+                  </div>
+                </div>
+                {/* kolumna 3: wynik setów + zwycięzca */}
+                <div className="m-sets" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '2px' }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <span className="m-sets__score m-sets__score--draw">{score}</span>
+                  </div>
+                  {m.winner && <span className="m-sets__detail">✓ {m.winner}</span>}
+                </div>
+                {/* kolumna 4: format */}
+                <div className="m-format">{fmt}</div>
+                {/* kolumna 5: data */}
+                <div className="m-date">{formatDate(m.match_date)}</div>
+              </a>
+            );
+          })}
+        </div>
       )}
     </section>
   );
