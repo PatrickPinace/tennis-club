@@ -57,6 +57,12 @@ const MATCH_STATUS_LABEL: Record<string, string> = {
   WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
   CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
 };
+function fmtPts(val: number | string | null | undefined): string {
+  const n = Number(val);
+  if (isNaN(n)) return '—';
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
 const TIE_LABEL: Record<string, string> = {
   HEAD: 'Bezpośrednie spotkanie', SETS: 'Bilans setów', GAMES: 'Bilans gemów',
 };
@@ -1573,14 +1579,14 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                     <div class="td-config-row"><span>Maks. uczestników</span><strong>{tournament.config.max_participants}</strong></div>
                   </div>
                   <div>
-                    <div class="td-config-row"><span>Wygrana mecz</span><strong>+{tournament.config.points_for_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Przegrana mecz</span><strong>+{tournament.config.points_for_loss} pkt</strong></div>
-                    <div class="td-config-row"><span>Bonus wygr. set</span><strong>+{tournament.config.points_for_set_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Kara przegr. set</span><strong>{tournament.config.points_for_set_loss} pkt</strong></div>
-                    <div class="td-config-row"><span>Bonus wygr. gem</span><strong>+{tournament.config.points_for_gem_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Kara przegr. gem</span><strong>{tournament.config.points_for_gem_loss} pkt</strong></div>
-                    <div class="td-config-row"><span>Bonus wygr. punkt STB</span><strong>+{tournament.config.points_for_supertiebreak_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Kara przegr. punkt STB</span><strong>{tournament.config.points_for_supertiebreak_loss} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrana mecz</span><strong>{fmtPts(tournament.config.points_for_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrana mecz</span><strong>{fmtPts(tournament.config.points_for_loss)} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrany set</span><strong>{fmtPts(tournament.config.points_for_set_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrany set</span><strong>{fmtPts(tournament.config.points_for_set_loss)} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrany gem</span><strong>{fmtPts(tournament.config.points_for_gem_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrany gem</span><strong>{fmtPts(tournament.config.points_for_gem_loss)} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrany punkt STB</span><strong>{fmtPts(tournament.config.points_for_supertiebreak_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrany punkt STB</span><strong>{fmtPts(tournament.config.points_for_supertiebreak_loss)} pkt</strong></div>
                   </div>
                 </div>
               </div>
