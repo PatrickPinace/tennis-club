@@ -110,6 +110,21 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
   }
   const streakLetter = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : 'R';
 
+  function pluralMecze(n: number): string {
+    if (n === 1) return '1 mecz';
+    if (n >= 2 && n <= 4) return `${n} mecze`;
+    return `${n} meczów`;
+  }
+
+  const hasActiveFilters = typeFilter !== 'all' || resultFilter !== 'all' || formatFilter !== 'all' || search !== '';
+
+  function clearFilters() {
+    setTypeFilter('all');
+    setResultFilter('all');
+    setFormatFilter('all');
+    setSearch('');
+  }
+
   return (
     <>
       {showBanner && (
@@ -140,7 +155,7 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
           <div className="m-stat-card__value">
             {streak}<span className="m-stat-card__streak-letter">{streakLetter}</span>
           </div>
-          <div className="m-stat-card__sub">ostatnie {streak} mecze</div>
+          <div className="m-stat-card__sub">ostatnie {pluralMecze(streak)}</div>
         </div>
       </div>
 
@@ -234,22 +249,32 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
             <div className="dash-empty-block__icon" aria-hidden="true">
               <TennisIcon />
             </div>
-            <p className="dash-empty-block__title">Brak meczów</p>
-            <p className="dash-empty-block__sub">
-              {total === 0
-                ? 'Nie rozegrałeś jeszcze żadnych meczów lub nie jesteś zalogowany.'
-                : 'Brak meczów pasujących do wybranych filtrów.'}
-            </p>
-            {total === 0 && (
-              <div className="dash-empty-block__links">
-                <button
-                  className="dash-btn-primary"
-                  style={{ border: 'none', cursor: 'pointer' }}
-                  onClick={() => myId ? setShowAddModal(true) : (window.location.href = addMatchUrl)}
-                >
-                  Dodaj pierwszy mecz
-                </button>
-              </div>
+            {total === 0 ? (
+              <>
+                <p className="dash-empty-block__title">Brak historii meczów</p>
+                <p className="dash-empty-block__sub">Nie masz jeszcze żadnych zapisanych meczów. Dodaj swój pierwszy mecz towarzyski lub dołącz do turnieju.</p>
+                <div className="dash-empty-block__links">
+                  <button
+                    className="dash-btn-primary"
+                    style={{ border: 'none', cursor: 'pointer' }}
+                    onClick={() => myId ? setShowAddModal(true) : (window.location.href = addMatchUrl)}
+                  >
+                    Dodaj pierwszy mecz
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="dash-empty-block__title">Brak wyników dla tych filtrów</p>
+                <p className="dash-empty-block__sub">Żaden z Twoich {pluralMecze(total)} nie pasuje do wybranych kryteriów.</p>
+                {hasActiveFilters && (
+                  <div className="dash-empty-block__links">
+                    <button className="dash-link-sm" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={clearFilters}>
+                      Wyczyść filtry
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (

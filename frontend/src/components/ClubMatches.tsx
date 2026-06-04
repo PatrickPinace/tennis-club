@@ -52,6 +52,13 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
   const [sortOrder,    setSortOrder]    = useState<SortOrder>('desc');
   const [search,       setSearch]       = useState('');
 
+  const hasActiveFilters = formatFilter !== 'all' || search !== '';
+
+  function clearFilters() {
+    setFormatFilter('all');
+    setSearch('');
+  }
+
   const filtered = useMemo(() => {
     let result = matches;
     if (formatFilter === 'SNG') result = result.filter(m => !m.match_double);
@@ -142,15 +149,27 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
 
       {filtered.length === 0 ? (
         <div className="dash-empty-block">
-          <p className="dash-empty-block__title">Brak meczów</p>
-          <p className="dash-empty-block__sub">
-            {search.trim()
-              ? 'Brak wyników dla podanej frazy.'
-              : 'Żadne zakończone mecze turniejowe nie pasują do filtrów.'}
-          </p>
-          <div className="dash-empty-block__links">
-            <a href={tournamentsUrl} className="dash-link-sm">Zobacz turnieje →</a>
-          </div>
+          {matches.length === 0 ? (
+            <>
+              <p className="dash-empty-block__title">Brak meczów turniejowych</p>
+              <p className="dash-empty-block__sub">W klubie nie ma jeszcze żadnych zakończonych meczów turniejowych. Dołącz do turnieju, żeby zobaczyć wyniki.</p>
+              <div className="dash-empty-block__links">
+                <a href={tournamentsUrl} className="dash-link-sm">Przeglądaj turnieje →</a>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="dash-empty-block__title">Brak wyników dla tych filtrów</p>
+              <p className="dash-empty-block__sub">Żaden mecz nie pasuje do wybranych kryteriów.</p>
+              {hasActiveFilters && (
+                <div className="dash-empty-block__links">
+                  <button className="dash-link-sm" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={clearFilters}>
+                    Wyczyść filtry
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <ul className="m-table-body" role="list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
