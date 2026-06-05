@@ -1231,7 +1231,10 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                     <button class="org-filter-btn" data-filter="all">Wszystkie</button>
                   </div>
                   <div class="org-search-wrap">
-                    <input id="org-match-search" class="org-search-input" type="text" placeholder="Szukaj zawodnika lub pary…" autocomplete="off">
+                    <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                    </svg>
+                    <input id="org-match-search" class="org-search-input" type="search" placeholder="Szukaj zawodnika lub pary…" autocomplete="off">
                   </div>
                 </div>
               </div>
@@ -1623,8 +1626,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!header) return;
   const card = header.closest('.org-card') as HTMLElement | null;
   if (!card) return;
+  const label = header.querySelector<HTMLElement>('.org-toggle-hint__label');
   header.addEventListener('click', () => {
-    card.classList.toggle('is-collapsed');
+    const collapsed = card.classList.toggle('is-collapsed');
+    if (label) label.textContent = collapsed ? 'rozwiń' : 'zwiń';
   });
 });
 </script>

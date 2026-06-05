@@ -33,17 +33,32 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
   .org-ldr-filter-btn:hover:not(.is-active) { color: var(--tc-ink); border-color: var(--tc-sub); }
+  .org-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .org-search-icon {
+    position: absolute;
+    left: 8px;
+    color: var(--tc-muted);
+    pointer-events: none;
+    flex-shrink: 0;
+  }
   .org-search-input {
     height: 30px; padding: 0 8px 0 28px;
     font-size: 0.8rem; font-family: var(--font-sans);
     border: 1px solid var(--tc-card-border); border-radius: 6px;
     background: var(--tc-input-bg); color: var(--tc-ink);
-    width: 160px; transition: border-color 0.12s, width 0.2s;
+    width: 200px; transition: border-color 0.12s, width 0.2s;
   }
   .org-search-input:focus {
-    outline: none; border-color: var(--tc-accent); width: 200px;
+    outline: none; border-color: var(--tc-accent); width: 240px;
     box-shadow: 0 0 0 2px var(--tc-accent-soft);
   }
+  .org-search-input::placeholder { color: var(--tc-muted); }
+  .org-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
 
   /* ── Karta meczu ────────────────────────────────────────────────────────── */
   .org-match {
@@ -903,8 +918,25 @@
 }
 
 /* Zwijanie / rozwijanie org-panelu */
-.org-toggle-chevron {
+.org-toggle-hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--tc-card-border);
+  background: var(--tc-chip-bg);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.org-toggle-hint:hover { background: var(--tc-overlay); }
+.org-toggle-hint__label {
   font-size: 0.7rem;
+  color: var(--tc-muted);
+  font-weight: 500;
+}
+.org-toggle-chevron {
+  font-size: 0.62rem;
   color: var(--tc-muted);
   transition: transform 0.2s;
   display: inline-block;
