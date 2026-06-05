@@ -160,6 +160,7 @@ if (!currentUser) {
   }
 
   /* ── Config spinners ── */
+  /* Sekcja mechaniki (Sety/Gemy/Uczestnicy) — zachowuje stary styl */
   .cfg-group-label {
     font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.08em; color: var(--tc-muted);
@@ -187,7 +188,7 @@ if (!currentUser) {
     display: flex; flex-direction: column; align-items: center; gap: 2px;
   }
   .cfg-spin-btn {
-    width: 46px; height: 22px;
+    width: 64px; height: 22px;
     display: flex; align-items: center; justify-content: center;
     font-size: 0.6rem; line-height: 1;
     background: var(--tc-chip-bg);
@@ -205,7 +206,7 @@ if (!currentUser) {
   .cfg-spin-btn:active { transform: scale(0.94); }
 
   .cfg-spin-input {
-    width: 46px; height: 38px; text-align: center;
+    width: 64px; height: 38px; text-align: center;
     font-size: 1rem; font-weight: 700;
     font-family: var(--font-mono);
     border: 1px solid var(--tc-card-border);
@@ -219,6 +220,28 @@ if (!currentUser) {
   .cfg-spin-input:focus {
     border-color: var(--tc-accent);
     box-shadow: 0 0 0 2px var(--tc-accent-soft);
+  }
+
+  /* Grupy punktów — etykieta i spinners jako jeden blok */
+  .cfg-point-group {
+    margin-top: 20px;
+  }
+  .cfg-point-group__label {
+    font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--tc-muted);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .cfg-point-group__label::after {
+    content: ''; flex: 1;
+    height: 1px; background: var(--tc-card-border-soft);
+  }
+  .cfg-point-group__row {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  /* Spinner wewnątrz grupy punktów: label nad inputem, wyrównany poziomo */
+  .cfg-point-group .cfg-spinner-col {
+    flex: 1; min-width: 80px; max-width: 140px;
   }
 
   .cr-field--checkbox {

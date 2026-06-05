@@ -49,6 +49,14 @@ const TYPE_LABEL: Record<string, string> = {
   RND: 'Round Robin', LDR: 'Drabinka', AMR: 'Americano', SWS: 'System szwajcarski',
 };
 
+// Rozwinięcia skrótów — tooltip na nazwie typu turnieju w tabeli.
+const TYPE_HINT: Record<string, string> = {
+  RND: 'Round Robin — każdy gra z każdym, punkty sumowane w tabeli',
+  LDR: 'Drabinka Liderów — gracze rzucają wyzwania wyżej notowanym i wspinają się w rankingu',
+  AMR: 'Americano / Mexicano — rotacyjny format par; Mexicano = dynamiczne parowanie po każdej rundzie',
+  DBE: 'Eliminacja podwójna — zawodnik odpada dopiero po dwóch przegranych (Winners + Losers Bracket)',
+};
+
 const STATUS_META: Record<string, { label: string; color: 'accent' | 'win' | 'muted' }> = {
   DRF: { label: 'Szkic', color: 'muted' },
   REG: { label: 'Rejestracja', color: 'win' },
@@ -157,7 +165,12 @@ function TournamentTableRow({ t, index }: { t: TournamentRow; index: number }) {
         </div>
         <div className="tr-row__date">{dateLabel}</div>
       </div>
-      <div className="tr-row__type">{TYPE_LABEL[t.tournamentType] ?? t.tournamentType}</div>
+      <div className="tr-row__type">
+        {TYPE_HINT[t.tournamentType]
+          ? <abbr title={TYPE_HINT[t.tournamentType]}>{TYPE_LABEL[t.tournamentType] ?? t.tournamentType}</abbr>
+          : (TYPE_LABEL[t.tournamentType] ?? t.tournamentType)
+        }
+      </div>
       <div className="tr-row__participants">
         <span className="tr-row__p-count">{t.participantCount}</span>
         <span className="tr-row__p-max">/ {Math.max(t.participantCount, 8)}</span>
