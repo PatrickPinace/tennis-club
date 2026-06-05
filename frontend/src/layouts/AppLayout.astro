@@ -72,7 +72,10 @@ const currentPath = Astro.url.pathname;
     <>
       <script is:inline define:vars={{ gaMeasurementId }}>
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
+        // Jawne przypisanie do window, aby funkcja była dostępna globalnie
+        window.gtag = window.gtag || function() {
+          window.dataLayer.push(arguments);
+        };
 
         const storedConsent = localStorage.getItem('tc_cookie_consent');
         let consent = null;
@@ -80,7 +83,8 @@ const currentPath = Astro.url.pathname;
           consent = storedConsent ? JSON.parse(storedConsent) : null;
         } catch(e) {}
 
-        gtag('consent', 'default', {
+        // Wywołanie default przed załadowaniem gtag.js
+        window.gtag('consent', 'default', {
           'analytics_storage': consent && consent.statistics ? 'granted' : 'denied',
           'ad_storage': consent && consent.marketing ? 'granted' : 'denied',
           'ad_user_data': consent && consent.marketing ? 'granted' : 'denied',
