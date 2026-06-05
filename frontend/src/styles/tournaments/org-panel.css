@@ -901,3 +901,32 @@
     border-radius: 6px;
   }
 }
+
+/* Zwijanie / rozwijanie org-panelu */
+.org-toggle-chevron {
+  font-size: 0.7rem;
+  color: var(--tc-muted);
+  transition: transform 0.2s;
+  display: inline-block;
+}
+.org-card.is-collapsed .org-toggle-chevron {
+  transform: rotate(180deg);
+}
+.org-card.is-collapsed > *:not(.tc-card-header) {
+  display: none !important;
+}
+
+/* Sekcja Mecze — details/summary styling */
+.rr-matches-details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.rr-matches-details > summary::-webkit-details-marker { display: none; }
+.rr-matches-details[open] .rr-matches-chevron { transform: rotate(180deg); }
+.rr-matches-chevron {
+  font-size: 0.7rem;
+  color: var(--tc-muted);
+  transition: transform 0.2s;
+  display: inline-block;
+  margin-left: 4px;
+}

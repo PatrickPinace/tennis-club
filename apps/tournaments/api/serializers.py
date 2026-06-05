@@ -4,10 +4,19 @@ from django.contrib.auth.models import User
 
 class ParticipantSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source='user.id', read_only=True, allow_null=True)
+    phone_number = serializers.SerializerMethodField()
 
     class Meta:
         model = Participant
-        fields = ['id', 'display_name', 'seed_number', 'status', 'user_id']
+        fields = ['id', 'display_name', 'seed_number', 'status', 'user_id', 'phone_number']
+
+    def get_phone_number(self, obj):
+        if not obj.user:
+            return None
+        try:
+            return obj.user.profile.phone_number or None
+        except Exception:
+            return None
 
 
 class TournamentSerializer(serializers.ModelSerializer):

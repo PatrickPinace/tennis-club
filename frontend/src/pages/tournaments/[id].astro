@@ -13,7 +13,7 @@ import ParticipantsList from '@/components/tournaments/ParticipantsList.astro';
 import JoinPanel from '@/components/tournaments/JoinPanel.astro';
 import OrgFinishSection from '@/components/tournaments/OrgFinishSection.astro';
 import OrgPanelHeader from '@/components/tournaments/OrgPanelHeader.astro';
-import { getTournamentDetail, getLadderData, type TournamentDetail, type RRStandingRow, type TournamentMatch, type LadderData } from '@/lib/api';
+import { getTournamentDetail, getLadderData, getCurrentUser, type TournamentDetail, type RRStandingRow, type TournamentMatch, type LadderData } from '@/lib/api';
 import OrgLadderPanel from '@/components/tournaments/OrgLadderPanel.astro';
 import { url } from '@/lib/url';
 
@@ -26,6 +26,10 @@ import '@/styles/tournaments/bracket.css';
 const { id } = Astro.params;
 const tournamentId = id ? parseInt(id, 10) : NaN;
 const justCreated = Astro.url.searchParams.get('created') === '1';
+
+const sessionCookieMain = Astro.request.headers.get('cookie') ?? undefined;
+const currentUserMain = await getCurrentUser(sessionCookieMain);
+const isLoggedIn = currentUserMain !== null;
 
 // ── Pobierz dane ──────────────────────────────────────────────────────────────
 let tournament: TournamentDetail | null = null;
@@ -104,9 +108,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 // ── Ladder SSR fetch (tylko dla LDR) ────────────────────────────────────────
 let ladderData: LadderData | null = null;
 if (isLadder && tournament) {
-  const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
   try {
-    ladderData = await getLadderData(tournamentId, sessionCookie);
+    ladderData = await getLadderData(tournamentId, sessionCookieMain);
   } catch (e) {
     console.error('[tournament/[id]] ladder fetch failed:', e);
   }
@@ -402,7 +405,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           )}
 
           <!-- ── Uczestnicy ──────────────────────────────────────────────── -->
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Org panel (hidden; revealed by org-ladder.ts after auth) ── -->
           <OrgLadderPanel
@@ -435,7 +438,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             pendingMatches={pendingMatches.length}
           />
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Drabinka ──────────────────────────────────────────────────── -->
           {(tournament.status === 'DRF' || tournament.status === 'REG') ? (
@@ -627,7 +630,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             pendingMatches={pendingMatches.length}
           />
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Drabinka DBE ─────────────────────────────────────────────── -->
           {(tournament.status === 'DRF' || tournament.status === 'REG') ? (
@@ -884,7 +887,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             )}
           </div>
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- Rundy z meczami — widok tabelkowy -->
           {tournament.matches.length > 0 ? (
@@ -1180,86 +1183,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             </div>
           )}
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
-
-          <!-- ── Mecze wg rund ──────────────────────────────────────────── -->
-          {tournament.matches.length > 0 ? (
-            <div class="tc-card" style="margin-bottom:24px;" id="matches-card">
-              <div class="tc-card-header">
-                <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
-                <div style="display:flex;align-items:center;gap:12px;">
-                  <span style="font-size:0.78rem; color:var(--tc-muted);">
-                    {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
-                  </span>
-                  <div class="view-toggle" id="matches-view-toggle">
-                    <button class="view-toggle__btn view-toggle__btn--active" data-view="list" title="Lista">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="1" width="16" height="2.5" rx="1"/><rect x="0" y="6.75" width="16" height="2.5" rx="1"/><rect x="0" y="12.5" width="16" height="2.5" rx="1"/></svg>
-                    </button>
-                    <button class="view-toggle__btn" data-view="matrix" title="Macierz">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/><rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {rounds.map(roundNum => (
-                <div class="td-round">
-                  <div class="td-round__label">Runda {roundNum}</div>
-                  <div class="td-round__matches">
-                    {(matchesByRound.get(roundNum) ?? []).map(m => (
-                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
-                        <div class="td-match__players">
-                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant1_name ?? '—'}
-                          </span>
-                          <span class="td-match__vs">vs</span>
-                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant2_name ?? '—'}
-                          </span>
-                        </div>
-                        <div class="td-match__right">
-                          {m.score ? (
-                            <span class="td-match__score">{m.score}</span>
-                          ) : m.status === 'WAI' ? (
-                            <span class="td-match__status-lbl">Oczekuje</span>
-                          ) : m.status === 'INP' ? (
-                            <span class="td-match__status-lbl td-match__status-lbl--live">● Live</span>
-                          ) : (
-                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <!-- Widok macierzy (ukryty domyślnie, wypełniany przez JS) -->
-            <div id="rr-matrix-wrap" class="tc-card rr-matrix-card" style="display:none; margin-bottom:24px;">
-              <div class="tc-card-header">
-                <span class="tc-card-title">Tabela ligowa</span>
-                <div class="rr-matrix-legend">
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--win">W wygrana</span>
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--loss">P przegrana</span>
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--draw">R remis</span>
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--pending">— brak</span>
-                  <span class="rr-matrix-legend__sep">·</span>
-                  <span class="rr-matrix-legend__note">wynik z perspektywy gracza w wierszu →</span>
-                </div>
-              </div>
-              <div class="rr-matrix-scroll-hint">← przewiń →</div>
-              <div class="rr-matrix-scroll-wrap">
-                <div id="rr-matrix-inner"></div>
-              </div>
-            </div>
-
-            </div>
-          ) : (
-            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
-              <span>Brak zaplanowanych meczów. Mecze pojawią się po zamknięciu rejestracji.</span>
-            </div>
-          )}
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Wpisz wynik — uczestnik meczu RR ─────────────────────── -->
           <!-- Widoczny client-side przez IIFE tylko gdy user jest uczestnikiem meczu. -->
@@ -1550,6 +1474,87 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             </div>
           </div>
 
+          <!-- ── Mecze wg rund ──────────────────────────────────────────── -->
+          {tournament.matches.length > 0 ? (
+            <details class="tc-card rr-matches-details" style="margin-bottom:24px;" id="matches-card" open={tournament.matches.length < 12 || undefined}>
+              <summary class="tc-card-header rr-matches-summary">
+                <span class="tc-card-title">
+                  Mecze ({tournament.matches.length})
+                  <span class="rr-matches-chevron" aria-hidden="true">▲</span>
+                </span>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span style="font-size:0.78rem; color:var(--tc-muted);">
+                    {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
+                  </span>
+                  <div class="view-toggle" id="matches-view-toggle">
+                    <button class="view-toggle__btn view-toggle__btn--active" data-view="list" title="Lista">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="1" width="16" height="2.5" rx="1"/><rect x="0" y="6.75" width="16" height="2.5" rx="1"/><rect x="0" y="12.5" width="16" height="2.5" rx="1"/></svg>
+                    </button>
+                    <button class="view-toggle__btn" data-view="matrix" title="Macierz">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/><rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </summary>
+
+              {rounds.map(roundNum => (
+                <div class="td-round">
+                  <div class="td-round__label">Runda {roundNum}</div>
+                  <div class="td-round__matches">
+                    {(matchesByRound.get(roundNum) ?? []).map(m => (
+                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
+                        <div class="td-match__players">
+                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
+                            {m.participant1_name ?? '—'}
+                          </span>
+                          <span class="td-match__vs">vs</span>
+                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
+                            {m.participant2_name ?? '—'}
+                          </span>
+                        </div>
+                        <div class="td-match__right">
+                          {m.score ? (
+                            <span class="td-match__score">{m.score}</span>
+                          ) : m.status === 'WAI' ? (
+                            <span class="td-match__status-lbl">Oczekuje</span>
+                          ) : m.status === 'INP' ? (
+                            <span class="td-match__status-lbl td-match__status-lbl--live">● Live</span>
+                          ) : (
+                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <!-- Widok macierzy (ukryty domyślnie, wypełniany przez JS) -->
+            <div id="rr-matrix-wrap" class="tc-card rr-matrix-card" style="display:none; margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Tabela ligowa</span>
+                <div class="rr-matrix-legend">
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--win">W wygrana</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--loss">P przegrana</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--draw">R remis</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--pending">— brak</span>
+                  <span class="rr-matrix-legend__sep">·</span>
+                  <span class="rr-matrix-legend__note">wynik z perspektywy gracza w wierszu →</span>
+                </div>
+              </div>
+              <div class="rr-matrix-scroll-hint">← przewiń →</div>
+              <div class="rr-matrix-scroll-wrap">
+                <div id="rr-matrix-inner"></div>
+              </div>
+            </div>
+          </details>
+          ) : (
+            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
+              <span>Brak zaplanowanych meczów. Mecze pojawią się po zamknięciu rejestracji.</span>
+            </div>
+          )}
+
           <!-- Dane meczów, uczestników i config dla org-panel JS (SSR JSON) -->
           {tournament && (
             <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
@@ -1612,4 +1617,14 @@ import '@/lib/tournaments/ldr-actions';
 import '@/lib/tournaments/org-panel';
 import '@/lib/tournaments/org-ladder';
 
+// Org-panel collapse toggle
+document.addEventListener('DOMContentLoaded', () => {
+  const header = document.getElementById('org-panel-toggle-header');
+  if (!header) return;
+  const card = header.closest('.org-card') as HTMLElement | null;
+  if (!card) return;
+  header.addEventListener('click', () => {
+    card.classList.toggle('is-collapsed');
+  });
+});
 </script>

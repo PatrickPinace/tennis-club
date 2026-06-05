@@ -46,6 +46,7 @@ export interface Participant {
   seed_number: number | null;
   status: string;
   user_id: number | null;
+  phone_number?: string | null;
 }
 
 export interface Notification {
