@@ -42,7 +42,26 @@ class MatchDetailView(generics.RetrieveAPIView):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        data['can_edit'] = request.user.is_staff or request.user.pk in self._players(instance)
+        is_participant = request.user.pk in self._players(instance)
+        data['can_edit'] = request.user.is_staff or is_participant
+
+        # Numery telefonów uczestników — widoczne tylko dla uczestników lub staff.
+        # Nigdy w listach/search — tylko w kontekście konkretnego meczu.
+        if is_participant or request.user.is_staff:
+            def phone_for(player_data):
+                if not player_data or not player_data.get('id'):
+                    return None
+                try:
+                    from apps.users.models import Profile
+                    p = Profile.objects.get(user_id=player_data['id'])
+                    return p.phone_number or None
+                except Profile.DoesNotExist:
+                    return None
+
+            for key in ('p1', 'p2', 'p3', 'p4'):
+                if data.get(key):
+                    data[key]['phone_number'] = phone_for(data[key])
+
         return Response(data)
 
     def patch(self, request, *args, **kwargs):

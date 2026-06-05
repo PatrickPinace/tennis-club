@@ -8,6 +8,7 @@ interface Props {
     city: string;
     birthDate: string;
     username: string;
+    phoneNumber: string;
   };
   profileUrl: string;
 }
@@ -33,6 +34,7 @@ export default function ProfileEditForm({ initialData, profileUrl }: Props) {
   const [email, setEmail] = useState(initialData.email);
   const [city, setCity] = useState(initialData.city);
   const [birthDate, setBirthDate] = useState(initialData.birthDate);
+  const [phoneNumber, setPhoneNumber] = useState(initialData.phoneNumber);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState('');
@@ -54,6 +56,7 @@ export default function ProfileEditForm({ initialData, profileUrl }: Props) {
       email: email.trim(),
       city: city.trim(),
       birth_date: birthDate,
+      phone_number: phoneNumber.trim(),
     };
 
     try {
@@ -170,6 +173,24 @@ export default function ProfileEditForm({ initialData, profileUrl }: Props) {
             />
             {fieldErrors.city && (
               <span className="field-error" style={{ display: 'block' }}>{fieldErrors.city}</span>
+            )}
+          </div>
+
+          <div className="edit-field">
+            <label className="edit-label" htmlFor="phone_number">
+              Numer telefonu <span className="label-optional">(opcjonalnie)</span>
+            </label>
+            <input
+              className={fieldClass('phone_number')}
+              type="tel" id="phone_number"
+              autoComplete="tel"
+              placeholder="np. +48 600 123 456"
+              value={phoneNumber}
+              onChange={e => setPhoneNumber(e.target.value)}
+            />
+            <span className="edit-hint">Widoczny tylko dla Ciebie i przeciwnika w konkretnym meczu — ułatwia umawianie się.</span>
+            {fieldErrors.phone_number && (
+              <span className="field-error" style={{ display: 'block' }}>{fieldErrors.phone_number}</span>
             )}
           </div>
 
