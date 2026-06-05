@@ -46,6 +46,7 @@ export interface Participant {
   seed_number: number | null;
   status: string;
   user_id: number | null;
+  phone_number?: string | null;
 }
 
 export interface Notification {
@@ -75,6 +76,7 @@ export interface MatchUser {
   username: string;
   first_name: string;
   last_name: string;
+  phone_number?: string | null; // tylko w GET /api/matches/<id>/ dla uczestników
 }
 
 export interface MatchHistoryEntry {
@@ -132,6 +134,7 @@ export interface UserProfileData {
   city: string | null;
   birth_date: string | null;  // ISO date
   member_since: string | null; // ISO date (start_date lub date_joined)
+  phone_number: string | null;
 }
 
 export interface TournamentStats {

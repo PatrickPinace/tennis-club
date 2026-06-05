@@ -1,28 +1,46 @@
 ---
 // ParticipantsList — public participants card shared across SGL, AMR, RND views.
+// phone_number widoczny tylko dla zalogowanych (isLoggedIn=true).
 interface Props {
   participants: Array<{
     display_name: string;
     seed_number?: number | null;
+    phone_number?: string | null;
   }>;
   count: number;
+  isLoggedIn?: boolean;
 }
 
-const { participants, count } = Astro.props;
+const { participants, count, isLoggedIn = false } = Astro.props;
 
 function getInitials(name: string): string {
   return name.split(' ').filter((w: string) => w && w !== '/').slice(0, 2).map((w: string) => w[0]).join('');
 }
+
+const listId = `pl-list-${Math.random().toString(36).slice(2, 7)}`;
 ---
 
 {participants.length > 0 && (
   <div class="tc-card" style="margin-bottom:24px;">
     <div class="tc-card-header">
       <span class="tc-card-title">Uczestnicy ({count})</span>
+      <div class="org-search-wrap">
+        <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input
+          type="search"
+          class="org-search-input"
+          placeholder="Szukaj uczestnika…"
+          aria-label="Szukaj uczestnika"
+          autocomplete="off"
+          data-pl-search={listId}
+        />
+      </div>
     </div>
-    <div class="td-participants-grid">
+    <div class="td-participants-grid" id={listId}>
       {participants.map(p => (
-        <div class="td-participant-card">
+        <div class="td-participant-card" data-name={p.display_name.toLowerCase()}>
           <div class="td-participant-card__avatar-wrap">
             <div class="td-participant-card__avatar" aria-hidden="true">
               {getInitials(p.display_name)}
@@ -38,9 +56,48 @@ function getInitials(name: string): string {
             <div class="td-participant-card__status">
               {p.seed_number ? `Rozstawiony #${p.seed_number}` : 'Uczestnik'}
             </div>
+            {isLoggedIn && p.phone_number && (
+              <a href={`tel:${p.phone_number}`} class="td-participant-phone">
+                📞 {p.phone_number}
+              </a>
+            )}
           </div>
         </div>
       ))}
     </div>
+    <div class="pl-empty" id={`${listId}-empty`} style="display:none; padding:12px 20px; font-size:0.82rem; color:var(--tc-muted);">
+      Brak uczestników pasujących do wyszukiwania.
+    </div>
   </div>
 )}
+
+<script is:inline>
+  // is:inline — wykonuje się przy każdym renderze, nie jest deduplikowany przez Astro
+  (function() {
+    function initPlSearch() {
+      document.querySelectorAll('[data-pl-search]').forEach(function(input) {
+        if (input.dataset.plSearchInit) return; // już zainicjowany
+        input.dataset.plSearchInit = '1';
+        var listId = input.dataset.plSearch;
+        var list = document.getElementById(listId);
+        var empty = document.getElementById(listId + '-empty');
+        if (!list || !empty) return;
+        input.addEventListener('input', function() {
+          var q = input.value.toLowerCase().trim();
+          var visible = 0;
+          list.querySelectorAll('.td-participant-card').forEach(function(card) {
+            var match = !q || card.dataset.name.includes(q);
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+          });
+          empty.style.display = visible === 0 ? '' : 'none';
+        });
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPlSearch);
+    } else {
+      initPlSearch();
+    }
+  })();
+</script>

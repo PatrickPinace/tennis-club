@@ -6,7 +6,8 @@ from rest_framework.views import APIView
 from django.contrib.auth.models import User
 from django.utils import timezone
 
-from apps.tournaments.models import Tournament
+from django.db import models
+from apps.tournaments.models import Tournament, Participant
 from apps.tournaments.api.serializers import (
     TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
     RoundRobinStandingSerializer, RoundRobinConfigSerializer,
@@ -40,7 +41,10 @@ class TournamentDetailView(generics.RetrieveAPIView):
         return (
             Tournament.objects
             .select_related('created_by', 'facility', 'round_robin_config')
-            .prefetch_related('participants', 'matches')
+            .prefetch_related(
+                models.Prefetch('participants', queryset=Participant.objects.select_related('user__profile')),
+                'matches',
+            )
         )
 
 

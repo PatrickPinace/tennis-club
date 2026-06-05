@@ -3,8 +3,8 @@ import { escHtml } from './helpers';
 import type { OrgPanelConfig, BracketRound, DBEBracketData } from './types';
 
 function matchCard(m: BracketRound['matches'][number]): string {
-  const p1Name = m.participant1?.display_name ?? (m.is_bye ? 'BYE' : '—');
-  const p2Name = m.participant2?.display_name ?? (m.is_bye ? 'BYE' : '—');
+  const p1Name = m.participant1?.display_name ?? '—';
+  const p2Name = m.participant2?.display_name ?? '—';
   const p1Won  = m.winner_id != null && m.participant1 && m.winner_id === m.participant1.id;
   const p2Won  = m.winner_id != null && m.participant2 && m.winner_id === m.participant2.id;
   const score  = m.score ?? (m.status === 'WDR' ? 'WO' : '');
@@ -20,7 +20,7 @@ function matchCard(m: BracketRound['matches'][number]): string {
 
   // Karta BYE: p2 = null — renderujemy wiersz BYE żeby karta miała tę samą wysokość
   const p2Row = m.is_bye
-    ? `<div class="bkt-player bkt-player--bye"><span class="bkt-player-name">BYE</span></div>`
+    ? `<div class="bkt-player bkt-player--bye"><span class="bkt-player-name"><abbr title="Wolny los — gracz przechodzi dalej bez rozgrywania meczu">BYE</abbr></span></div>`
     : `<div class="bkt-player${p2Won ? ' bkt-player--winner' : ''}">
         ${p2Seed}
         <span class="bkt-player-name">${escHtml(p2Name)}</span>

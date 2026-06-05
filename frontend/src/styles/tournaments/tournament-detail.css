@@ -269,6 +269,16 @@
     margin-top: 1px;
     line-height: 1;
   }
+  .td-participant-phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    color: var(--tc-muted);
+    text-decoration: none;
+    margin-top: 3px;
+  }
+  .td-participant-phone:hover { color: var(--tc-accent); }
 
   /* ── Rounds & matches ───────────────────────────────────────────────────── */
   .td-round { padding: 0 20px 16px; }

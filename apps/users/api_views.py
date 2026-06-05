@@ -170,10 +170,12 @@ def api_user_profile(request):
         city = profile.city
         birth_date = profile.birth_date.isoformat() if profile.birth_date else None
         member_since = profile.start_date.isoformat() if profile.start_date else None
+        phone_number = profile.phone_number or None
     except Profile.DoesNotExist:
         city = None
         birth_date = None
         member_since = None
+        phone_number = None
 
     # Fallback member_since → data rejestracji konta Django
     if not member_since:
@@ -256,6 +258,7 @@ def api_user_profile(request):
             'city': city,
             'birth_date': birth_date,
             'member_since': member_since,
+            'phone_number': phone_number,
         },
         'ranking_sng': ranking_sng,
         'ranking_dbl': ranking_dbl,
@@ -359,9 +362,10 @@ def api_update_profile(request):
 
     # Pola Profile
     profile_data = {
-        'city':       data.get('city',       profile.city       or ''),
-        'birth_date': data.get('birth_date', profile.birth_date or ''),
-        'start_date': profile.start_date or '',  # nie edytowalne przez user — zachowaj
+        'city':         data.get('city',         profile.city         or ''),
+        'birth_date':   data.get('birth_date',   profile.birth_date   or ''),
+        'start_date':   profile.start_date or '',  # nie edytowalne przez user — zachowaj
+        'phone_number': data.get('phone_number', profile.phone_number or ''),
     }
 
     user_form    = UserUpdateForm(user_data, instance=user)
