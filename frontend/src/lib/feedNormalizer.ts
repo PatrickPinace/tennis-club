@@ -46,11 +46,25 @@ export function isoTimestamp(iso: string): string {
 }
 
 function matchScore(m: MatchHistoryEntry): string {
+  const isP1Side =
+    (m.user === 'user-win'  && m.win === 'p1') ||
+    (m.user === 'user-loss' && m.win === 'p2');
   const parts: string[] = [];
-  if (m.p1_set1 !== null && m.p2_set1 !== null) parts.push(`${m.p1_set1}:${m.p2_set1}`);
-  if (m.p1_set2 !== null && m.p2_set2 !== null) parts.push(`${m.p1_set2}:${m.p2_set2}`);
-  if (m.p1_set3 !== null && m.p2_set3 !== null) parts.push(`${m.p1_set3}:${m.p2_set3}`);
-  return parts.join(', ') || '—';
+  const pairs: [number | null, number | null][] = [
+    [m.p1_set1, m.p2_set1],
+    [m.p1_set2, m.p2_set2],
+    [m.p1_set3, m.p2_set3],
+  ];
+  for (let i = 0; i < pairs.length; i++) {
+    const [p1s, p2s] = pairs[i];
+    if (p1s !== null && p2s !== null) {
+      if (i === 2 && p1s === 0 && p2s === 0) continue;
+      const my = isP1Side ? p1s : p2s;
+      const opp = isP1Side ? p2s : p1s;
+      parts.push(`${my}:${opp}`);
+    }
+  }
+  return parts.join(' ') || '—';
 }
 
 function matchOpponent(m: MatchHistoryEntry): string {
