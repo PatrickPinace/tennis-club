@@ -142,6 +142,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'apps.home.middleware.ActiveUserMiddleware',
+    'apps.home.middleware.PageViewMiddleware',
 ]
 
 # Dodaj Debug Toolbar Middleware tylko w trybie deweloperskim
