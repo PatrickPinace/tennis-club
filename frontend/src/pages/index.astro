@@ -31,49 +31,70 @@ const jsonLd = JSON.stringify([
 ---
 
 <PublicLayout title={title} jsonLd={jsonLd}>
-  <!-- Hero Section -->
-  <header class="relative flex flex-1 items-center justify-center text-center py-10 px-8 max-[1024px]:py-[60px] max-[1024px]:px-4 max-[480px]:py-1 max-[480px]:px-0 bg-surface bg-[url('/static/img/01.png')] bg-no-repeat bg-center bg-cover text-white overflow-hidden [text-shadow:2px_2px_4px_rgba(0,0,0,0.6)]">
-    <div class="absolute inset-0 bg-black/25 z-[1]"></div>
-    <div class="relative z-[2] max-w-[1200px] mx-auto px-4 max-[480px]:py-1 max-[480px]:px-0 w-full">
-      <h1 class="font-serif text-[clamp(1.8rem,5vw,3rem)] max-[480px]:text-[1.0rem] font-black leading-[1.2] mb-4 max-[480px]:mb-2 text-white tracking-[-0.01em] max-[480px]:px-0">Znajdź Partnera do Gry w Tenisa Już Dziś</h1>
-      <p class="text-[clamp(1rem,2vw,1.15rem)] max-[480px]:text-[0.8rem] mb-8 max-[480px]:mb-4 max-[480px]:px-5 text-white/95 max-w-[1100px] mx-auto leading-[1.5] max-[480px]:leading-[1.35] font-medium">Dołącz do naszej społeczności pasjonatów tenisa. Umawiaj się na mecze,<br class="hidden md:block">rezerwuj korty i podnoś swoje umiejętności.</p>
-      <div class="flex justify-center gap-3 pb-5 max-[480px]:pb-2 flex-wrap">
-        <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm !bg-[#22c55e] !border-[#22c55e] !py-3 !px-8 !text-base [text-shadow:none] hover:!bg-[#16a34a] hover:!border-[#16a34a] max-[480px]:!py-2 max-[480px]:!px-5 max-[480px]:!text-[0.85rem]">Dołącz teraz</a>
-        <a href={url('/guest')} class="tc-btn tc-btn-sm !py-3 !px-8 !text-base [text-shadow:none] !bg-white/15 !border-white/30 !text-white hover:!bg-white/25 max-[480px]:!py-2 max-[480px]:!px-5 max-[480px]:!text-[0.85rem]">Przeglądaj portal →</a>
-      </div>
-    </div>
-  </header>
+  <div class="relative overflow-hidden w-full min-h-screen">
+    <!-- Tło graficzne z filtrem grayscale i kryciem, aby było biało-szare -->
+    <div class="absolute inset-0 bg-surface bg-[url('/static/img/background_01.png')] bg-no-repeat bg-top bg-cover bg-fixed filter grayscale(1) opacity-[0.45] z-0 pointer-events-none"></div>
+    
+    <!-- Gradient radialny i liniowy zmiękczający tło i kierujący wzrok na środek (delikatniejsze krycie) -->
+    <div class="absolute inset-0 bg-gradient-to-b from-white/20 via-white/60 to-white/80 z-[1]"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.6)_0%,rgba(255,255,255,0.05)_100%)] z-[1]"></div>
+    
+    <!-- Dodatkowy subtelny neutralny blask (glow) za kartą Hero -->
+    <div class="absolute top-[10%] left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-gray-300/10 blur-[130px] rounded-full z-[1] pointer-events-none"></div>
+    
+    <div class="relative z-[2] w-full">
+      <!-- Hero Section -->
+      <header class="relative flex items-center justify-center text-center pt-24 pb-0 px-8 max-[1024px]:pt-[120px] max-[1024px]:pb-0 max-[1024px]:px-4 max-[480px]:pt-12 max-[480px]:pb-0 max-[480px]:px-2 overflow-hidden">
+        <div class="max-w-[1200px] mx-auto px-4 w-full">
+          <div class="max-w-[850px] mx-auto">
+            <h1 class="font-serif text-[clamp(2.2rem,5.5vw,3.6rem)] max-[480px]:text-[1.8rem] max-[480px]:leading-[1.25] mb-6 max-[480px]:mb-4 font-black leading-[1.2] text-[#1A1A1A] tracking-[-0.03em]">Graj w tenisa.<br class="block md:hidden"> Łatwiej, szybciej, razem.</h1>
+            <p class="text-[clamp(1.05rem,2vw,1.25rem)] max-[480px]:text-[0.875rem] max-[480px]:leading-[1.5] mb-10 max-[480px]:mb-6 text-[#475569] max-w-[800px] mx-auto leading-[1.6] font-medium">Kompleksowa platforma dla miłośników tenisa. Wygodnie rezerwuj korty, znajduj partnerów dopasowanych do Twojego poziomu i dołączaj do lokalnych rozgrywek.</p>
+            <div class="flex justify-center gap-4 flex-wrap max-[480px]:gap-2 max-[480px]:flex-nowrap max-[480px]:px-2">
+              <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm !bg-[#5a7d22] hover:!bg-[#47621a] !border-[#5a7d22] hover:!border-[#47621a] !text-white font-semibold transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#5a7d22]/20 !rounded-[8px] !py-3.5 !px-10 !text-base max-[480px]:!py-2 max-[480px]:!px-4 max-[480px]:!text-[0.85rem] shrink-0">
+                <span class="inline max-[480px]:hidden">Dołącz teraz</span>
+                <span class="hidden max-[480px]:inline">Dołącz</span>
+              </a>
+              <a href={url('/guest')} class="tc-btn tc-btn-sm !bg-[#5a7d22]/8 hover:!bg-[#5a7d22]/15 !border-[#5a7d22]/30 hover:!border-[#5a7d22] !text-[#5a7d22] font-semibold border transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#5a7d22]/10 !rounded-[8px] !py-3.5 !px-10 !text-base max-[480px]:!py-2 max-[480px]:!px-4 max-[480px]:!text-[0.85rem] shrink-0">
+                <span class="inline max-[480px]:hidden">Przeglądaj portal &rarr;</span>
+                <span class="hidden max-[480px]:inline">Przeglądaj</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
 
-  <!-- Sekcja "Dlaczego warto?" -->
-  <section class="py-10 px-8 max-[480px]:py-0 max-[480px]:px-2 bg-bg">
-    <div class="max-w-content mx-auto pb-5 pt-5">
-      <div class="text-center mb-0">
-        <h2 class="text-[clamp(1.75rem,4vw,2.25rem)] max-[480px]:text-[1.0rem] font-extrabold text-[#0f172a] tracking-[-0.02em] max-[480px]:px-5">Stworzone dla Graczy takich jak Ty</h2>
-        <p class="text-[1.1rem] max-[480px]:text-[0.8rem] text-[#64748b] max-w-[65ch] mx-auto max-[480px]:px-8">Niezależnie od Twojego poziomu, nasza platforma ułatwi Ci grę.</p>
-      </div>
+      <!-- Sekcja "Dlaczego warto?" -->
+      <section class="py-16 px-8 max-[480px]:py-10 max-[480px]:px-4 bg-transparent">
+        <div class="max-w-[1100px] mx-auto">
+          <div class="text-center mb-0">
+            <h2 class="text-[clamp(1.75rem,4vw,2.25rem)] max-[480px]:text-[1.45rem] max-[480px]:leading-[1.3] font-black text-[#0f172a] tracking-[-0.02em] max-[480px]:px-4">Wszystko, czego potrzebujesz na korcie</h2>
+            <p class="text-[1.1rem] max-[480px]:text-[0.825rem] max-[480px]:leading-[1.5] text-[#64748b] max-w-[900px] mx-auto max-[480px]:px-4 mt-3 max-[480px]:mt-2">Poznaj kluczowe funkcje naszej platformy stworzone z myślą o pasjonatach tenisa.</p>
+          </div>
 
-      <div class="grid grid-cols-3 max-[1024px]:grid-cols-1 gap-12 max-[480px]:gap-4 mt-10 max-[480px]:mt-3 max-w-[1100px] max-[1024px]:max-w-[500px] mx-auto">
-        <!-- Kafelek 1 -->
-        <div class="!bg-transparent p-5 max-[480px]:py-1 text-center !border-none !shadow-none flex flex-col items-center">
-          <div class="text-[2.8rem] max-[480px]:text-[1.8rem] mb-6 max-[480px]:mb-1 leading-none">👥</div>
-          <h3 class="text-xl max-[480px]:text-[1.0rem] font-extrabold mb-3 max-[480px]:mb-1.5 text-[#0f172a]">Znajdź Graczy</h3>
-          <p class="text-[#64748b] leading-[1.6] max-[480px]:leading-[1.45] text-[0.95rem] max-[480px]:text-[0.8rem] m-0">Przeglądaj profile graczy w Twojej okolicy i filtruj ich według poziomu zaawansowania.</p>
+          <div class="grid grid-cols-3 max-[1024px]:grid-cols-1 gap-12 max-[480px]:gap-6 mt-8 max-[1024px]:max-w-[500px] mx-auto">
+            <!-- Kafelek 1 -->
+            <div class="!bg-transparent p-5 max-[480px]:py-1 text-center !border-none !shadow-none flex flex-col items-center">
+              <div class="text-[2.8rem] max-[480px]:text-[2rem] mb-6 max-[480px]:mb-2 leading-none">👥</div>
+              <h3 class="text-xl max-[480px]:text-[1.1rem] font-bold mb-3 max-[480px]:mb-1.5 text-[#0f172a]">Wyszukaj partnerów</h3>
+              <p class="text-[#64748b] leading-[1.6] max-[480px]:leading-[1.5] text-[0.95rem] max-[480px]:text-[0.8rem] m-0">Przeglądaj profile tenisistów w Twojej okolicy. Filtruj według poziomu umiejętności, gwarantując równe i satysfakcjonujące mecze.</p>
+            </div>
+            
+            <!-- Kafelek 2 -->
+            <div class="!bg-transparent p-5 max-[480px]:py-1 text-center !border-none !shadow-none flex flex-col items-center">
+              <div class="text-[2.8rem] max-[480px]:text-[2rem] mb-6 max-[480px]:mb-2 leading-none">📊</div>
+              <h3 class="text-xl max-[480px]:text-[1.1rem] font-bold mb-3 max-[480px]:mb-1.5 text-[#0f172a]">Śledź statystyki i postępy</h3>
+              <p class="text-[#64748b] leading-[1.6] max-[480px]:leading-[1.5] text-[0.95rem] max-[480px]:text-[0.8rem] m-0">Zapisuj wyniki meczów towarzyskich oraz sparingów. Twórz własną historię spotkań, analizuj postępy i monitoruj rozwój formy.</p>
+            </div>
+            
+            <!-- Kafelek 3 -->
+            <div class="!bg-transparent p-5 max-[480px]:py-1 text-center !border-none !shadow-none flex flex-col items-center">
+              <div class="text-[2.8rem] max-[480px]:text-[2rem] mb-6 max-[480px]:mb-2 leading-none">🏆</div>
+              <h3 class="text-xl max-[480px]:text-[1.1rem] font-bold mb-3 max-[480px]:mb-1.5 text-[#0f172a]">Ligi, turnieje i rankingi</h3>
+              <p class="text-[#64748b] leading-[1.6] max-[480px]:leading-[1.5] text-[0.95rem] max-[480px]:text-[0.8rem] m-0">Dołączaj do lokalnych lig i bierz udział w turniejach klubowych. Pnij się w górę rankingu i rywalizuj z innymi o pozycję lidera.</p>
+            </div>
+          </div>
         </div>
-        
-        <!-- Kafelek 2 -->
-        <div class="!bg-transparent p-5 max-[480px]:py-1 text-center !border-none !shadow-none flex flex-col items-center">
-          <div class="text-[2.8rem] max-[480px]:text-[1.8rem] mb-6 max-[480px]:mb-1 leading-none">📊</div>
-          <h3 class="text-xl max-[480px]:text-[1.0rem] font-extrabold mb-3 max-[480px]:mb-1.5 text-[#0f172a]">Twórz Historię Spotkań</h3>
-          <p class="text-[#64748b] leading-[1.6] max-[480px]:leading-[1.45] text-[0.95rem] max-[480px]:text-[0.8rem] m-0">Zapisuj wyniki meczów, analizuj statystyki i śledź swoje postępy w czasie.</p>
-        </div>
-        
-        <!-- Kafelek 3 -->
-        <div class="!bg-transparent p-5 max-[480px]:py-1 text-center !border-none !shadow-none flex flex-col items-center">
-          <div class="text-[2.8rem] max-[480px]:text-[1.8rem] mb-6 max-[480px]:mb-1 leading-none">🏆</div>
-          <h3 class="text-xl max-[480px]:text-[1.0rem] font-extrabold mb-3 max-[480px]:mb-1.5 text-[#0f172a]">Rywalizuj i Rozwijaj się</h3>
-          <p class="text-[#64748b] leading-[1.6] max-[480px]:leading-[1.45] text-[0.95rem] max-[480px]:text-[0.8rem] m-0">Bierz udział w lokalnych ligach i turniejach. Obserwuj postępy w rankingu.</p>
-        </div>
-      </div>
+      </section>
     </div>
-  </section>
+  </div>
 </PublicLayout>
