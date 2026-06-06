@@ -296,7 +296,11 @@ export async function handleScoreSubmit(
   const isWalkover = wdrCheckbox?.checked ?? false;
 
   const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
-  const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+  let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+  if (stInput && !scheduledTimeVal) {
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+  }
 
   let body: Record<string, unknown>;
 

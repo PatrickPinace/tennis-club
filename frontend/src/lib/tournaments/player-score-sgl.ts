@@ -110,13 +110,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             </div>
           </form>` : '';
 
-        const cardCls = [
-          'org-match',
-          isDone ? 'org-match--done' : '',
-          isCnc  ? 'org-match--cancelled' : '',
-          (!isDone && !isCnc) ? 'org-match--pending' : '',
-        ].filter(Boolean).join(' ');
-
         const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
         const roundLabel = m.bracket_type === 'GF'
           ? `GF M${m.match_index}`
@@ -136,20 +129,78 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
                   ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
                   : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
 
+        // parse scores
+        const sets: Array<{p1: number, p2: number}> = [];
+        let p1SetsWon: number | string = 0;
+        let p2SetsWon: number | string = 0;
+        if (m.set1_p1_score !== null && m.set1_p2_score !== null) sets.push({ p1: m.set1_p1_score, p2: m.set1_p2_score });
+        if (m.set2_p1_score !== null && m.set2_p2_score !== null) sets.push({ p1: m.set2_p1_score, p2: m.set2_p2_score });
+        if (m.set3_p1_score !== null && m.set3_p2_score !== null) sets.push({ p1: m.set3_p1_score, p2: m.set3_p2_score });
+
+        const isWalkover = m.status === 'WDR';
+        const hasScore = sets.length > 0 || isWalkover;
+
+        if (isWalkover) {
+          const p1Won = m.winner_name === m.participant1_name;
+          p1SetsWon = p1Won ? 'W' : 'L';
+          p2SetsWon = p1Won ? 'L' : 'W';
+        } else if (hasScore) {
+          let w1 = 0, w2 = 0;
+          for (const s of sets) {
+            if (s.p1 > s.p2) w1++;
+            else if (s.p1 < s.p2) w2++;
+          }
+          p1SetsWon = w1;
+          p2SetsWon = w2;
+        }
+
+        const p1WonClass = isDone && (m.winner_name ? m.winner_name === m.participant1_name : Number(p1SetsWon) > Number(p2SetsWon)) ? 'fs-match__name--winner' : '';
+        const p2WonClass = isDone && (m.winner_name ? m.winner_name === m.participant2_name : Number(p2SetsWon) > Number(p1SetsWon)) ? 'fs-match__name--winner' : '';
+
+        let resultCls = '';
+        if (isDone) {
+          const myId = myParticipant.id;
+          const p1Won = m.winner_name ? m.winner_name === m.participant1_name : Number(p1SetsWon) > Number(p2SetsWon);
+          const p2Won = m.winner_name ? m.winner_name === m.participant2_name : Number(p2SetsWon) > Number(p1SetsWon);
+          const iWon = (p1Won && m.participant1_id === myId) || (p2Won && m.participant2_id === myId);
+          resultCls = iWon ? 'org-match--won' : 'org-match--lost';
+        } else if (!isCnc) {
+          resultCls = 'org-match--pending';
+        }
+
+        const cardCls = [
+          'org-match',
+          isDone ? 'org-match--done' : '',
+          isCnc  ? 'org-match--cancelled' : '',
+          resultCls,
+        ].filter(Boolean).join(' ');
+
+        const scores1Html = hasScore
+          ? `<span class="fs-match__score-overall">${p1SetsWon}</span>` +
+            sets.map(s => `<span class="fs-match__score-set ${s.p1 > s.p2 && isDone ? 'fs-match__score-set--won' : ''}">${s.p1}</span>`).join('')
+          : `<span class="fs-match__status">${statusBadge}</span>`;
+
+        const scores2Html = hasScore
+          ? `<span class="fs-match__score-overall">${p2SetsWon}</span>` +
+            sets.map(s => `<span class="fs-match__score-set ${s.p2 > s.p1 && isDone ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`).join('')
+          : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-          <div class="org-match-header">
-            <div class="org-match-meta">
-              ${roundLabel ? `
-              <div class="org-match-meta-top">
-                <span class="org-match-label">${roundLabel}</span>
-                <span class="org-status-mobile">${statusBadge}</span>
-              </div>` : ''}
-              <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
+          <div class="org-match-header org-match-header--flashscore">
+            <div class="fs-match-wrapper">
+              ${roundLabel ? `<div class="fs-match-round-lbl">${roundLabel}</div>` : ''}
+              <div class="fs-match">
+                <div class="fs-match__row">
+                  <span class="fs-match__name ${p1WonClass}">${p1}</span>
+                  <div class="fs-match__scores">${scores1Html}</div>
+                </div>
+                <div class="fs-match__row">
+                  <span class="fs-match__name ${p2WonClass}">${p2}</span>
+                  <div class="fs-match__scores">${scores2Html}</div>
+                </div>
+              </div>
             </div>
-            <div class="org-match-right">
-              ${scoreChip}<span class="org-status-desktop">${statusBadge}</span>
-              ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
-            </div>
+            ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
           </div>
           ${form}
         </div>`;
@@ -186,7 +237,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           });
 
           const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
-          const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+          let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+          if (stInput && !scheduledTimeVal) {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+          }
 
           const body = {
             ...scoreBody,

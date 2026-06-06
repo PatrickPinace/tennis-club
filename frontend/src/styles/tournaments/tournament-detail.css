@@ -1016,4 +1016,105 @@
     }
   }
 
+  /* Override default flex styles for flashscore representation */
+  .td-match--flashscore {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    padding: 10px 14px;
+  }
+
+  .fs-match {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fs-match__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .fs-match__name {
+    font-size: 0.88rem;
+    color: var(--tc-sub);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 2px 0;
+  }
+  .fs-match__name--winner {
+    color: var(--tc-ink);
+    font-weight: 700;
+  }
+  .fs-match__scores {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-left: 12px;
+    flex-shrink: 0;
+  }
+  .fs-match__score-overall {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--tc-ink);
+    width: 32px;
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+  .fs-match__score-set {
+    font-size: 0.84rem;
+    color: var(--tc-muted);
+    width: 24px;
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+  .fs-match__score-set--won {
+    color: var(--tc-sub);
+    font-weight: 600;
+  }
+  .fs-match__status {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--tc-sub);
+    padding: 2px 6px;
+    background: var(--tc-overlay);
+    border-radius: 4px;
+  }
+
+  /* org-panel / player panel card header Flashscore overrides */
+  .org-match-header--flashscore {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+  .fs-match-wrapper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .fs-match-round-lbl {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--tc-muted);
+    background: var(--tc-overlay);
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  @media (max-width: 480px) {
+    .fs-match-round-lbl {
+      display: none !important;
+    }
+  }
+
 
