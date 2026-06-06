@@ -137,7 +137,7 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
       </div>
       <div class="nav-actions shrink-0">
         {currentUser ? (
-          <a href={url('/dashboard')} class="tc-btn tc-btn-primary tc-btn-sm !bg-[#5a7d22] !border-[#5a7d22] !text-white hover:!bg-[#47621a]">Panel główny</a>
+          <a href={url('/dashboard')} class="tc-btn tc-btn-secondary tc-btn-sm md:h-[40px] md:px-5 md:text-[0.875rem] !bg-gray-800/80 !border-gray-700 !text-gray-200 hover:!bg-gray-700">Panel główny</a>
         ) : (
           <div class="relative flex items-center">
             <!-- Desktop: Dwa przyciski -->
