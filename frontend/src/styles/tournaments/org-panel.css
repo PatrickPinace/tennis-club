@@ -79,14 +79,31 @@
   .org-match--cancelled { opacity: 0.4; }
   .org-match--cancelled:hover { opacity: 0.65; }
   
-  .org-match--pending {
-    /* Zachowujemy lewe obramowanie, aby zaokrąglenie karty rysowało się prawidłowo */
-  }
   .org-match--pending::before {
     content: '';
     position: absolute;
     top: 0; left: 0; bottom: 0; width: 4px;
-    background: linear-gradient(135deg, var(--tc-accent, #2563eb), #8b5cf6);
+    background: var(--tc-muted, #94a3b8);
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+    z-index: 1;
+  }
+
+  .org-match--won::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0; width: 4px;
+    background: var(--tc-win, #22c55e);
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+    z-index: 1;
+  }
+
+  .org-match--lost::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0; width: 4px;
+    background: var(--tc-hot, #ef4444);
     border-top-left-radius: 10px;
     border-bottom-left-radius: 10px;
     z-index: 1;

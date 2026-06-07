@@ -66,3 +66,18 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + [
         path('__debug__/', include('debug_toolbar.urls')),
     ]
+
+# Ograniczenie widoczności w panelu admina (Użytkownicy/Grupy oraz Statystyki aktywności)
+from django.contrib.auth.models import User, Group
+from apps.home.models import PageView
+
+admin.autodiscover()
+for model in list(admin.site._registry.keys()):
+    if model not in [User, Group, PageView]:
+        try:
+            admin.site.unregister(model)
+        except admin.sites.NotRegistered:
+            pass
+
+
+

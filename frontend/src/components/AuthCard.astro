@@ -17,7 +17,7 @@ const { title, subtitle, apiBase, pageTitle } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="pl">
+<html lang="pl" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -26,33 +26,34 @@ const { title, subtitle, apiBase, pageTitle } = Astro.props;
   <link rel="icon" href={url('/favicon.ico')} type="image/x-icon" />
   <meta name="api-base" content={apiBase} />
   <slot name="head" />
-  <script is:inline>
-    (function () {
-      var t = localStorage.getItem('tc-theme') || 'dark';
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
 </head>
 
-<body class="auth-body">
-  <div class="auth-wrap">
+<body class="auth-body relative overflow-hidden">
+  <!-- Tło graficzne z filtrem grayscale i kryciem -->
+  <div class="absolute inset-0 bg-surface bg-[url('/static/img/background_01.png')] bg-no-repeat bg-top bg-cover bg-fixed filter grayscale(1) opacity-[0.45] z-0 pointer-events-none"></div>
+  
+  <!-- Gradient radialny i liniowy -->
+  <div class="absolute inset-0 bg-gradient-to-b from-white/20 via-white/60 to-white/80 z-[1]"></div>
+  <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.6)_0%,rgba(255,255,255,0.05)_100%)] z-[1]"></div>
+
+  <div class="relative z-[2] auth-wrap">
 
     <!-- Logo -->
-    <a href="/" class="auth-brand" aria-label="Tennis Club — strona główna">
-      <svg width="34" height="34" viewBox="0 0 36 36" fill="none" aria-hidden="true">
-        <circle cx="18" cy="18" r="18" fill="var(--tc-accent)"/>
-        <circle cx="18" cy="18" r="9" stroke="var(--tc-accent-ink)" stroke-width="2" fill="none"/>
-        <path d="M9 18 Q18 6 27 18" stroke="var(--tc-accent-ink)" stroke-width="2" fill="none"/>
-        <path d="M9 18 Q18 30 27 18" stroke="var(--tc-accent-ink)" stroke-width="2" fill="none"/>
-      </svg>
-      <span class="auth-brand__name">Tennis Club</span>
+    <a href="/" class="auth-brand group" aria-label="Tennis Club — strona główna">
+      <div class="w-9 h-9 rounded-[10px] bg-[#5a7d22] text-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-105" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M6.3 6.3c2.4 2.4 2.4 9 0 11.4M17.7 6.3c-2.4 2.4-2.4 9 0 11.4"/>
+        </svg>
+      </div>
+      <span class="auth-brand__name font-serif text-[1.35rem] font-black tracking-[-0.02em] leading-none text-gray-900">Tennis Club</span>
     </a>
 
     <!-- Karta -->
-    <div class="auth-card">
+    <div class="auth-card bg-white/85 backdrop-blur-[6px] border border-gray-200/60 shadow-md rounded-[12px]">
       <div class="auth-card__header">
-        <h1 class="auth-title">{title}</h1>
-        <p class="auth-subtitle">{subtitle}</p>
+        <h1 class="auth-title font-serif text-[1.65rem] font-black text-[#1A1A1A] tracking-[-0.02em] mb-1">{title}</h1>
+        <p class="auth-subtitle text-[0.875rem] text-[#64748b] font-medium m-0">{subtitle}</p>
       </div>
       <div class="auth-card__body">
         <slot />
@@ -83,7 +84,7 @@ const { title, subtitle, apiBase, pageTitle } = Astro.props;
 
   .auth-wrap {
     width: 100%;
-    max-width: 420px;
+    max-width: 500px;
     display: flex;
     flex-direction: column;
     align-items: center;

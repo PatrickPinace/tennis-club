@@ -6,24 +6,34 @@ export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
 import RankingsTable from '@/components/RankingsTable.tsx';
-import { getRankings, type PlayerRankingEntry } from '@/lib/api';
+import { getRankings, getRankingSeasons, type PlayerRankingEntry } from '@/lib/api';
 
-// ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
 let players: PlayerRankingEntry[] = [];
 let isLive = false;
+let availableSeasons: number[] = [];
+let defaultSeason: number | 'all' = new Date().getFullYear();
 
+// Pobierz dostępne sezony
 try {
-  const data = await getRankings('SNG');
+  availableSeasons = await getRankingSeasons('SNG');
+  if (availableSeasons.length > 0) defaultSeason = availableSeasons[0];
+} catch {
+  // zostaje bieżący rok
+}
+
+// Pobierz dane dla domyślnego sezonu
+try {
+  const data = await getRankings('SNG', defaultSeason);
   if (data && data.length > 0) {
     players = data;
     isLive = true;
   }
 } catch (e) {
-  console.warn('[rankings] API error, using fallback demo data:', e);
+  console.warn('[rankings] API error:', e);
 }
 
-
 const totalPlayers = players.length;
+const seasonLabel = defaultSeason === 'all' ? 'all-time' : `sezon ${defaultSeason}`;
 
 const initialPlayers = players.map(p => ({
   position: p.position,
@@ -39,7 +49,7 @@ const initialPlayers = players.map(p => ({
 <AppLayout
   title="Ranking"
   greeting="Ranking klubowy"
-  greetingSub={`${totalPlayers} graczy · sezon wiosna 2026`}
+  greetingSub={`${totalPlayers} graczy · ${seasonLabel}`}
   showCta={false}
   showSearch={false}
 >
@@ -48,6 +58,8 @@ const initialPlayers = players.map(p => ({
     initialPlayers={initialPlayers}
     isLive={isLive}
     totalPlayers={totalPlayers}
+    availableSeasons={availableSeasons}
+    defaultSeason={defaultSeason}
   />
 </AppLayout>
 
@@ -280,6 +292,14 @@ const initialPlayers = players.map(p => ({
     gap: 12px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--tc-card-border);
+    flex-wrap: wrap;
+  }
+
+  .rk-card__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .rk-card__title-wrap {
@@ -348,6 +368,11 @@ const initialPlayers = players.map(p => ({
     box-shadow: var(--tc-shadow);
   }
 
+  .rk-seg--more {
+    letter-spacing: 0.05em;
+    padding: 5px 10px;
+  }
+
   /* ── Table head ────────────────────────────────────────────────────────── */
   .rk-thead {
     display: grid;
@@ -379,11 +404,9 @@ const initialPlayers = players.map(p => ({
   .rk-row:last-child { border-bottom: none; }
   .rk-row:hover { background: var(--tc-overlay); }
 
-  .rk-row--first,
   .rk-row--me {
     background: var(--tc-accent-soft);
   }
-  .rk-row--first::before,
   .rk-row--me::before {
     content: '';
     position: absolute;
@@ -392,7 +415,6 @@ const initialPlayers = players.map(p => ({
     background: var(--tc-accent);
     border-radius: 0 2px 2px 0;
   }
-  .rk-row--first:hover,
   .rk-row--me:hover { background: var(--tc-accent-soft); }
 
   .rk-pos-badge {

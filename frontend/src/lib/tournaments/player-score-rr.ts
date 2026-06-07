@@ -142,13 +142,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             </div>
           </form>` : '';
 
-        const cardCls = [
-          'org-match',
-          isDone ? 'org-match--done' : '',
-          isCnc  ? 'org-match--cancelled' : '',
-          (!isDone && !isCnc) ? 'org-match--pending' : '',
-        ].filter(Boolean).join(' ');
-
         const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
         const roundLabel = m.bracket_type === 'GF'
           ? `GF M${m.match_index}`
@@ -168,20 +161,83 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
                   ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
                   : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
 
+        // parse scores
+        const sets: Array<{left: number, right: number}> = [];
+        let leftSetsWon: number | string = 0;
+        let rightSetsWon: number | string = 0;
+        
+        const s1_l = iAmP2 ? m.set1_p2_score : m.set1_p1_score;
+        const s1_r = iAmP2 ? m.set1_p1_score : m.set1_p2_score;
+        const s2_l = iAmP2 ? m.set2_p2_score : m.set2_p1_score;
+        const s2_r = iAmP2 ? m.set2_p1_score : m.set2_p2_score;
+        const s3_l = iAmP2 ? m.set3_p2_score : m.set3_p1_score;
+        const s3_r = iAmP2 ? m.set3_p1_score : m.set3_p2_score;
+
+        if (s1_l !== null && s1_r !== null) sets.push({ left: s1_l, right: s1_r });
+        if (s2_l !== null && s2_r !== null) sets.push({ left: s2_l, right: s2_r });
+        if (s3_l !== null && s3_r !== null) sets.push({ left: s3_l, right: s3_r });
+
+        const isWalkover = m.status === 'WDR';
+        const hasScore = sets.length > 0 || isWalkover;
+
+        if (isWalkover) {
+          const leftWon = m.winner_name === leftName;
+          leftSetsWon = leftWon ? 'W' : 'L';
+          rightSetsWon = leftWon ? 'L' : 'W';
+        } else if (hasScore) {
+          let w1 = 0, w2 = 0;
+          for (const s of sets) {
+            if (s.left > s.right) w1++;
+            else if (s.left < s.right) w2++;
+          }
+          leftSetsWon = w1;
+          rightSetsWon = w2;
+        }
+
+        const leftWonClass = isDone && (m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon)) ? 'fs-match__name--winner' : '';
+        const rightWonClass = isDone && (m.winner_name ? m.winner_name === rightName : Number(rightSetsWon) > Number(leftSetsWon)) ? 'fs-match__name--winner' : '';
+
+        let resultCls = '';
+        if (isDone) {
+          const leftWon = m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon);
+          resultCls = leftWon ? 'org-match--won' : 'org-match--lost';
+        } else if (!isCnc) {
+          resultCls = 'org-match--pending';
+        }
+
+        const cardCls = [
+          'org-match',
+          isDone ? 'org-match--done' : '',
+          isCnc  ? 'org-match--cancelled' : '',
+          resultCls,
+        ].filter(Boolean).join(' ');
+
+        const scores1Html = hasScore
+          ? `<span class="fs-match__score-overall">${leftSetsWon}</span>` +
+            sets.map(s => `<span class="fs-match__score-set ${s.left > s.right && isDone ? 'fs-match__score-set--won' : ''}">${s.left}</span>`).join('')
+          : `<span class="fs-match__status">${statusBadge}</span>`;
+
+        const scores2Html = hasScore
+          ? `<span class="fs-match__score-overall">${rightSetsWon}</span>` +
+            sets.map(s => `<span class="fs-match__score-set ${s.right > s.left && isDone ? 'fs-match__score-set--won' : ''}">${s.right}</span>`).join('')
+          : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-          <div class="org-match-header">
-            <div class="org-match-meta">
-              ${roundLabel ? `
-              <div class="org-match-meta-top">
-                <span class="org-match-label">${roundLabel}</span>
-                <span class="org-status-mobile">${statusBadge}</span>
-              </div>` : ''}
-              <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
+          <div class="org-match-header org-match-header--flashscore">
+            <div class="fs-match-wrapper">
+              ${roundLabel ? `<div class="fs-match-round-lbl">${roundLabel}</div>` : ''}
+              <div class="fs-match">
+                <div class="fs-match__row">
+                  <span class="fs-match__name ${leftWonClass}">${p1}</span>
+                  <div class="fs-match__scores">${scores1Html}</div>
+                </div>
+                <div class="fs-match__row">
+                  <span class="fs-match__name ${rightWonClass}">${p2}</span>
+                  <div class="fs-match__scores">${scores2Html}</div>
+                </div>
+              </div>
             </div>
-            <div class="org-match-right">
-              ${scoreChip}<span class="org-status-desktop">${statusBadge}</span>
-              ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
-            </div>
+            ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
           </div>
           ${form}
         </div>`;
@@ -290,7 +346,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const winnerId = loserIdInt === p1Id ? p2Id : p1Id;
 
           const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
-          const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+          let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+          if (stInput && !scheduledTimeVal) {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+          }
 
           let body: Record<string, unknown>;
           if (isWalkover) {

@@ -57,6 +57,28 @@ class RankingListView(generics.ListAPIView):
         )
 
 
+class RankingSeasonsView(APIView):
+    """
+    GET /api/rankings/seasons/ — lista dostępnych sezonów (lat) w rankingu.
+    Zwraca: { "seasons": [2026, 2025, 2024, ...] }
+    """
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request):
+        match_type = request.query_params.get('type', 'SNG').upper()
+        if match_type not in ('SNG', 'DBL'):
+            match_type = 'SNG'
+        seasons = (
+            PlayerRanking.objects
+            .filter(match_type=match_type)
+            .exclude(season=None)
+            .values_list('season', flat=True)
+            .distinct()
+            .order_by('-season')
+        )
+        return Response({'seasons': list(seasons)})
+
+
 class RebuildRankingsView(APIView):
     """
     Ręczny rebuild precomputed rankingów.
