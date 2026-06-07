@@ -959,14 +959,14 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                       const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamA : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
                       const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamB : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match td-match--flashscore ${m.status === 'CMP' ? 'td-match--done' : ''}`}>
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done td-match--result-won' : (m.status === 'CNC' ? 'td-match--result-cnc' : 'td-match--result-pending')}`}>
                         <div class="fs-match">
                           <div class="fs-match__row">
                             <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{teamA}</span>
                             <div class="fs-match__scores">
                               {sInfo.hasScore && (
                                 <>
-                                  <span class="fs-match__score-overall">{sInfo.p1SetsWon}</span>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p1SetsWon}</span>
                                   {sInfo.sets.map(s => (
                                     <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
                                   ))}
@@ -982,7 +982,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                             <div class="fs-match__scores">
                               {sInfo.hasScore && (
                                 <>
-                                  <span class="fs-match__score-overall">{sInfo.p2SetsWon}</span>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p2SetsWon}</span>
                                   {sInfo.sets.map(s => (
                                     <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
                                   ))}
@@ -1578,14 +1578,14 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                       const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === p1Name : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
                       const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === p2Name : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match td-match--flashscore ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done td-match--result-won' : ''} ${m.status === 'INP' ? 'td-match--live' : ''} ${!sInfo.isDone && m.status !== 'INP' && m.status !== 'CNC' ? 'td-match--result-pending' : ''} ${m.status === 'CNC' ? 'td-match--result-cnc' : ''}`}>
                         <div class="fs-match">
                           <div class="fs-match__row">
                             <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{p1Name}</span>
                             <div class="fs-match__scores">
                               {sInfo.hasScore && (
                                 <>
-                                  <span class="fs-match__score-overall">{sInfo.p1SetsWon}</span>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p1SetsWon}</span>
                                   {sInfo.sets.map(s => (
                                     <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
                                   ))}
@@ -1601,7 +1601,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                             <div class="fs-match__scores">
                               {sInfo.hasScore && (
                                 <>
-                                  <span class="fs-match__score-overall">{sInfo.p2SetsWon}</span>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p2SetsWon}</span>
                                   {sInfo.sets.map(s => (
                                     <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
                                   ))}
