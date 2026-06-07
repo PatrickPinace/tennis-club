@@ -105,14 +105,6 @@ export default function LoginForm({ nextUrl, registerUrl, classicLoginUrl, guest
       <p className="auth-footer-link" style={{ marginTop: '10px' }}>
         <a href="/reset-password" style={{ color: 'var(--tc-muted)', fontSize: '0.82rem' }}>Zapomniałem hasła →</a>
       </p>
-      <p className="auth-footer-link" style={{ marginTop: '10px' }}>
-        <a href={guestUrl} style={{ color: 'var(--tc-muted)', fontSize: '0.82rem' }}>Przeglądaj turnieje i rankingi bez logowania →</a>
-      </p>
-      {classicLoginUrl && (
-        <p className="auth-back-link">
-          <a href={classicLoginUrl}>Wróć do starej wersji aplikacji →</a>
-        </p>
-      )}
     </>
   );
 }

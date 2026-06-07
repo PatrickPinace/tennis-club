@@ -47,17 +47,23 @@ function shortName(u: MatchUser | null): string {
 }
 
 
-function formatScore(m: MatchHistoryEntry): string {
+function formatScore(m: MatchHistoryEntry, isP1Side: boolean): string {
   const sets: string[] = [];
   const pairs: [number | null, number | null][] = [
     [m.p1_set1, m.p2_set1],
     [m.p1_set2, m.p2_set2],
     [m.p1_set3, m.p2_set3],
   ];
-  for (const [a, b] of pairs) {
-    if (a !== null && b !== null) sets.push(`${a}:${b}`);
+  for (let i = 0; i < pairs.length; i++) {
+    const [p1s, p2s] = pairs[i];
+    if (p1s !== null && p2s !== null) {
+      if (i === 2 && p1s === 0 && p2s === 0) continue;
+      const my = isP1Side ? p1s : p2s;
+      const opp = isP1Side ? p2s : p1s;
+      sets.push(`${my}:${opp}`);
+    }
   }
-  return sets.join(', ') || '—';
+  return sets.join(' ') || '—';
 }
 
 function setsScore(m: MatchHistoryEntry, isP1Side: boolean): string {
@@ -149,7 +155,7 @@ function mapMatch(m: MatchHistoryEntry) {
     isTournament,
     date: formatDate(m.match_date),
     rawDate: m.match_date,
-    score: formatScore(m),
+    score: formatScore(m, isP1Side),
     setsScore: setsScore(m, isP1Side),
     format: (m.match_double ? 'DBL' : 'SNG') as 'SNG' | 'DBL',
     formatLabel: m.match_double ? 'Debel' : 'Singiel',

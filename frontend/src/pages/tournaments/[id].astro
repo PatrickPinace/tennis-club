@@ -78,6 +78,50 @@ function fmtDate(iso: string | null): string {
   } catch { return iso; }
 }
 
+function parseMatchScore(m: any, p1Name: string, p2Name: string) {
+  const sets = [];
+  let p1SetsWon: number | string = 0;
+  let p2SetsWon: number | string = 0;
+
+  if (m.set1_p1_score !== null && m.set1_p2_score !== null) {
+    sets.push({ p1: m.set1_p1_score, p2: m.set1_p2_score });
+  }
+  if (m.set2_p1_score !== null && m.set2_p2_score !== null) {
+    sets.push({ p1: m.set2_p1_score, p2: m.set2_p2_score });
+  }
+  if (m.set3_p1_score !== null && m.set3_p2_score !== null) {
+    sets.push({ p1: m.set3_p1_score, p2: m.set3_p2_score });
+  }
+
+  const isWalkover = m.status === 'WDR';
+  const hasScore = sets.length > 0 || isWalkover;
+
+  if (isWalkover) {
+    const p1Won = m.winner_name === p1Name;
+    p1SetsWon = p1Won ? 'W' : 'L';
+    p2SetsWon = p1Won ? 'L' : 'W';
+  } else if (hasScore) {
+    let w1 = 0, w2 = 0;
+    for (const s of sets) {
+      if (s.p1 > s.p2) w1++;
+      else if (s.p1 < s.p2) w2++;
+    }
+    p1SetsWon = w1;
+    p2SetsWon = w2;
+  }
+
+  const isDone = m.status === 'CMP' || m.status === 'WDR';
+
+  return {
+    sets,
+    p1SetsWon,
+    p2SetsWon,
+    hasScore,
+    isWalkover,
+    isDone,
+  };
+}
+
 // Grupuj mecze wg rundy
 function groupByRound(matches: TournamentMatch[]): Map<number, TournamentMatch[]> {
   const map = new Map<number, TournamentMatch[]>();
@@ -911,21 +955,44 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                       const teamB = isDoubles
                         ? `${m.participant2_name ?? '—'} / ${m.participant3_name ?? '—'}`
                         : (m.participant2_name ?? '—');
+                      const sInfo = parseMatchScore(m, teamA, teamB);
+                      const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamA : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
+                      const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamB : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''}`}>
-                        <div class="td-match__players">
-                          <span class="td-match__name">{teamA}</span>
-                          <span class="td-match__vs">vs</span>
-                          <span class="td-match__name">{teamB}</span>
-                        </div>
-                        <div class="td-match__right">
-                          {m.score ? (
-                            <span class="td-match__score">{m.score}</span>
-                          ) : m.status === 'WAI' ? (
-                            <span class="td-match__status-lbl">Oczekuje</span>
-                          ) : (
-                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
-                          )}
+                      <div class={`td-match td-match--flashscore ${m.status === 'CMP' ? 'td-match--done' : ''}`}>
+                        <div class="fs-match">
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{teamA}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class="fs-match__score-overall">{sInfo.p1SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p2Won ? 'fs-match__name--winner' : ''}`}>{teamB}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class="fs-match__score-overall">{sInfo.p2SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status" style="visibility: hidden;">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                       );
@@ -1504,30 +1571,51 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                 <div class="td-round">
                   <div class="td-round__label">Runda {roundNum}</div>
                   <div class="td-round__matches">
-                    {(matchesByRound.get(roundNum) ?? []).map(m => (
-                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
-                        <div class="td-match__players">
-                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant1_name ?? '—'}
-                          </span>
-                          <span class="td-match__vs">vs</span>
-                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant2_name ?? '—'}
-                          </span>
-                        </div>
-                        <div class="td-match__right">
-                          {m.score ? (
-                            <span class="td-match__score">{m.score}</span>
-                          ) : m.status === 'WAI' ? (
-                            <span class="td-match__status-lbl">Oczekuje</span>
-                          ) : m.status === 'INP' ? (
-                            <span class="td-match__status-lbl td-match__status-lbl--live">● Live</span>
-                          ) : (
-                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
-                          )}
+                    {(matchesByRound.get(roundNum) ?? []).map(m => {
+                      const p1Name = m.participant1_name ?? '—';
+                      const p2Name = m.participant2_name ?? '—';
+                      const sInfo = parseMatchScore(m, p1Name, p2Name);
+                      const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === p1Name : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
+                      const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === p2Name : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
+                      return (
+                      <div class={`td-match td-match--flashscore ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
+                        <div class="fs-match">
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{p1Name}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class="fs-match__score-overall">{sInfo.p1SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status">{m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p2Won ? 'fs-match__name--winner' : ''}`}>{p2Name}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class="fs-match__score-overall">{sInfo.p2SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status" style="visibility: hidden;">{m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
