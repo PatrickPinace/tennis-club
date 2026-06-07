@@ -63,51 +63,19 @@
   /* ── Karta meczu ────────────────────────────────────────────────────────── */
   .org-match {
     border: 1px solid var(--tc-card-border);
-    border-radius: 10px; margin-bottom: 10px;
-    background: var(--tc-card-bg); overflow: hidden;
+    border-radius: 12px; margin-bottom: 10px;
+    background: var(--tc-chip-bg); overflow: hidden;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     box-shadow: 0 1px 4px var(--tc-shadow-soft, rgba(0,0,0,0.04));
-    position: relative; /* Wymagane dla pseudoelementu z gradientem */
+    position: relative;
   }
   .org-match:hover {
     border-color: var(--tc-accent-border);
-    box-shadow: 0 6px 16px var(--tc-shadow-soft, rgba(0,0,0,0.08));
-    transform: translateY(-2px); /* Podnoszenie karty na hover */
+    box-shadow: 0 4px 12px var(--tc-shadow-soft);
+    transform: translateY(-1px);
   }
-  .org-match--done { opacity: 0.6; }
-  .org-match--done:hover { opacity: 0.9; }
-  .org-match--cancelled { opacity: 0.4; }
-  .org-match--cancelled:hover { opacity: 0.65; }
-  
-  .org-match--pending::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; bottom: 0; width: 4px;
-    background: var(--tc-muted, #94a3b8);
-    border-top-left-radius: 10px;
-    border-bottom-left-radius: 10px;
-    z-index: 1;
-  }
-
-  .org-match--won::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; bottom: 0; width: 4px;
-    background: var(--tc-win, #22c55e);
-    border-top-left-radius: 10px;
-    border-bottom-left-radius: 10px;
-    z-index: 1;
-  }
-
-  .org-match--lost::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; bottom: 0; width: 4px;
-    background: var(--tc-hot, #ef4444);
-    border-top-left-radius: 10px;
-    border-bottom-left-radius: 10px;
-    z-index: 1;
-  }
+  .org-match--done { background: var(--tc-card-bg-2); }
+  .org-match--cancelled { opacity: 0.5; }
 
   .org-match-header {
     display: flex; align-items: center; justify-content: space-between;
@@ -815,7 +783,7 @@
     padding: 12px 12px 8px;
   }
   .org-matches-list-wrap {
-    padding: 0 12px 6px;
+    padding: 10px 12px 6px;
   }
   #org-finish-section {
     padding: 0 12px 16px;
@@ -963,6 +931,15 @@
 }
 .org-card.is-collapsed > *:not(.tc-card-header) {
   display: none !important;
+}
+
+.fs-match-meta-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  text-align: center;
 }
 
 /* Sekcja Mecze — details/summary styling */

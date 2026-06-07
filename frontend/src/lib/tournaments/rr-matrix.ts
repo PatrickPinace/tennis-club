@@ -95,6 +95,50 @@ import { escHtml, abbrev } from './helpers';
     wrap.innerHTML = html;
   }
 
+  // Public filter logic
+  const filterBar = document.getElementById('pub-matches-filter-bar');
+  const filterGroup = document.getElementById('pub-filter-group');
+
+  function applyFilter(filter: string) {
+    const matches = document.querySelectorAll<HTMLElement>('.td-round .td-match');
+    matches.forEach(m => {
+      const status = m.dataset.status ?? '';
+      const isPending = ['WAI', 'SCH', 'INP'].includes(status);
+      const isDone = ['CMP', 'WDR'].includes(status);
+
+      if (filter === 'pending') {
+        m.style.display = isPending ? '' : 'none';
+      } else if (filter === 'done') {
+        m.style.display = isDone ? '' : 'none';
+      } else {
+        m.style.display = '';
+      }
+    });
+
+    // Hide empty rounds
+    document.querySelectorAll<HTMLElement>('.td-round').forEach(round => {
+      const matchesInRound = round.querySelectorAll<HTMLElement>('.td-match');
+      let hasVisible = false;
+      matchesInRound.forEach(m => {
+        if (m.style.display !== 'none') {
+          hasVisible = true;
+        }
+      });
+      round.style.display = hasVisible ? '' : 'none';
+    });
+  }
+
+  if (filterGroup) {
+    filterGroup.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterGroup.querySelectorAll('.org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
+        btn.classList.add('org-filter-btn--active');
+        const filter = btn.dataset.filter ?? 'all';
+        applyFilter(filter);
+      });
+    });
+  }
+
   let matrixBuilt = false;
   toggle.querySelectorAll<HTMLButtonElement>('.view-toggle__btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -104,11 +148,22 @@ import { escHtml, abbrev } from './helpers';
       if (view === 'matrix') {
         roundEls.forEach(el => el.style.display = 'none');
         matrixWrap.style.display = '';
+        if (filterBar) filterBar.style.display = 'none';
         if (!matrixBuilt) { buildPublicMatrix(); matrixBuilt = true; }
       } else {
-        roundEls.forEach(el => el.style.display = '');
+        const activeFilterBtn = filterGroup?.querySelector('.org-filter-btn--active') as HTMLButtonElement | null;
+        const activeFilter = activeFilterBtn?.dataset.filter ?? 'all';
+        applyFilter(activeFilter);
+        if (filterBar) filterBar.style.display = 'flex';
         matrixWrap.style.display = 'none';
       }
     });
   });
+
+  // Initialize filtering on load
+  if (filterGroup) {
+    const activeFilterBtn = filterGroup.querySelector('.org-filter-btn--active') as HTMLButtonElement | null;
+    const activeFilter = activeFilterBtn?.dataset.filter ?? 'all';
+    applyFilter(activeFilter);
+  }
 })();

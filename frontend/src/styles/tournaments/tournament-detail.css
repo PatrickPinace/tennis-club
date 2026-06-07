@@ -286,9 +286,7 @@
     font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.07em; color: var(--tc-sub);
     padding: 12px 0 8px;
-    border-top: 1px solid var(--tc-card-border);
   }
-  .td-round:first-of-type .td-round__label { border-top: none; }
   .td-round__matches {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -317,6 +315,8 @@
   .td-match--done { background: var(--tc-card-bg-2); }
 
   .td-match--result-won::before,
+  .td-match--result-lost::before,
+  .td-match--result-neutral::before,
   .td-match--result-pending::before {
     content: '';
     position: absolute;
@@ -326,6 +326,8 @@
     z-index: 1;
   }
   .td-match--result-won::before     { background: var(--tc-win, #22c55e); }
+  .td-match--result-lost::before    { background: var(--tc-hot, #ef4444); }
+  .td-match--result-neutral::before { background: var(--info, #2563eb); }
   .td-match--result-pending::before { background: var(--tc-muted, #94a3b8); }
 
   .td-match--live {
@@ -584,7 +586,7 @@
     transform: translateY(-50%); font-size: 0.95rem;
     color: var(--tc-muted); pointer-events: none;
   }
-  .org-matches-list-wrap { padding: 0 20px 6px; }
+  .org-matches-list-wrap { padding: 10px 20px 6px; }
 
   /* ── View toggle (Lista / Macierz) ──────────────────────────────────── */
   .view-toggle {
@@ -735,7 +737,7 @@
   #player-matches-list,
   #sgl-player-matches-list,
   #amr-player-matches-list {
-    padding: 0 20px 6px;
+    padding: 10px 20px 6px;
   }
 
   /* ── Join bar (self-registration) ─────────────────────────────────────── */
@@ -1026,7 +1028,7 @@
     #player-matches-list,
     #sgl-player-matches-list,
     #amr-player-matches-list {
-      padding: 0 12px 6px;
+      padding: 10px 12px 6px;
     }
   }
 
@@ -1128,7 +1130,7 @@
     flex-shrink: 0;
   }
   @media (max-width: 480px) {
-    .fs-match-round-lbl {
+    .fs-match-meta-col {
       display: none !important;
     }
   }

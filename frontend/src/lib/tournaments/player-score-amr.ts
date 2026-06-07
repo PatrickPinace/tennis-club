@@ -153,7 +153,9 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         const p2WonClass = isDone && (m.winner_name ? (m.winner_name === m.participant2_name || m.winner_name === p2) : Number(p2SetsWon) > Number(p1SetsWon)) ? 'fs-match__name--winner' : '';
 
         let resultCls = '';
-        if (isDone) {
+        if (isCnc) {
+          resultCls = 'td-match--result-cnc';
+        } else if (isDone) {
           const myId = myParticipant.id;
           const p1Won = m.winner_name ? (m.winner_name === m.participant1_name || m.winner_name === p1) : Number(p1SetsWon) > Number(p2SetsWon);
           const p2Won = m.winner_name ? (m.winner_name === m.participant2_name || m.winner_name === p2) : Number(p2SetsWon) > Number(p1SetsWon);
@@ -161,14 +163,16 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
                              (p2Won && (m.participant2_id === myId || m.participant3_id === myId));
           const myTeamLost = (p1Won && (m.participant2_id === myId || m.participant3_id === myId)) ||
                               (p2Won && (m.participant1_id === myId || m.participant4_id === myId));
-          resultCls = myTeamWon ? 'org-match--won' : (myTeamLost ? 'org-match--lost' : 'org-match--pending');
-        } else if (!isCnc) {
-          resultCls = 'org-match--pending';
+          resultCls = myTeamWon ? 'td-match--result-won' : (myTeamLost ? 'td-match--result-lost' : '');
+        } else {
+          resultCls = m.status === 'INP' ? '' : 'td-match--result-pending';
         }
 
         const cardCls = [
           'org-match',
-          isDone ? 'org-match--done' : '',
+          'td-match',
+          'td-match--flashscore',
+          isDone ? 'org-match--done td-match--done' : '',
           isCnc  ? 'org-match--cancelled' : '',
           resultCls,
         ].filter(Boolean).join(' ');
@@ -183,10 +187,20 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             sets.map(s => `<span class="fs-match__score-set ${s.p2 > s.p1 && isDone ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`).join('')
           : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
 
+        const timeChip = m.scheduled_time
+          ? (() => { try {
+              const d = new Date(m.scheduled_time!);
+              return `<span class="org-match-time">${d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})}</span>`;
+            } catch { return ''; } })()
+          : '';
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
           <div class="org-match-header org-match-header--flashscore">
             <div class="fs-match-wrapper">
-              ${roundLabel ? `<div class="fs-match-round-lbl">${roundLabel}</div>` : ''}
+              <div class="fs-match-meta-col">
+                ${roundLabel ? `<span class="fs-match-round-lbl">${roundLabel}</span>` : ''}
+                ${timeChip}
+              </div>
               <div class="fs-match">
                 <div class="fs-match__row">
                   <span class="fs-match__name ${p1WonClass}">${p1}</span>

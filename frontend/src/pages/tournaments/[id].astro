@@ -163,6 +163,41 @@ if (isLadder && tournament) {
 const ldrAvailableSet  = new Set(ladderData?.available_challenge_ids ?? []);
 const ldrRejectedSet   = new Set(ladderData?.rejected_by_ids ?? []);
 const ldrMyId          = ladderData?.my_participant_id ?? null;
+
+const myParticipant = tournament?.participants.find(p => p.user_id === currentUserMain?.id);
+const myParticipantId = myParticipant ? myParticipant.id : null;
+const last3CompletedMatchIds = new Set(
+  completedMatches
+    .map(m => m.id)
+    .sort((a, b) => b - a)
+    .slice(0, 3)
+);
+
+function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
+  if (m.status === 'CNC') return 'td-match--result-cnc';
+  if (!sInfo.isDone) {
+    return m.status === 'INP' ? '' : 'td-match--result-pending';
+  }
+
+  if (myParticipantId === null) {
+    return 'td-match--result-neutral';
+  }
+
+  const isDoubles = m.participant3_id != null || m.participant4_id != null;
+  const userInTeamA = m.participant1_id === myParticipantId || (isDoubles && m.participant4_id === myParticipantId);
+  const userInTeamB = m.participant2_id === myParticipantId || (isDoubles && m.participant3_id === myParticipantId);
+  
+  if (!userInTeamA && !userInTeamB) {
+    return 'td-match--result-neutral';
+  }
+
+  const teamAWon = m.winner_name 
+    ? (m.winner_name === teamAName) 
+    : (Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
+
+  const userWon = (userInTeamA && teamAWon) || (userInTeamB && !teamAWon);
+  return userWon ? 'td-match--result-won' : 'td-match--result-lost';
+}
 ---
 
 <AppLayout
@@ -230,6 +265,8 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           <span class="tc-badge tc-badge-primary">{isRoundRobin ? 'Liga (Round Robin)' : isSingleElimination ? 'Eliminacja pojedyncza' : isDoubleElimination ? 'Eliminacja podwójna' : isMexicano ? 'Mexicano' : isAmericano ? 'Americano' : isLadder ? 'Drabinka Liderów' : (tournament.tournament_type ?? '—')}</span>
           <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format}</span>
           {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
+          {tournament.rank === 2 && <span class="tc-badge" style="background:rgba(148,163,184,0.15);color:#64748b;">★ Ranga 2</span>}
+          {tournament.rank === 3 && <span class="tc-badge" style="background:rgba(180,83,9,0.12);color:#b45309;">★ Ranga 3</span>}
           {!tournament.is_ranked && <span class="tc-badge tc-badge-neutral" style="opacity:0.7;">Towarzyski</span>}
         </div>
         
@@ -959,7 +996,10 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                       const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamA : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
                       const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamB : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done td-match--result-won' : (m.status === 'CNC' ? 'td-match--result-cnc' : 'td-match--result-pending')}`}>
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, teamA)}`}>
+                        {last3CompletedMatchIds.has(m.id) && (
+                          <span class="pub-match-new-badge">NEW</span>
+                        )}
                         <div class="fs-match">
                           <div class="fs-match__row">
                             <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{teamA}</span>
@@ -1042,6 +1082,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-panel-type="AMR"
             style="display:none;"
             data-tournament-id={tournament.id}
+            data-my-participant-id={myParticipantId}
             data-created-by={tournament.created_by_username}
             data-tournament-status={tournament.status}
             data-tournament-type={tournament.tournament_type}
@@ -1050,7 +1091,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-points-per-match={String(tournament.config?.points_per_match ?? 32)}
             data-end-date={tournament.end_date ?? ''}
           >
-            <div class="tc-card org-card">
+            <div class="tc-card org-card is-collapsed">
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- Uczestnicy -->
@@ -1278,6 +1319,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-panel-type="RND"
             style="display:none;"
             data-tournament-id={tournament.id}
+            data-my-participant-id={myParticipantId}
             data-created-by={tournament.created_by_username}
             data-tournament-status={tournament.status}
             data-tournament-type={tournament.tournament_type}
@@ -1285,7 +1327,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-sets-to-win={tournament.config?.sets_to_win ?? 2}
             data-end-date={tournament.end_date ?? ''}
           >
-            <div class="tc-card org-card">
+            <div class="tc-card org-card is-collapsed">
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- Lista meczów do wpisania wyników -->
@@ -1567,6 +1609,14 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                 </div>
               </summary>
 
+              <div class="pub-matches-filter-bar" id="pub-matches-filter-bar" style="padding: 12px 20px 0; display: flex; justify-content: flex-end;">
+                <div class="org-filter-group" id="pub-filter-group">
+                  <button class="org-filter-btn" data-filter="pending">Oczekujące <span class="pub-filter-count">({pendingMatches.length})</span></button>
+                  <button class="org-filter-btn" data-filter="done">Zakończone <span class="pub-filter-count">({completedMatches.length})</span></button>
+                  <button class="org-filter-btn org-filter-btn--active" data-filter="all">Wszystkie <span class="pub-filter-count">({tournament.matches.length})</span></button>
+                </div>
+              </div>
+
               {rounds.map(roundNum => (
                 <div class="td-round">
                   <div class="td-round__label">Runda {roundNum}</div>
@@ -1578,7 +1628,10 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                       const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === p1Name : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
                       const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === p2Name : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done td-match--result-won' : ''} ${m.status === 'INP' ? 'td-match--live' : ''} ${!sInfo.isDone && m.status !== 'INP' && m.status !== 'CNC' ? 'td-match--result-pending' : ''} ${m.status === 'CNC' ? 'td-match--result-cnc' : ''}`}>
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, p1Name)} ${m.status === 'INP' ? 'td-match--live' : ''}`} data-status={m.status}>
+                        {last3CompletedMatchIds.has(m.id) && (
+                          <span class="pub-match-new-badge">NEW</span>
+                        )}
                         <div class="fs-match">
                           <div class="fs-match__row">
                             <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{p1Name}</span>
@@ -1694,6 +1747,29 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
 
 </AppLayout>
 
+<style>
+.pub-match-new-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--tc-accent, #c8f161);
+  color: var(--tc-accent-ink, #08090b);
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 2.5px 7px;
+  border-bottom-left-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  z-index: 5;
+}
+
+@media (max-width: 600px) {
+  .pub-filter-count {
+    display: none;
+  }
+}
+</style>
 
 <script>
 // Public modules — extracted to separate TS files
@@ -1710,14 +1786,14 @@ import '@/lib/tournaments/org-ladder';
 
 // Org-panel collapse toggle
 document.addEventListener('DOMContentLoaded', () => {
-  const header = document.getElementById('org-panel-toggle-header');
-  if (!header) return;
-  const card = header.closest('.org-card') as HTMLElement | null;
-  if (!card) return;
-  const label = header.querySelector<HTMLElement>('.org-toggle-hint__label');
-  header.addEventListener('click', () => {
-    const collapsed = card.classList.toggle('is-collapsed');
-    if (label) label.textContent = collapsed ? 'rozwiń' : 'zwiń';
+  document.querySelectorAll('.org-panel-header').forEach(header => {
+    const card = header.closest('.org-card') as HTMLElement | null;
+    if (!card) return;
+    const label = header.querySelector<HTMLElement>('.org-toggle-hint__label');
+    header.addEventListener('click', () => {
+      const collapsed = card.classList.toggle('is-collapsed');
+      if (label) label.textContent = collapsed ? 'rozwiń' : 'zwiń';
+    });
   });
 });
 </script>

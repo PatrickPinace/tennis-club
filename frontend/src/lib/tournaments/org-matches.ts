@@ -49,6 +49,38 @@ function filterMatches(state: MatchState): MatchData[] {
   return list;
 }
 
+function getMatchResultClass(
+  m: MatchData,
+  isDoneVal: boolean,
+  p1SetsWon: number | string,
+  p2SetsWon: number | string,
+  p1: string,
+  myParticipantId: number | null | undefined,
+): string {
+  if (m.status === 'CNC') return 'td-match--result-cnc';
+  if (!isDoneVal) {
+    return m.status === 'INP' ? '' : 'td-match--result-pending';
+  }
+  if (!myParticipantId) {
+    return 'td-match--result-neutral';
+  }
+
+  const isDoubles = m.participant3_id != null || m.participant4_id != null;
+  const userInTeamA = m.participant1_id === myParticipantId || (isDoubles && m.participant4_id === myParticipantId);
+  const userInTeamB = m.participant2_id === myParticipantId || (isDoubles && m.participant3_id === myParticipantId);
+
+  if (!userInTeamA && !userInTeamB) {
+    return 'td-match--result-neutral';
+  }
+
+  const teamAWon = m.winner_name
+    ? (m.winner_name === p1)
+    : (Number(p1SetsWon) > Number(p2SetsWon));
+
+  const userWon = (userInTeamA && teamAWon) || (userInTeamB && !teamAWon);
+  return userWon ? 'td-match--result-won' : 'td-match--result-lost';
+}
+
 export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const isDoubles = m.participant3_id != null || m.participant4_id != null;
   const p1 = isDoubles
@@ -62,24 +94,6 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     ? `GF M${m.match_index}`
     : `${bracketPrefix}R${m.round_number} M${m.match_index}`;
 
-  const statusBadge = m.status === 'CMP'
-    ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
-    : m.status === 'WDR'
-      ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
-      : m.status === 'CNC'
-        ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
-        : m.status === 'INP'
-          ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
-          : m.status === 'SCH'
-            ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
-            : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
-
-  const scoreChip = m.score
-    ? `<span class="org-match-score org-match-score--done">${escHtml(m.score)}</span>`
-    : m.status === 'WDR' && m.winner_name
-      ? `<span class="org-match-score" style="font-size:0.72rem;">WO: ${escHtml(m.winner_name)}</span>`
-      : '';
-
   const timeChip = m.scheduled_time
     ? (() => { try {
         const d = new Date(m.scheduled_time!);
@@ -87,51 +101,143 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       } catch { return ''; } })()
     : '';
 
-  const isPendingMatch = PENDING_STATUSES.has(m.status);
-  const cardCls = [
-    'org-match',
-    isDone(m) ? 'org-match--done org-match--won' : '',
-    m.status === 'CNC' ? 'org-match--cancelled' : '',
-    isPendingMatch ? 'org-match--pending' : '',
-  ].filter(Boolean).join(' ');
-
   // BYE — mecz bez jednego z uczestników (może być p1 lub p2), zawsze read-only
   const isBye = !m.participant1_id || !m.participant2_id;
   if (isBye) {
+    const statusBadge = m.status === 'CMP'
+      ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
+      : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+    const byeCls = [
+      'org-match',
+      'td-match',
+      'td-match--flashscore',
+      m.status === 'CMP' ? 'org-match--done td-match--done td-match--result-neutral' : 'org-match--pending td-match--result-pending',
+    ].join(' ');
     return `
-      <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
+      <div class="${byeCls}" data-match-id="${m.id}" data-status="${m.status}">
         <div class="org-match-header">
           <div class="org-match-meta">
             <div class="org-match-meta-top">
               <span class="org-match-label">${roundLabel}</span>
-              <span class="org-status-mobile">${statusBadge}</span>
             </div>
             <span class="org-match-players">${m.participant1_id ? p1 : p2}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
           </div>
           <div class="org-match-right">
-            <span class="org-status-desktop">${statusBadge}</span>
             <span style="font-size:0.72rem;color:var(--text-dim);margin-left:4px;">wolny los</span>
           </div>
         </div>
       </div>`;
   }
 
+  // Parse match score values for flashscore display
+  const sets = [];
+  let p1SetsWon: number | string = 0;
+  let p2SetsWon: number | string = 0;
+
+  if (m.set1_p1_score !== null && m.set1_p2_score !== null) {
+    sets.push({ p1: m.set1_p1_score, p2: m.set1_p2_score });
+  }
+  if (m.set2_p1_score !== null && m.set2_p2_score !== null) {
+    sets.push({ p1: m.set2_p1_score, p2: m.set2_p2_score });
+  }
+  if (m.set3_p1_score !== null && m.set3_p2_score !== null) {
+    sets.push({ p1: m.set3_p1_score, p2: m.set3_p2_score });
+  }
+
+  const isWalkover = m.status === 'WDR';
+  const hasScore = sets.length > 0 || isWalkover;
+
+  if (isWalkover) {
+    const p1WonVal = m.winner_name === p1;
+    p1SetsWon = p1WonVal ? 'W' : 'L';
+    p2SetsWon = p1WonVal ? 'L' : 'W';
+  } else if (hasScore) {
+    let w1 = 0, w2 = 0;
+    for (const s of sets) {
+      if (s.p1 > s.p2) w1++;
+      else if (s.p1 < s.p2) w2++;
+    }
+    p1SetsWon = w1;
+    p2SetsWon = w2;
+  }
+
+  const isDoneVal = m.status === 'CMP' || m.status === 'WDR';
+  const p1Won = isDoneVal && (m.winner_name ? m.winner_name === p1 : Number(p1SetsWon) > Number(p2SetsWon));
+  const p2Won = isDoneVal && (m.winner_name ? m.winner_name === p2 : Number(p2SetsWon) > Number(p1SetsWon));
+
+  const resultCls = getMatchResultClass(m, isDoneVal, p1SetsWon, p2SetsWon, p1, cfg.myParticipantId);
+
+  const cardCls = [
+    'org-match',
+    'td-match',
+    'td-match--flashscore',
+    isDoneVal ? 'org-match--done td-match--done' : '',
+    m.status === 'CNC' ? 'org-match--cancelled td-match--result-cnc' : '',
+    resultCls,
+  ].filter(Boolean).join(' ');
+
+  const MATCH_STATUS_LABEL: Record<string, string> = {
+    WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
+    CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
+  };
+
+  const statusLabel = m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status;
+
+  const setsHtmlP1 = sets.map(s => {
+    return `<span class="fs-match__score-set ${s.p1 > s.p2 && isDone ? 'fs-match__score-set--won' : ''}">${s.p1}</span>`;
+  }).join('');
+
+  const setsHtmlP2 = sets.map(s => {
+    return `<span class="fs-match__score-set ${s.p2 > s.p1 && isDone ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`;
+  }).join('');
+
+  const scoreScoresHtmlP1 = hasScore ? `
+    <span class="fs-match__score-overall ${isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p1SetsWon}</span>
+    ${setsHtmlP1}
+  ` : `
+    <span class="fs-match__status">${statusLabel}</span>
+  `;
+
+  const scoreScoresHtmlP2 = hasScore ? `
+    <span class="fs-match__score-overall ${isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p2SetsWon}</span>
+    ${setsHtmlP2}
+  ` : `
+    <span class="fs-match__status" style="visibility: hidden;">${statusLabel}</span>
+  `;
+
+  const headerHtml = `
+    <div class="org-match-header org-match-header--flashscore">
+      <div class="fs-match-wrapper">
+        <div class="fs-match-meta-col">
+          <span class="fs-match-round-lbl">${roundLabel}</span>
+          ${timeChip}
+        </div>
+        <div class="fs-match">
+          <div class="fs-match__row">
+            <span class="fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}">${p1}</span>
+            <div class="fs-match__scores">
+              ${scoreScoresHtmlP1}
+            </div>
+          </div>
+          <div class="fs-match__row">
+            <span class="fs-match__name ${p2Won ? 'fs-match__name--winner' : ''}">${p2}</span>
+            <div class="fs-match__scores">
+              ${scoreScoresHtmlP2}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="org-match-right">
+        ${(m.status !== 'CNC' && !cfg.locked) ? '<span class="org-match-chevron">▼</span>' : ''}
+      </div>
+    </div>
+  `;
+
   // Read-only for CNC or locked panel
   if (m.status === 'CNC' || cfg.locked) {
     return `
       <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-        <div class="org-match-header">
-          <div class="org-match-meta">
-            <div class="org-match-meta-top">
-              <span class="org-match-label">${roundLabel}</span>
-              <span class="org-status-mobile">${statusBadge}</span>
-            </div>
-            <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
-          </div>
-          <div class="org-match-right">
-            ${scoreChip}${timeChip}<span class="org-status-desktop">${statusBadge}</span>
-          </div>
-        </div>
+        ${headerHtml}
       </div>`;
   }
 
@@ -215,19 +321,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
 
   return `
     <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-      <div class="org-match-header">
-        <div class="org-match-meta">
-          <div class="org-match-meta-top">
-            <span class="org-match-label">${roundLabel}</span>
-            <span class="org-status-mobile">${statusBadge}</span>
-          </div>
-          <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
-        </div>
-        <div class="org-match-right">
-          ${scoreChip}${timeChip}<span class="org-status-desktop">${statusBadge}</span>
-          <span class="org-match-chevron">▼</span>
-        </div>
-      </div>
+      ${headerHtml}
       <form class="org-score-form" data-match-id="${m.id}">
         <div class="org-form-row">
           ${setsHtml}
@@ -496,7 +590,7 @@ export function applyMatchFilter(
 
   const pendingCount = state.allMatches.filter(isPending).length;
   const doneCount    = state.allMatches.filter(isDone).length;
-  document.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+  document.querySelectorAll<HTMLButtonElement>('#org-filter-group .org-filter-btn').forEach(btn => {
     const f = btn.dataset.filter!;
     const count = f === 'pending' ? pendingCount : f === 'done' ? doneCount : state.allMatches.length;
     btn.textContent = f === 'pending' ? `Do wpisania${count ? ` (${count})` : ''}`
@@ -593,9 +687,9 @@ export function applyMatchFilter(
 }
 
 export function initMatchFilters(state: MatchState, cfg: OrgPanelConfig, cbs: MatchCallbacks) {
-  document.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+  document.querySelectorAll<HTMLButtonElement>('#org-filter-group .org-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
+      document.querySelectorAll('#org-filter-group .org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
       btn.classList.add('org-filter-btn--active');
       state.activeFilter = btn.dataset.filter ?? 'all';
       applyMatchFilter(cfg, state, cbs);

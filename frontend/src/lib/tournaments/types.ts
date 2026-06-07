@@ -105,4 +105,5 @@ export type OrgPanelConfig = {
   isLDR?: boolean;
   locked: boolean;
   lockedHard: boolean;
+  myParticipantId?: number | null;
 };
