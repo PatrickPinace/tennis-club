@@ -549,6 +549,15 @@ export async function getDashboardSummary(
  * @param matchType 'SNG' | 'DBL' (domyślnie SNG)
  * @param year  rok sezonu lub 'all' dla all-time; undefined = najnowszy dostępny
  */
+export async function getRankingSeasons(
+  matchType: 'SNG' | 'DBL' = 'SNG',
+  cookie?: string
+): Promise<number[]> {
+  const params = new URLSearchParams({ type: matchType });
+  const data = await apiFetch<{ seasons: number[] }>(`/api/rankings/seasons/?${params}`, cookie);
+  return data?.seasons ?? [];
+}
+
 export async function getRankings(
   matchType: 'SNG' | 'DBL' = 'SNG',
   year?: string | number

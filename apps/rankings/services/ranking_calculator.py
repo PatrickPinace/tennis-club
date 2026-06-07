@@ -184,7 +184,7 @@ def calculate_rankings(match_type='SNG', season=None):
             )
         )
         .filter(matches_played__gt=0)
-        .order_by('-total_points', '-matches_won')
+        .order_by('-total_points', '-matches_won', '-total_sets_won')
         .values(
             'pk', 'total_points', 'matches_won', 'matches_lost', 'matches_played',
             'total_sets_won', 'total_sets_lost', 'total_games_won', 'total_games_lost',
@@ -192,7 +192,13 @@ def calculate_rankings(match_type='SNG', season=None):
     )
 
     results = []
-    for pos, row in enumerate(qs, start=1):
+    pos = 0
+    prev_key = None
+    for i, row in enumerate(qs):
+        key = (row['total_points'], row['matches_won'], row['total_sets_won'])
+        if key != prev_key:
+            pos = i + 1
+            prev_key = key
         results.append({
             'user_id': row['pk'],
             'match_type': match_type,
@@ -245,20 +251,25 @@ def rebuild_rankings(match_type=None, season=None):
     total = 0
     for mt, yr in combos:
         rows = calculate_rankings(match_type=mt, season=yr)
-        for row in rows:
-            lookup = {
-                'user_id': row['user_id'],
-                'match_type': row['match_type'],
-                'season': row['season'],
-            }
-            defaults = {k: v for k, v in row.items() if k not in ('user_id', 'match_type', 'season')}
-            try:
-                obj = PlayerRanking.objects.get(**lookup)
-                for k, v in defaults.items():
-                    setattr(obj, k, v)
-                obj.save()
-            except PlayerRanking.DoesNotExist:
-                PlayerRanking.objects.create(**lookup, **defaults)
+        # Usuń stare wpisy dla tej kombinacji — unikamy śmieciowych pozycji
+        PlayerRanking.objects.filter(match_type=mt, season=yr).delete()
+        PlayerRanking.objects.bulk_create([
+            PlayerRanking(
+                user_id=row['user_id'],
+                match_type=row['match_type'],
+                season=row['season'],
+                position=row['position'],
+                points=row['points'],
+                matches_won=row['matches_won'],
+                matches_lost=row['matches_lost'],
+                matches_played=row['matches_played'],
+                sets_won=row['sets_won'],
+                sets_lost=row['sets_lost'],
+                games_won=row['games_won'],
+                games_lost=row['games_lost'],
+            )
+            for row in rows
+        ])
         total += len(rows)
 
     return total

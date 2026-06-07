@@ -23,9 +23,12 @@ interface Props {
   initialPlayers: PlayerEntry[];
   isLive: boolean;
   totalPlayers: number;
+  availableSeasons: number[];
+  defaultSeason: number | 'all';
 }
 
 type MatchType = 'SNG' | 'DBL';
+type Season = number | 'all';
 
 function getInitials(name: string): string {
   return name.split(' ').filter(Boolean).slice(0, 2).map(w => w[0].toUpperCase()).join('');
@@ -130,7 +133,7 @@ function PlayerRow({ player, isMe }: { player: PlayerEntry; isMe: boolean }) {
 
   return (
     <div
-      className={`rk-row${isFirst ? ' rk-row--first' : ''}${isMe ? ' rk-row--me' : ''}`}
+      className={`rk-row${isMe ? ' rk-row--me' : ''}`}
       data-pos={player.position}
     >
       <div className="rk-row__pos">
@@ -164,11 +167,19 @@ function PlayerRow({ player, isMe }: { player: PlayerEntry; isMe: boolean }) {
   );
 }
 
-export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: Props) {
+export default function RankingsTable({ initialPlayers, isLive, totalPlayers, availableSeasons, defaultSeason }: Props) {
   const [matchType, setMatchType] = useState<MatchType>('SNG');
+  const [season, setSeason] = useState<Season>(defaultSeason);
   const [players, setPlayers] = useState<PlayerEntry[]>(initialPlayers);
   const [myRank, setMyRank] = useState<MyRank | null>(null);
   const [live, setLive] = useState(isLive);
+  const [seasonsExpanded, setSeasonsExpanded] = useState(false);
+
+  // Zawsze widoczne: 2 najnowsze + All-time; reszta chowana pod "..."
+  const visibleSeasons = availableSeasons.slice(0, 2);
+  const hiddenSeasons = availableSeasons.slice(2);
+  const hasHidden = hiddenSeasons.length > 0;
+  const selectedIsHidden = season !== 'all' && hiddenSeasons.includes(season as number);
 
   useEffect(() => {
     (async () => {
@@ -195,12 +206,11 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: 
     })();
   }, []);
 
-  const switchType = async (type: MatchType) => {
-    if (type === matchType) return;
-    setMatchType(type);
-
+  const fetchRankings = async (type: MatchType, yr: Season) => {
     try {
-      const res = await fetch(`/api/rankings/list/?type=${type}`, {
+      const params = new URLSearchParams({ type });
+      params.set('year', yr === 'all' ? 'all' : String(yr));
+      const res = await fetch(`/api/rankings/list/?${params}`, {
         credentials: 'include',
         redirect: 'manual',
       });
@@ -213,19 +223,32 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: 
     }
   };
 
+  const switchType = async (type: MatchType) => {
+    if (type === matchType) return;
+    setMatchType(type);
+    await fetchRankings(type, season);
+  };
+
+  const switchSeason = async (yr: Season) => {
+    if (yr === season) return;
+    setSeason(yr);
+    await fetchRankings(matchType, yr);
+  };
+
   const count = players.length;
-  const sorted = [...players].sort((a, b) => Number(b.points) - Number(a.points));
+  const sorted = [...players].sort((a, b) => a.position - b.position);
   const top3 = sorted.slice(0, 3);
   // Visual order: [silver(#2), gold(#1), bronze(#3)]
   const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3;
 
   const typeLabel = matchType === 'SNG' ? 'Singiel' : 'Debel';
+  const seasonLabel = season === 'all' ? 'All-time' : String(season);
   const footerInfo = live
     ? `Dane live · ${todayFormatted()}`
     : 'Dane demonstracyjne';
   const footerLabel = live
-    ? `${typeLabel} 2026`
-    : `${typeLabel} 2026 (demo)`;
+    ? `${typeLabel} · ${seasonLabel}`
+    : `${typeLabel} · ${seasonLabel} (demo)`;
 
   return (
     <>
@@ -246,21 +269,73 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: 
             <h2 className="rk-card__title">TABELA KLUBOWA</h2>
             <span className="rk-card__badge">{count}</span>
           </div>
-          <div className="rk-segmented" role="group" aria-label="Typ rankingu">
-            <button
-              type="button"
-              className={`rk-seg${matchType === 'SNG' ? ' rk-seg--active' : ''}`}
-              onClick={() => switchType('SNG')}
-            >
-              Singiel
-            </button>
-            <button
-              type="button"
-              className={`rk-seg${matchType === 'DBL' ? ' rk-seg--active' : ''}`}
-              onClick={() => switchType('DBL')}
-            >
-              Debel
-            </button>
+          <div className="rk-card__controls">
+            <div className="rk-segmented" role="group" aria-label="Sezon">
+              {visibleSeasons.map(yr => (
+                <button
+                  key={yr}
+                  type="button"
+                  className={`rk-seg${season === yr ? ' rk-seg--active' : ''}`}
+                  onClick={() => switchSeason(yr)}
+                >
+                  {yr}
+                </button>
+              ))}
+              {hasHidden && (seasonsExpanded ? (
+                <>
+                  {hiddenSeasons.map(yr => (
+                    <button
+                      key={yr}
+                      type="button"
+                      className={`rk-seg${season === yr ? ' rk-seg--active' : ''}`}
+                      onClick={() => switchSeason(yr)}
+                    >
+                      {yr}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="rk-seg rk-seg--more"
+                    onClick={() => setSeasonsExpanded(false)}
+                    title="Zwiń sezony"
+                  >
+                    ‹
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={`rk-seg rk-seg--more${selectedIsHidden ? ' rk-seg--active' : ''}`}
+                  onClick={() => setSeasonsExpanded(true)}
+                  title="Pokaż starsze sezony"
+                >
+                  {selectedIsHidden ? String(season) : '···'}
+                </button>
+              ))}
+              <button
+                type="button"
+                className={`rk-seg${season === 'all' ? ' rk-seg--active' : ''}`}
+                onClick={() => switchSeason('all')}
+              >
+                All-time
+              </button>
+            </div>
+            <div className="rk-segmented" role="group" aria-label="Typ rankingu">
+              <button
+                type="button"
+                className={`rk-seg${matchType === 'SNG' ? ' rk-seg--active' : ''}`}
+                onClick={() => switchType('SNG')}
+              >
+                Singiel
+              </button>
+              <button
+                type="button"
+                className={`rk-seg${matchType === 'DBL' ? ' rk-seg--active' : ''}`}
+                onClick={() => switchType('DBL')}
+              >
+                Debel
+              </button>
+            </div>
           </div>
         </div>
 
@@ -279,7 +354,7 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers }: 
             sorted.map((p, i) => (
               <PlayerRow
                 key={`${matchType}-${p.display_name}-${i}`}
-                player={{ ...p, position: i + 1 }}
+                player={p}
                 isMe={myRank?.display_name != null && myRank.display_name === p.display_name}
               />
             ))
