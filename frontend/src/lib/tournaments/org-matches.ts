@@ -90,7 +90,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const isPendingMatch = PENDING_STATUSES.has(m.status);
   const cardCls = [
     'org-match',
-    isDone(m) ? 'org-match--done' : '',
+    isDone(m) ? 'org-match--done org-match--won' : '',
     m.status === 'CNC' ? 'org-match--cancelled' : '',
     isPendingMatch ? 'org-match--pending' : '',
   ].filter(Boolean).join(' ');
@@ -319,8 +319,8 @@ export async function handleScoreSubmit(
     const s2p1 = getVal('set2_p1'), s2p2 = getVal('set2_p2');
     const s3p1 = getVal('set3_p1'), s3p2 = getVal('set3_p2');
 
-    // Walidacja tenisowa dla SGL / DBE / LDR — AMR i RND mają własne reguły backendowe
-    if (cfg.isSGL || cfg.isDBE || cfg.isLDR) {
+    // Walidacja tenisowa dla SGL / DBE / LDR / RND — AMR ma własne reguły backendowe
+    if (cfg.isSGL || cfg.isDBE || cfg.isLDR || (!cfg.isAMR)) {
       // Set 1 wymagany
       const rejectValidation = (msg: string) => {
         if (msgEl) { msgEl.textContent = msg; msgEl.className = 'org-form-msg org-form-msg--err'; }

@@ -199,8 +199,8 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
 
         let resultCls = '';
         if (isDone) {
-          const leftWon = m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon);
-          resultCls = leftWon ? 'org-match--won' : 'org-match--lost';
+          const _lw = m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon);
+          resultCls = _lw ? 'org-match--won' : 'org-match--lost';
         } else if (!isCnc) {
           resultCls = 'org-match--pending';
         }
@@ -212,13 +212,17 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           resultCls,
         ].filter(Boolean).join(' ');
 
+        const leftWon = isDone && (m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon));
+        const overall1Cls = isDone ? (leftWon ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : '';
+        const overall2Cls = isDone ? (leftWon ? 'fs-match__score-overall--lost' : 'fs-match__score-overall--won') : '';
+
         const scores1Html = hasScore
-          ? `<span class="fs-match__score-overall">${leftSetsWon}</span>` +
+          ? `<span class="fs-match__score-overall ${overall1Cls}">${leftSetsWon}</span>` +
             sets.map(s => `<span class="fs-match__score-set ${s.left > s.right && isDone ? 'fs-match__score-set--won' : ''}">${s.left}</span>`).join('')
           : `<span class="fs-match__status">${statusBadge}</span>`;
 
         const scores2Html = hasScore
-          ? `<span class="fs-match__score-overall">${rightSetsWon}</span>` +
+          ? `<span class="fs-match__score-overall ${overall2Cls}">${rightSetsWon}</span>` +
             sets.map(s => `<span class="fs-match__score-set ${s.right > s.left && isDone ? 'fs-match__score-set--won' : ''}">${s.right}</span>`).join('')
           : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
 
