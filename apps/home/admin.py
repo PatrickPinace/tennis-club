@@ -21,6 +21,10 @@ class PageViewAdmin(admin.ModelAdmin):
     search_fields = ("path", "ip_address", "user_agent")
     date_hierarchy = "timestamp"
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.exclude(ip_address='51.83.160.216')
+
     @admin.display(description="Przeglądarka / Urządzenie")
     def browser_device(self, obj):
         return f"{obj.browser} ({obj.device})"

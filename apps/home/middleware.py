@@ -96,6 +96,10 @@ class PageViewMiddleware:
                 else:
                     ip = request.META.get('REMOTE_ADDR')
 
+                # Ignoruj ruch z IP 51.83.160.216 (wewnętrzna konfiguracja Astro / OVHCloud)
+                if ip == '51.83.160.216':
+                    return response
+
                 user_agent = request.META.get('HTTP_USER_AGENT', '')
                 method = request.method
                 session_key = request.session.session_key if hasattr(request, 'session') else None
