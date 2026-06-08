@@ -117,17 +117,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             ? `${bracketPrefix}R${m.round_number} M${m.match_index}`
             : '';
 
-        const statusBadge = m.status === 'CMP'
-          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
-          : m.status === 'WDR'
-            ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
-            : m.status === 'CNC'
-              ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
-              : m.status === 'INP'
-                ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
-                : m.status === 'SCH'
-                  ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
-                  : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+        const MATCH_STATUS_LABEL: Record<string, string> = {
+          WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
+          CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
+        };
+        const statusBadge = m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status;
 
         // parse scores
         const sets: Array<{p1: number, p2: number}> = [];

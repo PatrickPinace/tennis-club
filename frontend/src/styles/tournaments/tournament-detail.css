@@ -1042,6 +1042,10 @@
     justify-content: center;
     padding: 10px 14px;
   }
+  .org-match.td-match--flashscore {
+    padding: 0;
+    gap: 0;
+  }
 
   .fs-match {
     width: 100%;
