@@ -51,8 +51,8 @@ export const onRequest = defineMiddleware((context, next) => {
 
   const loggedIn = hasSession(context.request);
 
-  // Zalogowany user wchodzi na /login → dashboard
-  if (isAuthOnly && loggedIn) {
+  // Zalogowany user wchodzi na / lub /login → dashboard
+  if (loggedIn && (path === '/' || isAuthOnly)) {
     return context.redirect(BASE + '/dashboard');
   }
 

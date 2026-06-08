@@ -117,17 +117,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             ? `${bracketPrefix}R${m.round_number} M${m.match_index}`
             : '';
 
-        const statusBadge = m.status === 'CMP'
-          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
-          : m.status === 'WDR'
-            ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
-            : m.status === 'CNC'
-              ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
-              : m.status === 'INP'
-                ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
-                : m.status === 'SCH'
-                  ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
-                  : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+        const MATCH_STATUS_LABEL: Record<string, string> = {
+          WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
+          CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
+        };
+        const statusBadge = m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status;
 
         // parse scores
         const sets: Array<{p1: number, p2: number}> = [];
@@ -158,19 +152,23 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         const p2WonClass = isDone && (m.winner_name ? m.winner_name === m.participant2_name : Number(p2SetsWon) > Number(p1SetsWon)) ? 'fs-match__name--winner' : '';
 
         let resultCls = '';
-        if (isDone) {
+        if (isCnc) {
+          resultCls = 'td-match--result-cnc';
+        } else if (isDone) {
           const myId = myParticipant.id;
           const p1Won = m.winner_name ? m.winner_name === m.participant1_name : Number(p1SetsWon) > Number(p2SetsWon);
           const p2Won = m.winner_name ? m.winner_name === m.participant2_name : Number(p2SetsWon) > Number(p1SetsWon);
           const iWon = (p1Won && m.participant1_id === myId) || (p2Won && m.participant2_id === myId);
-          resultCls = iWon ? 'org-match--won' : 'org-match--lost';
-        } else if (!isCnc) {
-          resultCls = 'org-match--pending';
+          resultCls = iWon ? 'td-match--result-won' : 'td-match--result-lost';
+        } else {
+          resultCls = m.status === 'INP' ? '' : 'td-match--result-pending';
         }
 
         const cardCls = [
           'org-match',
-          isDone ? 'org-match--done' : '',
+          'td-match',
+          'td-match--flashscore',
+          isDone ? 'org-match--done td-match--done' : '',
           isCnc  ? 'org-match--cancelled' : '',
           resultCls,
         ].filter(Boolean).join(' ');
@@ -185,10 +183,20 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             sets.map(s => `<span class="fs-match__score-set ${s.p2 > s.p1 && isDone ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`).join('')
           : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
 
+        const timeChip = m.scheduled_time
+          ? (() => { try {
+              const d = new Date(m.scheduled_time!);
+              return `<span class="org-match-time">${d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})}</span>`;
+            } catch { return ''; } })()
+          : '';
+
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
           <div class="org-match-header org-match-header--flashscore">
             <div class="fs-match-wrapper">
-              ${roundLabel ? `<div class="fs-match-round-lbl">${roundLabel}</div>` : ''}
+              <div class="fs-match-meta-col">
+                ${roundLabel ? `<span class="fs-match-round-lbl">${roundLabel}</span>` : ''}
+                ${timeChip}
+              </div>
               <div class="fs-match">
                 <div class="fs-match__row">
                   <span class="fs-match__name ${p1WonClass}">${p1}</span>

@@ -927,7 +927,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   .pf-hero {
     flex-direction: column;
     align-items: flex-start;
-    padding: 20px;
+    padding: 16px;
   }
   .pf-hero__left {
     flex-direction: column;
@@ -939,15 +939,32 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
     font-size: 24px;
   }
   .pf-hero__name { font-size: 22px; }
+  .pf-role-badge { display: none; }
   .pf-hero__actions {
     width: 100%;
+    gap: 6px;
   }
-  .pf-hero__actions .pf-btn { flex: 1; text-align: center; }
+  .pf-hero__actions .pf-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 6px;
+    font-size: 11.5px;
+  }
 
   .pf-stats {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
-  .pf-stat-card__value { font-size: 28px; }
+  .pf-stat-card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+  .pf-stat-card__value {
+    font-size: 26px;
+  }
+  .pf-stat-card__sub {
+    font-size: 10.5px;
+  }
 
   .pf-achievements {
     grid-template-columns: 1fr;
@@ -956,6 +973,8 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   .pf-form-chart {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    padding: 12px 14px;
+    gap: 6px;
   }
   .pf-form-item {
     min-width: 60px;
@@ -965,9 +984,29 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+    padding: 12px 14px;
   }
   .pf-section-header__right {
+    width: 100%;
+    justify-content: space-between;
     gap: 10px;
+  }
+  .pf-stat-row {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .pf-stat-row__label {
+    font-size: 13px;
+  }
+  .pf-stat-row__detail {
+    font-size: 11px;
+  }
+  .pf-stat-row__value {
+    font-size: 18px;
+  }
+  .pf-stat-row__value--name {
+    font-size: 14px;
+    text-align: right;
   }
 }
 </style>

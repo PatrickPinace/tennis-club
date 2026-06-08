@@ -34,6 +34,7 @@
     font-size: 0.8rem; color: var(--tc-muted);
     margin-bottom: 16px;
     display: flex; align-items: center; gap: 6px;
+    flex-wrap: wrap;
   }
   .td-breadcrumb a { color: var(--tc-accent); text-decoration: none; }
   .td-breadcrumb a:hover { text-decoration: underline; }
@@ -286,9 +287,7 @@
     font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: 0.07em; color: var(--tc-sub);
     padding: 12px 0 8px;
-    border-top: 1px solid var(--tc-card-border);
   }
-  .td-round:first-of-type .td-round__label { border-top: none; }
   .td-round__matches {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -317,6 +316,8 @@
   .td-match--done { background: var(--tc-card-bg-2); }
 
   .td-match--result-won::before,
+  .td-match--result-lost::before,
+  .td-match--result-neutral::before,
   .td-match--result-pending::before {
     content: '';
     position: absolute;
@@ -326,6 +327,8 @@
     z-index: 1;
   }
   .td-match--result-won::before     { background: var(--tc-win, #22c55e); }
+  .td-match--result-lost::before    { background: var(--tc-hot, #ef4444); }
+  .td-match--result-neutral::before { background: var(--info, #2563eb); }
   .td-match--result-pending::before { background: var(--tc-muted, #94a3b8); }
 
   .td-match--live {
@@ -564,7 +567,7 @@
   }
 
   .org-locked-notice {
-    margin: 0 20px 12px;
+    margin: 12px 20px 12px;
     padding: 10px 14px;
     background: rgba(239,68,68,0.07);
     border: 1px solid rgba(239,68,68,0.2);
@@ -584,7 +587,7 @@
     transform: translateY(-50%); font-size: 0.95rem;
     color: var(--tc-muted); pointer-events: none;
   }
-  .org-matches-list-wrap { padding: 0 20px 6px; }
+  .org-matches-list-wrap { padding: 10px 20px 6px; }
 
   /* ── View toggle (Lista / Macierz) ──────────────────────────────────── */
   .view-toggle {
@@ -735,7 +738,7 @@
   #player-matches-list,
   #sgl-player-matches-list,
   #amr-player-matches-list {
-    padding: 0 20px 6px;
+    padding: 10px 20px 6px;
   }
 
   /* ── Join bar (self-registration) ─────────────────────────────────────── */
@@ -1014,19 +1017,21 @@
   @media (max-width: 480px) {
     #matches-card .tc-card-header,
     #amr-matches-card .tc-card-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
     }
     #matches-card .tc-card-header > div {
-      width: 100%;
-      justify-content: space-between;
+      width: auto;
+    }
+    #matches-view-toggle.view-toggle {
+      display: none !important;
     }
     /* Player match lists — zmniejszony padding na telefonach (jak .org-matches-list-wrap) */
     #player-matches-list,
     #sgl-player-matches-list,
     #amr-player-matches-list {
-      padding: 0 12px 6px;
+      padding: 10px 12px 6px;
     }
   }
 
@@ -1036,6 +1041,10 @@
     align-items: stretch;
     justify-content: center;
     padding: 10px 14px;
+  }
+  .org-match.td-match--flashscore {
+    padding: 0;
+    gap: 0;
   }
 
   .fs-match {
@@ -1128,7 +1137,7 @@
     flex-shrink: 0;
   }
   @media (max-width: 480px) {
-    .fs-match-round-lbl {
+    .fs-match-meta-col {
       display: none !important;
     }
   }

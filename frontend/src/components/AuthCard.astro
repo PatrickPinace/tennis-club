@@ -28,7 +28,7 @@ const { title, subtitle, apiBase, pageTitle } = Astro.props;
   <slot name="head" />
 </head>
 
-<body class="auth-body relative overflow-hidden">
+<body class="auth-body relative overflow-y-auto">
   <!-- Tło graficzne z filtrem grayscale i kryciem -->
   <div class="absolute inset-0 bg-surface bg-[url('/static/img/background_01.png')] bg-no-repeat bg-top bg-cover bg-fixed filter grayscale(1) opacity-[0.45] z-0 pointer-events-none"></div>
   
@@ -135,6 +135,35 @@ const { title, subtitle, apiBase, pageTitle } = Astro.props;
 
   .auth-card__body {
     padding: 0 28px 28px;
+  }
+
+  @media (max-width: 480px) {
+    .auth-body {
+      padding: 16px 0;
+      align-items: flex-start;
+    }
+    .auth-wrap {
+      gap: 16px;
+    }
+    .auth-card {
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+    }
+    .auth-card__header {
+      padding: 16px 16px 0;
+    }
+    .auth-card__body {
+      padding: 0 16px 16px;
+    }
+    .auth-title {
+      font-size: 1.35rem !important;
+    }
+    .auth-subtitle {
+      font-size: 0.8rem !important;
+    }
   }
 
   /* ── Shared form elements ───────────────────────────────────────────────── */
