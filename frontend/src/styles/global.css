@@ -221,6 +221,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -229,6 +230,7 @@ body {
   color: var(--tc-ink);
   min-height: 100%;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 a { color: inherit; text-decoration: none; }

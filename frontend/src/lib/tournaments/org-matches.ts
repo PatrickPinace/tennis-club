@@ -593,9 +593,9 @@ export function applyMatchFilter(
   document.querySelectorAll<HTMLButtonElement>('#org-filter-group .org-filter-btn').forEach(btn => {
     const f = btn.dataset.filter!;
     const count = f === 'pending' ? pendingCount : f === 'done' ? doneCount : state.allMatches.length;
-    btn.textContent = f === 'pending' ? `Do wpisania${count ? ` (${count})` : ''}`
-                    : f === 'done'    ? `Zakończone${count ? ` (${count})` : ''}`
-                    :                   `Wszystkie (${count})`;
+    btn.innerHTML = f === 'pending' ? `Do wpisania${count ? ` <span class="org-filter-count">(${count})</span>` : ''}`
+                  : f === 'done'    ? `Zakończone${count ? ` <span class="org-filter-count">(${count})</span>` : ''}`
+                  :                   `Wszystkie <span class="org-filter-count">(${count})</span>`;
   });
 
   if (!filtered.length) {
