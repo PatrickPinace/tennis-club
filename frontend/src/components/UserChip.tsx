@@ -4,6 +4,7 @@ interface Props {
   profileUrl: string;
   manageUrl: string;
   loginUrl: string;
+  initialUser?: UserData | null;
 }
 
 interface UserData {
@@ -12,13 +13,14 @@ interface UserData {
   last_name: string;
 }
 
-export default function UserChip({ profileUrl, manageUrl, loginUrl }: Props) {
-  const [user, setUser] = useState<UserData | null>(null);
-  const [loaded, setLoaded] = useState(false);
+export default function UserChip({ profileUrl, manageUrl, loginUrl, initialUser }: Props) {
+  const [user, setUser] = useState<UserData | null>(initialUser !== undefined ? initialUser : null);
+  const [loaded, setLoaded] = useState(initialUser !== undefined);
   const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (initialUser !== undefined) return;
     (async () => {
       try {
         const res = await fetch('/api/auth/me/', {
@@ -34,7 +36,7 @@ export default function UserChip({ profileUrl, manageUrl, loginUrl }: Props) {
       } catch {}
       setLoaded(true);
     })();
-  }, []);
+  }, [initialUser]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -56,7 +58,22 @@ export default function UserChip({ profileUrl, manageUrl, loginUrl }: Props) {
     window.location.href = loginUrl;
   };
 
-  if (!loaded) return null;
+  if (!loaded) {
+    return (
+      <div className="topbar__user-wrap">
+        <div className="topbar__user topbar__user--loading" style={{ pointerEvents: 'none', opacity: 0.5 }}>
+          <div className="topbar__user-avatar" style={{ background: 'var(--tc-overlay)', borderColor: 'var(--tc-card-border)' }}></div>
+          <div className="topbar__user-info">
+            <span className="topbar__user-name" style={{ width: '40px', height: '12px', background: 'var(--tc-overlay)', borderRadius: '3px', display: 'inline-block' }}></span>
+            <span className="topbar__user-surname" style={{ width: '30px', height: '12px', background: 'var(--tc-overlay)', borderRadius: '3px', display: 'inline-block' }}></span>
+          </div>
+          <svg className="topbar__user-caret" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style={{ visibility: 'hidden' }}>
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
