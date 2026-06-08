@@ -166,12 +166,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
 
 const myParticipant = tournament?.participants.find(p => p.user_id === currentUserMain?.id);
 const myParticipantId = myParticipant ? myParticipant.id : null;
-const last3CompletedMatchIds = new Set(
-  completedMatches
-    .map(m => m.id)
-    .sort((a, b) => b - a)
-    .slice(0, 3)
-);
+const newBadgeTournamentId = tournament?.id ?? 0;
 
 function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
   if (m.status === 'CNC') return 'td-match--result-cnc';
@@ -1012,10 +1007,9 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                       const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamA : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
                       const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamB : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, teamA)}`}>
-                        {last3CompletedMatchIds.has(m.id) && (
-                          <span class="pub-match-new-badge">NEW</span>
-                        )}
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, teamA)}`}
+                        data-match-id={m.id} data-match-done={sInfo.isDone ? 'true' : undefined}>
+                        {sInfo.isDone && <span class="pub-match-new-badge" style="display:none">NEW</span>}
                         <div class="fs-match">
                           <div class="fs-match__row">
                             <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{teamA}</span>
@@ -1673,10 +1667,9 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                       const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === p1Name : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
                       const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === p2Name : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, p1Name)} ${m.status === 'INP' ? 'td-match--live' : ''}`} data-status={m.status}>
-                        {last3CompletedMatchIds.has(m.id) && (
-                          <span class="pub-match-new-badge">NEW</span>
-                        )}
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, p1Name)} ${m.status === 'INP' ? 'td-match--live' : ''}`} data-status={m.status}
+                        data-match-id={m.id} data-match-done={sInfo.isDone ? 'true' : undefined}>
+                        {sInfo.isDone && <span class="pub-match-new-badge" style="display:none">NEW</span>}
                         <div class="fs-match">
                           <div class="fs-match__row">
                             <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{p1Name}</span>
@@ -1828,6 +1821,35 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
   }
 }
 </style>
+
+<script is:inline data-tournament-id={newBadgeTournamentId}>
+(function() {
+  var tid = document.currentScript && document.currentScript.dataset.tournamentId;
+  if (!tid) return;
+  var lsKey = 'seen_matches_' + tid;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var lastSeen = parseInt(localStorage.getItem(lsKey) || '0', 10);
+    var maxId = 0;
+
+    document.querySelectorAll('.td-match[data-match-done="true"][data-match-id]').forEach(function(card) {
+      var id = parseInt(card.getAttribute('data-match-id') || '0', 10);
+      if (id > maxId) maxId = id;
+      if (id > lastSeen) {
+        var badge = card.querySelector('.pub-match-new-badge');
+        if (badge) badge.style.display = '';
+      }
+    });
+
+    // Zapisz gdy użytkownik opuszcza stronę — odświeżenie nie kasuje NEW
+    if (maxId > 0) {
+      window.addEventListener('beforeunload', function() {
+        localStorage.setItem(lsKey, String(maxId));
+      });
+    }
+  });
+})();
+</script>
 
 <script>
 // Public modules — extracted to separate TS files
