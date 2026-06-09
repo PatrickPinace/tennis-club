@@ -2,17 +2,47 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.utils import timezone
 from notifications.models import Notifications, NotificationPreference
 from notifications.api.serializers import NotificationSerializer
 from notifications.preferences import PREFERENCE_GROUPS, group_key_for_event
 
-class NotificationListView(generics.ListAPIView):
-    """API endpoint that lists notifications for the current user."""
-    serializer_class = NotificationSerializer
+
+class NotificationListView(APIView):
+    """
+    GET /api/notifications/
+    Zwraca listę powiadomień + last_seen_at z profilu użytkownika.
+    """
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        return Notifications.objects.filter(user=self.request.user)
+    def get(self, request):
+        qs = Notifications.objects.filter(user=request.user).order_by('-created_at')
+        serializer = NotificationSerializer(qs, many=True)
+        last_seen_at = None
+        profile = getattr(request.user, 'profile', None)
+        if profile and profile.notifications_last_seen_at:
+            last_seen_at = profile.notifications_last_seen_at.isoformat()
+        return Response({
+            'notifications': serializer.data,
+            'last_seen_at': last_seen_at,
+        })
+
+
+class NotificationSeenView(APIView):
+    """
+    POST /api/notifications/seen/
+    Ustawia notifications_last_seen_at = now() dla zalogowanego użytkownika.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        profile = getattr(request.user, 'profile', None)
+        if profile is None:
+            return Response({'detail': 'Brak profilu.'}, status=status.HTTP_400_BAD_REQUEST)
+        now = timezone.now()
+        profile.notifications_last_seen_at = now
+        profile.save(update_fields=['notifications_last_seen_at'])
+        return Response({'last_seen_at': now.isoformat()})
 
 
 class NotificationMarkReadView(APIView):

@@ -306,6 +306,13 @@ const {
     display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
   }
   :global(.topbar__notif-time) { font-size: 0.7rem; color: var(--tc-muted); display: block; }
+  :global(.topbar__notif-new) {
+    display: inline-block;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--tc-accent-ink); background: var(--tc-accent);
+    border-radius: 3px; padding: 1px 4px; margin-right: 5px;
+    vertical-align: middle; line-height: 1.6;
+  }
 
   :global(.topbar__notif-item--unread) {
     background: var(--tc-accent-soft); border-left: 3px solid var(--tc-accent);

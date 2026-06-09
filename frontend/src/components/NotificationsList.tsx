@@ -11,6 +11,7 @@ interface NotificationItem {
 interface Props {
   notifications: NotificationItem[];
   initialUnread: number;
+  lastSeenAt: string | null;
 }
 
 function fmtTime(iso: string): string {
@@ -63,7 +64,12 @@ const BellIcon = () => (
   </svg>
 );
 
-export default function NotificationsList({ notifications: initial, initialUnread }: Props) {
+function isNew(createdAt: string, lastSeenAt: string | null): boolean {
+  if (!lastSeenAt) return true;
+  return new Date(createdAt) > new Date(lastSeenAt);
+}
+
+export default function NotificationsList({ notifications: initial, initialUnread, lastSeenAt }: Props) {
   const [items, setItems] = useState(initial);
   const unreadCount = items.filter(n => !n.is_read).length;
 
@@ -159,7 +165,12 @@ export default function NotificationsList({ notifications: initial, initialUnrea
             >
               <div className="notif-item__dot" aria-hidden="true" />
               <div className="notif-item__body">
-                <p className="notif-item__msg">{n.message}</p>
+                <p className="notif-item__msg">
+                  {isNew(n.created_at, lastSeenAt) && (
+                    <span className="notif-item__new-badge">NEW</span>
+                  )}
+                  {n.message}
+                </p>
                 <time className="notif-item__time" dateTime={n.created_at}>
                   {fmtTime(n.created_at)}
                 </time>

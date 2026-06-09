@@ -65,6 +65,11 @@ export interface NotificationsResponse {
   count: number;
 }
 
+export interface NotificationsWithMeta {
+  notifications: Notification[];
+  last_seen_at: string | null;
+}
+
 export interface UnreadCountResponse {
   count: number;
 }
@@ -690,7 +695,7 @@ export async function getMyReservations(
  */
 export async function getAllNotifications(
   sessionCookie?: string
-): Promise<Notification[]> {
-  const data = await apiFetch<Notification[]>('/api/notifications/', { sessionCookie });
-  return data ?? [];
+): Promise<NotificationsWithMeta> {
+  const data = await apiFetch<NotificationsWithMeta>('/api/notifications/', { sessionCookie });
+  return data ?? { notifications: [], last_seen_at: null };
 }
