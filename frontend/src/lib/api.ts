@@ -575,8 +575,9 @@ export async function getRankings(
 
 export interface ClubMatchEntry {
   id: number;
-  tournament_id: number;
-  tournament_name: string;
+  source: 'tournament' | 'friendly';
+  tournament_id: number | null;
+  tournament_name: string | null;
   tournament_type: string;
   p1: string | null;
   p2: string | null;
@@ -591,17 +592,20 @@ export interface ClubMatchEntry {
   match_date: string | null;
 }
 
+export type ClubMatchSource = 'tournament' | 'friendly' | 'all';
+
 /**
- * Zwraca ostatnie zakończone mecze turniejowe w klubie (scope publiczny).
+ * Zwraca mecze w klubie.
  * Endpoint: GET /api/matches/club/
  * Auth: IsAuthenticated.
  */
 export async function getClubMatches(
   sessionCookie?: string,
   limit = 30,
+  source: ClubMatchSource = 'tournament',
 ): Promise<ClubMatchEntry[]> {
   const data = await apiFetch<ClubMatchEntry[]>(
-    `/api/matches/club/?limit=${limit}`,
+    `/api/matches/club/?limit=${limit}&source=${source}`,
     { sessionCookie },
   );
   return data ?? [];

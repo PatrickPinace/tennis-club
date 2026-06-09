@@ -1,12 +1,14 @@
 // ClubMatches.tsx — React island: mecze klubowe (scope club w /matches).
-// Scope: tylko zakończone mecze turniejowe (COMPLETED, turniej ACT/FIN).
-// Mecze towarzyskie innych użytkowników celowo poza zakresem — osobny v2.
 
-import { useState, useMemo } from 'react';
-import type { ClubMatchEntry } from '@/lib/api';
+import { useState, useMemo, useCallback, useRef } from 'react';
+import type { ClubMatchEntry, ClubMatchSource } from '@/lib/api';
 
-type FormatFilter = 'all' | 'SNG' | 'DBL';
-type SortOrder   = 'desc' | 'asc';
+function getApiBase(): string {
+  return (window as any)._API ?? '';
+}
+
+type FormatFilter  = 'all' | 'SNG' | 'DBL';
+type SortOrder     = 'desc' | 'asc';
 
 const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
   RND: 'Round Robin',
@@ -20,6 +22,7 @@ const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
 interface Props {
   matches: ClubMatchEntry[];
   tournamentsUrl: string;
+  matchesUrl: string;
 }
 
 const SearchIcon = () => (
@@ -86,10 +89,39 @@ function initials(name: string | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function ClubMatches({ matches, tournamentsUrl }: Props) {
+export default function ClubMatches({ matches: initialMatches, tournamentsUrl, matchesUrl }: Props) {
+  const [sourceFilter, setSourceFilter] = useState<ClubMatchSource>('tournament');
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [sortOrder,    setSortOrder]    = useState<SortOrder>('desc');
   const [search,       setSearch]       = useState('');
+
+  const [allMatches, setAllMatches]   = useState<ClubMatchEntry[]>(initialMatches);
+  const [loading,    setLoading]      = useState(false);
+  const [fetchError, setFetchError]   = useState(false);
+  const sourceFetchedRef = useRef<Record<string, boolean>>({ tournament: true });
+
+  const fetchSource = useCallback((src: ClubMatchSource) => {
+    if (sourceFetchedRef.current[src]) return;
+    sourceFetchedRef.current[src] = true;
+    setLoading(true);
+    setFetchError(false);
+    fetch(`${getApiBase()}/api/matches/club/?limit=100&source=${src}`, { credentials: 'include' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((data: ClubMatchEntry[]) => {
+        setAllMatches(prev => {
+          const ids = new Set(data.map(m => `${m.source}-${m.id}`));
+          const kept = prev.filter(m => !ids.has(`${m.source}-${m.id}`));
+          return [...kept, ...data];
+        });
+      })
+      .catch(() => setFetchError(true))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleSourceChange = (src: ClubMatchSource) => {
+    setSourceFilter(src);
+    fetchSource(src);
+  };
 
   const hasActiveFilters = formatFilter !== 'all' || search !== '';
 
@@ -99,7 +131,11 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
   }
 
   const filtered = useMemo(() => {
-    let result = matches;
+    let result = allMatches.filter(m => {
+      if (sourceFilter === 'tournament') return m.source === 'tournament';
+      if (sourceFilter === 'friendly')   return m.source === 'friendly';
+      return true;
+    });
     if (formatFilter === 'SNG') result = result.filter(m => !m.match_double);
     if (formatFilter === 'DBL') result = result.filter(m => m.match_double);
     if (search.trim()) {
@@ -108,11 +144,17 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         [m.p1, m.p2, m.p3, m.p4, m.tournament_name].some(v => v?.toLowerCase().includes(q))
       );
     }
-    if (sortOrder === 'asc') {
-      result = [...result].sort((a, b) => (a.match_date ?? '').localeCompare(b.match_date ?? ''));
-    }
+    result = [...result].sort((a, b) => {
+      const cmp = (b.match_date ?? '').localeCompare(a.match_date ?? '');
+      return sortOrder === 'asc' ? -cmp : cmp;
+    });
     return result;
-  }, [matches, formatFilter, sortOrder, search]);
+  }, [allMatches, sourceFilter, formatFilter, sortOrder, search]);
+
+  const scopeHint =
+    sourceFilter === 'tournament' ? 'Zakończone mecze turniejowe rozgrywane w klubie' :
+    sourceFilter === 'friendly'   ? 'Mecze towarzyskie wszystkich graczy klubu' :
+                                    'Mecze turniejowe i towarzyskie rozgrywane w klubie';
 
   return (
     <section className="dash-card m-table-card">
@@ -122,9 +164,12 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         <div>
           <h2 className="dash-section-title">
             Mecze klubu
-            <span className="section-badge">{filtered.length}</span>
+            {loading
+              ? <span className="section-badge cm-loading-badge">...</span>
+              : <span className="section-badge">{filtered.length}</span>
+            }
           </h2>
-          <p className="cm-scope-hint">Zakończone mecze turniejowe rozgrywane w klubie</p>
+          <p className="cm-scope-hint">{scopeHint}</p>
         </div>
         <div className="m-search-wrap">
           <SearchIcon />
@@ -143,6 +188,21 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
       {/* Rząd 2: filtry + sort */}
       <div className="m-filters-row">
         <div className="m-filter-groups">
+          <div className="m-labeled-filter">
+            <span className="m-filter-label">Źródło</span>
+            <div className="m-segmented" role="group" aria-label="Źródło meczów">
+              {(['tournament', 'friendly', 'all'] as ClubMatchSource[]).map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`m-seg${sourceFilter === s ? ' m-seg--active' : ''}`}
+                  onClick={() => handleSourceChange(s)}
+                >
+                  {s === 'tournament' ? 'Turniejowe' : s === 'friendly' ? 'Towarzyskie' : 'Wszystkie'}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="m-labeled-filter">
             <span className="m-filter-label">Format</span>
             <div className="m-segmented" role="group" aria-label="Format meczu">
@@ -178,6 +238,12 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         </div>
       </div>
 
+      {fetchError && (
+        <div className="cm-fetch-error">
+          Nie udało się pobrać meczów. Odśwież stronę lub spróbuj ponownie.
+        </div>
+      )}
+
       {/* Nagłówek tabeli — identyczny układ jak mine */}
       <div className="m-table-head">
         <span>WYNIK</span>
@@ -187,15 +253,23 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         <span className="m-th-right">DATA</span>
       </div>
 
-      {filtered.length === 0 ? (
+      {filtered.length === 0 && !loading ? (
         <div className="dash-empty-block">
-          {matches.length === 0 ? (
+          {allMatches.filter(m => sourceFilter === 'all' || m.source === sourceFilter).length === 0 ? (
             <>
-              <p className="dash-empty-block__title">Brak meczów turniejowych</p>
-              <p className="dash-empty-block__sub">W klubie nie ma jeszcze żadnych zakończonych meczów turniejowych. Dołącz do turnieju, żeby zobaczyć wyniki.</p>
-              <div className="dash-empty-block__links">
-                <a href={tournamentsUrl} className="dash-link-sm">Przeglądaj turnieje →</a>
-              </div>
+              <p className="dash-empty-block__title">
+                {sourceFilter === 'friendly' ? 'Brak meczów towarzyskich' : 'Brak meczów turniejowych'}
+              </p>
+              <p className="dash-empty-block__sub">
+                {sourceFilter === 'friendly'
+                  ? 'Nikt w klubie nie rozegrał jeszcze żadnego meczu towarzyskiego.'
+                  : 'W klubie nie ma jeszcze żadnych zakończonych meczów turniejowych. Dołącz do turnieju, żeby zobaczyć wyniki.'}
+              </p>
+              {sourceFilter !== 'friendly' && (
+                <div className="dash-empty-block__links">
+                  <a href={tournamentsUrl} className="dash-link-sm">Przeglądaj turnieje →</a>
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -215,14 +289,19 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
         <div className="m-table-body">
           {filtered.map(m => {
             const { aggregate, detail } = aggregateSets(m);
-            const fmt   = m.match_double ? 'Debel' : 'Singiel';
-            const typeLabel = TOURNAMENT_TYPE_LABEL[m.tournament_type] ?? m.tournament_type;
+            const fmt        = m.match_double ? 'Debel' : 'Singiel';
+            const isFriendly = m.source === 'friendly';
+            const typeLabel  = isFriendly ? 'Towarzyski' : (TOURNAMENT_TYPE_LABEL[m.tournament_type] ?? m.tournament_type);
+            const subtitle   = isFriendly ? 'Mecz towarzyski' : (m.tournament_name ?? '');
+            const rowHref    = isFriendly
+              ? `${matchesUrl}/${m.id}`
+              : `${tournamentsUrl}/${m.tournament_id}`;
             const winnerInitials = initials(m.winner);
             const { teamA, teamB } = teamNames(m);
             const winSide = m.winner_side;
             const [aggA, aggB] = aggregate.split(':');
             return (
-              <a key={m.id} className="m-row" href={`${tournamentsUrl}/${m.tournament_id}`}>
+              <a key={`${m.source}-${m.id}`} className="m-row" href={rowHref}>
                 {/* kolumna 1: badge z inicjałami zwycięzcy */}
                 <div
                   className="m-result-badge m-result-badge--neutral"
@@ -244,8 +323,9 @@ export default function ClubMatches({ matches, tournamentsUrl }: Props) {
                     </span>
                   </div>
                   <div className="m-opponent__type">
-                    {m.tournament_name}
-                    {typeLabel && <span className="cm-type-sep"> · {typeLabel}</span>}
+                    {subtitle}
+                    {typeLabel && !isFriendly && <span className="cm-type-sep"> · {typeLabel}</span>}
+                    {isFriendly && <span className="cm-type-sep cm-type-friendly"> · Towarzyski</span>}
                   </div>
                 </div>
                 {/* kolumna 3: agregat setów z kolorem per strona + szczegóły */}
