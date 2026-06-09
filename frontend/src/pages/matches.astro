@@ -210,6 +210,7 @@ const clubMatches = clubMatchesData ?? [];
       client:load
       matches={clubMatches}
       tournamentsUrl={url('/tournaments')}
+      matchesUrl={url('/matches')}
     />
   </div>
 </AppLayout>
@@ -289,6 +290,17 @@ const clubMatches = clubMatchesData ?? [];
   }
 
   .cm-type-sep { color: var(--tc-faint); }
+  .cm-type-friendly { color: var(--tc-sub); }
+
+  .cm-loading-badge { opacity: 0.5; }
+
+  .cm-fetch-error {
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    color: var(--tc-danger, #ef4444);
+    background: color-mix(in srgb, var(--tc-danger, #ef4444) 8%, transparent);
+    border-bottom: 1px solid var(--tc-card-border);
+  }
 
   /* Mecze klubu — zwycięstwo per strona */
   .cm-team--win { color: var(--tc-ink); font-weight: 700; }

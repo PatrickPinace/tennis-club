@@ -239,124 +239,183 @@ class MatchHistoryView(generics.ListAPIView):
 
 class ClubMatchesView(APIView):
     """
-    GET /api/matches/club/ — ostatnie zakończone mecze turniejowe w klubie.
-
-    Scope celowo ograniczony do meczów turniejowych ze statusem COMPLETED
-    z turniejów FIN lub ACT. Mecze towarzyskie innych użytkowników są poza
-    zakresem (brak jawnej zgody na publiczność).
+    GET /api/matches/club/ — mecze rozgrywane w klubie.
 
     Parametry query:
-      ?limit=30          — liczba wyników (domyślnie 30, max 100)
-      ?match_double=0|1  — filtr singiel/debel
+      ?source=tournament|friendly|all  — źródło meczów (domyślnie tournament)
+      ?limit=30                        — liczba wyników (domyślnie 30, max 100)
+      ?match_double=0|1                — filtr singiel/debel
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         from apps.tournaments.models import TournamentsMatch, Tournament
         from apps.tournaments.tools import _partner_user
-        from django.db.models import Q, Prefetch
+        from django.db.models import Q
+        from datetime import date as date_type
 
         try:
             limit = min(int(request.GET.get('limit', 30)), 100)
         except (ValueError, TypeError):
             limit = 30
 
+        source = request.GET.get('source', 'tournament')
         match_double = request.GET.get('match_double')
 
-        qs = TournamentsMatch.objects.filter(
-            status=TournamentsMatch.Status.COMPLETED.value,
-            tournament__status__in=['ACT', 'FIN'],
-        ).select_related(
-            'tournament',
-            'participant1__user', 'participant2__user',
-            'participant3__user', 'participant4__user',
-            'winner__user',
-        ).prefetch_related(
-            'participant1__members__user',
-            'participant2__members__user',
-        ).exclude(
-            tournament__tournament_type__in=[
-                Tournament.TournamentType.SINGLE_ELIMINATION.value,
-                Tournament.TournamentType.DOUBLE_ELIMINATION.value,
-            ],
-            round_number=1,
-            participant2__isnull=True,
-        ).order_by('-scheduled_time')
-
-        if match_double == '0':
-            qs = qs.filter(
-                Q(participant3__isnull=True) | Q(participant4__isnull=True)
-            ).exclude(tournament__match_format=Tournament.MatchFormat.DOUBLES.value)
-        elif match_double == '1':
-            qs = qs.filter(
-                Q(participant3__isnull=False, participant4__isnull=False) |
-                Q(tournament__match_format=Tournament.MatchFormat.DOUBLES.value)
-            )
-
-        qs = qs[:limit]
-
-        def player_name(participant):
-            if not participant or not participant.user:
-                return None
-            u = participant.user
-            full = ' '.join(filter(None, [u.first_name, u.last_name]))
-            return full or u.username
-
-        def user_name(u):
+        def user_full_name(u):
             if not u:
                 return None
             full = ' '.join(filter(None, [u.first_name, u.last_name]))
             return full or u.username
 
         data = []
-        for m in qs:
-            is_double = bool(
-                m.participant3_id or m.participant4_id or
-                m.tournament.match_format == Tournament.MatchFormat.DOUBLES.value
-            )
-            match_date = (
-                m.scheduled_time.date() if m.scheduled_time
-                else m.tournament.start_date.date() if m.tournament.start_date
-                else None
-            )
-            # winner_side: po której stronie tabeli jest zwycięzca.
-            # Team A = participant1 + participant3, Team B = participant2 + participant4.
-            if m.winner_id and m.winner_id in (m.participant1_id, m.participant3_id):
-                winner_side = 'p1'
-            elif m.winner_id and m.winner_id in (m.participant2_id, m.participant4_id):
-                winner_side = 'p2'
-            else:
-                winner_side = None
 
-            # Deble mogą być w jednym z dwóch modeli:
-            # - 4 oddzielnych Participants (p1/p2/p3/p4 wypełnione)
-            # - team-model (format=DBL): participant1/2 to teamy, partner siedzi w members
-            if is_double and not m.participant3_id and not m.participant4_id:
-                p1_id = m.participant1.user_id if m.participant1 and m.participant1.user else None
-                p2_id = m.participant2.user_id if m.participant2 and m.participant2.user else None
-                p3 = user_name(_partner_user(m.participant1, p1_id))
-                p4 = user_name(_partner_user(m.participant2, p2_id))
-            else:
-                p3 = player_name(m.participant3) if is_double else None
-                p4 = player_name(m.participant4) if is_double else None
+        if source in ('tournament', 'all'):
+            def player_name(participant):
+                if not participant or not participant.user:
+                    return None
+                return user_full_name(participant.user)
 
-            data.append({
-                'id': m.pk,
-                'tournament_id': m.tournament_id,
-                'tournament_name': m.tournament.name,
-                'tournament_type': m.tournament.tournament_type,
-                'p1': player_name(m.participant1),
-                'p2': player_name(m.participant2),
-                'p3': p3,
-                'p4': p4,
-                'set1': f"{m.set1_p1_score}:{m.set1_p2_score}" if m.set1_p1_score is not None else None,
-                'set2': f"{m.set2_p1_score}:{m.set2_p2_score}" if m.set2_p1_score is not None else None,
-                'set3': f"{m.set3_p1_score}:{m.set3_p2_score}" if m.set3_p1_score is not None else None,
-                'winner': player_name(m.winner) if m.winner_id else None,
-                'winner_side': winner_side,
-                'match_double': is_double,
-                'match_date': str(match_date) if match_date else None,
-            })
+            qs = TournamentsMatch.objects.filter(
+                status=TournamentsMatch.Status.COMPLETED.value,
+                tournament__status__in=['ACT', 'FIN'],
+            ).select_related(
+                'tournament',
+                'participant1__user', 'participant2__user',
+                'participant3__user', 'participant4__user',
+                'winner__user',
+            ).prefetch_related(
+                'participant1__members__user',
+                'participant2__members__user',
+            ).exclude(
+                tournament__tournament_type__in=[
+                    Tournament.TournamentType.SINGLE_ELIMINATION.value,
+                    Tournament.TournamentType.DOUBLE_ELIMINATION.value,
+                ],
+                round_number=1,
+                participant2__isnull=True,
+            ).order_by('-scheduled_time')
+
+            if match_double == '0':
+                qs = qs.filter(
+                    Q(participant3__isnull=True) | Q(participant4__isnull=True)
+                ).exclude(tournament__match_format=Tournament.MatchFormat.DOUBLES.value)
+            elif match_double == '1':
+                qs = qs.filter(
+                    Q(participant3__isnull=False, participant4__isnull=False) |
+                    Q(tournament__match_format=Tournament.MatchFormat.DOUBLES.value)
+                )
+
+            if source == 'tournament':
+                qs = qs[:limit]
+
+            for m in qs:
+                is_double = bool(
+                    m.participant3_id or m.participant4_id or
+                    m.tournament.match_format == Tournament.MatchFormat.DOUBLES.value
+                )
+                match_date = (
+                    m.scheduled_time.date() if m.scheduled_time
+                    else m.tournament.start_date.date() if m.tournament.start_date
+                    else None
+                )
+                if m.winner_id and m.winner_id in (m.participant1_id, m.participant3_id):
+                    winner_side = 'p1'
+                elif m.winner_id and m.winner_id in (m.participant2_id, m.participant4_id):
+                    winner_side = 'p2'
+                else:
+                    winner_side = None
+
+                if is_double and not m.participant3_id and not m.participant4_id:
+                    p1_id = m.participant1.user_id if m.participant1 and m.participant1.user else None
+                    p2_id = m.participant2.user_id if m.participant2 and m.participant2.user else None
+                    p3 = user_full_name(_partner_user(m.participant1, p1_id))
+                    p4 = user_full_name(_partner_user(m.participant2, p2_id))
+                else:
+                    p3 = player_name(m.participant3) if is_double else None
+                    p4 = player_name(m.participant4) if is_double else None
+
+                data.append({
+                    'id': m.pk,
+                    'source': 'tournament',
+                    'tournament_id': m.tournament_id,
+                    'tournament_name': m.tournament.name,
+                    'tournament_type': m.tournament.tournament_type,
+                    'p1': player_name(m.participant1),
+                    'p2': player_name(m.participant2),
+                    'p3': p3,
+                    'p4': p4,
+                    'set1': f"{m.set1_p1_score}:{m.set1_p2_score}" if m.set1_p1_score is not None else None,
+                    'set2': f"{m.set2_p1_score}:{m.set2_p2_score}" if m.set2_p1_score is not None else None,
+                    'set3': f"{m.set3_p1_score}:{m.set3_p2_score}" if m.set3_p1_score is not None else None,
+                    'winner': player_name(m.winner) if m.winner_id else None,
+                    'winner_side': winner_side,
+                    'match_double': is_double,
+                    'match_date': str(match_date) if match_date else None,
+                })
+
+        if source in ('friendly', 'all'):
+            fqs = Match.objects.filter(
+                score_status=Match.ScoreStatus.CONFIRMED,
+            ).select_related('p1', 'p2', 'p3', 'p4').order_by('-match_date')
+
+            if match_double == '0':
+                fqs = fqs.filter(match_double=False)
+            elif match_double == '1':
+                fqs = fqs.filter(match_double=True)
+
+            if source == 'friendly':
+                fqs = fqs[:limit]
+
+            for m in fqs:
+                def _fmt_set(a, b):
+                    if a is None or b is None:
+                        return None
+                    return f"{a}:{b}"
+
+                # winner_side: strona z więcej wygranych setów
+                sets = [
+                    (m.p1_set1, m.p2_set1),
+                ]
+                if m.p1_set2 is not None and m.p2_set2 is not None:
+                    sets.append((m.p1_set2, m.p2_set2))
+                if m.p1_set3 is not None and m.p2_set3 is not None:
+                    sets.append((m.p1_set3, m.p2_set3))
+
+                p1_sets = sum(1 for a, b in sets if a > b)
+                p2_sets = sum(1 for a, b in sets if b > a)
+                if p1_sets > p2_sets:
+                    winner_side = 'p1'
+                    winner = user_full_name(m.p1)
+                elif p2_sets > p1_sets:
+                    winner_side = 'p2'
+                    winner = user_full_name(m.p2)
+                else:
+                    winner_side = None
+                    winner = None
+
+                data.append({
+                    'id': m.pk,
+                    'source': 'friendly',
+                    'tournament_id': None,
+                    'tournament_name': None,
+                    'tournament_type': 'FRL',
+                    'p1': user_full_name(m.p1),
+                    'p2': user_full_name(m.p2),
+                    'p3': user_full_name(m.p3) if m.match_double else None,
+                    'p4': user_full_name(m.p4) if m.match_double else None,
+                    'set1': _fmt_set(m.p1_set1, m.p2_set1),
+                    'set2': _fmt_set(m.p1_set2, m.p2_set2),
+                    'set3': _fmt_set(m.p1_set3, m.p2_set3),
+                    'winner': winner,
+                    'winner_side': winner_side,
+                    'match_double': m.match_double,
+                    'match_date': str(m.match_date) if m.match_date else None,
+                })
+
+        if source == 'all':
+            data.sort(key=lambda x: x['match_date'] or '0000-00-00', reverse=True)
+            data = data[:limit]
 
         return Response(data)
 
