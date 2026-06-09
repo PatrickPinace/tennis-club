@@ -73,18 +73,15 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
     }
   }, []);
 
-  const postSeen = useCallback(async () => {
-    try {
-      const res = await fetch('/api/notifications/seen/', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLastSeenAt(data.last_seen_at);
-      }
-    } catch {}
+  const postSeen = useCallback((): Promise<void> => {
+    return fetch('/api/notifications/seen/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.last_seen_at) setLastSeenAt(data.last_seen_at); })
+      .catch(() => {});
   }, []);
 
   // Pobierz unread count przy mount (bez otwierania panelu)
@@ -114,13 +111,12 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
     const next = !open;
     setOpen(next);
     if (next) {
-      if (notifications === null) {
-        loadNotifications();
-      }
-      // POST /seen/ tylko raz przy pierwszym otwarciu panelu
       if (!seenPostedRef.current) {
+        // Pierwsze otwarcie: POST /seen/ najpierw, potem load — żeby GET widział już nowy timestamp
         seenPostedRef.current = true;
-        postSeen();
+        postSeen().then(() => loadNotifications());
+      } else if (notifications === null) {
+        loadNotifications();
       }
     }
   };

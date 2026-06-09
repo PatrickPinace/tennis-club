@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 interface NotificationItem {
   id: number;
@@ -72,6 +72,16 @@ function isNew(createdAt: string, lastSeenAt: string | null): boolean {
 export default function NotificationsList({ notifications: initial, initialUnread, lastSeenAt }: Props) {
   const [items, setItems] = useState(initial);
   const unreadCount = items.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    const api = getApiBase();
+    const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] ?? '';
+    fetch(`${api}/api/notifications/seen/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-CSRFToken': csrf, 'Content-Type': 'application/json' },
+    }).catch(() => {});
+  }, []);
 
   const markRead = useCallback(async (id: number) => {
     const api = getApiBase();
