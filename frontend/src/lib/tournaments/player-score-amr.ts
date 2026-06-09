@@ -21,6 +21,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     participant3_name: string|null; participant4_name: string|null;
     score: string|null;
     set1_p1_score: number|null; set1_p2_score: number|null;
+    winner_name?: string | null;
     scheduled_time?: string | null;
   };
   type APart = { id: number; user_id: number|null };
@@ -150,7 +151,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         if (isCnc) {
           resultCls = 'td-match--result-cnc';
         } else if (isDone) {
-          const myId = myParticipant.id;
+          const myId = myParticipant!.id;
           const p1Won = m.winner_name ? (m.winner_name === m.participant1_name || m.winner_name === p1) : Number(p1SetsWon) > Number(p2SetsWon);
           const p2Won = m.winner_name ? (m.winner_name === m.participant2_name || m.winner_name === p2) : Number(p2SetsWon) > Number(p1SetsWon);
           const myTeamWon = (p1Won && (m.participant1_id === myId || m.participant4_id === myId)) ||

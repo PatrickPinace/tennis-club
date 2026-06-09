@@ -184,22 +184,22 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
   const statusLabel = m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status;
 
   const setsHtmlP1 = sets.map(s => {
-    return `<span class="fs-match__score-set ${s.p1 > s.p2 && isDone ? 'fs-match__score-set--won' : ''}">${s.p1}</span>`;
+    return `<span class="fs-match__score-set ${s.p1 > s.p2 && isDoneVal ? 'fs-match__score-set--won' : ''}">${s.p1}</span>`;
   }).join('');
 
   const setsHtmlP2 = sets.map(s => {
-    return `<span class="fs-match__score-set ${s.p2 > s.p1 && isDone ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`;
+    return `<span class="fs-match__score-set ${s.p2 > s.p1 && isDoneVal ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`;
   }).join('');
 
   const scoreScoresHtmlP1 = hasScore ? `
-    <span class="fs-match__score-overall ${isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p1SetsWon}</span>
+    <span class="fs-match__score-overall ${isDoneVal ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p1SetsWon}</span>
     ${setsHtmlP1}
   ` : `
     <span class="fs-match__status">${statusLabel}</span>
   `;
 
   const scoreScoresHtmlP2 = hasScore ? `
-    <span class="fs-match__score-overall ${isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p2SetsWon}</span>
+    <span class="fs-match__score-overall ${isDoneVal ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p2SetsWon}</span>
     ${setsHtmlP2}
   ` : `
     <span class="fs-match__status" style="visibility: hidden;">${statusLabel}</span>

@@ -12,7 +12,7 @@ interface MyReservation {
   startIso: string;
   endIso: string;
   status: 'pending' | 'confirmed' | 'rejected';
-  seriesId: string | null;
+  seriesId: number | null;
 }
 
 interface PendingEntry {
@@ -57,7 +57,7 @@ interface Facility {
 
 interface EditTarget {
   reservationId: number;
-  seriesId: string | null;
+  seriesId: number | null;
   startTime: string; // HH:MM
   endTime: string;   // HH:MM
   courtId: number;

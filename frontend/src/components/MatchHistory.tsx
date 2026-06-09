@@ -22,6 +22,7 @@ interface Props {
   matches: MatchRow[];
   userDisplayName: string | null;
   addMatchUrl: string;
+  myId?: number;
   today?: string;
 }
 

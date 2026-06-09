@@ -380,7 +380,8 @@ export const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
 function getApiBase(): string {
   // process.env jest dostępne w runtime (Node adapter) — nie jest inlineowane przy buildzie.
   // import.meta.env.DJANGO_API_URL byłoby wkompilowane build-time → nie widzi Docker env.
-  return process.env.DJANGO_API_URL ?? 'http://localhost:8000';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (globalThis as any).process?.env?.DJANGO_API_URL ?? 'http://localhost:8000';
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
@@ -559,7 +560,7 @@ export async function getRankingSeasons(
   cookie?: string
 ): Promise<number[]> {
   const params = new URLSearchParams({ type: matchType });
-  const data = await apiFetch<{ seasons: number[] }>(`/api/rankings/seasons/?${params}`, cookie);
+  const data = await apiFetch<{ seasons: number[] }>(`/api/rankings/seasons/?${params}`, { sessionCookie: cookie });
   return data?.seasons ?? [];
 }
 
