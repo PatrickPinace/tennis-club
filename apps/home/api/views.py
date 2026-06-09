@@ -25,7 +25,7 @@ class DashboardSummaryView(APIView):
         # ── Ranking ──────────────────────────────────────────────────
         try:
             from apps.rankings.models import PlayerRanking
-            ranking = PlayerRanking.objects.filter(user=user, match_type='SNG').first()
+            ranking = PlayerRanking.objects.filter(user=user, match_type='SNG', season=None).first()
             _display_name = (user.get_full_name().strip() or user.username) if user else None
             ranking_data = {
                 'position': ranking.position if ranking else None,
@@ -44,24 +44,72 @@ class DashboardSummaryView(APIView):
         # ── Ostatni mecz ────────────────────────────────────────────
         try:
             from apps.matches.models import Match
+            from apps.tournaments.models import TournamentsMatch, Participant, TeamMember
             from django.db.models import Q
-            last_match = (
+            from django.db.models.functions import Coalesce
+
+            # 1. Ostatni mecz towarzyski
+            last_friendly = (
                 Match.objects
                 .filter(Q(p1=user) | Q(p2=user) | Q(p3=user) | Q(p4=user))
+                .filter(p1_set1__isnull=False)
                 .order_by('-match_date', '-last_updated')
                 .first()
             )
-            if last_match:
-                # Wyznacz wynik z perspektywy zalogowanego gracza — licz wszystkie sety
-                is_p1_side = (last_match.p1 == user or last_match.p3 == user)
-                opponent = last_match.p2 if is_p1_side else last_match.p1
 
+            # 2. Ostatni mecz turniejowy
+            my_p_ids = list(Participant.objects.filter(user=user).values_list('id', flat=True))
+            my_tm_ids = list(TeamMember.objects.filter(user=user).values_list('participant_id', flat=True))
+            all_my_p_ids = set(my_p_ids + my_tm_ids)
+
+            last_tournament = None
+            if all_my_p_ids:
+                last_tournament = (
+                    TournamentsMatch.objects
+                    .filter(status='CMP')
+                    .filter(
+                        Q(participant1_id__in=all_my_p_ids) |
+                        Q(participant2_id__in=all_my_p_ids) |
+                        Q(participant3_id__in=all_my_p_ids) |
+                        Q(participant4_id__in=all_my_p_ids)
+                    )
+                    .annotate(sort_date=Coalesce('scheduled_time', 'tournament__start_date'))
+                    .order_by('-sort_date', '-id')
+                    .first()
+                )
+
+            # Porównanie dat
+            friendly_date = last_friendly.match_date if last_friendly else None
+            tournament_date = None
+            if last_tournament:
+                t_date = last_tournament.scheduled_time or last_tournament.tournament.start_date
+                if t_date:
+                    tournament_date = t_date.date() if hasattr(t_date, 'date') else t_date
+
+            use_friendly = False
+            use_tournament = False
+
+            if friendly_date and tournament_date:
+                if friendly_date >= tournament_date:
+                    use_friendly = True
+                else:
+                    use_tournament = True
+            elif friendly_date:
+                use_friendly = True
+            elif tournament_date:
+                use_tournament = True
+
+            last_match_data = None
+
+            if use_friendly and last_friendly:
+                is_p1_side = (last_friendly.p1 == user or last_friendly.p3 == user)
+                opponent = last_friendly.p2 if is_p1_side else last_friendly.p1
                 sets_won = sets_lost = 0
                 score_parts = []
                 for p1s, p2s in [
-                    (last_match.p1_set1, last_match.p2_set1),
-                    (last_match.p1_set2, last_match.p2_set2),
-                    (last_match.p1_set3, last_match.p2_set3),
+                    (last_friendly.p1_set1, last_friendly.p2_set1),
+                    (last_friendly.p1_set2, last_friendly.p2_set2),
+                    (last_friendly.p1_set3, last_friendly.p2_set3),
                 ]:
                     if p1s is None or p2s is None:
                         continue
@@ -74,15 +122,61 @@ class DashboardSummaryView(APIView):
                         sets_lost += 1
 
                 last_match_data = {
-                    'date': last_match.match_date.isoformat(),
+                    'date': last_friendly.match_date.isoformat(),
                     'opponent': opponent.get_full_name() or opponent.username,
                     'score': ' '.join(score_parts),
                     'won': sets_won > sets_lost,
-                    'double': last_match.match_double,
+                    'double': last_friendly.match_double,
                 }
-            else:
-                last_match_data = None
-        except Exception:
+
+            elif use_tournament and last_tournament:
+                is_team_a = (
+                    (last_tournament.participant1_id in all_my_p_ids) or
+                    (last_tournament.participant4_id in all_my_p_ids)
+                )
+                sets_won = sets_lost = 0
+                score_parts = []
+                for i in range(1, 4):
+                    p1s = getattr(last_tournament, f'set{i}_p1_score', None)
+                    p2s = getattr(last_tournament, f'set{i}_p2_score', None)
+                    if p1s is not None and p2s is not None:
+                        my_s = p1s if is_team_a else p2s
+                        opp_s = p2s if is_team_a else p1s
+                        score_parts.append(f"{my_s}:{opp_s}")
+                        if my_s > opp_s:
+                            sets_won += 1
+                        elif opp_s > my_s:
+                            sets_lost += 1
+
+                if is_team_a:
+                    opp_p = last_tournament.participant2
+                    opp_p2 = last_tournament.participant3
+                else:
+                    opp_p = last_tournament.participant1
+                    opp_p2 = last_tournament.participant4
+
+                def _full_name(u):
+                    return (u.get_full_name().strip() or u.username) if u else '?'
+
+                opp_name = _full_name(opp_p.user if opp_p and opp_p.user else None)
+                if opp_p2 and opp_p2.user:
+                    opp_name += f' / {_full_name(opp_p2.user)}'
+
+                is_double = (last_tournament.participant3_id is not None or last_tournament.participant4_id is not None)
+                t_date = last_tournament.scheduled_time or last_tournament.tournament.start_date
+
+                last_match_data = {
+                    'date': t_date.isoformat() if t_date else None,
+                    'opponent': opp_name,
+                    'score': ' '.join(score_parts),
+                    'won': sets_won > sets_lost,
+                    'double': is_double,
+                }
+
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error in DashboardSummaryView last_match: {e}", exc_info=True)
             last_match_data = None
 
         # ── Najbliższa rezerwacja ──────────────────────────────────

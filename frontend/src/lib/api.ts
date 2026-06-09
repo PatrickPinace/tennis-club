@@ -573,6 +573,15 @@ export async function getRankings(
   return data ?? [];
 }
 
+export interface RankingInfo {
+  last_run: string;
+  next_run: string;
+}
+
+export async function getRankingInfo(): Promise<RankingInfo | null> {
+  return apiFetch<RankingInfo>('/api/rankings/info/');
+}
+
 export interface ClubMatchEntry {
   id: number;
   source: 'tournament' | 'friendly';

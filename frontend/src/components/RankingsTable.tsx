@@ -25,6 +25,7 @@ interface Props {
   totalPlayers: number;
   availableSeasons: number[];
   defaultSeason: number | 'all';
+  lastUpdate?: string;
 }
 
 type MatchType = 'SNG' | 'DBL';
@@ -52,12 +53,13 @@ const PODIUM_HEADER_COLORS: Record<string, string> = {
   bronze: '#8a6040',
 };
 
-function MyRankCard({ rank, matchType }: { rank: MyRank; matchType: MatchType }) {
+function MyRankCard({ rank, matchType, season }: { rank: MyRank; matchType: MatchType; season: Season }) {
   const wr = rank.win_rate != null ? `${Math.round(rank.win_rate)}%` : '—';
   const pts = rank.points != null && rank.points !== '—'
     ? Math.round(Number(rank.points)).toLocaleString('pl-PL')
     : '—';
   const typeLabel = matchType === 'SNG' ? 'singlowy' : 'deblowy';
+  const seasonLabel = season === 'all' ? 'All-time' : season;
 
   return (
     <div className="rk-my">
@@ -69,7 +71,7 @@ function MyRankCard({ rank, matchType }: { rank: MyRank; matchType: MatchType })
         <div className="rk-my__sep" aria-hidden="true" />
         <div>
           <div className="rk-my__title">Twoja pozycja</div>
-          <div className="rk-my__sub">Ranking {typeLabel} 2026</div>
+          <div className="rk-my__sub">Ranking {typeLabel} {seasonLabel}</div>
         </div>
       </div>
       <div className="rk-my__stats">
@@ -167,7 +169,7 @@ function PlayerRow({ player, isMe }: { player: PlayerEntry; isMe: boolean }) {
   );
 }
 
-export default function RankingsTable({ initialPlayers, isLive, totalPlayers, availableSeasons, defaultSeason }: Props) {
+export default function RankingsTable({ initialPlayers, isLive, totalPlayers, availableSeasons, defaultSeason, lastUpdate }: Props) {
   const [matchType, setMatchType] = useState<MatchType>('SNG');
   const [season, setSeason] = useState<Season>(defaultSeason);
   const [players, setPlayers] = useState<PlayerEntry[]>(initialPlayers);
@@ -191,13 +193,13 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers, av
         if (!res.ok || res.type === 'opaqueredirect') return;
         const data = await res.json();
         const ranking = data?.ranking;
-        if (!ranking || ranking.position == null) return;
+        if (!ranking || !ranking.display_name) return;
         setMyRank({
-          position: ranking.position,
-          display_name: ranking.display_name ?? null,
+          position: ranking.position ?? ('—' as any),
+          display_name: ranking.display_name,
           points: ranking.points ?? '—',
-          matches_won: ranking.matches_won ?? '—',
-          matches_played: ranking.matches_played ?? '—',
+          matches_won: ranking.matches_won ?? 0,
+          matches_played: ranking.matches_played ?? 0,
           win_rate: ranking.win_rate ?? null,
         });
       } catch {
@@ -243,16 +245,31 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers, av
 
   const typeLabel = matchType === 'SNG' ? 'Singiel' : 'Debel';
   const seasonLabel = season === 'all' ? 'All-time' : String(season);
-  const footerInfo = live
-    ? `Dane live · ${todayFormatted()}`
-    : 'Dane demonstracyjne';
+  const footerInfo = lastUpdate
+    ? `🕒 Ostatnia aktualizacja: ${lastUpdate}`
+    : (live ? `Dane live · ${todayFormatted()}` : 'Dane demonstracyjne');
   const footerLabel = live
     ? `${typeLabel} · ${seasonLabel}`
     : `${typeLabel} · ${seasonLabel} (demo)`;
 
+  const loggedInPlayer = myRank?.display_name
+    ? players.find(p => p.display_name === myRank.display_name)
+    : null;
+
+  const activeRank: MyRank | null = myRank
+    ? {
+        position: loggedInPlayer ? loggedInPlayer.position : '—' as any,
+        points: loggedInPlayer ? loggedInPlayer.points : '—',
+        matches_won: loggedInPlayer ? loggedInPlayer.matches_won : 0,
+        matches_played: loggedInPlayer ? loggedInPlayer.matches_played : 0,
+        win_rate: loggedInPlayer ? loggedInPlayer.win_rate : null,
+        display_name: myRank.display_name,
+      }
+    : null;
+
   return (
     <>
-      {myRank && <MyRankCard rank={myRank} matchType={matchType} />}
+      {activeRank && <MyRankCard rank={activeRank} matchType={matchType} season={season} />}
 
       {podiumOrder.length >= 3 && (
         <div className="rk-podium">
@@ -317,7 +334,8 @@ export default function RankingsTable({ initialPlayers, isLive, totalPlayers, av
                 className={`rk-seg${season === 'all' ? ' rk-seg--active' : ''}`}
                 onClick={() => switchSeason('all')}
               >
-                All-time
+                <span className="rk-all-time-desktop">All-time</span>
+                <span className="rk-all-time-mobile">ALL</span>
               </button>
             </div>
             <div className="rk-segmented" role="group" aria-label="Typ rankingu">
