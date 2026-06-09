@@ -25,6 +25,8 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
   const [msg, setMsg] = useState('');
   const [msgColor, setMsgColor] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const update = (field: keyof typeof sets, val: string) => {
     setSets(prev => ({ ...prev, [field]: val }));
@@ -124,6 +126,31 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/matches/${matchId}/`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { 'X-CSRFToken': getCsrf() },
+      });
+      if (res.ok) {
+        window.location.href = matchesUrl;
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setMsg(err.detail || `Błąd ${res.status}`);
+        setMsgColor('var(--tc-hot)');
+        setDeleteConfirm(false);
+        setDeleting(false);
+      }
+    } catch {
+      setMsg('Błąd sieci.');
+      setMsgColor('var(--tc-hot)');
+      setDeleteConfirm(false);
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <div className="match-topbar">
@@ -200,14 +227,47 @@ export default function MatchEditForm({ matchId, matchesUrl, initialSets, p1Labe
               })}
             </div>
             <p className="edit-form-hint">* Set 1 jest wymagany. Sety 2–3 wypełnij tylko jeśli były rozegrane.</p>
-            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <button type="submit" className="tc-btn tc-btn-primary tc-btn-sm" disabled={loading}>
                 {loading ? 'Zapisuję…' : 'Zapisz wynik'}
               </button>
-              <button type="button" className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => setVisible(false)}>
+              <button type="button" className="tc-btn tc-btn-ghost tc-btn-sm" onClick={() => { setVisible(false); setDeleteConfirm(false); }}>
                 Anuluj
               </button>
               {msg && <span style={{ fontSize: '0.82rem', color: msgColor }}>{msg}</span>}
+              <span style={{ marginLeft: 'auto' }}>
+                {!deleteConfirm ? (
+                  <button
+                    type="button"
+                    className="tc-btn tc-btn-ghost tc-btn-sm"
+                    style={{ color: 'var(--tc-hot)' }}
+                    onClick={() => setDeleteConfirm(true)}
+                  >
+                    Usuń mecz
+                  </button>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--tc-hot)' }}>Na pewno usunąć?</span>
+                    <button
+                      type="button"
+                      className="tc-btn tc-btn-sm"
+                      style={{ background: 'var(--tc-hot)', color: '#fff', borderColor: 'var(--tc-hot)' }}
+                      onClick={handleDelete}
+                      disabled={deleting}
+                    >
+                      {deleting ? 'Usuwam…' : 'Tak, usuń'}
+                    </button>
+                    <button
+                      type="button"
+                      className="tc-btn tc-btn-ghost tc-btn-sm"
+                      onClick={() => setDeleteConfirm(false)}
+                      disabled={deleting}
+                    >
+                      Anuluj
+                    </button>
+                  </span>
+                )}
+              </span>
             </div>
           </form>
         </div>

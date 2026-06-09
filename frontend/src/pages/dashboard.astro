@@ -77,7 +77,7 @@ const isLiveData = liveTournaments.length > 0;
 // ── Normalizacja mixed activity feed (via feedNormalizer.ts) ─────────────────
 const urlBase = url('').replace(/\/$/, '');
 const matchItems    = matchesToFeedItems(matchHistoryRaw, urlBase);
-const notifItems    = notificationsToFeedItems(rawNotifications, Date.now() - 30 * 86_400_000);
+const notifItems    = notificationsToFeedItems(rawNotifications.notifications, Date.now() - 30 * 86_400_000);
 const reservItems   = reservationsToFeedItems(rawReservations, urlBase, true);
 
 // Dashboard teaserowy: maks. 3 per typ, limit 6

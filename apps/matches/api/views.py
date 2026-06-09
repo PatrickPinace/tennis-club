@@ -157,6 +157,18 @@ class MatchDetailView(generics.RetrieveAPIView):
         data['can_edit'] = True
         return Response(data, status=status.HTTP_200_OK)
 
+    def delete(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if not (request.user.is_staff or request.user.pk in self._players(instance)):
+            return Response(
+                {'detail': 'Brak uprawnień. Tylko uczestnik meczu lub administrator może usunąć mecz.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class MatchHistoryView(generics.ListAPIView):
     """API endpoint that lists match history with calculated results.
