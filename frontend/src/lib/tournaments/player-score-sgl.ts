@@ -156,7 +156,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         if (isCnc) {
           resultCls = 'td-match--result-cnc';
         } else if (isDone) {
-          const myId = myParticipant.id;
+          const myId = myParticipant!.id;
           const p1Won = m.winner_name ? m.winner_name === m.participant1_name : Number(p1SetsWon) > Number(p2SetsWon);
           const p2Won = m.winner_name ? m.winner_name === m.participant2_name : Number(p2SetsWon) > Number(p1SetsWon);
           const iWon = (p1Won && m.participant1_id === myId) || (p2Won && m.participant2_id === myId);
@@ -239,11 +239,21 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           btn.disabled = true;
 
           const fd = new FormData(form);
-          const scoreBody: Record<string, number|null> = {};
-          ['set1_p1','set1_p2','set2_p1','set2_p2','set3_p1','set3_p2'].forEach(k => {
+          const parseField = (k: string): number | null => {
             const v = fd.get(k);
-            scoreBody[k] = (v !== null && v !== '') ? parseInt(v as string, 10) : null;
-          });
+            return (v !== null && v !== '') ? parseInt(v as string, 10) : null;
+          };
+          type ScoreBody = {
+            set1_p1: number|null; set1_p2: number|null;
+            set2_p1: number|null; set2_p2: number|null;
+            set3_p1: number|null; set3_p2: number|null;
+            scheduled_time?: string | null;
+          };
+          const body: ScoreBody = {
+            set1_p1: parseField('set1_p1'), set1_p2: parseField('set1_p2'),
+            set2_p1: parseField('set2_p1'), set2_p2: parseField('set2_p2'),
+            set3_p1: parseField('set3_p1'), set3_p2: parseField('set3_p2'),
+          };
 
           const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
           let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
@@ -251,11 +261,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             const tzoffset = (new Date()).getTimezoneOffset() * 60000;
             scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
           }
-
-          const body = {
-            ...scoreBody,
-            ...(scheduledTimeVal !== undefined ? { scheduled_time: scheduledTimeVal } : {}),
-          };
+          if (scheduledTimeVal !== undefined) body.scheduled_time = scheduledTimeVal;
 
           const reject = (text: string) => {
             msg.textContent = text;

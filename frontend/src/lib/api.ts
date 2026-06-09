@@ -380,7 +380,8 @@ export const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
 function getApiBase(): string {
   // process.env jest dostępne w runtime (Node adapter) — nie jest inlineowane przy buildzie.
   // import.meta.env.DJANGO_API_URL byłoby wkompilowane build-time → nie widzi Docker env.
-  return process.env.DJANGO_API_URL ?? 'http://localhost:8000';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (globalThis as any).process?.env?.DJANGO_API_URL ?? 'http://localhost:8000';
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
