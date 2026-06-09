@@ -191,7 +191,7 @@ export default function ClubMatches({ matches: initialMatches, tournamentsUrl, m
           <div className="m-labeled-filter">
             <span className="m-filter-label">Źródło</span>
             <div className="m-segmented" role="group" aria-label="Źródło meczów">
-              {(['tournament', 'friendly', 'all'] as ClubMatchSource[]).map(s => (
+              {(['all', 'friendly', 'tournament'] as ClubMatchSource[]).map(s => (
                 <button
                   key={s}
                   type="button"

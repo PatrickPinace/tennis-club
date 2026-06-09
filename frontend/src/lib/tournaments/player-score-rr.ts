@@ -21,6 +21,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     set1_p1_score: number|null; set1_p2_score: number|null;
     set2_p1_score: number|null; set2_p2_score: number|null;
     set3_p1_score: number|null; set3_p2_score: number|null;
+    winner_name?: string | null;
     round_number?: number; match_index?: number; bracket_type?: string;
     scheduled_time?: string | null;
   };

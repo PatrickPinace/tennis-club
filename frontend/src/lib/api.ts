@@ -559,7 +559,7 @@ export async function getRankingSeasons(
   cookie?: string
 ): Promise<number[]> {
   const params = new URLSearchParams({ type: matchType });
-  const data = await apiFetch<{ seasons: number[] }>(`/api/rankings/seasons/?${params}`, cookie);
+  const data = await apiFetch<{ seasons: number[] }>(`/api/rankings/seasons/?${params}`, { sessionCookie: cookie });
   return data?.seasons ?? [];
 }
 

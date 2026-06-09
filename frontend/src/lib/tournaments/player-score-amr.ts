@@ -21,6 +21,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     participant3_name: string|null; participant4_name: string|null;
     score: string|null;
     set1_p1_score: number|null; set1_p2_score: number|null;
+    winner_name?: string | null;
     scheduled_time?: string | null;
   };
   type APart = { id: number; user_id: number|null };
