@@ -31,19 +31,8 @@ class RankingListView(generics.ListAPIView):
             match_type = 'SNG'
 
         # Wyznacz sezon
-        if year_param is None or year_param == '':
-            # Domyślnie: najnowszy dostępny sezon z danych
-            latest = (
-                PlayerRanking.objects
-                .filter(match_type=match_type)
-                .exclude(season=None)
-                .order_by('-season')
-                .values_list('season', flat=True)
-                .first()
-            )
-            season = latest  # może być None = all-time
-        elif year_param.lower() == 'all':
-            season = None
+        if year_param is None or year_param == '' or year_param.lower() == 'all':
+            season = None  # Domyślnie: all-time
         elif year_param.isdigit():
             season = int(year_param)
         else:
@@ -77,6 +66,23 @@ class RankingSeasonsView(APIView):
             .order_by('-season')
         )
         return Response({'seasons': list(seasons)})
+
+
+class RankingCalculationInfoView(APIView):
+    """
+    GET /api/rankings/info/ — zwraca informacje o ostatniej i kolejnej aktualizacji rankingu.
+    """
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request):
+        from apps.rankings.models import RankingCalculationInfo
+        latest = RankingCalculationInfo.objects.order_by('-last_run').first()
+        if latest:
+            return Response({
+                'last_run': latest.last_run,
+                'next_run': latest.next_run,
+            })
+        return Response(None)
 
 
 class RebuildRankingsView(APIView):
@@ -134,7 +140,7 @@ class RebuildRankingsView(APIView):
         except Exception as exc:
             logger.error('[rankings] Błąd ręcznego rebuild: %s', exc, exc_info=True)
             return Response(
-                {'detail': f'Błąd rebuildu: {exc}'},
+                {'detail': 'Wystąpił wewnętrzny błąd podczas przeliczania rankingów. Skontaktuj się z administratorem.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 

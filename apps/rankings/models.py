@@ -71,3 +71,19 @@ class TournamentRankPoints(models.Model):
 
     def __str__(self):
         return f"Ranga {self.rank}: {self.participation_bonus} pkt bonusu"
+
+
+class RankingCalculationInfo(models.Model):
+    """
+    Model przechowujący informacje o czasie ostatniej oraz planowanej kolejnej aktualizacji rankingu.
+    """
+    last_run = models.DateTimeField(auto_now_add=True, verbose_name="Ostatnia aktualizacja")
+    next_run = models.DateTimeField(verbose_name="Kolejna aktualizacja")
+
+    class Meta:
+        db_table = 'ranking_calculation_info'
+        verbose_name = 'Metadane aktualizacji rankingu'
+        verbose_name_plural = 'Metadane aktualizacji rankingów'
+
+    def __str__(self):
+        return f"Aktualizacja z: {self.last_run} — Następna: {self.next_run}"
