@@ -151,6 +151,10 @@ export default function ClubMatches({ matches: initialMatches, tournamentsUrl, m
     return result;
   }, [allMatches, sourceFilter, formatFilter, sortOrder, search]);
 
+  const sourceMatchCount = allMatches.filter(m =>
+    sourceFilter === 'all' || m.source === sourceFilter
+  ).length;
+
   const scopeHint =
     sourceFilter === 'tournament' ? 'Zakończone mecze turniejowe rozgrywane w klubie' :
     sourceFilter === 'friendly'   ? 'Mecze towarzyskie wszystkich graczy klubu' :
@@ -255,7 +259,7 @@ export default function ClubMatches({ matches: initialMatches, tournamentsUrl, m
 
       {filtered.length === 0 && !loading ? (
         <div className="dash-empty-block">
-          {allMatches.filter(m => sourceFilter === 'all' || m.source === sourceFilter).length === 0 ? (
+          {sourceMatchCount === 0 ? (
             <>
               <p className="dash-empty-block__title">
                 {sourceFilter === 'friendly' ? 'Brak meczów towarzyskich' : 'Brak meczów turniejowych'}
