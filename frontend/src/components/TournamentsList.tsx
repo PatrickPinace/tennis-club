@@ -7,6 +7,8 @@ interface TournamentItem {
   statusLabel: string;
   participants: number;
   href: string;
+  joined?: boolean;
+  isRegOpen?: boolean;
 }
 
 interface Props {
@@ -48,6 +50,7 @@ export default function TournamentsList({ tournaments, tournamentsUrl }: Props) 
             <span className="th-type">Typ</span>
             <span className="th-players">Gracze</span>
             <span className="th-status">Status</span>
+            <span className="th-join"></span>
           </div>
           <div className="tourn-table-body">
             {tournaments.map((t, i) => (
@@ -61,6 +64,13 @@ export default function TournamentsList({ tournaments, tournamentsUrl }: Props) 
                     <span className="tourn-status__dot" aria-hidden="true" />
                   )}
                   {t.statusLabel}
+                </span>
+                <span className="tourn-row__join">
+                  {t.joined ? (
+                    <span className="tourn-row__joined-badge">Zapisano</span>
+                  ) : t.isRegOpen ? (
+                    <span className="tourn-row__join-cta">Zapisz się</span>
+                  ) : null}
                 </span>
               </a>
             ))}
