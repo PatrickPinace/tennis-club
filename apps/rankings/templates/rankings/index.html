@@ -15,6 +15,13 @@
         {% if selected_year %}{{ selected_year }}{% else %}wszech czasów{% endif %}
       </strong>
     </p>
+    {% if latest_update %}
+    <p style="font-size: 0.78rem; color: var(--text-dim); margin-top: var(--space-1); display: flex; gap: var(--space-3); align-items: center; flex-wrap: wrap;">
+      <span>🕒 <strong>Ostatnia aktualizacja:</strong> {{ latest_update.last_run|date:"d.m.Y H:i" }}</span>
+      <span style="opacity: 0.3;">•</span>
+      <span>🔄 <strong>Następna aktualizacja:</strong> {{ latest_update.next_run|date:"d.m.Y H:i" }}</span>
+    </p>
+    {% endif %}
   </div>
   <form method="get" action="{% url 'rankings:index' %}" style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">
     <div class="tc-field">

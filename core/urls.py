@@ -72,8 +72,9 @@ from django.contrib.auth.models import User, Group
 from apps.home.models import PageView
 
 admin.autodiscover()
+allowed_models = {'User', 'Group', 'PageView', 'PlayerRanking', 'TournamentRankPoints', 'RankingCalculationInfo'}
 for model in list(admin.site._registry.keys()):
-    if model not in [User, Group, PageView]:
+    if model.__name__ not in allowed_models:
         try:
             admin.site.unregister(model)
         except admin.sites.NotRegistered:

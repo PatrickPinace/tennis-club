@@ -1,0 +1,46 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_modify %}
+
+{% block extrahead %}{{ block.super }}
+{{ media }}
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label='rankings' %}">Rankings</a>
+&rsaquo; <a href="{% url 'admin:rankings_playerranking_changelist' %}">Player rankings</a>
+&rsaquo; Przelicz ranking Elo
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <form action="" method="post">
+    {% csrf_token %}
+    <div>
+      <p>Wybierz opcje przeliczania rankingu Elo. Pozostawienie pól pustych przeliczy ranking dla wszystkich formatów oraz sezonów.</p>
+      
+      <div class="aligned">
+        {% for field in form %}
+          <div class="form-row">
+            {{ field.errors }}
+            <div>
+              <label for="{{ field.id_for_label }}" style="font-weight: bold; display: inline-block; width: 160px;">{{ field.label }}:</label>
+              {{ field }}
+              {% if field.help_text %}
+                <div class="help" style="margin-left: 160px; color: #666; font-size: 0.8em; margin-top: 5px;">{{ field.help_text }}</div>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+      
+      <div class="submit-row" style="margin-top: 20px;">
+        <input type="submit" value="Rozpocznij przeliczanie" class="default" style="background-color: #26a69a; color: white; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; border-radius: 4px;">
+        <a href="../" class="closelink" style="display: inline-block; padding: 9px 15px; background: #e0e0e0; color: #333; text-decoration: none; border-radius: 4px; margin-left: 10px; font-weight: bold;">Anuluj</a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

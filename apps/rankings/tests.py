@@ -126,3 +126,17 @@ class RankingCalculatorWDRTest(TestCase):
         user_ids = [r['user_id'] for r in results]
         self.assertIn(self.user_a.pk, user_ids)
         self.assertIn(self.user_b.pk, user_ids, "B pojawia się w rankingu bo ma matches_played>0")
+
+    def test_elo_calculation_accuracy(self):
+        """Sprawdza dokładność obliczenia rankingu Elo dla obu graczy."""
+        row_a = self._get_row(self.user_a)
+        row_b = self._get_row(self.user_b)
+        
+        # Mecz 1: A (1000) vs B (1000). A wygrywa. K=50.
+        # Nowe Elo A: 1025.00, B: 975.00
+        # Mecz 2: A (1025) vs B (975). A wygrywa (walkower).
+        # Oczekiwany wynik A: E_A = 1 / (1 + 10**((975-1025)/400)) ≈ 0.5715
+        # Zmiana: 50 * (1 - 0.5715) = 21.43
+        # Nowe Elo A: 1046.43, B: 953.57
+        self.assertEqual(row_a['points'], Decimal('1046.43'))
+        self.assertEqual(row_b['points'], Decimal('953.57'))

@@ -737,7 +737,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
 
   .stats-bar { width: 10px; border-radius: 2px; }
   .stats-bar--win { background: var(--tc-accent); height: 24px; }
-  .stats-bar--loss { background: var(--tc-faint); opacity: 0.6; height: 14px; }
+  .stats-bar--loss { background: var(--tc-hot); height: 14px; }
 
   .stats-strip__bars-summary {
     margin-left: 8px;
@@ -768,7 +768,31 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     .tourn-row__joined-badge, .tourn-row__join-cta { font-size: 0.6rem; padding: 2px 6px; }
     .stats-strip { grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
     .stats-strip__form { grid-column: span 2; }
-    .stats-strip__bars-summary { display: none; }
+    .stats-strip__bars {
+      height: auto;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .stats-bar {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+    .stats-bar--win {
+      height: 14px;
+    }
+    .stats-bar--loss {
+      height: 14px;
+    }
+    .stats-strip__bars-summary {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 0.72rem;
+      white-space: normal;
+      align-self: center;
+      padding-bottom: 0;
+    }
   }
 
   /* Activity feed — is:global bo lista wstrzykiwana przez JS (innerHTML) */
