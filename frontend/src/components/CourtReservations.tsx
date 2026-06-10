@@ -12,7 +12,7 @@ interface MyReservation {
   startIso: string;
   endIso: string;
   status: 'pending' | 'confirmed' | 'rejected';
-  seriesId: number | null;
+  seriesId: string | null;
 }
 
 interface PendingEntry {
@@ -57,7 +57,7 @@ interface Facility {
 
 interface EditTarget {
   reservationId: number;
-  seriesId: number | null;
+  seriesId: string | null;
   startTime: string; // HH:MM
   endTime: string;   // HH:MM
   courtId: number;
@@ -519,7 +519,7 @@ function MyReservationsList({
     }
   };
 
-  const cancelSeries = async (resId: number, seriesId: number) => {
+  const cancelSeries = async (resId: number, seriesId: string) => {
     try {
       const res = await fetch(`/api/courts/series/${seriesId}/`, {
         method: 'DELETE',
