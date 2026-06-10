@@ -338,14 +338,14 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
       <div class="pf-stat-card__value">
         {points !== null ? Math.round(Number(points)) : '—'}
       </div>
-      <span class="pf-stat-card__sub">suma w sezonie 2026</span>
+      <span class="pf-stat-card__sub">suma w rankingu all-time</span>
     </div>
     <div class="pf-stat-card">
       <span class="pf-stat-card__label">SKUTECZNOŚĆ</span>
       <div class="pf-stat-card__value">
         {winRate !== null ? winRate : '—'}<span class="pf-stat-card__pct">%</span>
       </div>
-      <span class="pf-stat-card__sub">{nd(matchesWon)} wygranych / {nd(matchesPlayed)} rozegranych</span>
+      <span class="pf-stat-card__sub">{nd(matchesWon)} wygranych / {nd(matchesPlayed)} <span class="pf-stat-card__sub-label-extra">rozegranych</span></span>
     </div>
     <div class="pf-stat-card">
       <span class="pf-stat-card__label">AKTYWNE TURNIEJE</span>
@@ -357,12 +357,12 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   <!-- ── Two-col: Statystyki + Osiągnięcia ── -->
   <div class="pf-two-col">
 
-    <!-- Lewa — statystyki sezonu -->
+    <!-- Lewa — statystyki all-time -->
     <section class="pf-section-card">
       <div class="pf-section-header">
         <div class="pf-section-header__left">
           <span class="pf-green-dot"></span>
-          <h3 class="pf-section-title">STATYSTYKI W SEZONIE</h3>
+          <h3 class="pf-section-title">STATYSTYKI ALL-TIME</h3>
         </div>
         <a href={url('/matches')} class="pf-section-link">Pełna historia →</a>
       </div>
@@ -964,6 +964,10 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   }
   .pf-stat-card__sub {
     font-size: 10.5px;
+    white-space: nowrap;
+  }
+  .pf-stat-card__sub-label-extra {
+    display: none;
   }
 
   .pf-achievements {
