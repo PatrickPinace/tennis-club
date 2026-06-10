@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import AddMatchForm from './AddMatchForm';
+import { matchesQuery, normalize, trigramSimilarity } from '@/lib/search';
 
 interface MatchRow {
   id: number | string;
@@ -55,18 +56,20 @@ function matchesTournamentType(tournamentType: string | null | undefined, q: str
 }
 
 // Ranga trafności dopasowania `q` do typu turnieju — im niższa, tym trafniejsze
-// dopasowanie (0 = dokładne dopasowanie kodu/etykiety, >0 = dopasowanie przez alias).
-// Zwraca null, gdy brak dopasowania.
+// dopasowanie (0 = dokładne dopasowanie kodu/etykiety, >0 = dopasowanie przez alias,
+// fuzzy dla literówek). Zwraca null, gdy brak dopasowania.
 function tournamentTypeMatchRank(tournamentType: string | null | undefined, q: string): number | null {
   if (!tournamentType) return null;
-  const code = tournamentType.toLowerCase();
-  if (code.includes(q)) return 0;
-  const label = TOURNAMENT_TYPE_LABEL[tournamentType]?.toLowerCase();
-  if (label?.includes(q)) return 0;
+  const nq = normalize(q);
+  const code = normalize(tournamentType);
+  if (code.includes(nq) || matchesQuery(tournamentType, q)) return 0;
+  const label = TOURNAMENT_TYPE_LABEL[tournamentType];
+  if (label && (normalize(label).includes(nq) || matchesQuery(label, q))) return 0;
   const aliases = TOURNAMENT_TYPE_SEARCH_ALIASES[tournamentType] ?? [];
   for (let i = 0; i < aliases.length; i++) {
-    const a = aliases[i];
-    if (a.includes(q) || q.includes(a)) return i + 1;
+    const a = normalize(aliases[i]);
+    if (a.includes(nq) || nq.includes(a) || matchesQuery(aliases[i], q)) return i + 1;
+    if (trigramSimilarity(nq, a) >= 0.3) return i + 1;
   }
   return null;
 }
@@ -120,13 +123,13 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
   }, []);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim();
     let result = matches.filter(m => {
       if (formatFilter !== 'all' && m.format !== formatFilter) return false;
       if (resultFilter !== 'all' && m.result !== resultFilter) return false;
       if (typeFilter === 'friendly'   && m.isTournament) return false;
       if (typeFilter === 'tournament' && !m.isTournament) return false;
-      if (q && !m.opponentFull.toLowerCase().includes(q) && !matchesTournamentType(m.tournamentTypeCode, q)) return false;
+      if (q && !matchesQuery(m.opponentFull, q) && !matchesTournamentType(m.tournamentTypeCode, q)) return false;
       return true;
     });
     if (sortOrder === 'asc') {
