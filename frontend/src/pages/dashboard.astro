@@ -13,7 +13,7 @@ import {
   getUserProfile,
   getAllNotifications,
   getMyReservations,
-  getMyTournaments,
+  getJoinedTournaments,
   TOURNAMENT_STATUS_LABEL,
   TOURNAMENT_TYPE_LABEL,
   type TournamentListEntry,
@@ -47,12 +47,12 @@ const [currentUser, apiTournaments, matchHistoryRaw, profileData, rawNotificatio
 
 const tStats = profileData?.tournament_stats ?? null;
 
-// Turnieje, do których zalogowany użytkownik jest zapisany — do odznaki "Zapisano"
-let myTournamentIds: Set<number> = new Set();
+// Turnieje, do których zalogowany użytkownik jest zapisany jako uczestnik — do odznaki "Zapisano"
+let joinedTournamentIds: Set<number> = new Set();
 if (currentUser) {
   try {
-    const mine = await getMyTournaments(sessionCookie);
-    myTournamentIds = new Set(mine.map(t => t.id));
+    const joined = await getJoinedTournaments(sessionCookie);
+    joinedTournamentIds = new Set(joined.map(t => t.id));
   } catch {}
 }
 
@@ -79,7 +79,7 @@ const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
   status: t.status === 'REG' ? 'open' : t.status === 'SCH' ? 'scheduled' : 'active',
   statusLabel: TOURNAMENT_STATUS_LABEL[t.status] ?? t.status,
   participants: t.participant_count,
-  joined: myTournamentIds.has(t.id),
+  joined: joinedTournamentIds.has(t.id),
   isRegOpen: t.status === 'REG',
 }));
 

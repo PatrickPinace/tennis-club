@@ -495,6 +495,20 @@ export async function getMyTournaments(
 }
 
 /**
+ * Zwraca turnieje, w których zalogowany użytkownik jest zapisanym uczestnikiem
+ * (jako kapitan/singlista lub partner w deblu).
+ * Endpoint: GET /api/tournaments/joined/
+ * Auth: IsAuthenticated — wymaga cookie sesji Django.
+ * Zwraca [] gdy niezalogowany lub backend niedostępny.
+ */
+export async function getJoinedTournaments(
+  sessionCookie?: string
+): Promise<TournamentListEntry[]> {
+  const data = await apiFetch<TournamentListEntry[]>('/api/tournaments/joined/', { sessionCookie });
+  return data ?? [];
+}
+
+/**
  * Zwraca turnieje przefiltrowane do dashboardu:
  * aktywne (REG/ACT) i nadchodzące (SCH), max `limit` sztuk.
  * Używa lekkiego /api/tournaments/list/ zamiast pełnego /api/tournaments/.
