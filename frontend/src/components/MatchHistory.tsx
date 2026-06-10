@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import AddMatchForm from './AddMatchForm';
+import { matchesQuery, normalize, trigramSimilarity } from '@/lib/search';
 
 interface MatchRow {
   id: number | string;
@@ -16,6 +17,7 @@ interface MatchRow {
   formatLabel: string;
   format: 'SNG' | 'DBL';
   typeLabel: string;
+  tournamentTypeCode: string | null;
 }
 
 interface Props {
@@ -30,6 +32,47 @@ type FormatFilter = 'all' | 'SNG' | 'DBL';
 type ResultFilter = 'all' | 'win' | 'loss';
 type TypeFilter  = 'all' | 'friendly' | 'tournament';
 type SortOrder   = 'desc' | 'asc';
+
+const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
+  RND: 'Round Robin',
+  SGL: 'Eliminacja',
+  DBE: 'Elim. podwójna',
+  LDR: 'Drabinka',
+  AMR: 'Americano',
+  SWS: 'Szwajcarski',
+};
+
+// Dodatkowe synonimy do wyszukiwania po typie turnieju (np. "mexicano" = Americano,
+// "eliminacja" = Elim. podwójna)
+const TOURNAMENT_TYPE_SEARCH_ALIASES: Record<string, string[]> = {
+  AMR: ['mexicano', 'americano'],
+  SGL: ['eliminacja', 'eliminacje'],
+  DBE: ['eliminacja', 'eliminacje', 'eliminacja podwójna'],
+};
+
+// Czy zapytanie `q` pasuje do typu turnieju (kod, etykieta PL lub alias)
+function matchesTournamentType(tournamentType: string | null | undefined, q: string): boolean {
+  return tournamentTypeMatchRank(tournamentType, q) !== null;
+}
+
+// Ranga trafności dopasowania `q` do typu turnieju — im niższa, tym trafniejsze
+// dopasowanie (0 = dokładne dopasowanie kodu/etykiety, >0 = dopasowanie przez alias,
+// fuzzy dla literówek). Zwraca null, gdy brak dopasowania.
+function tournamentTypeMatchRank(tournamentType: string | null | undefined, q: string): number | null {
+  if (!tournamentType) return null;
+  const nq = normalize(q);
+  const code = normalize(tournamentType);
+  if (code.includes(nq) || matchesQuery(tournamentType, q)) return 0;
+  const label = TOURNAMENT_TYPE_LABEL[tournamentType];
+  if (label && (normalize(label).includes(nq) || matchesQuery(label, q))) return 0;
+  const aliases = TOURNAMENT_TYPE_SEARCH_ALIASES[tournamentType] ?? [];
+  for (let i = 0; i < aliases.length; i++) {
+    const a = normalize(aliases[i]);
+    if (a.includes(nq) || nq.includes(a) || matchesQuery(aliases[i], q)) return i + 1;
+    if (trigramSimilarity(nq, a) >= 0.3) return i + 1;
+  }
+  return null;
+}
 
 const SearchIcon = () => (
   <svg className="m-search__icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -80,17 +123,24 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
   }, []);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim();
     let result = matches.filter(m => {
       if (formatFilter !== 'all' && m.format !== formatFilter) return false;
       if (resultFilter !== 'all' && m.result !== resultFilter) return false;
       if (typeFilter === 'friendly'   && m.isTournament) return false;
       if (typeFilter === 'tournament' && !m.isTournament) return false;
-      if (q && !m.opponentFull.toLowerCase().includes(q)) return false;
+      if (q && !matchesQuery(m.opponentFull, q) && !matchesTournamentType(m.tournamentTypeCode, q)) return false;
       return true;
     });
     if (sortOrder === 'asc') {
       result = [...result].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+    }
+    if (q) {
+      result = [...result].sort((a, b) => {
+        const rankA = tournamentTypeMatchRank(a.tournamentTypeCode, q) ?? Infinity;
+        const rankB = tournamentTypeMatchRank(b.tournamentTypeCode, q) ?? Infinity;
+        return rankA - rankB;
+      });
     }
     return result;
   }, [matches, formatFilter, resultFilter, typeFilter, sortOrder, search]);

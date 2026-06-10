@@ -160,6 +160,7 @@ function mapMatch(m: MatchHistoryEntry) {
     format: (m.match_double ? 'DBL' : 'SNG') as 'SNG' | 'DBL',
     formatLabel: m.match_double ? 'Debel' : 'Singiel',
     typeLabel,
+    tournamentTypeCode: isTournament ? (m.tournament_type ?? null) : null,
   };
 }
 
