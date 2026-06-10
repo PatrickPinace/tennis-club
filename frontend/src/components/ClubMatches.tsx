@@ -19,6 +19,36 @@ const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
   SWS: 'Szwajcarski',
 };
 
+// Dodatkowe synonimy do wyszukiwania po typie turnieju (np. "mexicano" = Americano,
+// "eliminacja" = Elim. podwójna)
+const TOURNAMENT_TYPE_SEARCH_ALIASES: Record<string, string[]> = {
+  AMR: ['mexicano', 'americano'],
+  SGL: ['eliminacja', 'eliminacje'],
+  DBE: ['eliminacja', 'eliminacje', 'eliminacja podwójna'],
+};
+
+// Czy zapytanie `q` pasuje do typu turnieju (kod, etykieta PL lub alias)
+function matchesTournamentType(tournamentType: string | null | undefined, q: string): boolean {
+  return tournamentTypeMatchRank(tournamentType, q) !== null;
+}
+
+// Ranga trafności dopasowania `q` do typu turnieju — im niższa, tym trafniejsze
+// dopasowanie (0 = dokładne dopasowanie kodu/etykiety, >0 = dopasowanie przez alias).
+// Zwraca null, gdy brak dopasowania.
+function tournamentTypeMatchRank(tournamentType: string | null | undefined, q: string): number | null {
+  if (!tournamentType) return null;
+  const code = tournamentType.toLowerCase();
+  if (code.includes(q)) return 0;
+  const label = TOURNAMENT_TYPE_LABEL[tournamentType]?.toLowerCase();
+  if (label?.includes(q)) return 0;
+  const aliases = TOURNAMENT_TYPE_SEARCH_ALIASES[tournamentType] ?? [];
+  for (let i = 0; i < aliases.length; i++) {
+    const a = aliases[i];
+    if (a.includes(q) || q.includes(a)) return i + 1;
+  }
+  return null;
+}
+
 interface Props {
   matches: ClubMatchEntry[];
   tournamentsUrl: string;
@@ -138,16 +168,24 @@ export default function ClubMatches({ matches: initialMatches, tournamentsUrl, m
     });
     if (formatFilter === 'SNG') result = result.filter(m => !m.match_double);
     if (formatFilter === 'DBL') result = result.filter(m => m.match_double);
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
+    const q = search.trim().toLowerCase();
+    if (q) {
       result = result.filter(m =>
         [m.p1, m.p2, m.p3, m.p4, m.tournament_name].some(v => v?.toLowerCase().includes(q))
+        || matchesTournamentType(m.tournament_type, q)
       );
     }
     result = [...result].sort((a, b) => {
       const cmp = (b.match_date ?? '').localeCompare(a.match_date ?? '');
       return sortOrder === 'asc' ? -cmp : cmp;
     });
+    if (q) {
+      result = [...result].sort((a, b) => {
+        const rankA = tournamentTypeMatchRank(a.tournament_type, q) ?? Infinity;
+        const rankB = tournamentTypeMatchRank(b.tournament_type, q) ?? Infinity;
+        return rankA - rankB;
+      });
+    }
     return result;
   }, [allMatches, sourceFilter, formatFilter, sortOrder, search]);
 
