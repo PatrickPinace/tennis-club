@@ -10,6 +10,8 @@ class Friend(models.Model):
         constraints = [
             UniqueConstraint(fields=['user', 'friend'], name='unique_friend')
         ]
+        verbose_name = "Znajomy"
+        verbose_name_plural = "Znajomi"
 
     def __str__(self):
         return f"{self.user.username} -> {self.friend.username}"
@@ -24,6 +26,8 @@ class FriendRequest(models.Model):
     class Meta:
         db_table = "friend_request"
         unique_together = ('sender', 'receiver')  # Użytkownik może wysłać tylko jedno zaproszenie do drugiego użytkownika
+        verbose_name = "Zaproszenie do znajomych"
+        verbose_name_plural = "Zaproszenia do znajomych"
 
     def __str__(self):
         return f"Request from {self.sender.username} to {self.receiver.username} ({self.status})"
