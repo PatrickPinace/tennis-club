@@ -13,7 +13,7 @@ import ParticipantsList from '@/components/tournaments/ParticipantsList.astro';
 import JoinPanel from '@/components/tournaments/JoinPanel.astro';
 import OrgFinishSection from '@/components/tournaments/OrgFinishSection.astro';
 import OrgPanelHeader from '@/components/tournaments/OrgPanelHeader.astro';
-import { getTournamentDetail, getLadderData, type TournamentDetail, type RRStandingRow, type TournamentMatch, type LadderData } from '@/lib/api';
+import { getTournamentDetail, getLadderData, getCurrentUser, type TournamentDetail, type RRStandingRow, type TournamentMatch, type LadderData } from '@/lib/api';
 import OrgLadderPanel from '@/components/tournaments/OrgLadderPanel.astro';
 import { url } from '@/lib/url';
 
@@ -26,6 +26,10 @@ import '@/styles/tournaments/bracket.css';
 const { id } = Astro.params;
 const tournamentId = id ? parseInt(id, 10) : NaN;
 const justCreated = Astro.url.searchParams.get('created') === '1';
+
+const sessionCookieMain = Astro.request.headers.get('cookie') ?? undefined;
+const currentUserMain = await getCurrentUser(sessionCookieMain);
+const isLoggedIn = currentUserMain !== null;
 
 // ── Pobierz dane ──────────────────────────────────────────────────────────────
 let tournament: TournamentDetail | null = null;
@@ -57,6 +61,12 @@ const MATCH_STATUS_LABEL: Record<string, string> = {
   WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
   CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
 };
+function fmtPts(val: number | string | null | undefined): string {
+  const n = Number(val);
+  if (isNaN(n)) return '—';
+  return n >= 0 ? `+${n}` : `${n}`;
+}
+
 const TIE_LABEL: Record<string, string> = {
   HEAD: 'Bezpośrednie spotkanie', SETS: 'Bilans setów', GAMES: 'Bilans gemów',
 };
@@ -66,6 +76,50 @@ function fmtDate(iso: string | null): string {
   try {
     return new Date(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
   } catch { return iso; }
+}
+
+function parseMatchScore(m: any, p1Name: string, p2Name: string) {
+  const sets = [];
+  let p1SetsWon: number | string = 0;
+  let p2SetsWon: number | string = 0;
+
+  if (m.set1_p1_score !== null && m.set1_p2_score !== null) {
+    sets.push({ p1: m.set1_p1_score, p2: m.set1_p2_score });
+  }
+  if (m.set2_p1_score !== null && m.set2_p2_score !== null) {
+    sets.push({ p1: m.set2_p1_score, p2: m.set2_p2_score });
+  }
+  if (m.set3_p1_score !== null && m.set3_p2_score !== null) {
+    sets.push({ p1: m.set3_p1_score, p2: m.set3_p2_score });
+  }
+
+  const isWalkover = m.status === 'WDR';
+  const hasScore = sets.length > 0 || isWalkover;
+
+  if (isWalkover) {
+    const p1Won = m.winner_name === p1Name;
+    p1SetsWon = p1Won ? 'W' : 'L';
+    p2SetsWon = p1Won ? 'L' : 'W';
+  } else if (hasScore) {
+    let w1 = 0, w2 = 0;
+    for (const s of sets) {
+      if (s.p1 > s.p2) w1++;
+      else if (s.p1 < s.p2) w2++;
+    }
+    p1SetsWon = w1;
+    p2SetsWon = w2;
+  }
+
+  const isDone = m.status === 'CMP' || m.status === 'WDR';
+
+  return {
+    sets,
+    p1SetsWon,
+    p2SetsWon,
+    hasScore,
+    isWalkover,
+    isDone,
+  };
 }
 
 // Grupuj mecze wg rundy
@@ -98,9 +152,8 @@ const pendingMatches   = tournament?.matches.filter(m => m.status === 'WAI' || m
 // ── Ladder SSR fetch (tylko dla LDR) ────────────────────────────────────────
 let ladderData: LadderData | null = null;
 if (isLadder && tournament) {
-  const sessionCookie = Astro.request.headers.get('cookie') ?? undefined;
   try {
-    ladderData = await getLadderData(tournamentId, sessionCookie);
+    ladderData = await getLadderData(tournamentId, sessionCookieMain);
   } catch (e) {
     console.error('[tournament/[id]] ladder fetch failed:', e);
   }
@@ -110,6 +163,36 @@ if (isLadder && tournament) {
 const ldrAvailableSet  = new Set(ladderData?.available_challenge_ids ?? []);
 const ldrRejectedSet   = new Set(ladderData?.rejected_by_ids ?? []);
 const ldrMyId          = ladderData?.my_participant_id ?? null;
+
+const myParticipant = tournament?.participants.find(p => p.user_id === currentUserMain?.id);
+const myParticipantId = myParticipant ? myParticipant.id : null;
+const newBadgeTournamentId = tournament?.id ?? 0;
+
+function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
+  if (m.status === 'CNC') return 'td-match--result-cnc';
+  if (!sInfo.isDone) {
+    return m.status === 'INP' ? '' : 'td-match--result-pending';
+  }
+
+  if (myParticipantId === null) {
+    return 'td-match--result-neutral';
+  }
+
+  const isDoubles = m.participant3_id != null || m.participant4_id != null;
+  const userInTeamA = m.participant1_id === myParticipantId || (isDoubles && m.participant4_id === myParticipantId);
+  const userInTeamB = m.participant2_id === myParticipantId || (isDoubles && m.participant3_id === myParticipantId);
+  
+  if (!userInTeamA && !userInTeamB) {
+    return 'td-match--result-neutral';
+  }
+
+  const teamAWon = m.winner_name 
+    ? (m.winner_name === teamAName) 
+    : (Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
+
+  const userWon = (userInTeamA && teamAWon) || (userInTeamB && !teamAWon);
+  return userWon ? 'td-match--result-won' : 'td-match--result-lost';
+}
 ---
 
 <AppLayout
@@ -177,6 +260,8 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           <span class="tc-badge tc-badge-primary">{isRoundRobin ? 'Liga (Round Robin)' : isSingleElimination ? 'Eliminacja pojedyncza' : isDoubleElimination ? 'Eliminacja podwójna' : isMexicano ? 'Mexicano' : isAmericano ? 'Americano' : isLadder ? 'Drabinka Liderów' : (tournament.tournament_type ?? '—')}</span>
           <span class="tc-badge tc-badge-neutral">{FORMAT_LABEL[tournament.match_format] ?? tournament.match_format}</span>
           {tournament.rank === 1 && <span class="tc-badge" style="background:rgba(245,158,11,0.12);color:#f59e0b;">★ Ranga 1</span>}
+          {tournament.rank === 2 && <span class="tc-badge" style="background:rgba(148,163,184,0.15);color:#64748b;">★ Ranga 2</span>}
+          {tournament.rank === 3 && <span class="tc-badge" style="background:rgba(180,83,9,0.12);color:#b45309;">★ Ranga 3</span>}
           {!tournament.is_ranked && <span class="tc-badge tc-badge-neutral" style="opacity:0.7;">Towarzyski</span>}
         </div>
         
@@ -396,7 +481,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           )}
 
           <!-- ── Uczestnicy ──────────────────────────────────────────────── -->
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Org panel (hidden; revealed by org-ladder.ts after auth) ── -->
           <OrgLadderPanel
@@ -429,7 +514,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             pendingMatches={pendingMatches.length}
           />
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Drabinka ──────────────────────────────────────────────────── -->
           {(tournament.status === 'DRF' || tournament.status === 'REG') ? (
@@ -621,7 +706,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             pendingMatches={pendingMatches.length}
           />
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Drabinka DBE ─────────────────────────────────────────────── -->
           {(tournament.status === 'DRF' || tournament.status === 'REG') ? (
@@ -878,7 +963,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             )}
           </div>
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- Rundy z meczami — widok tabelkowy -->
           {tournament.matches.length > 0 ? (
@@ -888,6 +973,22 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                 <span style="font-size:0.78rem; color:var(--tc-muted);">
                   {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
                 </span>
+              </div>
+
+              <div class="org-search-box-row" style="padding: 12px 20px 0;">
+                <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
+                  <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                  </svg>
+                  <input
+                    type="search"
+                    class="org-search-input pub-matches-search-input"
+                    placeholder="Szukaj gracza…"
+                    aria-label="Szukaj gracza"
+                    autocomplete="off"
+                    style="width: 100%;"
+                  />
+                </div>
               </div>
               {rounds.map(roundNum => (
                 <div class="td-round">
@@ -902,21 +1003,46 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                       const teamB = isDoubles
                         ? `${m.participant2_name ?? '—'} / ${m.participant3_name ?? '—'}`
                         : (m.participant2_name ?? '—');
+                      const sInfo = parseMatchScore(m, teamA, teamB);
+                      const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamA : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
+                      const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === teamB : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
                       return (
-                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''}`}>
-                        <div class="td-match__players">
-                          <span class="td-match__name">{teamA}</span>
-                          <span class="td-match__vs">vs</span>
-                          <span class="td-match__name">{teamB}</span>
-                        </div>
-                        <div class="td-match__right">
-                          {m.score ? (
-                            <span class="td-match__score">{m.score}</span>
-                          ) : m.status === 'WAI' ? (
-                            <span class="td-match__status-lbl">Oczekuje</span>
-                          ) : (
-                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
-                          )}
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, teamA)}`}
+                        data-match-id={m.id} data-match-done={sInfo.isDone ? 'true' : undefined}>
+                        {sInfo.isDone && <span class="pub-match-new-badge" style="display:none">NEW</span>}
+                        <div class="fs-match">
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{teamA}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p1SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p2Won ? 'fs-match__name--winner' : ''}`}>{teamB}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p2SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status" style="visibility: hidden;">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                       );
@@ -924,6 +1050,9 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                   </div>
                 </div>
               ))}
+              <div class="pub-matches-empty" style="display:none; padding:12px 20px; font-size:0.82rem; color:var(--tc-muted);">
+                Brak meczów pasujących do wyszukiwania.
+              </div>
             </div>
           ) : (
             <div class="tc-card td-empty-section" style="margin-bottom:24px;">
@@ -966,6 +1095,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-panel-type="AMR"
             style="display:none;"
             data-tournament-id={tournament.id}
+            data-my-participant-id={myParticipantId}
             data-created-by={tournament.created_by_username}
             data-tournament-status={tournament.status}
             data-tournament-type={tournament.tournament_type}
@@ -974,7 +1104,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-points-per-match={String(tournament.config?.points_per_match ?? 32)}
             data-end-date={tournament.end_date ?? ''}
           >
-            <div class="tc-card org-card">
+            <div class="tc-card org-card is-collapsed">
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
               <!-- Uczestnicy -->
@@ -1111,7 +1241,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             <div class="tc-card" style="margin-bottom:24px;">
               <div class="tc-card-header">
                 <span class="tc-card-title">Tabela wyników</span>
-                <span style="font-size:0.78rem; color:var(--tc-muted);">Sortowanie: punkty → sety → gemy</span>
+                <span class="td-standings-sorting" style="font-size:0.78rem; color:var(--tc-muted);">Sortowanie: punkty → sety → gemy</span>
               </div>
               <div style="overflow-x:auto;">
                 <table class="tc-table td-standings-table">
@@ -1174,86 +1304,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             </div>
           )}
 
-          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} />
-
-          <!-- ── Mecze wg rund ──────────────────────────────────────────── -->
-          {tournament.matches.length > 0 ? (
-            <div class="tc-card" style="margin-bottom:24px;" id="matches-card">
-              <div class="tc-card-header">
-                <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
-                <div style="display:flex;align-items:center;gap:12px;">
-                  <span style="font-size:0.78rem; color:var(--tc-muted);">
-                    {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
-                  </span>
-                  <div class="view-toggle" id="matches-view-toggle">
-                    <button class="view-toggle__btn view-toggle__btn--active" data-view="list" title="Lista">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="1" width="16" height="2.5" rx="1"/><rect x="0" y="6.75" width="16" height="2.5" rx="1"/><rect x="0" y="12.5" width="16" height="2.5" rx="1"/></svg>
-                    </button>
-                    <button class="view-toggle__btn" data-view="matrix" title="Macierz">
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/><rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {rounds.map(roundNum => (
-                <div class="td-round">
-                  <div class="td-round__label">Runda {roundNum}</div>
-                  <div class="td-round__matches">
-                    {(matchesByRound.get(roundNum) ?? []).map(m => (
-                      <div class={`td-match ${m.status === 'CMP' ? 'td-match--done' : ''} ${m.status === 'INP' ? 'td-match--live' : ''}`}>
-                        <div class="td-match__players">
-                          <span class={`td-match__name ${m.winner_name === m.participant1_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant1_name ?? '—'}
-                          </span>
-                          <span class="td-match__vs">vs</span>
-                          <span class={`td-match__name ${m.winner_name === m.participant2_name && m.status === 'CMP' ? 'td-match__name--winner' : ''}`}>
-                            {m.participant2_name ?? '—'}
-                          </span>
-                        </div>
-                        <div class="td-match__right">
-                          {m.score ? (
-                            <span class="td-match__score">{m.score}</span>
-                          ) : m.status === 'WAI' ? (
-                            <span class="td-match__status-lbl">Oczekuje</span>
-                          ) : m.status === 'INP' ? (
-                            <span class="td-match__status-lbl td-match__status-lbl--live">● Live</span>
-                          ) : (
-                            <span class="td-match__status-lbl">{MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <!-- Widok macierzy (ukryty domyślnie, wypełniany przez JS) -->
-            <div id="rr-matrix-wrap" class="tc-card rr-matrix-card" style="display:none; margin-bottom:24px;">
-              <div class="tc-card-header">
-                <span class="tc-card-title">Tabela ligowa</span>
-                <div class="rr-matrix-legend">
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--win">W wygrana</span>
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--loss">P przegrana</span>
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--draw">R remis</span>
-                  <span class="rr-matrix-legend__item rr-matrix-legend__item--pending">— brak</span>
-                  <span class="rr-matrix-legend__sep">·</span>
-                  <span class="rr-matrix-legend__note">wynik z perspektywy gracza w wierszu →</span>
-                </div>
-              </div>
-              <div class="rr-matrix-scroll-hint">← przewiń →</div>
-              <div class="rr-matrix-scroll-wrap">
-                <div id="rr-matrix-inner"></div>
-              </div>
-            </div>
-
-            </div>
-          ) : (
-            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
-              <span>Brak zaplanowanych meczów. Mecze pojawią się po zamknięciu rejestracji.</span>
-            </div>
-          )}
+          <ParticipantsList participants={tournament.participants} count={tournament.participant_count} isLoggedIn={isLoggedIn} />
 
           <!-- ── Wpisz wynik — uczestnik meczu RR ─────────────────────── -->
           <!-- Widoczny client-side przez IIFE tylko gdy user jest uczestnikiem meczu. -->
@@ -1281,6 +1332,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-panel-type="RND"
             style="display:none;"
             data-tournament-id={tournament.id}
+            data-my-participant-id={myParticipantId}
             data-created-by={tournament.created_by_username}
             data-tournament-status={tournament.status}
             data-tournament-type={tournament.tournament_type}
@@ -1288,8 +1340,32 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             data-sets-to-win={tournament.config?.sets_to_win ?? 2}
             data-end-date={tournament.end_date ?? ''}
           >
-            <div class="tc-card org-card">
+            <div class="tc-card org-card is-collapsed">
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
+
+              <div class="org-search-box-row">
+                <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
+                  <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                  </svg>
+                  <input id="org-match-search" class="org-search-input" type="search" placeholder="Szukaj zawodnika lub pary…" autocomplete="off" style="width: 100%;">
+                </div>
+              </div>
+
+              <!-- Lista meczów do wpisania wyników -->
+              <div class="org-matches-header">
+                <div class="org-section-label">Wyniki meczów</div>
+                <div class="org-matches-toolbar">
+                  <div class="org-filter-group" id="org-filter-group">
+                    <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
+                    <button class="org-filter-btn" data-filter="done">Zakończone</button>
+                    <button class="org-filter-btn" data-filter="all">Wszystkie</button>
+                  </div>
+                </div>
+              </div>
+              <div id="org-matches-list" class="org-matches-list-wrap">
+                <div class="org-loading">Ładowanie meczów…</div>
+              </div>
 
               <!-- ── Uczestnicy ───────────────────────────────────────────── -->
               <div id="org-participants-section" style="padding:12px 20px 16px; border-bottom:1px solid var(--tc-card-border);">
@@ -1384,26 +1460,6 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                     </button>
                   </div>
                 )}
-              </div>
-
-
-
-              <!-- Lista meczów do wpisania wyników -->
-              <div class="org-matches-header">
-                <div class="org-section-label">Wyniki meczów</div>
-                <div class="org-matches-toolbar">
-                  <div class="org-filter-group" id="org-filter-group">
-                    <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
-                    <button class="org-filter-btn" data-filter="done">Zakończone</button>
-                    <button class="org-filter-btn" data-filter="all">Wszystkie</button>
-                  </div>
-                  <div class="org-search-wrap">
-                    <input id="org-match-search" class="org-search-input" type="text" placeholder="Szukaj zawodnika…" autocomplete="off">
-                  </div>
-                </div>
-              </div>
-              <div id="org-matches-list" class="org-matches-list-wrap">
-                <div class="org-loading">Ładowanie meczów…</div>
               </div>
 
               <!-- Konfiguracja RR (edycja) — Accordion -->
@@ -1504,7 +1560,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                             </div>
                           </div>
                           <div class="cfg-spinner-col">
-                            <span class="cfg-spinner-label"><span class="lbl-pos">+</span> STB</span>
+                            <span class="cfg-spinner-label"><span class="lbl-pos">+</span> <abbr title="Super tie-break — skrócony set decydujący, grany do 10 punktów">STB</abbr></span>
                             <div class="cfg-spinner org-score-spinner">
                               <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
                               <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_win" min="-100" max="100" step="0.5">
@@ -1512,7 +1568,7 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                             </div>
                           </div>
                           <div class="cfg-spinner-col">
-                            <span class="cfg-spinner-label"><span class="lbl-neg">-</span> STB</span>
+                            <span class="cfg-spinner-label"><span class="lbl-neg">-</span> <abbr title="Super tie-break — skrócony set decydujący, grany do 10 punktów">STB</abbr></span>
                             <div class="cfg-spinner org-score-spinner">
                               <button type="button" class="cfg-spin-btn org-spin-up org-cfg-spin" tabindex="-1">▲</button>
                               <input class="cfg-spin-input org-set-input org-cfg-input" type="number" name="points_for_supertiebreak_loss" min="-100" max="100" step="0.5">
@@ -1546,6 +1602,144 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
             </div>
           </div>
 
+          {tournament.matches.length > 0 ? (
+            <details class="tc-card rr-matches-details" style="margin-bottom:24px;" id="matches-card" open={tournament.matches.length < 12 || undefined}>
+              <summary class="tc-card-header rr-matches-summary" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                <span class="tc-card-title">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--tc-accent);">
+                    <path d="M15 4V3H5v1H1.5A1.5 1.5 0 000 5.5v1.6C0 8.7 1 10 2.45 10.38a5 5 0 004.55 3.52V16H4v2h12v-2h-3v-2.1a5 5 0 004.55-3.52c1.45-.38 2.45-1.68 2.45-3.28V5.5A1.5 1.5 0 0018.5 4H15zM2 7.1V5.5H5v3a3.5 3.5 0 01-3-1.4zm16-1.6v1.6a3.5 3.5 0 01-3 1.4v-3h3z" />
+                  </svg>
+                  Mecze ({tournament.matches.length})
+                </span>
+                <div style="display:flex;align-items:center;gap:12px;" onclick="event.stopPropagation()">
+                  <span class="org-matches-stats" style="font-size:0.78rem; color:var(--tc-muted);">
+                    {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
+                  </span>
+                  <div class="view-toggle" id="matches-view-toggle">
+                    <button class="view-toggle__btn view-toggle__btn--active" data-view="list" title="Lista">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="1" width="16" height="2.5" rx="1"/><rect x="0" y="6.75" width="16" height="2.5" rx="1"/><rect x="0" y="12.5" width="16" height="2.5" rx="1"/></svg>
+                    </button>
+                    <button class="view-toggle__btn" data-view="matrix" title="Macierz">
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><rect x="0" y="0" width="7" height="7" rx="1"/><rect x="9" y="0" width="7" height="7" rx="1"/><rect x="0" y="9" width="7" height="7" rx="1"/><rect x="9" y="9" width="7" height="7" rx="1"/></svg>
+                    </button>
+                  </div>
+                  <div class="org-toggle-hint">
+                    <span class="org-toggle-hint__label">{(tournament.matches.length < 12) ? 'zwiń' : 'rozwiń'}</span>
+                    <svg class="org-toggle-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </div>
+                </div>
+              </summary>
+
+              <div class="org-search-box-row" id="matches-search-row" style="padding: 12px 20px 0;">
+                <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
+                  <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                  </svg>
+                  <input
+                    type="search"
+                    class="org-search-input pub-matches-search-input"
+                    placeholder="Szukaj gracza…"
+                    aria-label="Szukaj gracza"
+                    autocomplete="off"
+                    style="width: 100%;"
+                  />
+                </div>
+              </div>
+
+              <div class="pub-matches-filter-bar" id="pub-matches-filter-bar" style="padding: 12px 20px 0; display: flex; justify-content: flex-end;">
+                <div class="org-filter-group" id="pub-filter-group">
+                  <button class="org-filter-btn" data-filter="pending">Oczekujące <span class="pub-filter-count">({pendingMatches.length})</span></button>
+                  <button class="org-filter-btn" data-filter="done">Zakończone <span class="pub-filter-count">({completedMatches.length})</span></button>
+                  <button class="org-filter-btn org-filter-btn--active" data-filter="all">Wszystkie <span class="pub-filter-count">({tournament.matches.length})</span></button>
+                </div>
+              </div>
+
+              {rounds.map(roundNum => (
+                <div class="td-round">
+                  <div class="td-round__label">Runda {roundNum}</div>
+                  <div class="td-round__matches">
+                    {(matchesByRound.get(roundNum) ?? []).map(m => {
+                      const p1Name = m.participant1_name ?? '—';
+                      const p2Name = m.participant2_name ?? '—';
+                      const sInfo = parseMatchScore(m, p1Name, p2Name);
+                      const p1Won = sInfo.isDone && (m.winner_name ? m.winner_name === p1Name : Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
+                      const p2Won = sInfo.isDone && (m.winner_name ? m.winner_name === p2Name : Number(sInfo.p2SetsWon) > Number(sInfo.p1SetsWon));
+                      return (
+                      <div class={`td-match td-match--flashscore ${sInfo.isDone ? 'td-match--done' : ''} ${getMatchResultClass(m, sInfo, p1Name)} ${m.status === 'INP' ? 'td-match--live' : ''}`} data-status={m.status}
+                        data-match-id={m.id} data-match-done={sInfo.isDone ? 'true' : undefined}>
+                        {sInfo.isDone && <span class="pub-match-new-badge" style="display:none">NEW</span>}
+                        <div class="fs-match">
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}`}>{p1Name}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p1SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status">{m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div class="fs-match__row">
+                            <span class={`fs-match__name ${p2Won ? 'fs-match__name--winner' : ''}`}>{p2Name}</span>
+                            <div class="fs-match__scores">
+                              {sInfo.hasScore && (
+                                <>
+                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p2SetsWon}</span>
+                                  {sInfo.sets.map(s => (
+                                    <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
+                                  ))}
+                                </>
+                              )}
+                              {!sInfo.hasScore && (
+                                <span class="fs-match__status" style="visibility: hidden;">{m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <!-- Widok macierzy (ukryty domyślnie, wypełniany przez JS) -->
+            <div id="rr-matrix-wrap" class="tc-card rr-matrix-card" style="display:none; margin-bottom:24px;">
+              <div class="tc-card-header">
+                <span class="tc-card-title">Tabela ligowa</span>
+                <div class="rr-matrix-legend">
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--win">W wygrana</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--loss">P przegrana</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--draw">R remis</span>
+                  <span class="rr-matrix-legend__item rr-matrix-legend__item--pending">— brak</span>
+                  <span class="rr-matrix-legend__sep">·</span>
+                  <span class="rr-matrix-legend__note">wynik z perspektywy gracza w wierszu →</span>
+                </div>
+              </div>
+              <div class="rr-matrix-scroll-hint">← przewiń →</div>
+              <div class="rr-matrix-scroll-wrap">
+                <div id="rr-matrix-inner"></div>
+              </div>
+              <div class="pub-matches-empty" style="display:none; padding:12px 20px; font-size:0.82rem; color:var(--tc-muted);">
+                Brak meczów pasujących do wyszukiwania.
+              </div>
+            </div>
+          </details>
+          ) : (
+            <div class="tc-card td-empty-section" style="margin-bottom:24px;">
+              <span>Brak zaplanowanych meczów. Mecze pojawią się po zamknięciu rejestracji.</span>
+            </div>
+          )}
+
           <!-- Dane meczów, uczestników i config dla org-panel JS (SSR JSON) -->
           {tournament && (
             <script id="ssr-matches-data" type="application/json" set:html={JSON.stringify(tournament.matches)} />
@@ -1560,9 +1754,19 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
           <!-- ── Konfiguracja (zwijana) ─────────────────────────────────── -->
           {tournament.config && (
             <details class="tc-card td-config-card">
-              <summary class="tc-card-header" style="cursor:pointer; list-style:none;">
-                <span class="tc-card-title">Zasady i punktacja</span>
-                <span style="font-size:0.78rem; color:var(--tc-muted);">▾ rozwiń</span>
+              <summary class="tc-card-header" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                <span class="tc-card-title">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--tc-accent);">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                  </svg>
+                  Zasady i punktacja
+                </span>
+                <div class="org-toggle-hint">
+                  <span class="org-toggle-hint__label">rozwiń</span>
+                  <svg class="org-toggle-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </div>
               </summary>
               <div class="td-config-body">
                 <div class="td-config-grid">
@@ -1573,14 +1777,14 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
                     <div class="td-config-row"><span>Maks. uczestników</span><strong>{tournament.config.max_participants}</strong></div>
                   </div>
                   <div>
-                    <div class="td-config-row"><span>Wygrana mecz</span><strong>+{tournament.config.points_for_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Przegrana mecz</span><strong>+{tournament.config.points_for_loss} pkt</strong></div>
-                    <div class="td-config-row"><span>Bonus wygr. set</span><strong>+{tournament.config.points_for_set_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Kara przegr. set</span><strong>{tournament.config.points_for_set_loss} pkt</strong></div>
-                    <div class="td-config-row"><span>Bonus wygr. gem</span><strong>+{tournament.config.points_for_gem_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Kara przegr. gem</span><strong>{tournament.config.points_for_gem_loss} pkt</strong></div>
-                    <div class="td-config-row"><span>Bonus wygr. punkt STB</span><strong>+{tournament.config.points_for_supertiebreak_win} pkt</strong></div>
-                    <div class="td-config-row"><span>Kara przegr. punkt STB</span><strong>{tournament.config.points_for_supertiebreak_loss} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrana mecz</span><strong>{fmtPts(tournament.config.points_for_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrana mecz</span><strong>{fmtPts(tournament.config.points_for_loss)} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrany set</span><strong>{fmtPts(tournament.config.points_for_set_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrany set</span><strong>{fmtPts(tournament.config.points_for_set_loss)} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrany gem</span><strong>{fmtPts(tournament.config.points_for_gem_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrany gem</span><strong>{fmtPts(tournament.config.points_for_gem_loss)} pkt</strong></div>
+                    <div class="td-config-row"><span>Wygrany punkt <abbr title="Super tie-break — skrócony set decydujący, grany do 10 punktów">STB</abbr></span><strong>{fmtPts(tournament.config.points_for_supertiebreak_win)} pkt</strong></div>
+                    <div class="td-config-row"><span>Przegrany punkt <abbr title="Super tie-break — skrócony set decydujący, grany do 10 punktów">STB</abbr></span><strong>{fmtPts(tournament.config.points_for_supertiebreak_loss)} pkt</strong></div>
                   </div>
                 </div>
               </div>
@@ -1594,6 +1798,58 @@ const ldrMyId          = ladderData?.my_participant_id ?? null;
 
 </AppLayout>
 
+<style>
+.pub-match-new-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--tc-accent, #c8f161);
+  color: var(--tc-accent-ink, #08090b);
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 2.5px 7px;
+  border-bottom-left-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  z-index: 5;
+}
+
+@media (max-width: 600px) {
+  .pub-filter-count {
+    display: none;
+  }
+}
+</style>
+
+<script is:inline data-tournament-id={newBadgeTournamentId}>
+(function() {
+  var tid = document.currentScript && document.currentScript.dataset.tournamentId;
+  if (!tid) return;
+  var lsKey = 'seen_matches_' + tid;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    var lastSeen = parseInt(localStorage.getItem(lsKey) || '0', 10);
+    var maxId = 0;
+
+    document.querySelectorAll('.td-match[data-match-done="true"][data-match-id]').forEach(function(card) {
+      var id = parseInt(card.getAttribute('data-match-id') || '0', 10);
+      if (id > maxId) maxId = id;
+      if (id > lastSeen) {
+        var badge = card.querySelector('.pub-match-new-badge');
+        if (badge) badge.style.display = '';
+      }
+    });
+
+    // Zapisz gdy użytkownik opuszcza stronę — odświeżenie nie kasuje NEW
+    if (maxId > 0) {
+      window.addEventListener('beforeunload', function() {
+        localStorage.setItem(lsKey, String(maxId));
+      });
+    }
+  });
+})();
+</script>
 
 <script>
 // Public modules — extracted to separate TS files
@@ -1608,4 +1864,25 @@ import '@/lib/tournaments/ldr-actions';
 import '@/lib/tournaments/org-panel';
 import '@/lib/tournaments/org-ladder';
 
+// Org-panel collapse toggle
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.org-panel-header').forEach(header => {
+    const card = header.closest('.org-card') as HTMLElement | null;
+    if (!card) return;
+    const label = header.querySelector<HTMLElement>('.org-toggle-hint__label');
+    header.addEventListener('click', () => {
+      const collapsed = card.classList.toggle('is-collapsed');
+      if (label) label.textContent = collapsed ? 'rozwiń' : 'zwiń';
+    });
+  });
+
+  // Collapsible details toggle listener to update labels
+  document.querySelectorAll('details').forEach(details => {
+    const label = details.querySelector('.org-toggle-hint__label');
+    if (!label) return;
+    details.addEventListener('toggle', () => {
+      label.textContent = details.open ? 'zwiń' : 'rozwiń';
+    });
+  });
+});
 </script>

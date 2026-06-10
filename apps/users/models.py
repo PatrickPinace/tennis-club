@@ -1,5 +1,6 @@
 # models.py
 from django.db import models
+from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -12,14 +13,29 @@ class Profile(models.Model):
     start_date = models.DateField(null=True, blank=True)
     image = models.ImageField(default='default.png', upload_to='profile_pics', blank=True)
     image = models.ImageField(default='default.png', upload_to='profile_pics', blank=True)
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    notifications_last_seen_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f'{self.user.username} Profile'
 
+class PasswordResetToken(models.Model):
+    user       = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token      = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Token resetu hasła'
+
+    def __str__(self):
+        return f'PasswordResetToken({self.user.username}, expires={self.expires_at})'
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:
-        Profile.objects.create(user=instance)
+        Profile.objects.create(user=instance, notifications_last_seen_at=timezone.now())
 
 @receiver(post_save, sender=User)
 def send_welcome_email(sender, instance, created, **kwargs):

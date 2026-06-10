@@ -6,37 +6,39 @@ export const prerender = false;
 
 import AppLayout from '@/layouts/AppLayout.astro';
 import RankingsTable from '@/components/RankingsTable.tsx';
-import { getRankings, type PlayerRankingEntry } from '@/lib/api';
+import { getRankings, getRankingSeasons, getRankingInfo, type PlayerRankingEntry, type RankingInfo } from '@/lib/api';
 
-// ── Pobierz dane przy budowaniu (publiczny endpoint, bez auth) ─────────────────
 let players: PlayerRankingEntry[] = [];
 let isLive = false;
+let availableSeasons: number[] = [];
+let defaultSeason: number | 'all' = 'all';
+let rankingInfo: RankingInfo | null = null;
 
+// Pobierz dostępne sezony i status aktualizacji
 try {
-  const data = await getRankings('SNG');
+  const [seasonsData, infoData] = await Promise.all([
+    getRankingSeasons('SNG'),
+    getRankingInfo()
+  ]);
+  availableSeasons = seasonsData;
+  rankingInfo = infoData;
+} catch (e) {
+  console.warn('[rankings] Error fetching seasons/info:', e);
+}
+
+// Pobierz dane dla domyślnego sezonu
+try {
+  const data = await getRankings('SNG', defaultSeason);
   if (data && data.length > 0) {
     players = data;
     isLive = true;
   }
 } catch (e) {
-  console.warn('[rankings] API error, using fallback demo data:', e);
-}
-
-// ── Fallback demo — gdy API niedostępne lub baza pusta ─────────────────────────
-if (players.length === 0) {
-  players = [
-    { position: 1, display_name: 'Tomasz Bąk',      points: 2840, matches_played: 62, matches_won: 51, matches_lost: 11, sets_won: 112, sets_lost: 44, win_rate: 82, match_type: 'SNG', season: 2026 },
-    { position: 2, display_name: 'Piotr Wiśniewski', points: 2710, matches_played: 58, matches_won: 46, matches_lost: 12, sets_won: 100, sets_lost: 40, win_rate: 79, match_type: 'SNG', season: 2026 },
-    { position: 3, display_name: 'Adam Kowalczyk',   points: 2590, matches_played: 55, matches_won: 43, matches_lost: 12, sets_won: 94,  sets_lost: 38, win_rate: 78, match_type: 'SNG', season: 2026 },
-    { position: 4, display_name: 'Marcin Kowalski',  points: 2440, matches_played: 48, matches_won: 34, matches_lost: 14, sets_won: 80,  sets_lost: 42, win_rate: 71, match_type: 'SNG', season: 2026 },
-    { position: 5, display_name: 'Rafał Nowak',      points: 2380, matches_played: 52, matches_won: 35, matches_lost: 17, sets_won: 78,  sets_lost: 48, win_rate: 67, match_type: 'SNG', season: 2026 },
-    { position: 6, display_name: 'Paweł Zając',      points: 2250, matches_played: 44, matches_won: 28, matches_lost: 16, sets_won: 64,  sets_lost: 44, win_rate: 64, match_type: 'SNG', season: 2026 },
-    { position: 7, display_name: 'Łukasz Dąbrowski', points: 2180, matches_played: 41, matches_won: 26, matches_lost: 15, sets_won: 60,  sets_lost: 40, win_rate: 63, match_type: 'SNG', season: 2026 },
-    { position: 8, display_name: 'Marek Wróbel',     points: 2050, matches_played: 38, matches_won: 23, matches_lost: 15, sets_won: 54,  sets_lost: 42, win_rate: 61, match_type: 'SNG', season: 2026 },
-  ];
+  console.warn('[rankings] API error:', e);
 }
 
 const totalPlayers = players.length;
+const seasonLabel = defaultSeason === 'all' ? 'All-time' : `sezon ${defaultSeason}`;
 
 const initialPlayers = players.map(p => ({
   position: p.position,
@@ -47,12 +49,27 @@ const initialPlayers = players.map(p => ({
   matches_lost: p.matches_lost,
   win_rate: p.win_rate,
 }));
+
+function formatDate(iso: string) {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString('pl-PL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return iso;
+  }
+}
 ---
 
 <AppLayout
   title="Ranking"
   greeting="Ranking klubowy"
-  greetingSub={`${totalPlayers} graczy · sezon wiosna 2026`}
+  greetingSub={`${totalPlayers} graczy · ${seasonLabel}`}
   showCta={false}
   showSearch={false}
 >
@@ -61,10 +78,28 @@ const initialPlayers = players.map(p => ({
     initialPlayers={initialPlayers}
     isLive={isLive}
     totalPlayers={totalPlayers}
+    availableSeasons={availableSeasons}
+    defaultSeason={defaultSeason}
+    lastUpdate={rankingInfo ? formatDate(rankingInfo.last_run) : undefined}
   />
 </AppLayout>
 
 <style is:global>
+  /* ── Informacje o aktualizacji ─────────────────────────────────────────── */
+  .rk-update-info {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: var(--tc-muted);
+    margin-bottom: 16px;
+    padding: 0 4px;
+  }
+  .rk-update-info__sep {
+    opacity: 0.3;
+  }
+
   /* ── Moja pozycja (zielona karta - gdy zalogowany) ─────────────────────── */
   .rk-my {
     display: flex;
@@ -293,6 +328,14 @@ const initialPlayers = players.map(p => ({
     gap: 12px;
     padding: 14px 20px;
     border-bottom: 1px solid var(--tc-card-border);
+    flex-wrap: wrap;
+  }
+
+  .rk-card__controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .rk-card__title-wrap {
@@ -361,6 +404,15 @@ const initialPlayers = players.map(p => ({
     box-shadow: var(--tc-shadow);
   }
 
+  .rk-seg--more {
+    letter-spacing: 0.05em;
+    padding: 5px 10px;
+  }
+
+  .rk-all-time-mobile {
+    display: none;
+  }
+
   /* ── Table head ────────────────────────────────────────────────────────── */
   .rk-thead {
     display: grid;
@@ -392,11 +444,9 @@ const initialPlayers = players.map(p => ({
   .rk-row:last-child { border-bottom: none; }
   .rk-row:hover { background: var(--tc-overlay); }
 
-  .rk-row--first,
   .rk-row--me {
     background: var(--tc-accent-soft);
   }
-  .rk-row--first::before,
   .rk-row--me::before {
     content: '';
     position: absolute;
@@ -405,7 +455,6 @@ const initialPlayers = players.map(p => ({
     background: var(--tc-accent);
     border-radius: 0 2px 2px 0;
   }
-  .rk-row--first:hover,
   .rk-row--me:hover { background: var(--tc-accent-soft); }
 
   .rk-pos-badge {
@@ -601,6 +650,29 @@ const initialPlayers = players.map(p => ({
       flex-direction: column;
       gap: 4px;
       align-items: flex-start;
+    }
+    .rk-footer-label {
+      display: none;
+    }
+    .rk-card__controls {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 8px;
+    }
+    .rk-segmented {
+      width: 100%;
+    }
+    .rk-seg {
+      flex: 1;
+      text-align: center;
+      padding: 6px 4px;
+    }
+    .rk-all-time-desktop {
+      display: none;
+    }
+    .rk-all-time-mobile {
+      display: inline;
     }
   }
 </style>

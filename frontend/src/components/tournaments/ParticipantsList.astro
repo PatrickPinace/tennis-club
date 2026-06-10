@@ -1,28 +1,60 @@
 ---
 // ParticipantsList — public participants card shared across SGL, AMR, RND views.
+// phone_number widoczny tylko dla zalogowanych (isLoggedIn=true).
 interface Props {
   participants: Array<{
     display_name: string;
     seed_number?: number | null;
+    phone_number?: string | null;
   }>;
   count: number;
+  isLoggedIn?: boolean;
 }
 
-const { participants, count } = Astro.props;
+const { participants, count, isLoggedIn = false } = Astro.props;
 
 function getInitials(name: string): string {
   return name.split(' ').filter((w: string) => w && w !== '/').slice(0, 2).map((w: string) => w[0]).join('');
 }
+
+const listId = `pl-list-${Math.random().toString(36).slice(2, 7)}`;
 ---
 
 {participants.length > 0 && (
-  <div class="tc-card" style="margin-bottom:24px;">
-    <div class="tc-card-header">
-      <span class="tc-card-title">Uczestnicy ({count})</span>
+  <details class="tc-card" style="margin-bottom:24px;">
+    <summary class="tc-card-header" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+      <span class="tc-card-title">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--tc-accent);">
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+        </svg>
+        Uczestnicy ({count})
+      </span>
+      <div class="org-toggle-hint">
+        <span class="org-toggle-hint__label">rozwiń</span>
+        <svg class="org-toggle-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+    </summary>
+    <div class="org-search-box-row">
+      <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
+        <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input
+          type="search"
+          class="org-search-input"
+          placeholder="Szukaj uczestnika…"
+          aria-label="Szukaj uczestnika"
+          autocomplete="off"
+          data-pl-search={listId}
+          style="width: 100%;"
+        />
+      </div>
     </div>
-    <div class="td-participants-grid">
+    <div class="td-participants-grid" id={listId}>
       {participants.map(p => (
-        <div class="td-participant-card">
+        <div class="td-participant-card" data-name={p.display_name.toLowerCase()}>
           <div class="td-participant-card__avatar-wrap">
             <div class="td-participant-card__avatar" aria-hidden="true">
               {getInitials(p.display_name)}
@@ -38,9 +70,59 @@ function getInitials(name: string): string {
             <div class="td-participant-card__status">
               {p.seed_number ? `Rozstawiony #${p.seed_number}` : 'Uczestnik'}
             </div>
+            {isLoggedIn && p.phone_number && (
+              <a href={`tel:${p.phone_number}`} class="td-participant-phone">
+                📞 {p.phone_number}
+              </a>
+            )}
           </div>
         </div>
       ))}
     </div>
-  </div>
+    <div class="pl-empty" id={`${listId}-empty`} style="display:none; padding:12px 20px; font-size:0.82rem; color:var(--tc-muted);">
+      Brak uczestników pasujących do wyszukiwania.
+    </div>
+  </details>
 )}
+
+<script is:inline>
+  // is:inline — wykonuje się przy każdym renderze, nie jest deduplikowany przez Astro
+  (function() {
+    function initPlSearch() {
+      // Toggle details label text
+      document.querySelectorAll('details.tc-card').forEach(function(details) {
+        if (details.dataset.detailsInit) return;
+        details.dataset.detailsInit = '1';
+        var label = details.querySelector('.org-toggle-hint__label');
+        if (!label) return;
+        details.addEventListener('toggle', function() {
+          label.textContent = details.open ? 'zwiń' : 'rozwiń';
+        });
+      });
+
+      document.querySelectorAll('[data-pl-search]').forEach(function(input) {
+        if (input.dataset.plSearchInit) return; // już zainicjowany
+        input.dataset.plSearchInit = '1';
+        var listId = input.dataset.plSearch;
+        var list = document.getElementById(listId);
+        var empty = document.getElementById(listId + '-empty');
+        if (!list || !empty) return;
+        input.addEventListener('input', function() {
+          var q = input.value.toLowerCase().trim();
+          var visible = 0;
+          list.querySelectorAll('.td-participant-card').forEach(function(card) {
+            var match = !q || card.dataset.name.includes(q);
+            card.style.display = match ? '' : 'none';
+            if (match) visible++;
+          });
+          empty.style.display = visible === 0 ? '' : 'none';
+        });
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initPlSearch);
+    } else {
+      initPlSearch();
+    }
+  })();
+</script>

@@ -46,6 +46,7 @@ export interface Participant {
   seed_number: number | null;
   status: string;
   user_id: number | null;
+  phone_number?: string | null;
 }
 
 export interface Notification {
@@ -64,6 +65,11 @@ export interface NotificationsResponse {
   count: number;
 }
 
+export interface NotificationsWithMeta {
+  notifications: Notification[];
+  last_seen_at: string | null;
+}
+
 export interface UnreadCountResponse {
   count: number;
 }
@@ -75,6 +81,7 @@ export interface MatchUser {
   username: string;
   first_name: string;
   last_name: string;
+  phone_number?: string | null; // tylko w GET /api/matches/<id>/ dla uczestników
 }
 
 export interface MatchHistoryEntry {
@@ -104,6 +111,8 @@ export interface MatchHistoryEntry {
   confirmed_by?: MatchUser | null;
   is_tournament?: boolean;
   tournament_id?: number | null;
+  tournament_name?: string | null;
+  tournament_type?: string | null;
 }
 
 export interface RankingData {
@@ -130,6 +139,7 @@ export interface UserProfileData {
   city: string | null;
   birth_date: string | null;  // ISO date
   member_since: string | null; // ISO date (start_date lub date_joined)
+  phone_number: string | null;
 }
 
 export interface TournamentStats {
@@ -370,7 +380,8 @@ export const TOURNAMENT_TYPE_LABEL: Record<string, string> = {
 function getApiBase(): string {
   // process.env jest dostępne w runtime (Node adapter) — nie jest inlineowane przy buildzie.
   // import.meta.env.DJANGO_API_URL byłoby wkompilowane build-time → nie widzi Docker env.
-  return process.env.DJANGO_API_URL ?? 'http://localhost:8000';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (globalThis as any).process?.env?.DJANGO_API_URL ?? 'http://localhost:8000';
 }
 
 // ── Fetch helper ──────────────────────────────────────────────────────────────
@@ -544,6 +555,15 @@ export async function getDashboardSummary(
  * @param matchType 'SNG' | 'DBL' (domyślnie SNG)
  * @param year  rok sezonu lub 'all' dla all-time; undefined = najnowszy dostępny
  */
+export async function getRankingSeasons(
+  matchType: 'SNG' | 'DBL' = 'SNG',
+  cookie?: string
+): Promise<number[]> {
+  const params = new URLSearchParams({ type: matchType });
+  const data = await apiFetch<{ seasons: number[] }>(`/api/rankings/seasons/?${params}`, { sessionCookie: cookie });
+  return data?.seasons ?? [];
+}
+
 export async function getRankings(
   matchType: 'SNG' | 'DBL' = 'SNG',
   year?: string | number
@@ -551,6 +571,53 @@ export async function getRankings(
   const params = new URLSearchParams({ type: matchType });
   if (year !== undefined) params.set('year', String(year));
   const data = await apiFetch<PlayerRankingEntry[]>(`/api/rankings/list/?${params}`);
+  return data ?? [];
+}
+
+export interface RankingInfo {
+  last_run: string;
+  next_run: string;
+}
+
+export async function getRankingInfo(): Promise<RankingInfo | null> {
+  return apiFetch<RankingInfo>('/api/rankings/info/');
+}
+
+export interface ClubMatchEntry {
+  id: number;
+  source: 'tournament' | 'friendly';
+  tournament_id: number | null;
+  tournament_name: string | null;
+  tournament_type: string;
+  p1: string | null;
+  p2: string | null;
+  p3: string | null;
+  p4: string | null;
+  set1: string | null;
+  set2: string | null;
+  set3: string | null;
+  winner: string | null;
+  winner_side: 'p1' | 'p2' | null;
+  match_double: boolean;
+  match_date: string | null;
+}
+
+export type ClubMatchSource = 'tournament' | 'friendly' | 'all';
+
+/**
+ * Zwraca mecze w klubie.
+ * Endpoint: GET /api/matches/club/
+ * Auth: IsAuthenticated.
+ */
+export async function getClubMatches(
+  sessionCookie?: string,
+  limit = 30,
+  source: ClubMatchSource = 'tournament',
+): Promise<ClubMatchEntry[]> {
+  const data = await apiFetch<ClubMatchEntry[]>(
+    `/api/matches/club/?limit=${limit}&source=${source}`,
+    { sessionCookie },
+  );
   return data ?? [];
 }
 
@@ -642,7 +709,7 @@ export async function getMyReservations(
  */
 export async function getAllNotifications(
   sessionCookie?: string
-): Promise<Notification[]> {
-  const data = await apiFetch<Notification[]>('/api/notifications/', { sessionCookie });
-  return data ?? [];
+): Promise<NotificationsWithMeta> {
+  const data = await apiFetch<NotificationsWithMeta>('/api/notifications/', { sessionCookie });
+  return data ?? { notifications: [], last_seen_at: null };
 }

@@ -21,6 +21,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
     set1_p1_score: number|null; set1_p2_score: number|null;
     set2_p1_score: number|null; set2_p2_score: number|null;
     set3_p1_score: number|null; set3_p2_score: number|null;
+    winner_name?: string | null;
     round_number?: number; match_index?: number; bracket_type?: string;
     scheduled_time?: string | null;
   };
@@ -62,8 +63,17 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
       if (!list) return;
 
       function renderMatchCard(m: PMatch): string {
-        const p1 = escHtml(m.participant1_name ?? '—');
-        const p2 = escHtml(m.participant2_name ?? '—');
+        // Gracz zawsze po lewej — jeśli user jest participant2, swap stron wizualnie.
+        // Wartości inputów setów też zamieniamy (set_p1/set_p2 w formularzu = lewa/prawa strona),
+        // ale name atrybuty pozostają oryginalne bo payload do API zawsze idzie p1/p2 wg backendu.
+        const iAmP2 = m.participant2_id === myParticipant!.id;
+        const leftName  = iAmP2 ? m.participant2_name : m.participant1_name;
+        const rightName = iAmP2 ? m.participant1_name : m.participant2_name;
+        const leftId    = iAmP2 ? m.participant2_id   : m.participant1_id;
+        const rightId   = iAmP2 ? m.participant1_id   : m.participant2_id;
+
+        const p1 = escHtml(leftName  ?? '—');
+        const p2 = escHtml(rightName ?? '—');
         const isDone = m.status === 'CMP' || m.status === 'WDR';
         const isCnc  = m.status === 'CNC';
         const v = (n: number|null) => n !== null ? String(n) : '';
@@ -74,34 +84,39 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           : isDone ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">WO</span>`
           : '';
 
+        // Inputy setów: gdy user jest p2, lewy input (set_p1 w formularzu) = wynik p2 z backendu.
+        // name atrybuty: lewy input = set${s}_p1 gdy nie swap, set${s}_p2 gdy swap — API czyta
+        // set1_p1 jako wynik participant1, set1_p2 jako wynik participant2 i tak zostaje.
         const setsHtml = [1,2,3].map(s => {
-          const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
-          const v2 = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+          const origL = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+          const origR = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+          const [dispL, dispR] = iAmP2 ? [origR, origL] : [origL, origR];
+          const [nameL, nameR] = iAmP2 ? [`set${s}_p2`, `set${s}_p1`] : [`set${s}_p1`, `set${s}_p2`];
           return `<div class="org-set-group">
             <div class="org-set-label">Set ${s}</div>
             <div class="org-set-inputs">
               <input class="org-set-input" type="number" min="0" max="99"
-                name="set${s}_p1" placeholder="—" value="${v1}">
+                name="${nameL}" placeholder="—" value="${dispL}">
               <span class="org-set-sep">:</span>
               <input class="org-set-input" type="number" min="0" max="99"
-                name="set${s}_p2" placeholder="—" value="${v2}">
+                name="${nameR}" placeholder="—" value="${dispR}">
             </div>
           </div>`;
         }).join('');
 
-        const wdrSection = (m.participant1_id && m.participant2_id) ? `
+        const wdrSection = (leftId && rightId) ? `
           <div class="org-wdr-section">
             <label class="org-wdr-label">
               <input type="checkbox" class="org-wdr-checkbox ps-wdr-cb" data-match-id="${m.id}">
               <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="color:var(--danger,#ef4444);opacity:0.7;"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-              Walkover (WDR)
+              Walkover (<abbr title="Walkover — zwycięstwo bez gry, gdy przeciwnik się wycofuje lub nie stawi">WDR</abbr>)
             </label>
             <div class="org-wdr-winner" style="display:none;">
               <label style="font-size:0.78rem;color:var(--text-muted);">Kto się wycofuje:</label>
               <select class="org-wdr-select ps-wdr-loser">
                 <option value="">— wybierz —</option>
-                <option value="${m.participant2_id}">${p1} wycofuje się</option>
-                <option value="${m.participant1_id}">${p2} wycofuje się</option>
+                <option value="${rightId}">${p1} wycofuje się</option>
+                <option value="${leftId}">${p2} wycofuje się</option>
               </select>
             </div>
           </div>` : '';
@@ -128,13 +143,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             </div>
           </form>` : '';
 
-        const cardCls = [
-          'org-match',
-          isDone ? 'org-match--done' : '',
-          isCnc  ? 'org-match--cancelled' : '',
-          (!isDone && !isCnc) ? 'org-match--pending' : '',
-        ].filter(Boolean).join(' ');
-
         const bracketPrefix = m.bracket_type === 'L' ? 'L-' : m.bracket_type === 'GF' ? 'GF ' : '';
         const roundLabel = m.bracket_type === 'GF'
           ? `GF M${m.match_index}`
@@ -142,32 +150,107 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             ? `${bracketPrefix}R${m.round_number} M${m.match_index}`
             : '';
 
-        const statusBadge = m.status === 'CMP'
-          ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
-          : m.status === 'WDR'
-            ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
-            : m.status === 'CNC'
-              ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
-              : m.status === 'INP'
-                ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
-                : m.status === 'SCH'
-                  ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
-                  : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+        const MATCH_STATUS_LABEL: Record<string, string> = {
+          WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
+          CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
+        };
+        const statusBadge = m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status;
+
+        // parse scores
+        const sets: Array<{left: number, right: number}> = [];
+        let leftSetsWon: number | string = 0;
+        let rightSetsWon: number | string = 0;
+        
+        const s1_l = iAmP2 ? m.set1_p2_score : m.set1_p1_score;
+        const s1_r = iAmP2 ? m.set1_p1_score : m.set1_p2_score;
+        const s2_l = iAmP2 ? m.set2_p2_score : m.set2_p1_score;
+        const s2_r = iAmP2 ? m.set2_p1_score : m.set2_p2_score;
+        const s3_l = iAmP2 ? m.set3_p2_score : m.set3_p1_score;
+        const s3_r = iAmP2 ? m.set3_p1_score : m.set3_p2_score;
+
+        if (s1_l !== null && s1_r !== null) sets.push({ left: s1_l, right: s1_r });
+        if (s2_l !== null && s2_r !== null) sets.push({ left: s2_l, right: s2_r });
+        if (s3_l !== null && s3_r !== null) sets.push({ left: s3_l, right: s3_r });
+
+        const isWalkover = m.status === 'WDR';
+        const hasScore = sets.length > 0 || isWalkover;
+
+        if (isWalkover) {
+          const leftWon = m.winner_name === leftName;
+          leftSetsWon = leftWon ? 'W' : 'L';
+          rightSetsWon = leftWon ? 'L' : 'W';
+        } else if (hasScore) {
+          let w1 = 0, w2 = 0;
+          for (const s of sets) {
+            if (s.left > s.right) w1++;
+            else if (s.left < s.right) w2++;
+          }
+          leftSetsWon = w1;
+          rightSetsWon = w2;
+        }
+
+        const leftWonClass = isDone && (m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon)) ? 'fs-match__name--winner' : '';
+        const rightWonClass = isDone && (m.winner_name ? m.winner_name === rightName : Number(rightSetsWon) > Number(leftSetsWon)) ? 'fs-match__name--winner' : '';
+
+        let resultCls = '';
+        if (isCnc) {
+          resultCls = 'td-match--result-cnc';
+        } else if (isDone) {
+          const _lw = m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon);
+          resultCls = _lw ? 'td-match--result-won' : 'td-match--result-lost';
+        } else {
+          resultCls = m.status === 'INP' ? '' : 'td-match--result-pending';
+        }
+
+        const cardCls = [
+          'org-match',
+          'td-match',
+          'td-match--flashscore',
+          isDone ? 'org-match--done td-match--done' : '',
+          isCnc  ? 'org-match--cancelled' : '',
+          resultCls,
+        ].filter(Boolean).join(' ');
+
+        const leftWon = isDone && (m.winner_name ? m.winner_name === leftName : Number(leftSetsWon) > Number(rightSetsWon));
+        const overall1Cls = isDone ? (leftWon ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : '';
+        const overall2Cls = isDone ? (leftWon ? 'fs-match__score-overall--lost' : 'fs-match__score-overall--won') : '';
+
+        const scores1Html = hasScore
+          ? `<span class="fs-match__score-overall ${overall1Cls}">${leftSetsWon}</span>` +
+            sets.map(s => `<span class="fs-match__score-set ${s.left > s.right && isDone ? 'fs-match__score-set--won' : ''}">${s.left}</span>`).join('')
+          : `<span class="fs-match__status">${statusBadge}</span>`;
+
+        const scores2Html = hasScore
+          ? `<span class="fs-match__score-overall ${overall2Cls}">${rightSetsWon}</span>` +
+            sets.map(s => `<span class="fs-match__score-set ${s.right > s.left && isDone ? 'fs-match__score-set--won' : ''}">${s.right}</span>`).join('')
+          : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
+
+        const timeChip = m.scheduled_time
+          ? (() => { try {
+              const d = new Date(m.scheduled_time!);
+              return `<span class="org-match-time">${d.toLocaleDateString('pl-PL',{day:'2-digit',month:'2-digit'})}</span>`;
+            } catch { return ''; } })()
+          : '';
 
         return `<div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-          <div class="org-match-header">
-            <div class="org-match-meta">
-              ${roundLabel ? `
-              <div class="org-match-meta-top">
-                <span class="org-match-label">${roundLabel}</span>
-                <span class="org-status-mobile">${statusBadge}</span>
-              </div>` : ''}
-              <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
+          <div class="org-match-header org-match-header--flashscore">
+            <div class="fs-match-wrapper">
+              <div class="fs-match-meta-col">
+                ${roundLabel ? `<span class="fs-match-round-lbl">${roundLabel}</span>` : ''}
+                ${timeChip}
+              </div>
+              <div class="fs-match">
+                <div class="fs-match__row">
+                  <span class="fs-match__name ${leftWonClass}">${p1}</span>
+                  <div class="fs-match__scores">${scores1Html}</div>
+                </div>
+                <div class="fs-match__row">
+                  <span class="fs-match__name ${rightWonClass}">${p2}</span>
+                  <div class="fs-match__scores">${scores2Html}</div>
+                </div>
+              </div>
             </div>
-            <div class="org-match-right">
-              ${scoreChip}<span class="org-status-desktop">${statusBadge}</span>
-              ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
-            </div>
+            ${!isCnc ? `<span class="org-match-chevron">▼</span>` : ''}
           </div>
           ${form}
         </div>`;
@@ -276,7 +359,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const winnerId = loserIdInt === p1Id ? p2Id : p1Id;
 
           const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
-          const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+          let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+          if (stInput && !scheduledTimeVal) {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+            scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+          }
 
           let body: Record<string, unknown>;
           if (isWalkover) {

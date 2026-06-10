@@ -304,10 +304,21 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
           {user?.city && <span class="pf-dot">·</span>}
           {ranking !== null && <span>Ranking #{ranking}</span>}
         </div>
+        {user?.phone_number
+          ? <div class="pf-phone">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
+              <a href={`tel:${user.phone_number}`} class="pf-phone__link">{user.phone_number}</a>
+            </div>
+          : <div class="pf-phone pf-phone--empty">
+              <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/></svg>
+              <a href={url('/profile/edit')} class="pf-phone__add">Dodaj numer telefonu →</a>
+            </div>
+        }
       </div>
     </div>
     <div class="pf-hero__actions">
       <a href={url('/profile/edit')} class="pf-btn pf-btn--secondary">Edytuj profil</a>
+      <a href={url('/profile/change-password')} class="pf-btn pf-btn--secondary">Zmień hasło</a>
       <button class="pf-btn pf-btn--primary" id="pf-share-btn">Udostępnij →</button>
     </div>
   </div>
@@ -551,6 +562,22 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
 }
 
 .pf-dot { color: var(--tc-faint); }
+
+.pf-phone {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; margin-top: 6px;
+  color: var(--tc-sub);
+}
+.pf-phone svg { flex-shrink: 0; color: var(--tc-muted); }
+.pf-phone__link {
+  color: var(--tc-ink); text-decoration: none; font-weight: 500;
+}
+.pf-phone__link:hover { color: var(--tc-accent); }
+.pf-phone--empty { color: var(--tc-muted); }
+.pf-phone__add {
+  color: var(--tc-muted); font-size: 12px; text-decoration: none;
+}
+.pf-phone__add:hover { color: var(--tc-accent); }
 
 .pf-hero__actions {
   display: flex; gap: 8px;
@@ -900,7 +927,7 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   .pf-hero {
     flex-direction: column;
     align-items: flex-start;
-    padding: 20px;
+    padding: 16px;
   }
   .pf-hero__left {
     flex-direction: column;
@@ -912,15 +939,32 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
     font-size: 24px;
   }
   .pf-hero__name { font-size: 22px; }
+  .pf-role-badge { display: none; }
   .pf-hero__actions {
     width: 100%;
+    gap: 6px;
   }
-  .pf-hero__actions .pf-btn { flex: 1; text-align: center; }
+  .pf-hero__actions .pf-btn {
+    flex: 1;
+    text-align: center;
+    padding: 8px 6px;
+    font-size: 11.5px;
+  }
 
   .pf-stats {
     grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
-  .pf-stat-card__value { font-size: 28px; }
+  .pf-stat-card {
+    padding: 12px;
+    border-radius: 10px;
+  }
+  .pf-stat-card__value {
+    font-size: 26px;
+  }
+  .pf-stat-card__sub {
+    font-size: 10.5px;
+  }
 
   .pf-achievements {
     grid-template-columns: 1fr;
@@ -929,6 +973,8 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
   .pf-form-chart {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    padding: 12px 14px;
+    gap: 6px;
   }
   .pf-form-item {
     min-width: 60px;
@@ -938,9 +984,29 @@ function nd(val: number | string | null | undefined, suffix = ''): string {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+    padding: 12px 14px;
   }
   .pf-section-header__right {
+    width: 100%;
+    justify-content: space-between;
     gap: 10px;
+  }
+  .pf-stat-row {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .pf-stat-row__label {
+    font-size: 13px;
+  }
+  .pf-stat-row__detail {
+    font-size: 11px;
+  }
+  .pf-stat-row__value {
+    font-size: 18px;
+  }
+  .pf-stat-row__value--name {
+    font-size: 14px;
+    text-align: right;
   }
 }
 </style>

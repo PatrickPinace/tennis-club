@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import AddMatchForm from './AddMatchForm';
 
 interface MatchRow {
@@ -8,7 +8,9 @@ interface MatchRow {
   resultLetter: string;
   opponentFull: string;
   isDouble: boolean;
+  isTournament: boolean;
   date: string;
+  rawDate: string;   // "YYYY-MM-DD" — do sortowania
   score: string;
   setsScore: string;
   formatLabel: string;
@@ -20,11 +22,14 @@ interface Props {
   matches: MatchRow[];
   userDisplayName: string | null;
   addMatchUrl: string;
+  myId?: number;
   today?: string;
 }
 
 type FormatFilter = 'all' | 'SNG' | 'DBL';
 type ResultFilter = 'all' | 'win' | 'loss';
+type TypeFilter  = 'all' | 'friendly' | 'tournament';
+type SortOrder   = 'desc' | 'asc';
 
 const SearchIcon = () => (
   <svg className="m-search__icon" width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -48,6 +53,8 @@ const CheckIcon = () => (
 export default function MatchHistory({ matches, userDisplayName, addMatchUrl, myId, today }: Props) {
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
   const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
+  const [typeFilter,   setTypeFilter]   = useState<TypeFilter>('all');
+  const [sortOrder,    setSortOrder]    = useState<SortOrder>('desc');
   const [search, setSearch] = useState('');
   const [showBanner, setShowBanner] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -74,13 +81,19 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return matches.filter(m => {
+    let result = matches.filter(m => {
       if (formatFilter !== 'all' && m.format !== formatFilter) return false;
       if (resultFilter !== 'all' && m.result !== resultFilter) return false;
+      if (typeFilter === 'friendly'   && m.isTournament) return false;
+      if (typeFilter === 'tournament' && !m.isTournament) return false;
       if (q && !m.opponentFull.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [matches, formatFilter, resultFilter, search]);
+    if (sortOrder === 'asc') {
+      result = [...result].sort((a, b) => a.rawDate.localeCompare(b.rawDate));
+    }
+    return result;
+  }, [matches, formatFilter, resultFilter, typeFilter, sortOrder, search]);
 
   const total = matches.length;
   const wins = matches.filter(m => m.result === 'win').length;
@@ -97,6 +110,21 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
     }
   }
   const streakLetter = streakType === 'win' ? 'W' : streakType === 'loss' ? 'P' : 'R';
+
+  function pluralMecze(n: number): string {
+    if (n === 1) return '1 mecz';
+    if (n >= 2 && n <= 4) return `${n} mecze`;
+    return `${n} meczów`;
+  }
+
+  const hasActiveFilters = typeFilter !== 'all' || resultFilter !== 'all' || formatFilter !== 'all' || search !== '';
+
+  function clearFilters() {
+    setTypeFilter('all');
+    setResultFilter('all');
+    setFormatFilter('all');
+    setSearch('');
+  }
 
   return (
     <>
@@ -128,50 +156,84 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
           <div className="m-stat-card__value">
             {streak}<span className="m-stat-card__streak-letter">{streakLetter}</span>
           </div>
-          <div className="m-stat-card__sub">ostatnie {streak} mecze</div>
+          <div className="m-stat-card__sub">ostatnie {pluralMecze(streak)}</div>
         </div>
       </div>
 
       <section className="dash-card m-table-card">
-        <div className="dash-section-header">
+        {/* Rząd 1: tytuł + meta + search */}
+        <div className="m-header-row">
           <h2 className="dash-section-title">
             Historia meczów
             <span className="section-badge">{filtered.length}</span>
             {userDisplayName && <span className="m-my-chip">Twoja historia</span>}
           </h2>
+          <div className="m-search-wrap">
+            <SearchIcon />
+            <input
+              className="m-search"
+              type="search"
+              placeholder="Szukaj po nazwisku…"
+              autoComplete="off"
+              aria-label="Szukaj po przeciwniku"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Rząd 2: filtry treści + sortowanie odseparowane */}
+        <div className="m-filters-row">
           <div className="m-filter-groups">
-            <div className="m-search-wrap">
-              <SearchIcon />
-              <input
-                className="m-search"
-                type="search"
-                placeholder="Szukaj po nazwisku…"
-                autoComplete="off"
-                aria-label="Szukaj po przeciwniku"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+            <LabeledFilter label="Typ">
+              <SegmentedFilter
+                label="Typ meczu"
+                options={[
+                  { value: 'all',        label: 'Wszystkie'   },
+                  { value: 'friendly',   label: 'Towarzyskie' },
+                  { value: 'tournament', label: 'Turniejowe'  },
+                ]}
+                active={typeFilter}
+                onChange={v => setTypeFilter(v as TypeFilter)}
               />
-            </div>
-            <SegmentedFilter
-              label="Format"
-              options={[
-                { value: 'all', label: 'Wszystkie' },
-                { value: 'SNG', label: 'Singiel' },
-                { value: 'DBL', label: 'Debel' },
-              ]}
-              active={formatFilter}
-              onChange={v => setFormatFilter(v as FormatFilter)}
-            />
-            <SegmentedFilter
-              label="Wynik"
-              options={[
-                { value: 'all', label: 'Wszystkie' },
-                { value: 'win', label: 'Wygrane' },
-                { value: 'loss', label: 'Porażki' },
-              ]}
-              active={resultFilter}
-              onChange={v => setResultFilter(v as ResultFilter)}
-            />
+            </LabeledFilter>
+            <LabeledFilter label="Wynik">
+              <SegmentedFilter
+                label="Wynik"
+                options={[
+                  { value: 'all',  label: 'Wszystkie' },
+                  { value: 'win',  label: 'Wygrane'   },
+                  { value: 'loss', label: 'Porażki'   },
+                ]}
+                active={resultFilter}
+                onChange={v => setResultFilter(v as ResultFilter)}
+              />
+            </LabeledFilter>
+            <LabeledFilter label="Format">
+              <SegmentedFilter
+                label="Format"
+                options={[
+                  { value: 'all', label: 'Wszystkie' },
+                  { value: 'SNG', label: 'Singiel'   },
+                  { value: 'DBL', label: 'Debel'     },
+                ]}
+                active={formatFilter}
+                onChange={v => setFormatFilter(v as FormatFilter)}
+              />
+            </LabeledFilter>
+          </div>
+          <div className="m-sort-group">
+            <LabeledFilter label="Sortuj">
+              <SegmentedFilter
+                label="Sortowanie"
+                options={[
+                  { value: 'desc', label: 'Najnowsze'  },
+                  { value: 'asc',  label: 'Najstarsze' },
+                ]}
+                active={sortOrder}
+                onChange={v => setSortOrder(v as SortOrder)}
+              />
+            </LabeledFilter>
           </div>
         </div>
 
@@ -188,22 +250,32 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
             <div className="dash-empty-block__icon" aria-hidden="true">
               <TennisIcon />
             </div>
-            <p className="dash-empty-block__title">Brak meczów</p>
-            <p className="dash-empty-block__sub">
-              {total === 0
-                ? 'Nie rozegrałeś jeszcze żadnych meczów lub nie jesteś zalogowany.'
-                : 'Brak meczów pasujących do wybranych filtrów.'}
-            </p>
-            {total === 0 && (
-              <div className="dash-empty-block__links">
-                <button
-                  className="dash-btn-primary"
-                  style={{ border: 'none', cursor: 'pointer' }}
-                  onClick={() => myId ? setShowAddModal(true) : (window.location.href = addMatchUrl)}
-                >
-                  Dodaj pierwszy mecz
-                </button>
-              </div>
+            {total === 0 ? (
+              <>
+                <p className="dash-empty-block__title">Brak historii meczów</p>
+                <p className="dash-empty-block__sub">Nie masz jeszcze żadnych zapisanych meczów. Dodaj swój pierwszy mecz towarzyski lub dołącz do turnieju.</p>
+                <div className="dash-empty-block__links">
+                  <button
+                    className="dash-btn-primary"
+                    style={{ border: 'none', cursor: 'pointer' }}
+                    onClick={() => myId ? setShowAddModal(true) : (window.location.href = addMatchUrl)}
+                  >
+                    Dodaj pierwszy mecz
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="dash-empty-block__title">Brak wyników dla tych filtrów</p>
+                <p className="dash-empty-block__sub">Żaden z Twoich {pluralMecze(total)} nie pasuje do wybranych kryteriów.</p>
+                {hasActiveFilters && (
+                  <div className="dash-empty-block__links">
+                    <button className="dash-link-sm" style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={clearFilters}>
+                      Wyczyść filtry
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -255,6 +327,15 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
         </div>
       )}
     </>
+  );
+}
+
+function LabeledFilter({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="m-labeled-filter">
+      <span className="m-filter-label">{label}</span>
+      {children}
+    </div>
   );
 }
 

@@ -8,6 +8,11 @@ interface Notification {
   target_url: string | null;
 }
 
+interface NotifResponse {
+  notifications: Notification[];
+  last_seen_at: string | null;
+}
+
 interface Props {
   initialUnread: number;
   notificationsUrl: string;
@@ -38,11 +43,18 @@ function escHtml(s: string): string {
   return d.innerHTML;
 }
 
+function isNew(createdAt: string, lastSeenAt: string | null): boolean {
+  if (!lastSeenAt) return true;
+  return new Date(createdAt) > new Date(lastSeenAt);
+}
+
 export default function NotificationBell({ initialUnread, notificationsUrl }: Props) {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[] | null>(null);
   const [unreadCount, setUnreadCount] = useState(initialUnread);
+  const [lastSeenAt, setLastSeenAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const seenPostedRef = useRef(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   const loadNotifications = useCallback(async () => {
@@ -50,9 +62,10 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
     try {
       const res = await fetch('/api/notifications/', { credentials: 'include' });
       if (!res.ok) throw new Error();
-      const data: Notification[] = await res.json();
-      setNotifications(data.slice(0, 10));
-      setUnreadCount(data.filter(n => !n.is_read).length);
+      const data: NotifResponse = await res.json();
+      setNotifications(data.notifications.slice(0, 10));
+      setUnreadCount(data.notifications.filter(n => !n.is_read).length);
+      setLastSeenAt(data.last_seen_at);
     } catch {
       setNotifications([]);
     } finally {
@@ -60,13 +73,26 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
     }
   }, []);
 
+  const postSeen = useCallback((): Promise<void> => {
+    return fetch('/api/notifications/seen/', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-CSRFToken': getCsrf(), 'Content-Type': 'application/json' },
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => { if (data?.last_seen_at) setLastSeenAt(data.last_seen_at); })
+      .catch(() => {});
+  }, []);
+
+  // Pobierz unread count przy mount (bez otwierania panelu)
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch('/api/notifications/', { credentials: 'include', redirect: 'manual' });
         if (res.type === 'opaqueredirect' || !res.ok) return;
-        const data: Notification[] = await res.json();
-        setUnreadCount(data.filter(n => !n.is_read).length);
+        const data: NotifResponse = await res.json();
+        setUnreadCount(data.notifications.filter(n => !n.is_read).length);
+        setLastSeenAt(data.last_seen_at);
       } catch {}
     })();
   }, []);
@@ -84,8 +110,14 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
   const handleToggle = () => {
     const next = !open;
     setOpen(next);
-    if (next && notifications === null) {
-      loadNotifications();
+    if (next) {
+      if (!seenPostedRef.current) {
+        // Pierwsze otwarcie: POST /seen/ najpierw, potem load — żeby GET widział już nowy timestamp
+        seenPostedRef.current = true;
+        postSeen().then(() => loadNotifications());
+      } else if (notifications === null) {
+        loadNotifications();
+      }
     }
   };
 
@@ -101,7 +133,6 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
 
   const handleItemClick = (n: Notification) => {
     if (!n.is_read) {
-      // Optimistic update
       setNotifications(prev => prev?.map(x => x.id === n.id ? { ...x, is_read: true } : x) ?? null);
       setUnreadCount(c => Math.max(0, c - 1));
       markRead(n.id);
@@ -173,7 +204,11 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
               >
                 <div className="topbar__notif-dot" />
                 <div className="topbar__notif-body">
-                  <p className="topbar__notif-msg" dangerouslySetInnerHTML={{ __html: escHtml(n.message) }} />
+                  <p className="topbar__notif-msg" dangerouslySetInnerHTML={{
+                    __html: (isNew(n.created_at, lastSeenAt)
+                      ? '<span class="topbar__notif-new">NEW</span>'
+                      : '') + escHtml(n.message)
+                  }} />
                   <time className="topbar__notif-time">{fmtTime(n.created_at)}</time>
                 </div>
               </div>

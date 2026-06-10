@@ -59,10 +59,12 @@ import { initViewToggle } from './org-view-toggle';
     if (lockedMsg) lockedMsg.style.display = '';
   }
 
+  const myParticipantId = panel.dataset.myParticipantId ? parseInt(panel.dataset.myParticipantId, 10) : null;
+
   const cfg: OrgPanelConfig = {
     panel, tournamentId, createdBy, tStatus, tType,
     setsToWin, pointsPerMatch, apiBase, isSGL, isDBE, isAMR, isLDR,
-    locked, lockedHard,
+    locked, lockedHard, myParticipantId,
   };
 
   // Shared mutable match state

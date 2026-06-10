@@ -58,7 +58,7 @@ export default function StatsStrip({
             );
           })}
           <span className="stats-strip__bars-summary">
-            <span style={{ color: 'var(--tc-accent)', fontWeight: 700 }}>{matchesWon} wygranych</span> · {matchesLost} porażki
+            <span style={{ color: 'var(--tc-accent)', fontWeight: 700 }}>{matchesWon} wygranych</span> · <span style={{ color: 'var(--tc-hot)', fontWeight: 700 }}>{matchesLost} porażki</span>
           </span>
         </div>
       </div>

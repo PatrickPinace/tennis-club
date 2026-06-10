@@ -3,8 +3,74 @@
 import { escHtml, abbrev } from './helpers';
 
 (() => {
+  // Public filter logic
+  const filterBar = document.getElementById('pub-matches-filter-bar');
+  const filterGroup = document.getElementById('pub-filter-group');
+  const searchInputs = document.querySelectorAll<HTMLInputElement>('.pub-matches-search-input');
+
+  function applyFilter(filter: string) {
+    const searchInput = document.querySelector('.pub-matches-search-input') as HTMLInputElement | null;
+    const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const matches = document.querySelectorAll<HTMLElement>('.td-round .td-match');
+    let totalVisible = 0;
+
+    matches.forEach(m => {
+      const status = m.dataset.status ?? '';
+      const isPending = ['WAI', 'SCH', 'INP'].includes(status);
+      const isDone = ['CMP', 'WDR'].includes(status);
+
+      let matchesFilter = true;
+      if (filter === 'pending') {
+        matchesFilter = isPending;
+      } else if (filter === 'done') {
+        matchesFilter = isDone;
+      }
+
+      let matchesSearch = true;
+      if (q) {
+        const names = Array.from(m.querySelectorAll('.fs-match__name')).map(el => el.textContent?.toLowerCase() ?? '');
+        matchesSearch = names.some(name => name.includes(q));
+      }
+
+      const visible = matchesFilter && matchesSearch;
+      m.style.display = visible ? '' : 'none';
+      if (visible) totalVisible++;
+    });
+
+    // Hide empty rounds
+    document.querySelectorAll<HTMLElement>('.td-round').forEach(round => {
+      const matchesInRound = round.querySelectorAll<HTMLElement>('.td-match');
+      let hasVisible = false;
+      matchesInRound.forEach(m => {
+        if (m.style.display !== 'none') {
+          hasVisible = true;
+        }
+      });
+      round.style.display = hasVisible ? '' : 'none';
+    });
+
+    // Toggle empty message
+    document.querySelectorAll<HTMLElement>('.pub-matches-empty').forEach(emptyEl => {
+      emptyEl.style.display = totalVisible === 0 ? '' : 'none';
+    });
+  }
+
+  // Bind search input listeners
+  searchInputs.forEach(input => {
+    input.addEventListener('input', () => {
+      const activeFilterBtn = filterGroup?.querySelector('.org-filter-btn--active') as HTMLButtonElement | null;
+      const activeFilter = activeFilterBtn?.dataset.filter ?? 'all';
+      applyFilter(activeFilter);
+    });
+  });
+
   const toggle = document.getElementById('matches-view-toggle');
-  if (!toggle) return; // nie ma toggle → nie RR lub brak meczów
+  if (!toggle) {
+    if (searchInputs.length > 0) {
+      applyFilter('all');
+    }
+    return;
+  }
 
   const roundEls   = document.querySelectorAll<HTMLElement>('.td-round');
   const matrixWrap = document.getElementById('rr-matrix-wrap');
@@ -95,20 +161,45 @@ import { escHtml, abbrev } from './helpers';
     wrap.innerHTML = html;
   }
 
+  if (filterGroup) {
+    filterGroup.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        filterGroup.querySelectorAll('.org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
+        btn.classList.add('org-filter-btn--active');
+        const filter = btn.dataset.filter ?? 'all';
+        applyFilter(filter);
+      });
+    });
+  }
+
   let matrixBuilt = false;
   toggle.querySelectorAll<HTMLButtonElement>('.view-toggle__btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const view = btn.dataset.view;
       toggle.querySelectorAll('.view-toggle__btn').forEach(b => b.classList.remove('view-toggle__btn--active'));
       btn.classList.add('view-toggle__btn--active');
+      const searchRow = document.getElementById('matches-search-row');
       if (view === 'matrix') {
         roundEls.forEach(el => el.style.display = 'none');
         matrixWrap.style.display = '';
+        if (filterBar) filterBar.style.display = 'none';
+        if (searchRow) searchRow.style.display = 'none';
         if (!matrixBuilt) { buildPublicMatrix(); matrixBuilt = true; }
       } else {
-        roundEls.forEach(el => el.style.display = '');
+        const activeFilterBtn = filterGroup?.querySelector('.org-filter-btn--active') as HTMLButtonElement | null;
+        const activeFilter = activeFilterBtn?.dataset.filter ?? 'all';
+        applyFilter(activeFilter);
+        if (filterBar) filterBar.style.display = 'flex';
+        if (searchRow) searchRow.style.display = 'flex';
         matrixWrap.style.display = 'none';
       }
     });
   });
+
+  // Initialize filtering on load
+  if (filterGroup) {
+    const activeFilterBtn = filterGroup.querySelector('.org-filter-btn--active') as HTMLButtonElement | null;
+    const activeFilter = activeFilterBtn?.dataset.filter ?? 'all';
+    applyFilter(activeFilter);
+  }
 })();

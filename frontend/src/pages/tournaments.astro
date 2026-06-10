@@ -45,15 +45,6 @@ if (currentUser) {
   } catch {}
 }
 
-// ── Fallback demo ───────────────────────────────────────────────────────────
-if (tournaments.length === 0) {
-  tournaments = [
-    { id: 1, name: 'Puchar Jesieni 2026', description: '', tournament_type: 'SGL', match_format: 'SNG', start_date: '2026-10-28T09:00:00', end_date: '2026-10-29T18:00:00', status: 'REG', rank: 1, is_ranked: true, participant_count: 16, created_by_name: 'Admin', facility_name: 'Korty Otwock', matches_progress: null },
-    { id: 2, name: 'Liga Zimowa — Runda 3', description: '', tournament_type: 'RND', match_format: 'SNG', start_date: '2026-11-15T10:00:00', end_date: '2026-11-15T20:00:00', status: 'REG', rank: 2, is_ranked: true, participant_count: 9, created_by_name: 'Admin', facility_name: 'Hala Praga', matches_progress: null },
-    { id: 3, name: 'Americano Sobotni #8', description: '', tournament_type: 'AMR', match_format: 'DBL', start_date: '2026-11-05T10:00:00', end_date: '2026-11-05T16:00:00', status: 'ACT', rank: 3, is_ranked: false, participant_count: 6, created_by_name: 'Admin', facility_name: 'Korty Otwock', matches_progress: { done: 2, total: 4 } },
-    { id: 5, name: 'Liga Letnia — Finał', description: '', tournament_type: 'RND', match_format: 'SNG', start_date: '2026-09-10T09:00:00', end_date: '2026-09-11T18:00:00', status: 'FIN', rank: 1, is_ranked: true, participant_count: 12, created_by_name: 'Admin', facility_name: 'Korty Otwock', matches_progress: null },
-  ] as TournamentListEntry[];
-}
 
 // ── Stałe mapy ──────────────────────────────────────────────────────────────
 const TYPE_LABEL: Record<string, string> = {
@@ -159,9 +150,6 @@ const tournamentRows = publicTournaments.map(t => ({
     box-shadow: 0 2px 8px var(--tc-accent-glow);
   }
 
-  @media (max-width: 640px) {
-    .tr-mobile-cta { display: block; }
-  }
 
   /* ── Stat cards ──────────────────────────────────────────────────────────── */
   .tr-stats {
@@ -714,7 +702,8 @@ const tournamentRows = publicTournaments.map(t => ({
     .tr-stat-val { font-size: 1.6rem; }
 
     .tr-featured__info { padding: 18px 16px; }
-    .tr-featured__name { font-size: 1.2rem; }
+    .tr-featured__name { font-size: 1.1rem; }
+    .tr-featured__meta { font-size: 0.72rem; }
     .tr-featured__standings { padding: 16px; }
     .tr-featured__actions { flex-direction: column; gap: 6px; }
     .tr-btn-primary, .tr-btn-secondary { text-align: center; }

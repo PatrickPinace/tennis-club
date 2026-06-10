@@ -17,18 +17,68 @@ export type MatchCallbacks = {
 function isPending(m: MatchData) { return PENDING_STATUSES.has(m.status); }
 function isDone(m: MatchData)    { return DONE_STATUSES.has(m.status); }
 
+function matchesSearch(m: MatchData, query: string): boolean {
+  // Wyszukiwanie jednego lub dwóch tokenów.
+  // Jeden token ("rusin") — pasuje jeśli którykolwiek uczestnik zawiera ten token.
+  // Dwa tokeny ("dubiel rusin") — pasuje jeśli każdy token trafia w innego uczestnika
+  // (czyli: dubiel gra z rusinem, niezależnie od kolejności).
+  const names = [
+    m.participant1_name ?? '',
+    m.participant2_name ?? '',
+    m.participant3_name ?? '',
+    m.participant4_name ?? '',
+  ].map(n => n.toLowerCase());
+
+  const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  if (tokens.length === 1) return names.some(n => n.includes(tokens[0]));
+
+  // Dwa lub więcej tokenów: każdy musi pasować do co najmniej jednego uczestnika,
+  // przy czym dwa różne tokeny mogą trafić w tego samego gracza (np. "tomasz rusin").
+  // Ale dla wyszukiwania pary chcemy żeby KAŻDY token był gdzieś w liście uczestników.
+  return tokens.every(tok => names.some(n => n.includes(tok)));
+}
+
 function filterMatches(state: MatchState): MatchData[] {
   let list = state.allMatches;
   if (state.activeFilter === 'pending') list = list.filter(isPending);
   else if (state.activeFilter === 'done') list = list.filter(isDone);
   if (state.searchQuery) {
-    const q = state.searchQuery.toLowerCase();
-    list = list.filter(m =>
-      (m.participant1_name ?? '').toLowerCase().includes(q) ||
-      (m.participant2_name ?? '').toLowerCase().includes(q)
-    );
+    list = list.filter(m => matchesSearch(m, state.searchQuery));
   }
   return list;
+}
+
+function getMatchResultClass(
+  m: MatchData,
+  isDoneVal: boolean,
+  p1SetsWon: number | string,
+  p2SetsWon: number | string,
+  p1: string,
+  myParticipantId: number | null | undefined,
+): string {
+  if (m.status === 'CNC') return 'td-match--result-cnc';
+  if (!isDoneVal) {
+    return m.status === 'INP' ? '' : 'td-match--result-pending';
+  }
+  if (!myParticipantId) {
+    return 'td-match--result-neutral';
+  }
+
+  const isDoubles = m.participant3_id != null || m.participant4_id != null;
+  const userInTeamA = m.participant1_id === myParticipantId || (isDoubles && m.participant4_id === myParticipantId);
+  const userInTeamB = m.participant2_id === myParticipantId || (isDoubles && m.participant3_id === myParticipantId);
+
+  if (!userInTeamA && !userInTeamB) {
+    return 'td-match--result-neutral';
+  }
+
+  const teamAWon = m.winner_name
+    ? (m.winner_name === p1)
+    : (Number(p1SetsWon) > Number(p2SetsWon));
+
+  const userWon = (userInTeamA && teamAWon) || (userInTeamB && !teamAWon);
+  return userWon ? 'td-match--result-won' : 'td-match--result-lost';
 }
 
 export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
@@ -44,24 +94,6 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
     ? `GF M${m.match_index}`
     : `${bracketPrefix}R${m.round_number} M${m.match_index}`;
 
-  const statusBadge = m.status === 'CMP'
-    ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
-    : m.status === 'WDR'
-      ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Walkower</span>`
-      : m.status === 'CNC'
-        ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Odwołany</span>`
-        : m.status === 'INP'
-          ? `<span class="tc-badge tc-badge-warning" style="font-size:0.68rem;">W trakcie</span>`
-          : m.status === 'SCH'
-            ? `<span class="tc-badge tc-badge-info" style="font-size:0.68rem;">Zaplanowany</span>`
-            : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
-
-  const scoreChip = m.score
-    ? `<span class="org-match-score org-match-score--done">${escHtml(m.score)}</span>`
-    : m.status === 'WDR' && m.winner_name
-      ? `<span class="org-match-score" style="font-size:0.72rem;">WO: ${escHtml(m.winner_name)}</span>`
-      : '';
-
   const timeChip = m.scheduled_time
     ? (() => { try {
         const d = new Date(m.scheduled_time!);
@@ -69,51 +101,143 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       } catch { return ''; } })()
     : '';
 
-  const isPendingMatch = PENDING_STATUSES.has(m.status);
-  const cardCls = [
-    'org-match',
-    isDone(m) ? 'org-match--done' : '',
-    m.status === 'CNC' ? 'org-match--cancelled' : '',
-    isPendingMatch ? 'org-match--pending' : '',
-  ].filter(Boolean).join(' ');
-
   // BYE — mecz bez jednego z uczestników (może być p1 lub p2), zawsze read-only
   const isBye = !m.participant1_id || !m.participant2_id;
   if (isBye) {
+    const statusBadge = m.status === 'CMP'
+      ? `<span class="tc-badge tc-badge-neutral" style="font-size:0.68rem;">Zakończony</span>`
+      : `<span class="tc-badge" style="font-size:0.68rem;background:var(--surface-2);color:var(--text-dim);">Oczekuje</span>`;
+    const byeCls = [
+      'org-match',
+      'td-match',
+      'td-match--flashscore',
+      m.status === 'CMP' ? 'org-match--done td-match--done td-match--result-neutral' : 'org-match--pending td-match--result-pending',
+    ].join(' ');
     return `
-      <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
+      <div class="${byeCls}" data-match-id="${m.id}" data-status="${m.status}">
         <div class="org-match-header">
           <div class="org-match-meta">
             <div class="org-match-meta-top">
               <span class="org-match-label">${roundLabel}</span>
-              <span class="org-status-mobile">${statusBadge}</span>
             </div>
             <span class="org-match-players">${m.participant1_id ? p1 : p2}<span class="vs" style="opacity:0.4;">vs</span><span style="color:var(--text-dim);font-style:italic;">BYE</span></span>
           </div>
           <div class="org-match-right">
-            <span class="org-status-desktop">${statusBadge}</span>
             <span style="font-size:0.72rem;color:var(--text-dim);margin-left:4px;">wolny los</span>
           </div>
         </div>
       </div>`;
   }
 
+  // Parse match score values for flashscore display
+  const sets = [];
+  let p1SetsWon: number | string = 0;
+  let p2SetsWon: number | string = 0;
+
+  if (m.set1_p1_score !== null && m.set1_p2_score !== null) {
+    sets.push({ p1: m.set1_p1_score, p2: m.set1_p2_score });
+  }
+  if (m.set2_p1_score !== null && m.set2_p2_score !== null) {
+    sets.push({ p1: m.set2_p1_score, p2: m.set2_p2_score });
+  }
+  if (m.set3_p1_score !== null && m.set3_p2_score !== null) {
+    sets.push({ p1: m.set3_p1_score, p2: m.set3_p2_score });
+  }
+
+  const isWalkover = m.status === 'WDR';
+  const hasScore = sets.length > 0 || isWalkover;
+
+  if (isWalkover) {
+    const p1WonVal = m.winner_name === p1;
+    p1SetsWon = p1WonVal ? 'W' : 'L';
+    p2SetsWon = p1WonVal ? 'L' : 'W';
+  } else if (hasScore) {
+    let w1 = 0, w2 = 0;
+    for (const s of sets) {
+      if (s.p1 > s.p2) w1++;
+      else if (s.p1 < s.p2) w2++;
+    }
+    p1SetsWon = w1;
+    p2SetsWon = w2;
+  }
+
+  const isDoneVal = m.status === 'CMP' || m.status === 'WDR';
+  const p1Won = isDoneVal && (m.winner_name ? m.winner_name === p1 : Number(p1SetsWon) > Number(p2SetsWon));
+  const p2Won = isDoneVal && (m.winner_name ? m.winner_name === p2 : Number(p2SetsWon) > Number(p1SetsWon));
+
+  const resultCls = getMatchResultClass(m, isDoneVal, p1SetsWon, p2SetsWon, p1, cfg.myParticipantId);
+
+  const cardCls = [
+    'org-match',
+    'td-match',
+    'td-match--flashscore',
+    isDoneVal ? 'org-match--done td-match--done' : '',
+    m.status === 'CNC' ? 'org-match--cancelled td-match--result-cnc' : '',
+    resultCls,
+  ].filter(Boolean).join(' ');
+
+  const MATCH_STATUS_LABEL: Record<string, string> = {
+    WAI: 'Oczekuje', SCH: 'Zaplanowany', INP: 'W trakcie',
+    CMP: 'Zakończony', WDR: 'Walkower', CNC: 'Odwołany',
+  };
+
+  const statusLabel = m.status === 'INP' ? '● Live' : MATCH_STATUS_LABEL[m.status] ?? m.status;
+
+  const setsHtmlP1 = sets.map(s => {
+    return `<span class="fs-match__score-set ${s.p1 > s.p2 && isDoneVal ? 'fs-match__score-set--won' : ''}">${s.p1}</span>`;
+  }).join('');
+
+  const setsHtmlP2 = sets.map(s => {
+    return `<span class="fs-match__score-set ${s.p2 > s.p1 && isDoneVal ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`;
+  }).join('');
+
+  const scoreScoresHtmlP1 = hasScore ? `
+    <span class="fs-match__score-overall ${isDoneVal ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p1SetsWon}</span>
+    ${setsHtmlP1}
+  ` : `
+    <span class="fs-match__status">${statusLabel}</span>
+  `;
+
+  const scoreScoresHtmlP2 = hasScore ? `
+    <span class="fs-match__score-overall ${isDoneVal ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}">${p2SetsWon}</span>
+    ${setsHtmlP2}
+  ` : `
+    <span class="fs-match__status" style="visibility: hidden;">${statusLabel}</span>
+  `;
+
+  const headerHtml = `
+    <div class="org-match-header org-match-header--flashscore">
+      <div class="fs-match-wrapper">
+        <div class="fs-match-meta-col">
+          <span class="fs-match-round-lbl">${roundLabel}</span>
+          ${timeChip}
+        </div>
+        <div class="fs-match">
+          <div class="fs-match__row">
+            <span class="fs-match__name ${p1Won ? 'fs-match__name--winner' : ''}">${p1}</span>
+            <div class="fs-match__scores">
+              ${scoreScoresHtmlP1}
+            </div>
+          </div>
+          <div class="fs-match__row">
+            <span class="fs-match__name ${p2Won ? 'fs-match__name--winner' : ''}">${p2}</span>
+            <div class="fs-match__scores">
+              ${scoreScoresHtmlP2}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="org-match-right">
+        ${(m.status !== 'CNC' && !cfg.locked) ? '<span class="org-match-chevron">▼</span>' : ''}
+      </div>
+    </div>
+  `;
+
   // Read-only for CNC or locked panel
   if (m.status === 'CNC' || cfg.locked) {
     return `
       <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-        <div class="org-match-header">
-          <div class="org-match-meta">
-            <div class="org-match-meta-top">
-              <span class="org-match-label">${roundLabel}</span>
-              <span class="org-status-mobile">${statusBadge}</span>
-            </div>
-            <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
-          </div>
-          <div class="org-match-right">
-            ${scoreChip}${timeChip}<span class="org-status-desktop">${statusBadge}</span>
-          </div>
-        </div>
+        ${headerHtml}
       </div>`;
   }
 
@@ -137,7 +261,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       <label class="org-wdr-label">
         <input type="checkbox" name="walkover" class="org-wdr-checkbox" data-match-id="${m.id}">
         <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="color:var(--danger,#ef4444);opacity:0.7;"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
-        Walkover (WDR)
+        Walkover (<abbr title="Walkover — zwycięstwo bez gry, gdy przeciwnik się wycofuje lub nie stawi">WDR</abbr>)
       </label>
       <div class="org-wdr-winner" style="display:none;">
         <label style="font-size:0.78rem;color:var(--tc-muted);font-weight:600;">Zwycięzca:</label>
@@ -197,19 +321,7 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
 
   return `
     <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
-      <div class="org-match-header">
-        <div class="org-match-meta">
-          <div class="org-match-meta-top">
-            <span class="org-match-label">${roundLabel}</span>
-            <span class="org-status-mobile">${statusBadge}</span>
-          </div>
-          <span class="org-match-players">${p1} <span class="vs">vs</span> ${p2}</span>
-        </div>
-        <div class="org-match-right">
-          ${scoreChip}${timeChip}<span class="org-status-desktop">${statusBadge}</span>
-          <span class="org-match-chevron">▼</span>
-        </div>
-      </div>
+      ${headerHtml}
       <form class="org-score-form" data-match-id="${m.id}">
         <div class="org-form-row">
           ${setsHtml}
@@ -278,7 +390,11 @@ export async function handleScoreSubmit(
   const isWalkover = wdrCheckbox?.checked ?? false;
 
   const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
-  const scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+  let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
+  if (stInput && !scheduledTimeVal) {
+    const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+    scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
+  }
 
   let body: Record<string, unknown>;
 
@@ -297,8 +413,8 @@ export async function handleScoreSubmit(
     const s2p1 = getVal('set2_p1'), s2p2 = getVal('set2_p2');
     const s3p1 = getVal('set3_p1'), s3p2 = getVal('set3_p2');
 
-    // Walidacja tenisowa dla SGL / DBE / LDR — AMR i RND mają własne reguły backendowe
-    if (cfg.isSGL || cfg.isDBE || cfg.isLDR) {
+    // Walidacja tenisowa dla SGL / DBE / LDR / RND — AMR ma własne reguły backendowe
+    if (cfg.isSGL || cfg.isDBE || cfg.isLDR || (!cfg.isAMR)) {
       // Set 1 wymagany
       const rejectValidation = (msg: string) => {
         if (msgEl) { msgEl.textContent = msg; msgEl.className = 'org-form-msg org-form-msg--err'; }
@@ -474,12 +590,12 @@ export function applyMatchFilter(
 
   const pendingCount = state.allMatches.filter(isPending).length;
   const doneCount    = state.allMatches.filter(isDone).length;
-  document.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+  document.querySelectorAll<HTMLButtonElement>('#org-filter-group .org-filter-btn').forEach(btn => {
     const f = btn.dataset.filter!;
     const count = f === 'pending' ? pendingCount : f === 'done' ? doneCount : state.allMatches.length;
-    btn.textContent = f === 'pending' ? `Do wpisania${count ? ` (${count})` : ''}`
-                    : f === 'done'    ? `Zakończone${count ? ` (${count})` : ''}`
-                    :                   `Wszystkie (${count})`;
+    btn.innerHTML = f === 'pending' ? `Do wpisania${count ? ` <span class="org-filter-count">(${count})</span>` : ''}`
+                  : f === 'done'    ? `Zakończone${count ? ` <span class="org-filter-count">(${count})</span>` : ''}`
+                  :                   `Wszystkie <span class="org-filter-count">(${count})</span>`;
   });
 
   if (!filtered.length) {
@@ -571,9 +687,9 @@ export function applyMatchFilter(
 }
 
 export function initMatchFilters(state: MatchState, cfg: OrgPanelConfig, cbs: MatchCallbacks) {
-  document.querySelectorAll<HTMLButtonElement>('.org-filter-btn').forEach(btn => {
+  document.querySelectorAll<HTMLButtonElement>('#org-filter-group .org-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
+      document.querySelectorAll('#org-filter-group .org-filter-btn').forEach(b => b.classList.remove('org-filter-btn--active'));
       btn.classList.add('org-filter-btn--active');
       state.activeFilter = btn.dataset.filter ?? 'all';
       applyMatchFilter(cfg, state, cbs);

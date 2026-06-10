@@ -10,17 +10,19 @@ class ProfileUpdateForm(forms.ModelForm):
     
     class Meta:
         model = Profile
-        fields = ['birth_date', 'city', 'start_date', 'image']
+        fields = ['birth_date', 'city', 'start_date', 'image', 'phone_number']
         widgets = {
             'birth_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d'),
             'start_date': forms.DateInput(attrs={'type': 'date', 'class': 'form-control'}, format='%Y-%m-%d'),
             'city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. Warszawa'}),
             'image': forms.FileInput(attrs={'style': 'display: none;', 'id': 'id_image'}),
+            'phone_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'np. +48 600 123 456'}),
         }
         # Używamy extra_kwargs, aby ustawić pola jako nieobowiązkowe
         extra_kwargs = {
             'birth_date': {'required': False},
             'start_date': {'required': False},
+            'phone_number': {'required': False},
         }
         error_messages = {
             'birth_date': {

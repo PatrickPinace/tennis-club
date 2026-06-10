@@ -519,7 +519,7 @@ function MyReservationsList({
     }
   };
 
-  const cancelSeries = async (resId: number, seriesId: number) => {
+  const cancelSeries = async (resId: number, seriesId: string) => {
     try {
       const res = await fetch(`/api/courts/series/${seriesId}/`, {
         method: 'DELETE',

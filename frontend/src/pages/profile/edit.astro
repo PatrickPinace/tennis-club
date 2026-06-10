@@ -20,6 +20,7 @@ const initialData = {
   city: user?.city ?? '',
   birthDate: user?.birth_date ?? '',
   username: user?.username ?? '—',
+  phoneNumber: user?.phone_number ?? '',
 };
 ---
 
@@ -120,6 +121,13 @@ const initialData = {
   color: var(--tc-sub);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.edit-hint {
+  font-size: 0.75rem;
+  color: var(--tc-muted);
+  margin-top: 4px;
+  display: block;
 }
 
 .label-optional {

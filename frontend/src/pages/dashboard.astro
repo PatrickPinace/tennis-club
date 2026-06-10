@@ -13,6 +13,7 @@ import {
   getUserProfile,
   getAllNotifications,
   getMyReservations,
+  getMyTournaments,
   TOURNAMENT_STATUS_LABEL,
   TOURNAMENT_TYPE_LABEL,
   type TournamentListEntry,
@@ -46,6 +47,15 @@ const [currentUser, apiTournaments, matchHistoryRaw, profileData, rawNotificatio
 
 const tStats = profileData?.tournament_stats ?? null;
 
+// Turnieje, do których zalogowany użytkownik jest zapisany — do odznaki "Zapisano"
+let myTournamentIds: Set<number> = new Set();
+if (currentUser) {
+  try {
+    const mine = await getMyTournaments(sessionCookie);
+    myTournamentIds = new Set(mine.map(t => t.id));
+  } catch {}
+}
+
 /// Powiadomienia: tryb static — nie możemy pobrać cookie sesji w build-time
 // Liczba powiadomień ładowana jest client-side przez JS (patrz script na końcu)
 // Gdy backend niedostępny lub niezalogowany — graceful degradation (brak odznaki)
@@ -69,6 +79,8 @@ const liveTournaments = apiTournaments.map((t: TournamentListEntry) => ({
   status: t.status === 'REG' ? 'open' : t.status === 'SCH' ? 'scheduled' : 'active',
   statusLabel: TOURNAMENT_STATUS_LABEL[t.status] ?? t.status,
   participants: t.participant_count,
+  joined: myTournamentIds.has(t.id),
+  isRegOpen: t.status === 'REG',
 }));
 
 const tournaments = liveTournaments;
@@ -77,7 +89,7 @@ const isLiveData = liveTournaments.length > 0;
 // ── Normalizacja mixed activity feed (via feedNormalizer.ts) ─────────────────
 const urlBase = url('').replace(/\/$/, '');
 const matchItems    = matchesToFeedItems(matchHistoryRaw, urlBase);
-const notifItems    = notificationsToFeedItems(rawNotifications, Date.now() - 30 * 86_400_000);
+const notifItems    = notificationsToFeedItems(rawNotifications.notifications, Date.now() - 30 * 86_400_000);
 const reservItems   = reservationsToFeedItems(rawReservations, urlBase, true);
 
 // Dashboard teaserowy: maks. 3 per typ, limit 6
@@ -559,7 +571,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   /* ── Tournaments table ─────────────────────────────────────────────────── */
   .tourn-table-head {
     display: grid;
-    grid-template-columns: 28px 1fr 120px 60px 80px;
+    grid-template-columns: 28px 1fr 120px 60px 80px 90px;
     gap: 12px;
     padding: 8px 20px;
     border-bottom: 1px solid var(--tc-card-border-soft);
@@ -591,7 +603,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .dash-row:last-child { border-bottom: none; }
 
   .tourn-row {
-    grid-template-columns: 28px 1fr 120px 60px 80px;
+    grid-template-columns: 28px 1fr 120px 60px 80px 90px;
     align-items: center;
   }
 
@@ -645,6 +657,37 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   .tourn-status--active    { color: var(--tc-accent); }
   .tourn-status--scheduled { color: var(--tc-sub); }
 
+  .tourn-row__join {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .tourn-row__joined-badge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    background: var(--tc-accent-soft);
+    border: 1px solid var(--tc-accent-border);
+    color: var(--tc-accent);
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .tourn-row__join-cta {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    background: color-mix(in srgb, var(--tc-win) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tc-win) 35%, transparent);
+    color: var(--tc-win);
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: transform 0.1s, background 0.1s;
+  }
+  .dash-row:hover .tourn-row__join-cta {
+    transform: translateY(-1px);
+  }
+
   .tourn-status__dot {
     width: 5px;
     height: 5px;
@@ -694,7 +737,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
 
   .stats-bar { width: 10px; border-radius: 2px; }
   .stats-bar--win { background: var(--tc-accent); height: 24px; }
-  .stats-bar--loss { background: var(--tc-faint); opacity: 0.6; height: 14px; }
+  .stats-bar--loss { background: var(--tc-hot); height: 14px; }
 
   .stats-strip__bars-summary {
     margin-left: 8px;
@@ -709,7 +752,7 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   @media (max-width: 1024px) {
     .main-grid { grid-template-columns: 1fr; }
     .main-col-right { order: -1; }
-    .tourn-table-head, .tourn-row { grid-template-columns: 28px 1fr 70px 50px; }
+    .tourn-table-head, .tourn-row { grid-template-columns: 28px 1fr 70px 50px 80px; }
     .th-type, .tourn-row__type { display: none; }
     .stats-strip { grid-template-columns: repeat(2, 1fr); }
     .stats-strip__form { grid-column: span 2; }
@@ -720,11 +763,36 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
     .main-col-left, .main-col-right { gap: 12px; }
     .dash-section-header { padding: 12px 16px; margin: -20px -20px 0; }
     .dash-card { padding: 16px; }
-    .tourn-table-head, .tourn-row { grid-template-columns: 1fr 60px; padding: 10px 16px; }
+    .tourn-table-head, .tourn-row { grid-template-columns: 1fr 56px 70px; padding: 10px 16px; }
     .th-num, .tourn-row__num, .th-type, .tourn-row__type, .th-players, .tourn-row__players { display: none; }
+    .tourn-row__joined-badge, .tourn-row__join-cta { font-size: 0.6rem; padding: 2px 6px; }
     .stats-strip { grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
     .stats-strip__form { grid-column: span 2; }
-    .stats-strip__bars-summary { display: none; }
+    .stats-strip__bars {
+      height: auto;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .stats-bar {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+    .stats-bar--win {
+      height: 14px;
+    }
+    .stats-bar--loss {
+      height: 14px;
+    }
+    .stats-strip__bars-summary {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 0.72rem;
+      white-space: normal;
+      align-self: center;
+      padding-bottom: 0;
+    }
   }
 
   /* Activity feed — is:global bo lista wstrzykiwana przez JS (innerHTML) */

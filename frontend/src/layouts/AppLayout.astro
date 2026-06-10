@@ -72,7 +72,10 @@ const currentPath = Astro.url.pathname;
     <>
       <script is:inline define:vars={{ gaMeasurementId }}>
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
+        // Jawne przypisanie do window, aby funkcja była dostępna globalnie
+        window.gtag = window.gtag || function() {
+          window.dataLayer.push(arguments);
+        };
 
         const storedConsent = localStorage.getItem('tc_cookie_consent');
         let consent = null;
@@ -80,7 +83,8 @@ const currentPath = Astro.url.pathname;
           consent = storedConsent ? JSON.parse(storedConsent) : null;
         } catch(e) {}
 
-        gtag('consent', 'default', {
+        // Wywołanie default przed załadowaniem gtag.js
+        window.gtag('consent', 'default', {
           'analytics_storage': consent && consent.statistics ? 'granted' : 'denied',
           'ad_storage': consent && consent.marketing ? 'granted' : 'denied',
           'ad_user_data': consent && consent.marketing ? 'granted' : 'denied',
@@ -120,6 +124,7 @@ const currentPath = Astro.url.pathname;
       ctaLabelMobile={ctaLabelMobile}
       ctaHref={ctaHref}
       unreadCount={unreadCount}
+      currentUser={currentUser}
     />
 
     <main id="main-content" class="app-content">
@@ -182,6 +187,70 @@ const currentPath = Astro.url.pathname;
     display: flex; flex-direction: column;
     min-height: 100vh;
     background: var(--tc-bg);
+    position: relative;
+  }
+
+  /* Pseudoelement obsługujący połączone tło i gradienty */
+  .app-main::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-size: cover;
+    background-attachment: fixed;
+    transition: filter 0.3s ease, background 0.3s ease;
+  }
+
+  /* Zastosowanie tła i nakładek dla motywu jasnego */
+  :global([data-theme="light"]) .app-main::before {
+    background-image: 
+      radial-gradient(circle at center, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.15) 100%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.25) 0%, rgba(255, 255, 255, 0.65) 100%),
+      url('/static/img/background_01.png');
+    filter: grayscale(1);
+    opacity: 0.45;
+  }
+
+  /* Zastosowanie tła dla motywu ciemnego (subtelna tekstura o bardzo niskim kryciu) */
+  :global([data-theme="dark"]) .app-main::before {
+    background-image: url('/static/img/background_01.png');
+    filter: invert(1);
+    opacity: 0.06;
+  }
+
+  /* Zapewnienie, że zawartość wyświetla się nad nakładką tła */
+  .app-main > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Pseudoelement dla ozdobnego blasku (glow) */
+  .app-main::after {
+    content: "";
+    position: absolute;
+    top: 25%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 500px;
+    height: 300px;
+    border-radius: 50%;
+    filter: blur(100px);
+    z-index: 0;
+    pointer-events: none;
+    transition: background 0.3s ease;
+  }
+
+  /* Blask w motywie jasnym (neutralny szary) */
+  :global([data-theme="light"]) .app-main::after {
+    background: rgba(200, 200, 200, 0.12);
+  }
+
+  /* Blask w motywie ciemnym (neonowa limonka tenisowa) */
+  :global([data-theme="dark"]) .app-main::after {
+    background: rgba(200, 241, 97, 0.08);
   }
 
   .app-content {

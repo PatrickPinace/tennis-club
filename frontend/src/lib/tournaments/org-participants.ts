@@ -95,16 +95,22 @@ function makeAutocomplete(
 
   inputEl.addEventListener('keydown', (e) => {
     const items = getItems();
-    if (!items.length) return;
     if (e.key === 'ArrowDown')  { e.preventDefault(); setHL(Math.min(highlightIdx+1, items.length-1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHL(Math.max(highlightIdx-1, 0)); }
-    else if (e.key === 'Enter' && highlightIdx >= 0) {
+    else if (e.key === 'Enter') {
       e.preventDefault();
-      const item = items[highlightIdx];
-      onSelect({ id: Number(item.dataset.uid), display: item.dataset.name! });
-      inputEl.value = item.dataset.name!;
-      close();
-      if (onConfirm) onConfirm();
+      if (highlightIdx >= 0 && items[highlightIdx]) {
+        // Wybierz zaznaczony element z dropdown
+        const item = items[highlightIdx];
+        onSelect({ id: Number(item.dataset.uid), display: item.dataset.name! });
+        inputEl.value = item.dataset.name!;
+        close();
+        if (onConfirm) onConfirm();
+      } else if (onConfirm) {
+        // Dropdown zamknięty — spróbuj dodać z aktualnie wybranym użytkownikiem
+        close();
+        onConfirm();
+      }
     } else if (e.key === 'Escape') { close(); }
   });
 

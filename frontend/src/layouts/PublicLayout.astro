@@ -79,7 +79,10 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
     <>
       <script is:inline define:vars={{ gaMeasurementId }}>
         window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
+        // Jawne przypisanie do window, aby funkcja była dostępna globalnie
+        window.gtag = window.gtag || function() {
+          window.dataLayer.push(arguments);
+        };
 
         const storedConsent = localStorage.getItem('tc_cookie_consent');
         let consent = null;
@@ -87,7 +90,8 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
           consent = storedConsent ? JSON.parse(storedConsent) : null;
         } catch(e) {}
 
-        gtag('consent', 'default', {
+        // Wywołanie default przed załadowaniem gtag.js
+        window.gtag('consent', 'default', {
           'analytics_storage': consent && consent.statistics ? 'granted' : 'denied',
           'ad_storage': consent && consent.marketing ? 'granted' : 'denied',
           'ad_user_data': consent && consent.marketing ? 'granted' : 'denied',
@@ -113,35 +117,46 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
 </head>
 
 <body class="flex flex-col min-h-screen bg-bg text-text font-['Times_New_Roman',Times,serif]">
-  <nav class="sticky top-0 z-[200] bg-white/95 backdrop-blur-[10px] border-b border-border h-[64px] sm:h-[72px] flex items-center">
+  <nav class="sticky top-0 z-[200] bg-[#111827]/95 backdrop-blur-[10px] border-b border-gray-800 h-[64px] sm:h-[72px] flex items-center">
     <div class="max-w-content mx-auto w-full px-4 sm:px-8 flex justify-between items-center gap-4">
-      <a href={url('/')} class="text-[1.1rem] sm:text-2xl font-extrabold text-[#16a34a] no-underline tracking-[-0.02em] whitespace-nowrap shrink-0">🎾 Tennis Club</a>
+      <a href={url('/')} class="flex items-center gap-3 no-underline shrink-0 group">
+        <div class="w-9 h-9 rounded-[10px] bg-[#5a7d22] text-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-105" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M6.3 6.3c2.4 2.4 2.4 9 0 11.4M17.7 6.3c-2.4 2.4-2.4 9 0 11.4"/>
+          </svg>
+        </div>
+        <span class="text-[1.35rem] font-black text-white tracking-[-0.02em] font-serif leading-none">Tennis Club</span>
+      </a>
       <!-- Linki nawigacyjne — desktop only -->
-      <div class="hidden lg:flex gap-6 text-[0.875rem] font-medium text-[#475569]">
-        <a href={url('/dla-klubow')} class="hover:text-[#16a34a] transition-colors no-underline">Dla klubów</a>
-        <a href={url('/rezerwacje-kortow')} class="hover:text-[#16a34a] transition-colors no-underline">Rezerwacje</a>
-        <a href={url('/turnieje-ligi-rankingi')} class="hover:text-[#16a34a] transition-colors no-underline">Turnieje</a>
-        <a href={url('/cennik')} class="hover:text-[#16a34a] transition-colors no-underline">Cennik</a>
+      <div class="hidden lg:flex gap-6 text-[0.875rem] font-sans font-medium text-gray-300">
+        <a href={url('/dla-klubow')} class="hover:text-[#5a7d22] transition-colors no-underline">Dla klubów</a>
+        <a href={url('/rezerwacje-kortow')} class="hover:text-[#5a7d22] transition-colors no-underline">Rezerwacje</a>
+        <a href={url('/turnieje-ligi-rankingi')} class="hover:text-[#5a7d22] transition-colors no-underline">Turnieje</a>
+        <a href={url('/cennik')} class="hover:text-[#5a7d22] transition-colors no-underline">Cennik</a>
       </div>
       <div class="nav-actions shrink-0">
         {currentUser ? (
-          <a href={url('/dashboard')} class="tc-btn tc-btn-primary tc-btn-sm">Panel główny</a>
+          <a href={url('/dashboard')} class="tc-btn tc-btn-secondary tc-btn-sm md:h-[40px] md:px-5 md:text-[0.875rem] !bg-gray-800/80 !border-gray-700 !text-gray-200 hover:!bg-gray-700">Panel główny</a>
         ) : (
           <div class="relative flex items-center">
             <!-- Desktop: Dwa przyciski -->
             <div class="hidden md:flex gap-[0.75rem]">
-              <a href={url('/login')} class="tc-btn tc-btn-secondary tc-btn-sm md:h-[40px] md:px-5 md:text-[0.875rem]">Zaloguj się</a>
-              <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm md:h-[40px] md:px-5 md:text-[0.875rem]">Zarejestruj się</a>
+              <a href={url('/login')} class="tc-btn tc-btn-secondary tc-btn-sm md:h-[40px] md:px-5 md:text-[0.875rem] !bg-gray-800/80 !border-gray-700 !text-gray-200 hover:!bg-gray-700">Zaloguj się</a>
+              <a href={url('/register')} class="tc-btn tc-btn-primary tc-btn-sm md:h-[40px] md:px-5 md:text-[0.875rem] !bg-[#5a7d22] !border-[#5a7d22] !text-white hover:!bg-[#47621a]">Zarejestruj się</a>
             </div>
             
-            <!-- Mobile: Jeden przycisk z menu -->
+            <!-- Mobile: Jeden przycisk z menu (sama ikona) -->
             <div class="flex md:hidden relative">
-              <button id="mobile-auth-btn" class="tc-btn tc-btn-primary tc-btn-sm max-sm:!py-[6px] max-sm:!px-[12px] max-sm:!text-[0.75rem]">
-                Logowanie ▾
+              <button id="mobile-auth-btn" class="w-9 h-9 rounded-full bg-[#5a7d22] text-white flex items-center justify-center hover:bg-[#47621a] focus:outline-none transition-all duration-200 shrink-0" aria-label="Konto użytkownika">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
               </button>
-              <div id="mobile-auth-dropdown" class="auth-dropdown absolute top-full right-0 mt-2 w-48 bg-surface border border-border shadow-lg rounded-md overflow-hidden z-[300] hidden flex-col [&.is-open]:flex divide-y divide-border">
-                <a href={url('/login')} class="px-4 py-2.5 sm:py-3 text-[0.825rem] sm:text-sm text-text hover:bg-bg transition-colors no-underline">Zaloguj się</a>
-                <a href={url('/register')} class="px-4 py-2.5 sm:py-3 text-[0.825rem] sm:text-sm text-text hover:bg-bg transition-colors no-underline">Zarejestruj się</a>
+              <div id="mobile-auth-dropdown" class="auth-dropdown absolute top-full right-0 mt-2 w-48 bg-gray-900 border border-gray-800 shadow-lg rounded-md overflow-hidden z-[300] hidden flex-col [&.is-open]:flex divide-y divide-gray-800">
+                <a href={url('/login')} class="px-4 py-2.5 sm:py-3 text-[0.825rem] sm:text-sm text-gray-200 hover:bg-gray-800 transition-colors no-underline">Zaloguj się</a>
+                <a href={url('/register')} class="px-4 py-2.5 sm:py-3 text-[0.825rem] sm:text-sm text-gray-200 hover:bg-gray-800 transition-colors no-underline">Zarejestruj się</a>
               </div>
             </div>
           </div>
@@ -171,38 +186,76 @@ const gaMeasurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
     <slot />
   </main>
 
-  <footer class="px-4 pt-8 pb-4 bg-bg-secondary border-t border-border text-[0.875rem]">
+  <footer class="px-6 py-16 bg-[#111827] border-t border-gray-800 text-[0.875rem] font-sans text-gray-300">
     <div class="max-w-content mx-auto">
-      <!-- Kolumny linków -->
-      <div class="flex flex-wrap gap-x-12 gap-y-6 mb-6">
-        <div>
-          <div class="font-semibold text-[#0f172a] mb-2 text-[0.8rem] uppercase tracking-wide">Portal</div>
-          <ul class="space-y-1.5 list-none p-0 m-0">
-            <li><a href={url('/dla-klubow')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Dla klubów</a></li>
-            <li><a href={url('/rezerwacje-kortow')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Rezerwacje kortów</a></li>
-            <li><a href={url('/turnieje-ligi-rankingi')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Turnieje i rankingi</a></li>
-            <li><a href={url('/cennik')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Cennik</a></li>
-            <li><a href={url('/kontakt')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Kontakt</a></li>
+      <!-- Główna siatka stopek -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
+        
+        <!-- Kolumna 1: Brand i Opis -->
+        <div class="lg:col-span-2 flex flex-col gap-5">
+          <a href={url('/')} class="flex items-center gap-3 no-underline shrink-0 group w-fit">
+            <div class="w-9 h-9 rounded-[10px] bg-[#5a7d22] text-white flex items-center justify-center shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-105" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M6.3 6.3c2.4 2.4 2.4 9 0 11.4M17.7 6.3c-2.4 2.4-2.4 9 0 11.4"/>
+              </svg>
+            </div>
+            <span class="text-[1.35rem] font-black text-white tracking-[-0.02em] font-serif leading-none">Tennis Club</span>
+          </a>
+          <p class="text-gray-400 leading-[1.65] max-w-[36ch] m-0">
+            Nowoczesny portal dla miłośników tenisa. Ułatwiamy rezerwację kortów, łączymy graczy i rozwijamy lokalne społeczności sportowe.
+          </p>
+          <div class="flex flex-col gap-2.5 mt-2">
+            <div class="flex items-center gap-2.5 text-gray-400 hover:text-[#5a7d22] transition-colors group w-fit">
+              <svg class="shrink-0 transition-transform group-hover:scale-110" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              <a href="mailto:itprima@medi3.pl" class="text-[0.85rem] text-gray-400 group-hover:text-[#5a7d22] no-underline font-medium transition-colors">itprima@medi3.pl</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kolumna 2: Portal -->
+        <div class="flex flex-col gap-4">
+          <div class="font-bold text-white text-[0.75rem] uppercase tracking-[0.12em]">Portal</div>
+          <ul class="space-y-3 list-none p-0 m-0">
+            <li><a href={url('/dla-klubow')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Dla klubów</a></li>
+            <li><a href={url('/rezerwacje-kortow')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Rezerwacje kortów</a></li>
+            <li><a href={url('/turnieje-ligi-rankingi')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Turnieje i rankingi</a></li>
+            <li><a href={url('/cennik')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Cennik</a></li>
+            <li><a href={url('/kontakt')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Kontakt</a></li>
           </ul>
         </div>
-        <div>
-          <div class="font-semibold text-[#0f172a] mb-2 text-[0.8rem] uppercase tracking-wide">Konto</div>
-          <ul class="space-y-1.5 list-none p-0 m-0">
-            <li><a href={url('/register')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Zarejestruj się</a></li>
-            <li><a href={url('/login')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Zaloguj się</a></li>
+
+        <!-- Kolumna 3: Konto -->
+        <div class="flex flex-col gap-4">
+          <div class="font-bold text-white text-[0.75rem] uppercase tracking-[0.12em]">Konto</div>
+          <ul class="space-y-3 list-none p-0 m-0">
+            <li><a href={url('/register')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Zarejestruj się</a></li>
+            <li><a href={url('/login')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Zaloguj się</a></li>
           </ul>
         </div>
-        <div>
-          <div class="font-semibold text-[#0f172a] mb-2 text-[0.8rem] uppercase tracking-wide">Prawne</div>
-          <ul class="space-y-1.5 list-none p-0 m-0">
-            <li><a href={url('/polityka-prywatnosci')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Polityka prywatności</a></li>
-            <li><a href={url('/regulamin')} class="text-text-muted hover:text-[#16a34a] no-underline transition-colors">Regulamin</a></li>
+
+        <!-- Kolumna 4: Prawne -->
+        <div class="flex flex-col gap-4">
+          <div class="font-bold text-white text-[0.75rem] uppercase tracking-[0.12em]">Prawne</div>
+          <ul class="space-y-3 list-none p-0 m-0">
+            <li><a href={url('/polityka-prywatnosci')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Polityka prywatności</a></li>
+            <li><a href={url('/regulamin')} class="text-gray-400 hover:text-[#5a7d22] no-underline transition-all hover:translate-x-1 inline-block transform duration-150">Regulamin</a></li>
           </ul>
         </div>
+
       </div>
-      <!-- Copyright -->
-      <div class="border-t border-border pt-3 text-center text-text-muted text-[0.8rem]">
-        &copy; {new Date().getFullYear()} Tennis Club / portal.raketon.pl. Wszystkie prawa zastrzeżone.
+
+      <!-- Dolny panel: Copyright -->
+      <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500 text-[0.8rem]">
+        <div>
+          &copy; {new Date().getFullYear()} Tennis Club / portal.raketon.pl. Wszystkie prawa zastrzeżone.
+        </div>
+        <div class="flex gap-4">
+          <span class="text-gray-600">Stworzone z pasją do tenisa</span>
+        </div>
       </div>
     </div>
   </footer>

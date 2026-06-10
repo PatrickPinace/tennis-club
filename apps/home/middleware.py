@@ -70,3 +70,51 @@ class BlockBotsMiddleware:
             return HttpResponseForbidden("Forbidden: Suspicious activity detected.")
 
         return self.get_response(request)
+
+
+class PageViewMiddleware:
+    """
+    Middleware do śledzenia odsłon stron przez użytkowników i gości.
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        # Logujemy odsłonę strony tylko dla standardowych ścieżek
+        path = request.path
+        # Ignorujemy pliki statyczne, media, panel admina, debug toolbar i health checki
+        if not any(path.startswith(prefix) for prefix in ['/static/', '/media/', '/manage/', '/__debug__/', '/health/']):
+            try:
+                from .models import PageView
+
+                # Pobranie adresu IP (obsługuje proxy)
+                x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+                if x_forwarded_for:
+                    ip = x_forwarded_for.split(',')[0].strip()
+                else:
+                    ip = request.META.get('REMOTE_ADDR')
+
+                # Ignoruj ruch z IP 51.83.160.216 (wewnętrzna konfiguracja Astro / OVHCloud)
+                if ip == '51.83.160.216':
+                    return response
+
+                user_agent = request.META.get('HTTP_USER_AGENT', '')
+                method = request.method
+                session_key = request.session.session_key if hasattr(request, 'session') else None
+                user = request.user if hasattr(request, 'user') and request.user.is_authenticated else None
+
+                PageView.objects.create(
+                    path=path,
+                    ip_address=ip,
+                    user_agent=user_agent,
+                    method=method,
+                    session_key=session_key,
+                    user=user
+                )
+            except Exception:
+                # Ciche zignorowanie błędów zapisu (np. brak zmigrowanej tabeli)
+                pass
+
+        return response

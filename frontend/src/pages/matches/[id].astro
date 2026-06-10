@@ -151,10 +151,17 @@ const iAmParticipant = iAmP1 || iAmP2;
             <div class={`tc-avatar tc-avatar-md${u.id === myId ? ' tc-avatar--me' : ''}`} aria-hidden="true">
               {userInitials(u)}
             </div>
-            <div class="match-team__name">
-              {p1Won && <span class="winner-trophy" title="Zwycięzca" style="margin-right: 6px; font-size: 0.95rem;">🏆</span>}
-              {userName(u)}
-              {u.id === myId && <span class="me-badge">Ty</span>}
+            <div class="match-team__info">
+              <div class="match-team__name">
+                {p1Won && <span class="winner-trophy" title="Zwycięzca" style="margin-right: 6px; font-size: 0.95rem;">🏆</span>}
+                {userName(u)}
+                {u.id === myId && <span class="me-badge">Ty</span>}
+              </div>
+              {u.id !== myId && u.phone_number && (
+                <a href={`tel:${u.phone_number}`} class="match-player-phone">
+                  📞 {u.phone_number}
+                </a>
+              )}
             </div>
           </div>
         ))}
@@ -190,10 +197,17 @@ const iAmParticipant = iAmP1 || iAmP2;
             <div class={`tc-avatar tc-avatar-md${u.id === myId ? ' tc-avatar--me' : ''}`} aria-hidden="true">
               {userInitials(u)}
             </div>
-            <div class="match-team__name">
-              {u.id === myId && <span class="me-badge">Ty</span>}
-              {userName(u)}
-              {p2Won && <span class="winner-trophy" title="Zwycięzca" style="margin-left: 6px; font-size: 0.95rem;">🏆</span>}
+            <div class="match-team__info">
+              <div class="match-team__name">
+                {u.id === myId && <span class="me-badge">Ty</span>}
+                {userName(u)}
+                {p2Won && <span class="winner-trophy" title="Zwycięzca" style="margin-left: 6px; font-size: 0.95rem;">🏆</span>}
+              </div>
+              {u.id !== myId && u.phone_number && (
+                <a href={`tel:${u.phone_number}`} class="match-player-phone">
+                  📞 {u.phone_number}
+                </a>
+              )}
             </div>
           </div>
         ))}
@@ -312,10 +326,19 @@ const iAmParticipant = iAmP1 || iAmP2;
     flex-direction: row-reverse;
   }
 
+  .match-team__info {
+    display: flex; flex-direction: column; gap: 3px;
+  }
   .match-team__name {
     font-size: 1.05rem; color: var(--tc-sub);
     display: flex; align-items: center; gap: 6px;
   }
+  .match-player-phone {
+    font-size: 0.78rem; color: var(--tc-muted);
+    text-decoration: none;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .match-player-phone:hover { color: var(--tc-accent); }
 
   .team-won-badge {
     display: inline-flex; align-items: center;

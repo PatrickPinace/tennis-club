@@ -109,6 +109,10 @@ export default function CreateTournamentWizard({ manageUrl, tournamentBaseUrl }:
   const [ptsLoss, setPtsLoss] = useState(1);
   const [ptsSetWin, setPtsSetWin] = useState(0.5);
   const [ptsSetLoss, setPtsSetLoss] = useState(0);
+  const [ptsGemWin, setPtsGemWin] = useState(0.1);
+  const [ptsGemLoss, setPtsGemLoss] = useState(-0.1);
+  const [ptsStbWin, setPtsStbWin] = useState(0.05);
+  const [ptsStbLoss, setPtsStbLoss] = useState(-0.05);
   const [tiebreak, setTiebreak] = useState('HEAD');
 
   // Step 2 — SGL
@@ -275,6 +279,10 @@ export default function CreateTournamentWizard({ manageUrl, tournamentBaseUrl }:
               points_for_loss: ptsLoss,
               points_for_set_win: ptsSetWin,
               points_for_set_loss: ptsSetLoss,
+              points_for_gem_win: ptsGemWin,
+              points_for_gem_loss: ptsGemLoss,
+              points_for_supertiebreak_win: ptsStbWin,
+              points_for_supertiebreak_loss: ptsStbLoss,
               tie_breaker_priority: tiebreak,
             }),
           });
@@ -438,12 +446,38 @@ export default function CreateTournamentWizard({ manageUrl, tournamentBaseUrl }:
                   <Spinner label="Maks. uczestników" value={maxPart} onChange={setMaxPart} min={2} max={128} />
                 </div>
 
-                <div className="cfg-group-label" style={{ marginTop: '20px' }}>Punkty</div>
-                <div className="cfg-spinners-row">
-                  <Spinner label="Za wygraną" value={ptsWin} onChange={setPtsWin} min={0} max={100} step={0.5} />
-                  <Spinner label="Za przegraną" value={ptsLoss} onChange={setPtsLoss} min={0} max={100} step={0.5} />
-                  <Spinner label="Za wygrany set" value={ptsSetWin} onChange={setPtsSetWin} min={0} max={100} step={0.5} />
-                  <Spinner label="Za przegrany set" value={ptsSetLoss} onChange={setPtsSetLoss} min={0} max={100} step={0.5} />
+                <div className="cfg-point-group">
+                  <div className="cfg-point-group__label">Punkty za mecz</div>
+                  <div className="cfg-point-group__row">
+                    <Spinner label="Za wygraną" value={ptsWin} onChange={setPtsWin} min={-100} max={100} step={0.5} />
+                    <Spinner label="Za przegraną" value={ptsLoss} onChange={setPtsLoss} min={-100} max={100} step={0.5} />
+                  </div>
+                </div>
+
+                <div className="cfg-point-group">
+                  <div className="cfg-point-group__label">Punkty za sety</div>
+                  <div className="cfg-point-group__row">
+                    <Spinner label="Za wygrany set" value={ptsSetWin} onChange={setPtsSetWin} min={-100} max={100} step={0.5} />
+                    <Spinner label="Za przegrany set" value={ptsSetLoss} onChange={setPtsSetLoss} min={-100} max={100} step={0.5} />
+                  </div>
+                </div>
+
+                <div className="cfg-point-group">
+                  <div className="cfg-point-group__label">Punkty za gemy</div>
+                  <div className="cfg-point-group__row">
+                    <Spinner label="Za wygrany gem" value={ptsGemWin} onChange={setPtsGemWin} min={-100} max={100} step={0.1} />
+                    <Spinner label="Za przegrany gem" value={ptsGemLoss} onChange={setPtsGemLoss} min={-100} max={100} step={0.1} />
+                  </div>
+                </div>
+
+                <div className="cfg-point-group">
+                  <div className="cfg-point-group__label">
+                    <abbr title="Super tie-break — skrócony set decydujący, grany do 10 punktów" style={{ textDecoration: 'underline dotted', cursor: 'help' }}>Super tie-break (STB)</abbr>
+                  </div>
+                  <div className="cfg-point-group__row">
+                    <Spinner label="Za wygrany punkt" value={ptsStbWin} onChange={setPtsStbWin} min={-100} max={100} step={0.05} />
+                    <Spinner label="Za przegrany punkt" value={ptsStbLoss} onChange={setPtsStbLoss} min={-100} max={100} step={0.05} />
+                  </div>
                 </div>
 
                 <div className="cfg-group-label" style={{ marginTop: '20px' }}>Rozbijanie remisów</div>
