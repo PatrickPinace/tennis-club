@@ -265,7 +265,7 @@ const clubMatches = clubMatchesData ?? [];
     });
     sheet.querySelector('[data-action="tournament"]').addEventListener('click', () => {
       closeAddMatchSheet();
-      window.location.href = tournamentsUrl;
+      window.location.href = tournamentsUrl + '?filter=joined';
     });
 
     addMatchSheet = sheet;
@@ -355,12 +355,12 @@ const clubMatches = clubMatchesData ?? [];
     to   { opacity: 1; transform: translateY(0) scale(1); }
   }
 
-  /* Mobile: przyklejone do prawej krawędzi ekranu, jak panel powiadomień */
+  /* Mobile: przyklejone do prawej krawędzi ekranu, szerokość dopasowana do treści */
   .add-match-sheet--mobile {
     right: 8px;
-    left: 8px;
     top: 56px;
-    width: auto;
+    width: max-content;
+    max-width: calc(100vw - 16px);
     min-width: 0;
   }
 

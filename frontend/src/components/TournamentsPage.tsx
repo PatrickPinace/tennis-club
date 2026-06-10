@@ -186,8 +186,16 @@ function TournamentTableRow({ t, index }: { t: TournamentRow; index: number }) {
   );
 }
 
+const VALID_FILTERS: Filter[] = ['all', 'joined', 'open', 'finished'];
+
+function initialFilterFromUrl(): Filter {
+  if (typeof window === 'undefined') return 'all';
+  const param = new URLSearchParams(window.location.search).get('filter');
+  return (VALID_FILTERS as string[]).includes(param ?? '') ? (param as Filter) : 'all';
+}
+
 export default function TournamentsPage({ tournaments, featured, stats, createUrl }: Props) {
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(initialFilterFromUrl);
 
   const filtered = useMemo(() => {
     return tournaments.filter(t => {
