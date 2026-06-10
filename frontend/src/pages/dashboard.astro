@@ -105,6 +105,14 @@ const matchesWon    = matchHistoryRaw.filter(m => m.user === 'user-win').length;
 const matchesLost   = matchHistoryRaw.filter(m => m.user === 'user-loss').length;
 const winRate       = matchesPlayed > 0 ? Math.round(matchesWon / matchesPlayed * 100) : 0;
 
+// Filtrowanie meczów z bieżącego sezonu (rok) dla karty BentoHero
+const currentYear = new Date().getFullYear();
+const thisSeasonMatches = matchHistoryRaw.filter(m => {
+  if (!m.match_date) return false;
+  return new Date(m.match_date).getFullYear() === currentYear;
+});
+const thisSeasonMatchesPlayed = thisSeasonMatches.length;
+
 // Greeting: "Witaj" dla nowego usera (brak meczów i turniejów), "Witaj z powrotem" dla aktywnych
 const greeting = firstName
   ? (matchesPlayed === 0 && tStats === null ? `Witaj, ${firstName}!` : `Witaj z powrotem, ${firstName}!`)
@@ -130,8 +138,8 @@ const greetingSub = `${dayName} · ${datePart} · ${timePart}`;
   <!-- ── Bento hero grid (React island) ── -->
   <BentoHero
     client:load
-    matchHistory={matchHistoryRaw.slice(0, 8).map(m => ({ user: m.user, match_double: m.match_double }))}
-    matchesPlayed={matchesPlayed}
+    matchHistory={thisSeasonMatches.slice(0, 8).map(m => ({ user: m.user, match_double: m.match_double }))}
+    matchesPlayed={thisSeasonMatchesPlayed}
     courtsUrl={url('/courts/reservations')}
   />
 
