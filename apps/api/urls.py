@@ -7,6 +7,5 @@ urlpatterns = [
     path('', include('apps.rankings.api.urls')),
     path('', include('apps.home.api.urls')),
     path('', include('notifications.api.urls')),
-    path('', include('chats.api.urls')),
     path('', include('apps.courts.api.urls')),
 ]

@@ -219,52 +219,6 @@ class Results:
                 if user_obj := User.objects.filter(id=match.get(f'{p_key}_id')).first():
                     match[f'{p_key}_username'] = user_obj.username
 
-class MatchCounter:
-    def __init__(self, request, **kwargs):
-        from apps.friends.tools import get_friends_id, convert_auth_user_id_to_name
-        self.counters = {}
-        friends_id = get_friends_id(request)
-        
-        for friend_id in friends_id:
-            self.counters[friend_id] = {
-                "user_name": convert_auth_user_id_to_name(request, friend_id),
-                "single": {"period": {}},
-                "double": {"period": {}},
-            }
-            for match_double in [False, True]:
-                for period in [{"last_days": 7}, {"last_days": 30}, {"this_year": True}, {"all": True}]:
-                    qs = Match.objects.filter(match_double=match_double)
-                    
-                    # Filtrowanie po graczu (znajomy lub zalogowany użytkownik)
-                    player_id = friend_id if friend_id is not None else request.user.id
-                    qs = qs.filter(
-                        models.Q(p1_id=player_id) | models.Q(p2_id=player_id) |
-                        models.Q(p3_id=player_id) | models.Q(p4_id=player_id)
-                    )
-
-                    # Filtrowanie po okresie
-                    if "last_days" in period and period["last_days"] in [7, 30]:
-                        since = timezone.now().date() - timedelta(days=period["last_days"])
-                        qs = qs.filter(match_date__gte=since)
-                    elif "this_year" in period:
-                        qs = qs.filter(match_date__year=timezone.now().year)
-                    
-                    counter = qs.count()
-                    key_name = list(period.keys())[0]
-                    bucket = "single" if not match_double else "double"
-                    
-                    if "last_days" in period:
-                        self.counters[friend_id][bucket]["period"][period["last_days"]] = counter
-                    else:
-                        self.counters[friend_id][bucket]["period"][key_name] = counter
-        
-        if kwargs.get("sort"):
-            sort_key = kwargs["sort"]
-            if sort_key == "user_name":
-                self.counters = dict(sorted(self.counters.items(), key=lambda item: item[1]["user_name"]))
-            elif sort_key == "this_year":
-                self.counters = dict(sorted(self.counters.items(), key=lambda item: item[1]["single"]["period"].get("this_year", 0), reverse=True))
-
 class Summary:    
     def __init__(self, request, user=None, **kwargs):   
         """
