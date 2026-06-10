@@ -20,7 +20,7 @@ interface FeaturedTournament {
   total: number;
   done: number;
   href: string;
-  isMine: boolean;
+  isJoined: boolean;
   standings: StandingRow[];
 }
 
@@ -36,13 +36,13 @@ interface Props {
   stats: {
     running: number;
     registration: number;
-    myCount: number | null;
+    joinedCount: number | null;
     finished: number;
   };
   createUrl: string;
 }
 
-type Filter = 'all' | 'mine' | 'open' | 'finished';
+type Filter = 'all' | 'joined' | 'open' | 'finished';
 
 const TYPE_LABEL: Record<string, string> = {
   SGL: 'Eliminacja pojedyncza', DBE: 'Eliminacja podwójna',
@@ -84,7 +84,7 @@ function FeaturedCard({ tournaments }: { tournaments: FeaturedTournament[] }) {
           <div className="tr-featured__top">
             <span className="tr-featured__badge">Trwa teraz</span>
             <span className="tr-featured__tag">
-              {t.isMine ? 'Twój aktywny turniej' : 'Aktywny turniej'}
+              {t.isJoined ? 'Twój aktywny turniej' : 'Aktywny turniej'}
             </span>
             {tournaments.length > 1 && (
               <div className="tr-feat-nav" aria-label="Przełącz turniej">
@@ -191,7 +191,7 @@ export default function TournamentsPage({ tournaments, featured, stats, createUr
 
   const filtered = useMemo(() => {
     return tournaments.filter(t => {
-      if (filter === 'mine') return t.joined;
+      if (filter === 'joined') return t.joined;
       if (filter === 'open') return t.status === 'REG' || t.status === 'SCH';
       if (filter === 'finished') return t.status === 'FIN' || t.status === 'CNC';
       return true;
@@ -216,9 +216,9 @@ export default function TournamentsPage({ tournaments, featured, stats, createUr
           <div className="tr-stat-sub">możesz dołączyć</div>
         </div>
         <div className="tr-stat-card">
-          <div className="tr-stat-label">MOJE TURNIEJE</div>
-          <div className="tr-stat-val">{stats.myCount ?? '—'}</div>
-          <div className="tr-stat-sub">{stats.myCount !== null ? 'bierzesz udział' : 'zaloguj się'}</div>
+          <div className="tr-stat-label">BIORĘ UDZIAŁ</div>
+          <div className="tr-stat-val">{stats.joinedCount ?? '—'}</div>
+          <div className="tr-stat-sub">{stats.joinedCount !== null ? 'turniejów' : 'zaloguj się'}</div>
         </div>
         <div className="tr-stat-card">
           <div className="tr-stat-label">ZAKOŃCZONE</div>
@@ -239,7 +239,7 @@ export default function TournamentsPage({ tournaments, featured, stats, createUr
           <div className="tr-segmented" role="group" aria-label="Filtr turniejów">
             {([
               { value: 'all', label: 'Wszystkie' },
-              { value: 'mine', label: 'Moje' },
+              { value: 'joined', label: 'Biorę udział' },
               { value: 'open', label: 'Otwarte' },
               { value: 'finished', label: 'Zakończone' },
             ] as const).map(o => (

@@ -1,7 +1,7 @@
 ---
 // tournaments.astro — lista turniejów połączona z Django API
-// GET /api/tournaments/list/   (IsAuthenticatedOrReadOnly — publiczny)
-// GET /api/tournaments/mine/   (IsAuthenticated — opcjonalny, graceful fallback)
+// GET /api/tournaments/list/    (IsAuthenticatedOrReadOnly — publiczny)
+// GET /api/tournaments/joined/  (IsAuthenticated — opcjonalny, graceful fallback)
 // GET /api/tournaments/{id}/detail/  (publiczny — featured card standings)
 export const prerender = false;
 
@@ -9,7 +9,7 @@ import AppLayout from '@/layouts/AppLayout.astro';
 import TournamentsPage from '@/components/TournamentsPage.tsx';
 import {
   getTournamentsList,
-  getMyTournaments,
+  getJoinedTournaments,
   getTournamentDetail,
   getCurrentUser,
   type TournamentListEntry,
@@ -26,7 +26,7 @@ const currentUser: CurrentUser | null = await getCurrentUser(sessionCookie);
 // ── Dane z API ──────────────────────────────────────────────────────────────
 let tournaments: TournamentListEntry[] = [];
 let isLive = false;
-let myTournamentIds: Set<number> = new Set();
+let joinedTournamentIds: Set<number> = new Set();
 
 try {
   const data = await getTournamentsList();
@@ -40,8 +40,8 @@ try {
 
 if (currentUser) {
   try {
-    const mine = await getMyTournaments(sessionCookie);
-    myTournamentIds = new Set(mine.map(t => t.id));
+    const joined = await getJoinedTournaments(sessionCookie);
+    joinedTournamentIds = new Set(joined.map(t => t.id));
   } catch {}
 }
 
@@ -64,14 +64,14 @@ const publicTournaments = tournaments.filter(t => t.status !== 'DRF');
 const running = publicTournaments.filter(t => t.status === 'ACT');
 const registration = publicTournaments.filter(t => t.status === 'REG');
 const finished = publicTournaments.filter(t => t.status === 'FIN' || t.status === 'CNC');
-const myCount = currentUser ? publicTournaments.filter(t => myTournamentIds.has(t.id)).length : null;
+const joinedCount = currentUser ? publicTournaments.filter(t => joinedTournamentIds.has(t.id)).length : null;
 
 // ── Featured tournaments (all running) ──────────────────────────────────────
 const featuredList = [];
 // Put user's tournament first, then the rest
 const sortedRunning = [
-  ...running.filter(t => myTournamentIds.has(t.id)),
-  ...running.filter(t => !myTournamentIds.has(t.id)),
+  ...running.filter(t => joinedTournamentIds.has(t.id)),
+  ...running.filter(t => !joinedTournamentIds.has(t.id)),
 ];
 
 for (const entry of sortedRunning) {
@@ -95,7 +95,7 @@ for (const entry of sortedRunning) {
     total: entry.matches_progress?.total ?? 0,
     done: entry.matches_progress?.done ?? 0,
     href: url(`/tournaments/${entry.id}`),
-    isMine: myTournamentIds.has(entry.id),
+    isJoined: joinedTournamentIds.has(entry.id),
     standings,
   });
 }
@@ -108,7 +108,7 @@ const tournamentRows = publicTournaments.map(t => ({
   tournamentType: t.tournament_type,
   participantCount: t.participant_count,
   startDate: fmtDate(t.start_date),
-  joined: myTournamentIds.has(t.id),
+  joined: joinedTournamentIds.has(t.id),
   href: url(`/tournaments/${t.id}`),
   matchesProgress: t.matches_progress,
 }));
@@ -128,7 +128,7 @@ const tournamentRows = publicTournaments.map(t => ({
     client:load
     tournaments={tournamentRows}
     featured={featuredList}
-    stats={{ running: running.length, registration: registration.length, myCount, finished: finished.length }}
+    stats={{ running: running.length, registration: registration.length, joinedCount, finished: finished.length }}
     createUrl={url('/tournaments/create')}
   />
 </AppLayout>

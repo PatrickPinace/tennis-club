@@ -7,7 +7,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 
 from django.db import models
-from apps.tournaments.models import Tournament, Participant
+from apps.tournaments.models import Tournament, Participant, TeamMember
 from apps.tournaments.api.serializers import (
     TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
     RoundRobinStandingSerializer, RoundRobinConfigSerializer,
@@ -102,6 +102,54 @@ class MyTournamentsView(generics.ListAPIView):
         return (
             Tournament.objects
             .filter(created_by=self.request.user)
+            .select_related('created_by', 'facility')
+            .prefetch_related('participants')
+            .annotate(
+                status_order=Case(
+                    When(status='ACT', then=0),
+                    When(status='REG', then=1),
+                    When(status='SCH', then=2),
+                    When(status='DRF', then=3),
+                    When(status='FIN', then=4),
+                    When(status='CNC', then=5),
+                    default=9,
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by('status_order', '-created_at')
+        )
+
+
+class JoinedTournamentsView(generics.ListAPIView):
+    """
+    Turnieje, w których zalogowany użytkownik jest zapisanym uczestnikiem
+    (jako kapitan/singlista w Participant lub jako partner w TeamMember).
+    GET /api/tournaments/joined/
+
+    Wyklucza zgłoszenia o statusie WDN (wycofane) — taki sam warunek
+    jak przy sprawdzaniu duplikatów zapisu (TournamentJoinView).
+
+    Reużywa TournamentListSerializer — ten sam kształt co /list/ i /mine/.
+    Auth: IsAuthenticated — prywatny endpoint.
+    """
+    serializer_class = TournamentListSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Case, When, IntegerField, Q
+
+        user = self.request.user
+        as_captain = Participant.objects.filter(
+            user=user,
+        ).exclude(status='WDN').values_list('tournament_id', flat=True)
+        as_partner = TeamMember.objects.filter(
+            user=user,
+        ).exclude(participant__status='WDN').values_list('participant__tournament_id', flat=True)
+
+        return (
+            Tournament.objects
+            .filter(Q(id__in=as_captain) | Q(id__in=as_partner))
+            .distinct()
             .select_related('created_by', 'facility')
             .prefetch_related('participants')
             .annotate(

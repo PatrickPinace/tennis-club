@@ -10,6 +10,7 @@ urlpatterns = [
     # tournaments/<pk>/ i przechwytuje np. tournaments/create/ jako pk="create".
     path('tournaments/list/', views.TournamentListView.as_view(), name='tournament-list-api'),
     path('tournaments/mine/', views.MyTournamentsView.as_view(), name='tournament-mine-api'),
+    path('tournaments/joined/', views.JoinedTournamentsView.as_view(), name='tournament-joined-api'),
     path('tournaments/create/', views.TournamentCreateView.as_view(), name='tournament-create'),
     path('tournaments/check-name/', views.TournamentCheckNameView.as_view(), name='tournament-check-name'),
     path('tournaments/<int:pk>/detail/', views.TournamentDetailView.as_view(), name='tournament-detail'),
