@@ -458,9 +458,9 @@ export default function AddMatchForm({ myId, today, matchesUrl, isModal = false,
 
           <div className="af-actions">
             {isModal ? (
-              <button type="button" className="tc-btn tc-btn-ghost" onClick={onClose}>Anuluj</button>
+              <button type="button" className="tc-btn tc-btn-secondary" onClick={onClose}>Anuluj</button>
             ) : (
-              <a href={matchesUrl} className="tc-btn tc-btn-ghost">Anuluj</a>
+              <a href={matchesUrl} className="tc-btn tc-btn-secondary">Anuluj</a>
             )}
             <button type="submit" className="tc-btn tc-btn-primary" disabled={loading}>
               {loading ? 'Zapisuję…' : 'Zapisz mecz'}
