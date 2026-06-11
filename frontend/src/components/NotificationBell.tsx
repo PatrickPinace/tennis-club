@@ -167,7 +167,7 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
           <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
         </svg>
         {unreadCount > 0 && (
-          <span className="topbar__notif-dot" aria-label={`${unreadCount} nieprzeczytanych powiadomień`}>
+          <span className="topbar__notif-badge" aria-label={`${unreadCount} nieprzeczytanych powiadomień`}>
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
@@ -183,7 +183,14 @@ export default function NotificationBell({ initialUnread, notificationsUrl }: Pr
               </svg>
               Powiadomienia
             </span>
-            <button onClick={readAll} className="topbar__notif-mark">Oznacz wszystkie</button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={readAll} className="topbar__notif-mark">Oznacz wszystkie</button>
+              <button onClick={() => setOpen(false)} className="topbar__notif-close" aria-label="Zamknij" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--tc-muted)', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.12s' }}>
+                <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div className="topbar__notif-list">
             {loading && (

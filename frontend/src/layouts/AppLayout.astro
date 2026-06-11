@@ -2,6 +2,7 @@
 import Sidebar from '@/components/Sidebar.astro';
 import Topbar from '@/components/Topbar.astro';
 import CookieBanner from '@/components/CookieBanner.astro';
+import GlobalMatchModals from '@/components/GlobalMatchModals.tsx';
 import '@/styles/global.css';
 import { url } from '@/lib/url';
 import { getCurrentUser, type CurrentUser } from '@/lib/api';
@@ -174,7 +175,70 @@ const currentPath = Astro.url.pathname;
     if (typeof window.readAllNotif === 'undefined') {
       window.readAllNotif = function() {};
     }
+
+    /* ── Global "+ Mecz" action sheet ── */
+    var addMatchSheet = null;
+
+    function closeAddMatchSheet() {
+      if (addMatchSheet) {
+        addMatchSheet.remove();
+        addMatchSheet = null;
+        document.removeEventListener('click', onDocClickCloseSheet);
+      }
+    }
+
+    function onDocClickCloseSheet(e) {
+      if (addMatchSheet && !addMatchSheet.contains(e.target) && !e.target.closest('.topbar__cta')) {
+        closeAddMatchSheet();
+      }
+    }
+
+    function openAddMatchSheet(anchor) {
+      closeAddMatchSheet();
+      var sheet = document.createElement('div');
+      var isMobile = window.matchMedia('(max-width: 640px)').matches;
+      sheet.className = 'add-match-sheet' + (isMobile ? ' add-match-sheet--mobile' : '');
+      sheet.innerHTML = `
+        <button type="button" class="add-match-sheet__item" data-action="friendly">
+          <span class="add-match-sheet__icon" aria-hidden="true">🎾</span>
+          <span>Mecz towarzyski</span>
+        </button>
+        <button type="button" class="add-match-sheet__item" data-action="tournament">
+          <span class="add-match-sheet__icon" aria-hidden="true">🏆</span>
+          <span>Mecz turniejowy</span>
+        </button>
+      `;
+      document.body.appendChild(sheet);
+
+      if (!isMobile) {
+        var rect = anchor.getBoundingClientRect();
+        sheet.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        sheet.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
+      }
+
+      sheet.querySelector('[data-action="friendly"]').addEventListener('click', function() {
+        closeAddMatchSheet();
+        window.dispatchEvent(new CustomEvent('open-add-match-modal'));
+      });
+      sheet.querySelector('[data-action="tournament"]').addEventListener('click', function() {
+        closeAddMatchSheet();
+        window.dispatchEvent(new CustomEvent('open-tournament-matches-modal'));
+      });
+
+      addMatchSheet = sheet;
+      setTimeout(function() { document.addEventListener('click', onDocClickCloseSheet); }, 0);
+    }
+
+    document.addEventListener('click', function(e) {
+      var cta = e.target.closest('.topbar__cta');
+      if (cta && cta.getAttribute('href') === '#add-match') {
+        e.preventDefault();
+        if (addMatchSheet) closeAddMatchSheet();
+        else openAddMatchSheet(cta);
+      }
+    });
   </script>
+  <GlobalMatchModals client:load myId={currentUser?.id} addMatchUrl={url('/matches')} />
   <CookieBanner />
 </body>
 </html>
@@ -271,5 +335,56 @@ const currentPath = Astro.url.pathname;
 
   @media (max-width: 480px) {
     .app-content { padding: 16px 14px; }
+  }
+
+  /* ── Global "+ Mecz" action sheet ── */
+  :global(.add-match-sheet) {
+    position: fixed;
+    z-index: 210;
+    min-width: 220px;
+    background: var(--tc-card-bg);
+    border: 1px solid var(--tc-card-border);
+    border-radius: var(--radius-md, 10px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.15);
+    overflow: hidden;
+    animation: add-match-sheet-enter 0.15s ease;
+  }
+  @keyframes add-match-sheet-enter {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  :global(.add-match-sheet--mobile) {
+    right: 8px;
+    top: 56px;
+    width: max-content;
+    max-width: calc(100vw - 16px);
+    min-width: 0;
+  }
+
+  :global(.add-match-sheet__item) {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--tc-card-border);
+    color: var(--tc-ink);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  :global(.add-match-sheet__item:last-child) { border-bottom: none; }
+  :global(.add-match-sheet__item:hover),
+  :global(.add-match-sheet__item:active) { background: var(--tc-overlay); }
+
+  :global(.add-match-sheet__icon) {
+    font-size: 1rem;
+    flex-shrink: 0;
   }
 </style>

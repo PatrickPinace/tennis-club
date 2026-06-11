@@ -231,7 +231,7 @@ const {
   :global(.topbar__notif-wrap .topbar__icon-btn svg) { transition: transform 0.15s ease; }
   :global(.topbar__notif-wrap .topbar__icon-btn:hover svg) { transform: scale(1.08); }
 
-  :global(.topbar__notif-wrap .topbar__notif-dot) {
+  :global(.topbar__notif-wrap .topbar__notif-badge) {
     position: absolute; top: 3px; right: 3px;
     min-width: 16px; height: 16px;
     background: var(--tc-hot); color: #fff;
@@ -277,6 +277,10 @@ const {
     transition: background 0.1s;
   }
   :global(.topbar__notif-mark:hover) { background: var(--tc-accent-soft); }
+
+  :global(.topbar__notif-close:hover) {
+    color: var(--tc-ink) !important;
+  }
 
   :global(.topbar__notif-list) {
     max-height: 380px; overflow-y: auto;
