@@ -592,10 +592,12 @@ select.tc-input { cursor: pointer; }
   }
   .res-popup {
     border-radius: 0;
-    height: 100%;
-    max-height: 100vh;
+    margin-top: var(--topbar-height, 64px);
+    height: calc(100% - var(--topbar-height, 64px));
+    max-height: calc(100vh - var(--topbar-height, 64px));
     overflow-y: auto;
     border: none;
+    --modal-body-max-height: none;
   }
   .res-popup__body {
     padding: 16px 20px 32px;
@@ -797,4 +799,43 @@ abbr[title] {
 /* W wierszach BYE drabinki: bez underline — sam kolor i kursor wystarczą */
 .bkt-player--bye abbr[title] {
   text-decoration: none;
+}
+
+.player-name-full {
+  display: inline;
+}
+.player-name-short {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .player-name-full {
+    display: none !important;
+  }
+  .player-name-short {
+    display: inline !important;
+    font-size: 0.78rem !important;
+  }
+}
+
+.mobile-stack-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.scoreboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 60px 60px 60px;
+  align-items: center;
+}
+
+@media (max-width: 520px) {
+  .mobile-stack-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .scoreboard-grid {
+    grid-template-columns: 1fr 48px 48px 48px !important;
+  }
 }

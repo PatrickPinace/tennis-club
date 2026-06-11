@@ -940,8 +940,8 @@
   line-height: 1;
 }
 .org-toggle-chevron {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   flex-shrink: 0;
   color: inherit;
   transform: rotate(180deg);
