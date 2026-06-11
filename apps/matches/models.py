@@ -45,6 +45,8 @@ class Match(models.Model):
             models.Index(fields=["match_date"]),
             models.Index(fields=["match_double"]),
         ]
+        verbose_name = "Mecz Towarzyski"
+        verbose_name_plural = "Mecze Towarzyskie"
 
     def __str__(self):
         p3 = f", {self.p3}" if self.p3 else ""

@@ -265,7 +265,7 @@ const clubMatches = clubMatchesData ?? [];
     });
     sheet.querySelector('[data-action="tournament"]').addEventListener('click', () => {
       closeAddMatchSheet();
-      window.location.href = tournamentsUrl + '?filter=joined';
+      window.dispatchEvent(new CustomEvent('open-tournament-matches-modal'));
     });
 
     addMatchSheet = sheet;

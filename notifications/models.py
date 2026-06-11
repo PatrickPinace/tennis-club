@@ -57,6 +57,8 @@ class Notifications(models.Model):
     class Meta:
         ordering = ['-created_at']
         db_table = 'notifications'
+        verbose_name = "Powiadomienie"
+        verbose_name_plural = "Powiadomienia"
 
     def __str__(self):
         return f'Notification for {self.user.username}: {self.message[:50]}...'
@@ -73,6 +75,8 @@ class NotificationPreference(models.Model):
     class Meta:
         unique_together = ('user', 'event_type', 'channel')
         ordering = ['event_type', 'channel']
+        verbose_name = "Preferencja powiadomień"
+        verbose_name_plural = "Preferencje powiadomień"
 
     def __str__(self):
         status = 'on' if self.is_enabled else 'off'

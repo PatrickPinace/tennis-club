@@ -11,7 +11,7 @@ from apps.tournaments.models import Tournament, Participant, TeamMember
 from apps.tournaments.api.serializers import (
     TournamentSerializer, TournamentListSerializer, TournamentDetailSerializer,
     RoundRobinStandingSerializer, RoundRobinConfigSerializer,
-    RoundRobinConfigUpdateSerializer
+    RoundRobinConfigUpdateSerializer, MyActiveMatchSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -2874,3 +2874,41 @@ class LadderChallengeActionView(APIView):
             'status': match.status,
             'detail': 'Wyzwanie odrzucone.',
         }, status=status.HTTP_200_OK)
+
+
+class MyActiveMatchesView(generics.ListAPIView):
+    """
+    Zwraca listę meczów turniejowych z aktywnych turniejów (status 'ACT'),
+    które nie zostały jeszcze zakończone (status 'WAI', 'SCH', 'INP')
+    i w których zalogowany użytkownik jest uczestnikiem lub jest organizatorem tego turnieju.
+    """
+    serializer_class = MyActiveMatchSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Q
+        from apps.tournaments.models import TournamentsMatch, Participant, Tournament
+
+        user = self.request.user
+        
+        # Uczestnicy, w których użytkownik jest kapitanem/graczem lub członkiem zespołu
+        user_participants = Participant.objects.filter(
+            Q(user=user) | Q(members__user=user)
+        ).values_list('id', flat=True)
+
+        # Turnieje utworzone przez użytkownika (aktywne)
+        created_tournaments = Tournament.objects.filter(created_by=user, status='ACT')
+
+        return TournamentsMatch.objects.filter(
+            tournament__status='ACT',
+            status__in=['WAI', 'SCH', 'INP']
+        ).filter(
+            Q(tournament__in=created_tournaments) |
+            Q(participant1_id__in=user_participants) |
+            Q(participant2_id__in=user_participants) |
+            Q(participant3_id__in=user_participants) |
+            Q(participant4_id__in=user_participants)
+        ).distinct().select_related(
+            'tournament', 'participant1', 'participant2', 'participant3', 'participant4'
+        ).order_by('scheduled_time', 'id')
+

@@ -78,22 +78,16 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'allauth',
     'allauth.account',
-    'allauth.socialaccount',
-    'allauth.socialaccount.providers.google',
     'encrypted_model_fields',
     'notifications',
     'widget_tweaks',
-    'chats',
     'apps',
     'apps.home',
     'apps.courts',
-    'apps.friends',
     'apps.users',
     'apps.matches',
     'apps.rankings',
     'apps.tournaments',
-    'apps.feedback',
-    'apps.news',
     'rest_framework',
     'apps.api',
     'corsheaders',
@@ -107,28 +101,10 @@ AUTHENTICATION_BACKENDS = [
     'allauth.account.auth_backends.AuthenticationBackend',
 ]
 
-SOCIALACCOUNT_PROVIDERS = {
-    'google': {
-        'SCOPE': [
-            'profile',
-            'email',
-        ],
-        'AUTH_PARAMS': {
-            'access_type': 'online',
-        }
-    }
-}
-
-# Wyłącz automatyczną rejestrację, aby wymusić ustawienie hasła
-SOCIALACCOUNT_LOGIN_ON_GET = True
-
 # Ustawienia allauth dla logowania przez email i uproszczenia rejestracji
 # Umożliwienie logowania za pomocą nazwy użytkownika lub adresu e-mail.
 ACCOUNT_LOGIN_METHODS = ['username', 'email']
 ACCOUNT_SIGNUP_FIELDS = []
-SOCIALACCOUNT_ADAPTER = 'apps.users.adapters.CustomSocialAccountAdapter'
-SOCIALACCOUNT_FORMS = {'signup': 'apps.users.forms.CustomSocialSignupForm'}
-SOCIALACCOUNT_AUTO_SIGNUP = False
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -265,8 +241,8 @@ if not os.path.exists(LOG_DIR):
 
 # List of apps to log separately
 LOGGED_APPS = [
-    'api', 'courts', 'feedback', 'friends', 
-    'home', 'matches', 'news', 'rankings', 'tournaments', 'users'
+    'api', 'courts', 
+    'home', 'matches', 'rankings', 'tournaments', 'users'
 ]
 
 LOGGING = {

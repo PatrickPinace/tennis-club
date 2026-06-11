@@ -184,7 +184,7 @@ def api_user_profile(request):
     # ── Ranking SNG ───────────────────────────────────────────────────────────
     try:
         from apps.rankings.models import PlayerRanking
-        sng = PlayerRanking.objects.filter(user=user, match_type='SNG').first()
+        sng = PlayerRanking.objects.filter(user=user, match_type='SNG', season=None).first()
         ranking_sng = {
             'position': sng.position if sng else None,
             'points': float(sng.points) if sng else None,
@@ -201,7 +201,7 @@ def api_user_profile(request):
 
     # ── Ranking DBL ───────────────────────────────────────────────────────────
     try:
-        dbl = PlayerRanking.objects.filter(user=user, match_type='DBL').first()
+        dbl = PlayerRanking.objects.filter(user=user, match_type='DBL', season=None).first()
         ranking_dbl = {
             'position': dbl.position if dbl else None,
             'points': float(dbl.points) if dbl else None,

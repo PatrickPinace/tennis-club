@@ -3,7 +3,6 @@ from .models import Match
 from datetime import date
 from django.contrib.auth.models import User
 from apps.utils import tennis
-from apps.friends.models import Friend
 from django.db.models import Q, Count, Case, When, IntegerField
 from django.db.models import Value
 from apps.matches.models import Match

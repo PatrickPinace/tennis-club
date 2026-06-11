@@ -70,3 +70,5 @@ class Reservation(models.Model):
 
     class Meta:
         ordering = ['start_time']
+        verbose_name = "Rezerwacja"
+        verbose_name_plural = "Rezerwacje"

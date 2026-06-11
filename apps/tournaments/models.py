@@ -695,3 +695,5 @@ class MatchReaction(models.Model):
         # Każdy użytkownik może mieć tylko jedną reakcję danego typu na dany mecz
         unique_together = ('match', 'user', 'emoji')
         ordering = ['created_at']
+        verbose_name = "Lajk Meczowy"
+        verbose_name_plural = "Lajki Meczowe"

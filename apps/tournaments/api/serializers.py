@@ -360,3 +360,25 @@ class TournamentDetailSerializer(serializers.ModelSerializer):
         total = all_matches.count()
         done = all_matches.filter(status__in=['CMP', 'WDR']).count()
         return {'done': done, 'total': total}
+
+
+class MyActiveMatchSerializer(serializers.ModelSerializer):
+    tournament_name = serializers.CharField(source='tournament.name', read_only=True)
+    tournament_type = serializers.CharField(source='tournament.tournament_type', read_only=True)
+    participant1_name = serializers.CharField(source='participant1.display_name', read_only=True)
+    participant2_name = serializers.CharField(source='participant2.display_name', read_only=True)
+    participant3_name = serializers.CharField(source='participant3.display_name', read_only=True)
+    participant4_name = serializers.CharField(source='participant4.display_name', read_only=True)
+
+    class Meta:
+        model = TournamentsMatch
+        fields = [
+            'id', 'tournament_id', 'tournament_name', 'tournament_type',
+            'participant1_id', 'participant2_id', 'participant3_id', 'participant4_id',
+            'participant1_name', 'participant2_name', 'participant3_name', 'participant4_name',
+            'round_number', 'match_index', 'status', 'scheduled_time',
+            'set1_p1_score', 'set1_p2_score',
+            'set2_p1_score', 'set2_p2_score',
+            'set3_p1_score', 'set3_p2_score',
+        ]
+

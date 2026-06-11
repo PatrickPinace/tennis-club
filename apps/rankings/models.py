@@ -21,6 +21,8 @@ class PlayerRanking(models.Model):
         db_table = 'player_rankings'
         unique_together = ('user', 'match_type', 'season')
         ordering = ('-points', '-matches_won', '-sets_won')
+        verbose_name = "Aktualny Ranking"
+        verbose_name_plural = "Aktualny Ranking"
 
     def __str__(self):
         return f"{self.user.username} [{self.match_type}/{self.season or 'all'}] — {self.points} pkt"
@@ -68,6 +70,10 @@ class TournamentRankPoints(models.Model):
         default=-0.1,
         verbose_name="Mnożnik za przegrany gem"
     )
+
+    class Meta:
+        verbose_name = "Bonus za Rangi"
+        verbose_name_plural = "Bonusy za Rangi"
 
     def __str__(self):
         return f"Ranga {self.rank}: {self.participation_bonus} pkt bonusu"

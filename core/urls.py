@@ -27,11 +27,10 @@ handler404 = 'apps.home.views.custom_404'
 handler500 = 'apps.home.views.custom_500'
 
 from django.contrib.sitemaps.views import sitemap
-from .sitemaps import StaticViewSitemap, NewsSitemap
+from .sitemaps import StaticViewSitemap
 
 sitemaps = {
     'static': StaticViewSitemap,
-    'news': NewsSitemap,
 }
 
 def health_check(request):
@@ -40,22 +39,17 @@ def health_check(request):
 urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('', include('apps.home.urls')),
-    path('friends/', include('apps.friends.urls')),
     path('courts/', include('apps.courts.urls')),
     path('users/', include('apps.users.urls')),
-    path('accounts/3rdparty/login/cancelled/', RedirectView.as_view(url='/users/login/', permanent=False), name='socialaccount_login_cancelled'),
     path('accounts/', include('allauth.urls')),
     path('matches/', include('apps.matches.urls')),
     path('rankings/', include('apps.rankings.urls')),
     path('tournaments/', include('apps.tournaments.urls')),
-    path('news/', include('apps.news.urls', namespace='news')),
     path('manage/', admin.site.urls),
-    path('feedback/', include('apps.feedback.urls', namespace='feedback')),
     path('manifest.json', TemplateView.as_view(template_name='manifest.json', content_type='application/json')),
 
     path('api/', include('apps.api.urls')),
     path('api/auth/', include('apps.users.api_urls')),
-    path('chat/', include('chats.urls', namespace='chats')),
     path('sitemap.xml', sitemap, {'sitemaps': sitemaps}, name='django.contrib.sitemaps.views.sitemap'),
     path('robots.txt', TemplateView.as_view(template_name='robots.txt', content_type='text/plain')),
     path('favicon.ico', RedirectView.as_view(url=staticfiles_storage.url('img/favicon.ico'))),
@@ -67,12 +61,17 @@ if settings.DEBUG:
         path('__debug__/', include('debug_toolbar.urls')),
     ]
 
-# Ograniczenie widoczności w panelu admina (Użytkownicy/Grupy oraz Statystyki aktywności)
-from django.contrib.auth.models import User, Group
-from apps.home.models import PageView
+# Ograniczenie widoczności w panelu admina
+from django.contrib import admin
+
+allowed_models = {
+    'User', 'Group', 'PageView', 'PlayerRanking', 'TournamentRankPoints', 'RankingCalculationInfo',
+    'Tournament', 'TournamentsMatch', 'Participant', 'MatchScoreHistory', 'ChallengeRejection', 'MatchReaction',
+    'TennisFacility', 'Court', 'Reservation',
+    'Match', 'Notifications', 'NotificationPreference'
+}
 
 admin.autodiscover()
-allowed_models = {'User', 'Group', 'PageView', 'PlayerRanking', 'TournamentRankPoints', 'RankingCalculationInfo'}
 for model in list(admin.site._registry.keys()):
     if model.__name__ not in allowed_models:
         try:
