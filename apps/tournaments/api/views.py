@@ -2902,6 +2902,8 @@ class MyActiveMatchesView(generics.ListAPIView):
         return TournamentsMatch.objects.filter(
             tournament__status='ACT',
             status__in=['WAI', 'SCH', 'INP']
+        ).exclude(
+            Q(participant1__isnull=True) | Q(participant2__isnull=True)
         ).filter(
             Q(tournament__in=created_tournaments) |
             Q(participant1_id__in=user_participants) |
