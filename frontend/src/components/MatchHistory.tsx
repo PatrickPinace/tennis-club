@@ -883,8 +883,8 @@ export default function MatchHistory({ matches, userDisplayName, addMatchUrl, my
                                 }}
                               >
                                 <option value="">— wybierz zwycięzcę —</option>
-                                <option value={m.participant1_id}>{teamAName}</option>
-                                <option value={m.participant2_id}>{teamBName}</option>
+                                <option value={m.participant1_id}>{teamANameFull}</option>
+                                <option value={m.participant2_id}>{teamBNameFull}</option>
                               </select>
                             )}
                           </div>
