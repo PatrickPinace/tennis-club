@@ -135,7 +135,12 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
       const s3_2 = intVal(val3_2);
 
       if (s1_1 === null || s1_2 === null) {
-        setSaveErrors(prev => ({ ...prev, [mId]: 'Set 1 jest wymagany — wpisz wynik dla obu stron.' }));
+        setSaveErrors(prev => ({
+          ...prev,
+          [mId]: match.tournament_type === 'AMR'
+            ? 'Wynik jest wymagany — wpisz punkty dla obu stron.'
+            : 'Set 1 jest wymagany — wpisz wynik dla obu stron.'
+        }));
         setSavingMatchId(null);
         return;
       }
@@ -190,15 +195,27 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
         }
       }
 
-      payload = {
-        ...payload,
-        set1_p1: s1_1,
-        set1_p2: s1_2,
-        set2_p1: s2_1,
-        set2_p2: s2_2,
-        set3_p1: s3_1,
-        set3_p2: s3_2,
-      };
+      if (match.tournament_type === 'AMR') {
+        payload = {
+          ...payload,
+          set1_p1: s1_1,
+          set1_p2: s1_2,
+          set2_p1: null,
+          set2_p2: null,
+          set3_p1: null,
+          set3_p2: null,
+        };
+      } else {
+        payload = {
+          ...payload,
+          set1_p1: s1_1,
+          set1_p2: s1_2,
+          set2_p1: s2_1,
+          set2_p2: s2_2,
+          set3_p1: s3_1,
+          set3_p2: s3_2,
+        };
+      }
     }
 
     try {
@@ -254,6 +271,60 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
 
   return (
     <>
+      <style dangerouslySetInnerHTML={{__html: `
+        .modal-set-input::-webkit-outer-spin-button,
+        .modal-set-input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .modal-set-input[type=number] {
+          -moz-appearance: textfield;
+        }
+        .modal-set-input::placeholder {
+          color: var(--tc-muted);
+          font-weight: 400;
+          opacity: 0.6;
+        }
+        .modal-save-btn {
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          border: none;
+          border-radius: 8px;
+          padding: 8px 20px;
+          background: var(--tc-accent, #4f772d);
+          color: var(--tc-accent-ink, #ffffff);
+          transition: background 0.14s, transform 0.14s, box-shadow 0.14s;
+          box-shadow: 0 2px 6px rgba(79, 119, 45, 0.2);
+        }
+        .modal-save-btn:hover:not(:disabled) {
+          filter: brightness(0.92);
+          transform: translateY(-1px);
+        }
+        .modal-save-btn:active:not(:disabled) {
+          transform: translateY(0);
+        }
+        .modal-save-btn:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+        .modal-tournament-body {
+          max-height: var(--modal-body-max-height, 70vh);
+          overflow-y: auto;
+          padding: 16px 20px;
+        }
+        @media (max-width: 576px) {
+          .modal-tournament-body {
+            padding: 12px 10px !important;
+          }
+          .modal-match-card-header {
+            padding: 12px 10px !important;
+          }
+          .modal-match-card-content {
+            padding: 12px 10px !important;
+          }
+        }
+      `}} />
       {showAddModal && myId && (
         <div className="res-popup-backdrop" role="dialog" aria-modal="true"
           onClick={e => { if (e.target === e.currentTarget) setShowAddModal(false); }}>
@@ -297,7 +368,7 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
                 </svg>
               </button>
             </div>
-            <div className="res-popup__body" style={{ maxHeight: 'var(--modal-body-max-height, 70vh)', overflowY: 'auto', padding: '16px 20px' }}>
+            <div className="res-popup__body modal-tournament-body">
               {loadingMatches && <div style={{ textAlign: 'center', padding: '20px', color: 'var(--tc-muted)' }}>Ładowanie meczów...</div>}
               {fetchError && <div style={{ color: 'var(--tc-hot)', padding: '10px 0' }}>{fetchError}</div>}
               
@@ -336,6 +407,7 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
                   }}>
                     {/* Header bar */}
                     <div 
+                      className="modal-match-card-header"
                       onClick={() => setExpandedMatchId(isExpanded ? null : m.id)}
                       style={{
                         padding: '14px 18px',
@@ -393,11 +465,14 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
 
                     {/* Expandable score form */}
                     {isExpanded && (
-                      <div style={{
-                        padding: '16px 18px',
-                        borderTop: '1px solid var(--tc-card-border-soft)',
-                        background: 'var(--tc-card-bg)'
-                      }}>
+                      <div 
+                        className="modal-match-card-content"
+                        style={{
+                          padding: '16px 18px',
+                          borderTop: '1px solid var(--tc-card-border-soft)',
+                          background: 'var(--tc-card-bg)'
+                        }}
+                      >
                         {saveErrors[m.id] && (
                           <div style={{
                             padding: '8px 12px',
@@ -425,19 +500,26 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
                           </div>
                         )}
 
-                        <div className="scoreboard-grid" style={{ 
+                        <div className={m.tournament_type === 'AMR' ? 'amr-scoreboard-grid' : 'scoreboard-grid'} style={{ 
                           background: 'var(--tc-chip-bg)', 
                           border: '1px solid var(--tc-card-border)', 
                           borderRadius: '8px',
                           overflow: 'hidden',
                           marginBottom: '16px',
                           opacity: walkover[m.id] ? 0.4 : 1,
-                          pointerEvents: walkover[m.id] ? 'none' : 'auto'
+                          pointerEvents: walkover[m.id] ? 'none' : 'auto',
+                          gridTemplateColumns: m.tournament_type === 'AMR' ? '1fr 80px' : undefined
                         }}>
                           <div style={{ padding: '10px 14px', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)', textTransform: 'uppercase' }}>Gracz</div>
-                          <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)' }}>SET 1</div>
-                          <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)' }}>SET 2</div>
-                          <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)' }}>SET 3</div>
+                          {m.tournament_type === 'AMR' ? (
+                            <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)', textTransform: 'uppercase' }}>Punkty</div>
+                          ) : (
+                            <>
+                              <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)' }}>SET 1</div>
+                              <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)' }}>SET 2</div>
+                              <div style={{ textAlign: 'center', fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)' }}>SET 3</div>
+                            </>
+                          )}
 
                           <div style={{ padding: '10px 14px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--tc-ink)', borderTop: '1px solid var(--tc-card-border-soft)' }}>
                             <span className="player-name-full">{teamANameFull}</span>
@@ -447,27 +529,51 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
                             <input 
                               type="number" min="0" max="99" disabled={walkover[m.id]}
                               value={set1p1[m.id] || ''}
-                              onChange={e => setSet1p1(prev => ({ ...prev, [m.id]: e.target.value }))}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setSet1p1(prev => ({ ...prev, [m.id]: val }));
+                                if (m.tournament_type === 'AMR') {
+                                  const maxPoints = m.points_per_match ?? 32;
+                                  if (val === '') {
+                                    setSet1p2(prev => ({ ...prev, [m.id]: '' }));
+                                  } else {
+                                    const parsed = parseInt(val, 10);
+                                    if (!isNaN(parsed) && parsed >= 0 && parsed <= maxPoints) {
+                                      setSet1p2(prev => ({ ...prev, [m.id]: String(maxPoints - parsed) }));
+                                    }
+                                  }
+                                }
+                              }}
+                              placeholder="—"
+                              className="modal-set-input"
                               style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
                             />
                           </div>
-                          <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
-                            <input 
-                              type="number" min="0" max="99" disabled={walkover[m.id]}
-                              value={set2p1[m.id] || ''}
-                              onChange={e => setSet2p1(prev => ({ ...prev, [m.id]: e.target.value }))}
-                              style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
-                            />
-                          </div>
-                          <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
-                            <input 
-                              type="number" min="0" max="99" disabled={walkover[m.id]}
-                              value={set3p1[m.id] || ''}
-                              onChange={e => setSet3p1(prev => ({ ...prev, [m.id]: e.target.value }))}
-                              style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
-                            />
-                          </div>
-
+                          {m.tournament_type !== 'AMR' && (
+                            <>
+                              <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
+                                <input 
+                                  type="number" min="0" max="99" disabled={walkover[m.id]}
+                                  value={set2p1[m.id] || ''}
+                                  onChange={e => setSet2p1(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                  placeholder="—"
+                                  className="modal-set-input"
+                                  style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
+                                />
+                              </div>
+                              <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
+                                <input 
+                                  type="number" min="0" max="99" disabled={walkover[m.id]}
+                                  value={set3p1[m.id] || ''}
+                                  onChange={e => setSet3p1(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                  placeholder="—"
+                                  className="modal-set-input"
+                                  style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
+                                />
+                              </div>
+                            </>
+                          )}
+ 
                           <div style={{ padding: '10px 14px', fontSize: '0.88rem', fontWeight: 600, color: 'var(--tc-ink)', borderTop: '1px solid var(--tc-card-border-soft)' }}>
                             <span className="player-name-full">{teamBNameFull}</span>
                             <span className="player-name-short">{teamBNameShort}</span>
@@ -476,36 +582,62 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
                             <input 
                               type="number" min="0" max="99" disabled={walkover[m.id]}
                               value={set1p2[m.id] || ''}
-                              onChange={e => setSet1p2(prev => ({ ...prev, [m.id]: e.target.value }))}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setSet1p2(prev => ({ ...prev, [m.id]: val }));
+                                if (m.tournament_type === 'AMR') {
+                                  const maxPoints = m.points_per_match ?? 32;
+                                  if (val === '') {
+                                    setSet1p1(prev => ({ ...prev, [m.id]: '' }));
+                                  } else {
+                                    const parsed = parseInt(val, 10);
+                                    if (!isNaN(parsed) && parsed >= 0 && parsed <= maxPoints) {
+                                      setSet1p1(prev => ({ ...prev, [m.id]: String(maxPoints - parsed) }));
+                                    }
+                                  }
+                                }
+                              }}
+                              placeholder="—"
+                              className="modal-set-input"
                               style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
                             />
                           </div>
-                          <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
-                            <input 
-                              type="number" min="0" max="99" disabled={walkover[m.id]}
-                              value={set2p2[m.id] || ''}
-                              onChange={e => setSet2p2(prev => ({ ...prev, [m.id]: e.target.value }))}
-                              style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
-                            />
-                          </div>
-                          <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
-                            <input 
-                              type="number" min="0" max="99" disabled={walkover[m.id]}
-                              value={set3p2[m.id] || ''}
-                              onChange={e => setSet3p2(prev => ({ ...prev, [m.id]: e.target.value }))}
-                              style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
-                            />
-                          </div>
+                          {m.tournament_type !== 'AMR' && (
+                            <>
+                              <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
+                                <input 
+                                  type="number" min="0" max="99" disabled={walkover[m.id]}
+                                  value={set2p2[m.id] || ''}
+                                  onChange={e => setSet2p2(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                  placeholder="—"
+                                  className="modal-set-input"
+                                  style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
+                                />
+                              </div>
+                              <div style={{ padding: '6px', display: 'flex', justifyContent: 'center', borderTop: '1px solid var(--tc-card-border-soft)' }}>
+                                <input 
+                                  type="number" min="0" max="99" disabled={walkover[m.id]}
+                                  value={set3p2[m.id] || ''}
+                                  onChange={e => setSet3p2(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                  placeholder="—"
+                                  className="modal-set-input"
+                                  style={{ width: '42px', height: '32px', textAlign: 'center', background: 'var(--tc-card-bg)', border: '1px solid var(--tc-card-border)', borderRadius: '4px', color: 'var(--tc-ink)', fontWeight: 600 }}
+                                />
+                              </div>
+                            </>
+                          )}
                         </div>
-
-                        <div className="mobile-stack-grid" style={{ marginBottom: '16px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                            <label style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--tc-muted)', textTransform: 'uppercase' }}>Termin rozegrania</label>
+ 
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '12px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <label style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--tc-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Termin</label>
                             <input 
                               type="datetime-local" 
                               value={matchDates[m.id] || ''}
                               onChange={e => setMatchDates(prev => ({ ...prev, [m.id]: e.target.value }))}
                               style={{ 
+                                width: '100%',
+                                boxSizing: 'border-box',
                                 height: '36px', 
                                 padding: '0 10px', 
                                 background: 'var(--tc-chip-bg)', 
@@ -518,55 +650,73 @@ export default function GlobalMatchModals({ myId, today, addMatchUrl }: Props) {
                               }}
                             />
                           </div>
-
+ 
                           <div style={{ 
-                            padding: '10px 14px', 
-                            background: 'rgba(239, 68, 68, 0.04)', 
-                            border: '1px solid rgba(239, 68, 68, 0.1)', 
+                            padding: '10px 12px', 
+                            background: walkover[m.id] ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.04)', 
+                            border: walkover[m.id] ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(239, 68, 68, 0.15)', 
                             borderRadius: '8px',
                             display: 'flex', 
                             flexDirection: 'column',
-                            justifyContent: 'center',
-                            gap: '8px'
+                            gap: '10px',
+                            transition: 'background 0.12s, border-color 0.12s'
                           }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, color: 'var(--tc-muted)', margin: 0 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 500, color: 'var(--tc-sub)', margin: 0 }}>
                               <input 
                                 type="checkbox" 
                                 checked={walkover[m.id] || false}
-                                onChange={e => setWalkover(prev => ({ ...prev, [m.id]: e.target.checked }))}
-                              />
-                              ⚠️ Walkover ( WDR )
-                            </label>
-
-                            {walkover[m.id] && (
-                              <select 
-                                value={walkoverWinnerId[m.id] || ''} 
-                                onChange={e => setWalkoverWinnerId(prev => ({ ...prev, [m.id]: e.target.value }))}
-                                style={{ 
-                                  height: '30px', 
-                                  padding: '0 6px', 
-                                  background: 'var(--tc-card-bg)', 
-                                  border: '1px solid var(--tc-card-border)', 
-                                  borderRadius: '4px', 
-                                  color: 'var(--tc-ink)',
-                                  fontSize: '0.78rem'
+                                onChange={e => {
+                                  const checked = e.target.checked;
+                                  setWalkover(prev => ({ ...prev, [m.id]: checked }));
+                                  if (checked) {
+                                    setSet1p1(prev => ({ ...prev, [m.id]: '' }));
+                                    setSet1p2(prev => ({ ...prev, [m.id]: '' }));
+                                    setSet2p1(prev => ({ ...prev, [m.id]: '' }));
+                                    setSet2p2(prev => ({ ...prev, [m.id]: '' }));
+                                    setSet3p1(prev => ({ ...prev, [m.id]: '' }));
+                                    setSet3p2(prev => ({ ...prev, [m.id]: '' }));
+                                  }
                                 }}
-                              >
-                                <option value="">— wybierz zwycięzcę —</option>
-                                <option value={m.participant1_id}>{teamAName}</option>
-                                <option value={m.participant2_id}>{teamBName}</option>
-                              </select>
+                                style={{ margin: 0 }}
+                              />
+                              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style={{ color: 'var(--danger,#ef4444)', opacity: 0.7 }}><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/></svg>
+                              Walkover (<abbr title="Walkover — zwycięstwo bez gry, gdy przeciwnik się wycofuje lub nie stawi">WDR</abbr>)
+                            </label>
+ 
+                            {walkover[m.id] && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '8px', borderTop: '1px dashed rgba(239,68,68,0.15)' }}>
+                                <label style={{ fontSize: '0.78rem', color: 'var(--tc-muted)', fontWeight: 600 }}>Zwycięzca:</label>
+                                <select 
+                                  value={walkoverWinnerId[m.id] || ''} 
+                                  onChange={e => setWalkoverWinnerId(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                  style={{ 
+                                    height: '34px', 
+                                    padding: '0 10px', 
+                                    background: 'var(--tc-input-bg)', 
+                                    border: '1px solid var(--tc-card-border)', 
+                                    borderRadius: '6px', 
+                                    color: 'var(--tc-ink)',
+                                    fontSize: '0.84rem',
+                                    fontFamily: 'inherit'
+                                  }}
+                                >
+                                  <option value="">— wybierz zwycięzcę —</option>
+                                  <option value={m.participant1_id}>{teamAName}</option>
+                                  <option value={m.participant2_id}>{teamBName}</option>
+                                </select>
+                              </div>
                             )}
                           </div>
                         </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px' }}>
+ 
+                        <hr style={{ border: 0, borderTop: '1px solid var(--tc-card-border-soft)', margin: '14px 0 12px 0' }} />
+ 
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                           <button 
                             type="button" 
                             disabled={savingMatchId === m.id}
                             onClick={() => handleSaveScore(m)}
-                            className="tc-btn tc-btn-primary"
-                            style={{ height: '34px', fontSize: '0.8rem', padding: '0 16px' }}
+                            className="modal-save-btn"
                           >
                             {savingMatchId === m.id ? 'Zapisywanie...' : 'Zapisz wynik'}
                           </button>

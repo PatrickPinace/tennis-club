@@ -679,7 +679,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                   <span class="tc-card-title">Twoje mecze</span>
                   <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
                 </div>
-                <div id="sgl-player-matches-list"></div>
+                <div id="sgl-player-matches-list" class="org-matches-list-wrap"></div>
               </div>
             </div>
           )}
@@ -870,7 +870,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                   <span class="tc-card-title">Twoje mecze</span>
                   <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
                 </div>
-                <div id="sgl-player-matches-list"></div>
+                <div id="sgl-player-matches-list" class="org-matches-list-wrap"></div>
               </div>
             </div>
           )}
@@ -902,7 +902,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
             <div class="mexicano-banner">
               <span class="mexicano-banner__icon">⚡</span>
               <div class="mexicano-banner__body">
-                <strong>Mexicano</strong> — parowanie dynamiczne
+                <strong>Mexicano</strong><span class="mexicano-banner__dynamic-label"> — parowanie dynamiczne</span>
                 {amrCurrentRound !== null && amrTotalRounds !== null && (
                   <span class="mexicano-banner__rounds">
                     &nbsp;· Runda <strong>{amrCurrentRound}</strong> / {amrTotalRounds}
@@ -1076,7 +1076,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                   <span class="tc-card-title">Twoje mecze</span>
                   <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
                 </div>
-                <div id="amr-player-matches-list"></div>
+                <div id="amr-player-matches-list" class="org-matches-list-wrap"></div>
               </div>
             </div>
           )}
@@ -1321,7 +1321,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                   <span class="tc-card-title">Twoje mecze</span>
                   <span style="font-size:0.78rem;color:var(--tc-muted);">Wpisz wyniki swoich meczów</span>
                 </div>
-                <div id="player-matches-list"></div>
+                <div id="player-matches-list" class="org-matches-list-wrap"></div>
               </div>
             </div>
           )}
@@ -1343,19 +1343,16 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
             <div class="tc-card org-card is-collapsed">
               <OrgPanelHeader status={tournament.status} statusLabel={STATUS_LABEL[tournament.status] ?? tournament.status} />
 
-              <div class="org-search-box-row">
-                <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
-                  <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
-                  </svg>
-                  <input id="org-match-search" class="org-search-input" type="search" placeholder="Szukaj zawodnika lub pary…" autocomplete="off" style="width: 100%;">
-                </div>
-              </div>
-
               <!-- Lista meczów do wpisania wyników -->
               <div class="org-matches-header">
                 <div class="org-section-label">Wyniki meczów</div>
                 <div class="org-matches-toolbar">
+                  <div class="org-search-wrap" style="width: 240px; margin-right: 8px;">
+                    <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                    </svg>
+                    <input id="org-match-search" class="org-search-input" type="search" placeholder="Szukaj zawodnika lub pary…" autocomplete="off" style="width: 100%;">
+                  </div>
                   <div class="org-filter-group" id="org-filter-group">
                     <button class="org-filter-btn org-filter-btn--active" data-filter="pending">Do wpisania</button>
                     <button class="org-filter-btn" data-filter="done">Zakończone</button>
@@ -1632,8 +1629,8 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                 </div>
               </summary>
 
-              <div class="org-search-box-row" id="matches-search-row" style="padding: 12px 20px 0;">
-                <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
+              <div class="pub-matches-filter-bar" id="pub-matches-filter-bar">
+                <div class="org-search-wrap" style="width: 240px;">
                   <svg class="org-search-icon" width="13" height="13" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                     <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
                   </svg>
@@ -1646,9 +1643,6 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                     style="width: 100%;"
                   />
                 </div>
-              </div>
-
-              <div class="pub-matches-filter-bar" id="pub-matches-filter-bar" style="padding: 12px 20px 0; display: flex; justify-content: flex-end;">
                 <div class="org-filter-group" id="pub-filter-group">
                   <button class="org-filter-btn" data-filter="pending">Oczekujące <span class="pub-filter-count">({pendingMatches.length})</span></button>
                   <button class="org-filter-btn" data-filter="done">Zakończone <span class="pub-filter-count">({completedMatches.length})</span></button>

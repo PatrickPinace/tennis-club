@@ -248,13 +248,19 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
 
   const hasParticipants = m.participant1_id && m.participant2_id;
 
-  // Skrócone nazwy graczy do etykiet nad polami setów
+  const formatNameShort = (fullName: string | null | undefined): string => {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length < 2) return fullName;
+    return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+  };
+
   const p1Short = isDoubles
-    ? escHtml(`${(m.participant1_name ?? '?').split(' ').pop()}`)
-    : escHtml((m.participant1_name ?? '?'));
+    ? escHtml(`${formatNameShort(m.participant1_name)} / ${formatNameShort(m.participant4_name)}`)
+    : escHtml(formatNameShort(m.participant1_name));
   const p2Short = isDoubles
-    ? escHtml(`${(m.participant2_name ?? '?').split(' ').pop()}`)
-    : escHtml((m.participant2_name ?? '?'));
+    ? escHtml(`${formatNameShort(m.participant2_name)} / ${formatNameShort(m.participant3_name)}`)
+    : escHtml(formatNameShort(m.participant2_name));
 
   const wdrSection = hasParticipants ? `
     <div class="org-wdr-section">
@@ -273,70 +279,106 @@ export function buildMatchCard(m: MatchData, cfg: OrgPanelConfig): string {
       </div>
     </div>` : '';
 
-  const cancelSection = (m.status !== 'CNC') ? `
-    <div class="org-cancel-section">
-      <button type="button" class="org-cancel-match-btn" data-match-id="${m.id}"
-        title="Anuluj mecz (CNC)">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-        Anuluj mecz
-      </button>
-    </div>` : '';
+  const cancelButtonHtml = (m.status !== 'CNC') ? `
+    <button type="button" class="org-cancel-match-btn" data-match-id="${m.id}"
+      style="margin: 0; padding: 4px 8px; border: none; background: none; font-size: 0.72rem;"
+      title="Anuluj mecz (CNC)">
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display: inline-block; vertical-align: middle; margin-right: 4px;"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+      Anuluj mecz
+    </button>` : '';
 
   const btnLabel = (m.status === 'CMP' || m.status === 'WDR') ? 'Koryguj wynik' : 'Zapisz wynik';
 
   // Formularz setów — bez spinnerów, czyste inputy z etykietami graczy
   const setsHtml = cfg.isAMR ? `
-    <div class="org-sets-row">
-      <div class="org-set-group">
-        <div class="org-set-label">Gemy</div>
-        <div class="org-set-inputs">
+    <div style="width: 100%;">
+      <div class="amr-scoreboard-grid" style="background: var(--tc-chip-bg); border: 1px solid var(--tc-card-border); border-radius: 8px; overflow: hidden; margin-bottom: 6px; display: grid; grid-template-columns: 1fr 80px; align-items: center; width: 100%;">
+        <div style="padding: 10px 14px; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Gracz</div>
+        <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Punkty</div>
+        
+        <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span class="player-name-full">${p1}</span>
+          <span class="player-name-short">${p1Short}</span>
+        </div>
+        <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
           <input class="org-set-input" type="number" min="0" max="${cfg.pointsPerMatch}"
-            name="set1_p1" placeholder="—" value="${v(m.set1_p1_score)}" title="${p1Short}">
-          <span class="org-set-sep">:</span>
+            name="set1_p1" placeholder="—" value="${v(m.set1_p1_score)}"
+            style="width: 48px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+        </div>
+
+        <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span class="player-name-full">${p2}</span>
+          <span class="player-name-short">${p2Short}</span>
+        </div>
+        <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
           <input class="org-set-input" type="number" min="0" max="${cfg.pointsPerMatch}"
-            name="set1_p2" placeholder="—" value="${v(m.set1_p2_score)}" title="${p2Short}">
+            name="set1_p2" placeholder="—" value="${v(m.set1_p2_score)}"
+            style="width: 48px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
         </div>
       </div>
-    </div>
-    <div style="font-size:0.72rem;color:var(--tc-muted);margin-bottom:8px;">
-      Suma musi wynosić ${cfg.pointsPerMatch} gemów
+      <div style="font-size:0.72rem;color:var(--tc-muted);margin-bottom:8px;margin-left:2px;">
+        * Suma musi wynosić ${cfg.pointsPerMatch} punktów
+      </div>
     </div>` : `
-    <div class="org-sets-row">
-      ${[1,2,3].map(s => {
-        const v1 = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
-        const v2 = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
-        return `
-        <div class="org-set-group">
-          <div class="org-set-label">Set ${s}</div>
-          <div class="org-set-inputs">
+    <div style="width: 100%;">
+      <div class="scoreboard-grid" style="background: var(--tc-chip-bg); border: 1px solid var(--tc-card-border); border-radius: 8px; overflow: hidden; margin-bottom: 8px; display: grid; grid-template-columns: 1fr 60px 60px 60px; align-items: center; width: 100%;">
+        <div style="padding: 10px 14px; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Gracz</div>
+        <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Set 1</div>
+        <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Set 2</div>
+        <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Set 3</div>
+        
+        <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span class="player-name-full">${p1}</span>
+          <span class="player-name-short">${p1Short}</span>
+        </div>
+        ${[1,2,3].map(s => {
+          const val = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+          return `
+          <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
             <input class="org-set-input" type="number" min="0" max="99"
-              name="set${s}_p1" placeholder="—" value="${v1}">
-            <span class="org-set-sep">:</span>
-            <input class="org-set-input" type="number" min="0" max="99"
-              name="set${s}_p2" placeholder="—" value="${v2}">
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
+              name="set${s}_p1" placeholder="—" value="${val}"
+              style="width: 42px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+          </div>`;
+        }).join('')}
 
+        <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+          <span class="player-name-full">${p2}</span>
+          <span class="player-name-short">${p2Short}</span>
+        </div>
+        ${[1,2,3].map(s => {
+          const val = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+          return `
+          <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
+            <input class="org-set-input" type="number" min="0" max="99"
+              name="set${s}_p2" placeholder="—" value="${val}"
+              style="width: 42px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+ 
   return `
     <div class="${cardCls}" data-match-id="${m.id}" data-status="${m.status}">
       ${headerHtml}
       <form class="org-score-form" data-match-id="${m.id}">
         <div class="org-form-row">
           ${setsHtml}
-          <div class="org-scheduled-group">
+          <div class="org-scheduled-group" style="width: 100%;">
             <div class="org-scheduled-label">Termin</div>
             <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
-              name="scheduled_time" value="${stVal}">
+              name="scheduled_time" value="${stVal}" style="width: 100%; box-sizing: border-box;">
           </div>
         </div>
         ${wdrSection}
-        <div class="org-form-actions">
-          <button type="submit" class="org-save-btn">${btnLabel}</button>
-          <span class="org-form-msg" data-match-id="${m.id}"></span>
+        <div class="org-form-actions" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+          <div>
+            ${cancelButtonHtml}
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="org-form-msg" data-match-id="${m.id}"></span>
+            <button type="submit" class="org-save-btn">${btnLabel}</button>
+          </div>
         </div>
-        ${cancelSection}
       </form>
     </div>`;
 }
@@ -487,6 +529,9 @@ export async function handleScoreSubmit(
           document.dispatchEvent(new CustomEvent('amr-match-scored'));
         } else {
           await cbs.loadStandings();
+          setTimeout(() => {
+            window.location.reload();
+          }, 800);
         }
         if (btn) btn.disabled = false;
         return;
@@ -618,17 +663,45 @@ export function applyMatchFilter(
   if (cbs) {
     const refreshMatchesData = async () => {
       try {
+        const oldMaxRound = state.allMatches.reduce((m, x) => Math.max(m, x.round_number || 0), 0);
         const res = await fetch(`${cfg.apiBase}/api/tournaments/${cfg.tournamentId}/detail/`, { credentials: 'include' });
         if (!res.ok) return;
         const detail = await res.json();
         const el = document.getElementById('ssr-matches-data');
         if (el) el.textContent = JSON.stringify(detail.matches ?? []);
+        const amrEl = document.getElementById('amr-ssr-matches-data');
+        if (amrEl) amrEl.textContent = JSON.stringify(detail.matches ?? []);
         renderMatches(cfg, state, cbs);
+
+        if (cfg.isAMR) {
+          const newMaxRound = state.allMatches.reduce((m, x) => Math.max(m, x.round_number || 0), 0);
+          if (newMaxRound > oldMaxRound && oldMaxRound > 0) {
+            setTimeout(() => location.reload(), 1000);
+          }
+        }
       } catch { /* silent degradation */ }
     };
 
     container.querySelectorAll<HTMLFormElement>('.org-score-form').forEach(form => {
       form.addEventListener('submit', (e) => handleScoreSubmit(e, cfg, state, cbs, refreshMatchesData));
+
+      if (cfg.isAMR) {
+        const p1Input = form.querySelector<HTMLInputElement>('input[name="set1_p1"]');
+        const p2Input = form.querySelector<HTMLInputElement>('input[name="set1_p2"]');
+        if (p1Input && p2Input) {
+          const total = cfg.pointsPerMatch;
+          p1Input.addEventListener('input', () => {
+            if (p1Input.value === '') { p2Input.value = ''; return; }
+            const val = parseInt(p1Input.value, 10);
+            if (!isNaN(val) && val >= 0 && val <= total) p2Input.value = String(total - val);
+          });
+          p2Input.addEventListener('input', () => {
+            if (p2Input.value === '') { p1Input.value = ''; return; }
+            const val = parseInt(p2Input.value, 10);
+            if (!isNaN(val) && val >= 0 && val <= total) p1Input.value = String(total - val);
+          });
+        }
+      }
     });
 
     // CNC cancel handler
@@ -660,7 +733,17 @@ export function applyMatchFilter(
                 winner_name: null };
               renderMatches(cfg, state);
             }
-            if (cfg.isSGL || cfg.isDBE) { await cbs.loadBracket(); } else if (cfg.isAMR) { await cbs.loadAmericanoStandings(); document.dispatchEvent(new CustomEvent('amr-match-scored')); } else { await cbs.loadStandings(); }
+            if (cfg.isSGL || cfg.isDBE) {
+               await cbs.loadBracket();
+             } else if (cfg.isAMR) {
+               await cbs.loadAmericanoStandings();
+               document.dispatchEvent(new CustomEvent('amr-match-scored'));
+             } else {
+               await cbs.loadStandings();
+               setTimeout(() => {
+                 window.location.reload();
+               }, 800);
+             }
           } else {
             if (msgEl) { msgEl.textContent = d.detail ?? 'Błąd anulowania.'; msgEl.className = 'org-form-msg org-form-msg--err'; }
             btn.disabled = false;

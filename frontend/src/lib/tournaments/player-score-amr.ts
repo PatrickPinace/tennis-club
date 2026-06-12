@@ -88,7 +88,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             <div class="org-form-row">
               <div class="org-sets-row">
                 <div class="org-set-group">
-                  <div class="org-set-label">Gemy</div>
+                  <div class="org-set-label">Punkty</div>
                   <div class="org-set-inputs">
                     <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
                       name="set1_p1" placeholder="—" value="${v1}">
@@ -105,7 +105,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
               </div>
             </div>
             <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:10px;">
-              Suma musi wynosić ${pointsPerMatch} gemów
+              Suma musi wynosić ${pointsPerMatch} punktów
             </div>
             <div class="org-form-actions">
               <button type="submit" class="org-save-btn">${isDone ? 'Koryguj' : 'Zapisz wynik'}</button>
@@ -244,6 +244,21 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
 
       // Formularze submit
       list.querySelectorAll<HTMLFormElement>('.amr-ps-form').forEach(form => {
+        const p1Input = form.querySelector<HTMLInputElement>('input[name="set1_p1"]');
+        const p2Input = form.querySelector<HTMLInputElement>('input[name="set1_p2"]');
+        if (p1Input && p2Input) {
+          p1Input.addEventListener('input', () => {
+            if (p1Input.value === '') { p2Input.value = ''; return; }
+            const val = parseInt(p1Input.value, 10);
+            if (!isNaN(val) && val >= 0 && val <= pointsPerMatch) p2Input.value = String(pointsPerMatch - val);
+          });
+          p2Input.addEventListener('input', () => {
+            if (p2Input.value === '') { p1Input.value = ''; return; }
+            const val = parseInt(p2Input.value, 10);
+            if (!isNaN(val) && val >= 0 && val <= pointsPerMatch) p1Input.value = String(pointsPerMatch - val);
+          });
+        }
+
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
           const matchId = form.dataset.matchId;
@@ -292,6 +307,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
                 myMatches[idx] = { ...myMatches[idx], status: d.status, score: d.score ?? null };
               }
               refreshAmrStandings();
+              setTimeout(() => location.reload(), 1000);
             } else {
               msg.textContent = d.detail ?? d.error ?? `Błąd ${res.status}`;
               msg.className = 'org-form-msg org-form-msg--err';

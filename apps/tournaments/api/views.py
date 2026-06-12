@@ -398,9 +398,21 @@ class RoundRobinMatchScoreView(APIView):
             except Participant.DoesNotExist:
                 return Response({'detail': 'Uczestnik nie istnieje.'}, status=status.HTTP_404_NOT_FOUND)
 
-            # Wyczyść wyniki setów i ustaw WDR
-            match.set1_p1_score = None
-            match.set1_p2_score = None
+            # Wyczyść wyniki setów i ustaw WDR (lub przypisz max pkt dla AMR)
+            if tournament.tournament_type == Tournament.TournamentType.AMERICANO:
+                from apps.tournaments.models import AmericanoConfig
+                amr_cfg = AmericanoConfig.objects.filter(tournament=tournament).first()
+                ppm = amr_cfg.points_per_match if amr_cfg else 32
+                if winner_participant_id == match.participant1_id:
+                    match.set1_p1_score = ppm
+                    match.set1_p2_score = 0
+                else:
+                    match.set1_p1_score = 0
+                    match.set1_p2_score = ppm
+            else:
+                match.set1_p1_score = None
+                match.set1_p2_score = None
+
             match.set2_p1_score = None
             match.set2_p2_score = None
             match.set3_p1_score = None
@@ -431,23 +443,48 @@ class RoundRobinMatchScoreView(APIView):
             ]
             if 'scheduled_time' in data:
                 wdr_save_fields.append('scheduled_time')
-            match.save(update_fields=wdr_save_fields)
 
-            MatchScoreHistory.objects.create(
-                match=match,
-                updated_by=request.user,
-                set1_p1_score=None, set1_p2_score=None,
-                set2_p1_score=None, set2_p2_score=None,
-                set3_p1_score=None, set3_p2_score=None,
-            )
+            from django.db import transaction as db_transaction
+            with db_transaction.atomic():
+                locked_tournament = Tournament.objects.select_for_update().get(pk=tournament.pk)
+                match.save(update_fields=wdr_save_fields)
 
-            # SGL/DBE: awansuj zwycięzcę do następnej rundy
-            if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
-                from apps.tournaments.bracket import advance_winner_in_bracket
-                advance_winner_in_bracket(match, tournament)
-            elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
-                from apps.tournaments.bracket import advance_dbe_match
-                advance_dbe_match(match, tournament)
+                MatchScoreHistory.objects.create(
+                    match=match,
+                    updated_by=request.user,
+                    set1_p1_score=None, set1_p2_score=None,
+                    set2_p1_score=None, set2_p2_score=None,
+                    set3_p1_score=None, set3_p2_score=None,
+                )
+
+                # SGL/DBE: awansuj zwycięzcę do następnej rundy
+                if locked_tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
+                    from apps.tournaments.bracket import advance_winner_in_bracket
+                    advance_winner_in_bracket(match, locked_tournament)
+                elif locked_tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+                    from apps.tournaments.bracket import advance_dbe_match
+                    advance_dbe_match(match, locked_tournament)
+                elif locked_tournament.tournament_type == Tournament.TournamentType.AMERICANO:
+                    from apps.tournaments.models import AmericanoConfig
+                    config = AmericanoConfig.objects.filter(tournament=locked_tournament).first()
+                    if config and config.scheduling_type == 'DYNAMIC':
+                        current_max_round = match.round_number
+                        pending = TournamentsMatch.objects.filter(
+                            tournament=locked_tournament,
+                            round_number=current_max_round,
+                        ).exclude(status__in=[
+                            TournamentsMatch.Status.COMPLETED.value,
+                            TournamentsMatch.Status.WITHDRAWN.value,
+                        ]).exists()
+                        next_round_exists = TournamentsMatch.objects.filter(
+                            tournament=locked_tournament,
+                            round_number=current_max_round + 1,
+                        ).exists()
+                        if not pending and current_max_round < config.number_of_rounds and not next_round_exists:
+                            from apps.tournaments.views import generate_next_mexicano_round
+                            from apps.tournaments.tools import calculate_americano_standings
+                            standings_list = calculate_americano_standings(locked_tournament)
+                            generate_next_mexicano_round(locked_tournament, config, standings_list)
 
             return Response({
                 'match_id': match.pk,
@@ -693,48 +730,73 @@ class RoundRobinMatchScoreView(APIView):
         ]
         if update_scheduled_time:
             save_fields.append('scheduled_time')
-        match.save(update_fields=save_fields)
 
-        MatchScoreHistory.objects.create(
-            match=match,
-            updated_by=request.user,
-            set1_p1_score=match.set1_p1_score,
-            set1_p2_score=match.set1_p2_score,
-            set2_p1_score=match.set2_p1_score,
-            set2_p2_score=match.set2_p2_score,
-            set3_p1_score=match.set3_p1_score,
-            set3_p2_score=match.set3_p2_score,
-        )
+        from django.db import transaction as db_transaction
+        with db_transaction.atomic():
+            locked_tournament = Tournament.objects.select_for_update().get(pk=tournament.pk)
+            match.save(update_fields=save_fields)
 
-        # SGL/DBE: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
-        if match.status == TournamentsMatch.Status.COMPLETED.value:
-            if tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
-                from apps.tournaments.bracket import advance_winner_in_bracket
-                advance_winner_in_bracket(match, tournament)
-            elif tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
-                from apps.tournaments.bracket import advance_dbe_match
-                advance_dbe_match(match, tournament)
-            elif tournament.tournament_type == Tournament.TournamentType.LADDER:
-                # LDR: zamień seed_number gdy challenger (p1) wygrał; wyczyść ChallengeRejection
-                from django.db.models import Q as _Q
-                from apps.tournaments.models import ChallengeRejection as _CR
-                _winner     = match.winner
-                _challenger = match.participant1
-                _challenged = match.participant2
-                if (_winner and _challenger and _challenged
-                        and _winner.id == _challenger.id
-                        and _challenger.seed_number is not None
-                        and _challenged.seed_number is not None):
-                    _challenger.seed_number, _challenged.seed_number = (
-                        _challenged.seed_number, _challenger.seed_number
-                    )
-                    _challenger.save(update_fields=['seed_number'])
-                    _challenged.save(update_fields=['seed_number'])
-                _CR.objects.filter(
-                    _Q(rejecting_participant=_challenger) | _Q(rejecting_participant=_challenged)
-                    | _Q(challenger_participant=_challenger) | _Q(challenger_participant=_challenged),
-                    tournament=tournament,
-                ).delete()
+            MatchScoreHistory.objects.create(
+                match=match,
+                updated_by=request.user,
+                set1_p1_score=match.set1_p1_score,
+                set1_p2_score=match.set1_p2_score,
+                set2_p1_score=match.set2_p1_score,
+                set2_p2_score=match.set2_p2_score,
+                set3_p1_score=match.set3_p1_score,
+                set3_p2_score=match.set3_p2_score,
+            )
+
+            # SGL/DBE: awansuj zwycięzcę do następnej rundy (tylko gdy mecz zakończony)
+            if match.status == TournamentsMatch.Status.COMPLETED.value:
+                if locked_tournament.tournament_type == Tournament.TournamentType.SINGLE_ELIMINATION:
+                    from apps.tournaments.bracket import advance_winner_in_bracket
+                    advance_winner_in_bracket(match, locked_tournament)
+                elif locked_tournament.tournament_type == Tournament.TournamentType.DOUBLE_ELIMINATION:
+                    from apps.tournaments.bracket import advance_dbe_match
+                    advance_dbe_match(match, locked_tournament)
+                elif locked_tournament.tournament_type == Tournament.TournamentType.LADDER:
+                    # LDR: zamień seed_number gdy challenger (p1) wygrał; wyczyść ChallengeRejection
+                    from django.db.models import Q as _Q
+                    from apps.tournaments.models import ChallengeRejection as _CR
+                    _winner     = match.winner
+                    _challenger = match.participant1
+                    _challenged = match.participant2
+                    if (_winner and _challenger and _challenged
+                            and _winner.id == _challenger.id
+                            and _challenger.seed_number is not None
+                            and _challenged.seed_number is not None):
+                        _challenger.seed_number, _challenged.seed_number = (
+                            _challenged.seed_number, _challenger.seed_number
+                        )
+                        _challenger.save(update_fields=['seed_number'])
+                        _challenged.save(update_fields=['seed_number'])
+                    _CR.objects.filter(
+                        _Q(rejecting_participant=_challenger) | _Q(rejecting_participant=_challenged)
+                        | _Q(challenger_participant=_challenger) | _Q(challenger_participant=_challenged),
+                        tournament=locked_tournament,
+                    ).delete()
+                elif locked_tournament.tournament_type == Tournament.TournamentType.AMERICANO:
+                    from apps.tournaments.models import AmericanoConfig
+                    config = AmericanoConfig.objects.filter(tournament=locked_tournament).first()
+                    if config and config.scheduling_type == 'DYNAMIC':
+                        current_max_round = match.round_number
+                        pending = TournamentsMatch.objects.filter(
+                            tournament=locked_tournament,
+                            round_number=current_max_round,
+                        ).exclude(status__in=[
+                            TournamentsMatch.Status.COMPLETED.value,
+                            TournamentsMatch.Status.WITHDRAWN.value,
+                        ]).exists()
+                        next_round_exists = TournamentsMatch.objects.filter(
+                            tournament=locked_tournament,
+                            round_number=current_max_round + 1,
+                        ).exists()
+                        if not pending and current_max_round < config.number_of_rounds and not next_round_exists:
+                            from apps.tournaments.views import generate_next_mexicano_round
+                            from apps.tournaments.tools import calculate_americano_standings
+                            standings_list = calculate_americano_standings(locked_tournament)
+                            generate_next_mexicano_round(locked_tournament, config, standings_list)
 
         # ── Notyfikacje o wyniku ─────────────────────────────────────────────
         # Wysyłamy tylko gdy status faktycznie zmienił się na finalny (CMP/WDR).
@@ -1186,7 +1248,8 @@ class AmrNextRoundView(APIView):
 
     def post(self, request, pk):
         from apps.tournaments.models import Tournament, TournamentsMatch, AmericanoConfig
-        from apps.tournaments.views import generate_next_mexicano_round, calculate_americano_standings
+        from apps.tournaments.views import generate_next_mexicano_round
+        from apps.tournaments.tools import calculate_americano_standings
 
         try:
             tournament = Tournament.objects.select_related('created_by').get(pk=pk)
@@ -2896,21 +2959,17 @@ class MyActiveMatchesView(generics.ListAPIView):
             Q(user=user) | Q(members__user=user)
         ).values_list('id', flat=True)
 
-        # Turnieje utworzone przez użytkownika (aktywne)
-        created_tournaments = Tournament.objects.filter(created_by=user, status='ACT')
-
         return TournamentsMatch.objects.filter(
             tournament__status='ACT',
             status__in=['WAI', 'SCH', 'INP']
         ).exclude(
             Q(participant1__isnull=True) | Q(participant2__isnull=True)
         ).filter(
-            Q(tournament__in=created_tournaments) |
             Q(participant1_id__in=user_participants) |
             Q(participant2_id__in=user_participants) |
             Q(participant3_id__in=user_participants) |
             Q(participant4_id__in=user_participants)
         ).distinct().select_related(
-            'tournament', 'participant1', 'participant2', 'participant3', 'participant4'
+            'tournament__americano_config', 'participant1', 'participant2', 'participant3', 'participant4'
         ).order_by('scheduled_time', 'id')
 
