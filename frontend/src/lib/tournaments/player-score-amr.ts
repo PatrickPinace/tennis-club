@@ -70,6 +70,7 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           : escHtml(m.participant2_name ?? '—');
         const isDone = m.status === 'CMP' || m.status === 'WDR';
         const isCnc  = m.status === 'CNC';
+        const isWalkover = m.status === 'WDR';
         const v1 = m.set1_p1_score != null ? String(m.set1_p1_score) : '';
         const v2 = m.set1_p2_score != null ? String(m.set1_p2_score) : '';
 
@@ -83,33 +84,82 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           ? (() => { try { return new Date(m.scheduled_time!).toISOString().slice(0,16); } catch { return ''; } })()
           : '';
 
+        const formatNameShort = (fullName: string | null | undefined): string => {
+          if (!fullName) return '';
+          const parts = fullName.trim().split(/\s+/);
+          if (parts.length < 2) return fullName;
+          return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+        };
+
+        const p1Short = isDoubles
+          ? escHtml(`${formatNameShort(m.participant1_name)} / ${formatNameShort(m.participant4_name)}`)
+          : escHtml(formatNameShort(m.participant1_name));
+        const p2Short = isDoubles
+          ? escHtml(`${formatNameShort(m.participant2_name)} / ${formatNameShort(m.participant3_name)}`)
+          : escHtml(formatNameShort(m.participant2_name));
+
+        const setsHtml = `
+          <div style="width: 100%;">
+            <div class="amr-scoreboard-grid" style="background: var(--tc-chip-bg); border: 1px solid var(--tc-card-border); border-radius: 8px; overflow: hidden; margin-bottom: 6px; display: grid; grid-template-columns: 1fr 80px; align-items: center; width: 100%;">
+              <div style="padding: 10px 14px; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Gracz</div>
+              <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Punkty</div>
+              
+              <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span class="player-name-full">${p1}</span>
+                <span class="player-name-short">${p1Short}</span>
+              </div>
+              <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
+                <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                  name="set1_p1" placeholder="—" value="${v1}"
+                  style="width: 48px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+              </div>
+
+              <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <span class="player-name-full">${p2}</span>
+                <span class="player-name-short">${p2Short}</span>
+              </div>
+              <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
+                <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
+                  name="set1_p2" placeholder="—" value="${v2}"
+                  style="width: 48px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+              </div>
+            </div>
+            <div style="font-size:0.72rem;color:var(--tc-muted);margin-bottom:8px;margin-left:2px;">
+              * Suma musi wynosić ${pointsPerMatch} punktów
+            </div>
+          </div>`;
+
+        const wdrSection = (m.participant1_id && m.participant2_id) ? `
+          <div class="org-wdr-section">
+            <label class="org-wdr-label">
+              <input type="checkbox" class="org-wdr-checkbox ps-wdr-cb" data-match-id="${m.id}" ${isWalkover ? 'checked' : ''}>
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="color:var(--danger,#ef4444);opacity:0.7;"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              Walkover (<abbr title="Walkover — zwycięstwo bez gry, gdy przeciwnik się wycofuje lub nie stawi">WDR</abbr>)
+            </label>
+            <div class="org-wdr-winner" style="${isWalkover ? 'display:flex;' : 'display:none;'}">
+              <label style="font-size:0.78rem;color:var(--tc-muted);font-weight:600;">Zwycięzca:</label>
+              <select name="winner_participant_id" class="org-wdr-select ps-wdr-winner-select">
+                <option value="">— wybierz zwycięzcę —</option>
+                <option value="${m.participant1_id}" ${m.winner_name === m.participant1_name || (isDoubles && m.winner_name === `${m.participant1_name ?? ''} / ${m.participant4_name ?? ''}`) ? 'selected' : ''}>${p1}</option>
+                <option value="${m.participant2_id}" ${m.winner_name === m.participant2_name || (isDoubles && m.winner_name === `${m.participant2_name ?? ''} / ${m.participant3_name ?? ''}`) ? 'selected' : ''}>${p2}</option>
+              </select>
+            </div>
+          </div>` : '';
+
         const form = (!isCnc) ? `
           <form class="org-score-form amr-ps-form" data-match-id="${m.id}">
-            <div class="org-form-row">
-              <div class="org-sets-row">
-                <div class="org-set-group">
-                  <div class="org-set-label">Punkty</div>
-                  <div class="org-set-inputs">
-                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
-                      name="set1_p1" placeholder="—" value="${v1}">
-                    <span class="org-set-sep">:</span>
-                    <input class="org-set-input" type="number" min="0" max="${pointsPerMatch}"
-                      name="set1_p2" placeholder="—" value="${v2}">
-                  </div>
-                </div>
-              </div>
-              <div class="org-scheduled-group">
+            <div class="org-form-row" style="width: 100%;">
+              ${setsHtml}
+              <div class="org-scheduled-group" style="width: 100%;">
                 <div class="org-scheduled-label">Termin</div>
                 <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
-                  name="scheduled_time" value="${stVal}">
+                  name="scheduled_time" value="${stVal}" style="width: 100%; box-sizing: border-box;">
               </div>
             </div>
-            <div style="font-size:0.72rem;color:var(--text-dim);margin-bottom:10px;">
-              Suma musi wynosić ${pointsPerMatch} punktów
-            </div>
-            <div class="org-form-actions">
+            ${wdrSection}
+            <div class="org-form-actions" style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+              <span class="org-form-msg" data-match-id="${m.id}" style="margin-right: 10px;"></span>
               <button type="submit" class="org-save-btn">${isDone ? 'Koryguj' : 'Zapisz wynik'}</button>
-              <span class="org-form-msg" data-match-id="${m.id}"></span>
             </div>
           </form>` : '';
 
@@ -127,7 +177,6 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         let p2SetsWon: number | string = 0;
         if (m.set1_p1_score !== null && m.set1_p2_score !== null) sets.push({ p1: m.set1_p1_score, p2: m.set1_p2_score });
 
-        const isWalkover = m.status === 'WDR';
         const hasScore = sets.length > 0 || isWalkover;
 
         if (isWalkover) {
@@ -173,13 +222,17 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         ].filter(Boolean).join(' ');
 
         const scores1Html = hasScore
-          ? `<span class="fs-match__score-overall">${p1SetsWon}</span>` +
-            sets.map(s => `<span class="fs-match__score-set ${s.p1 > s.p2 && isDone ? 'fs-match__score-set--won' : ''}">${s.p1}</span>`).join('')
+          ? sets.map(s => {
+              const colorStyle = s.p1 > s.p2 && isDone ? 'color: var(--tc-win, #22c55e); font-weight: 700;' : (s.p1 < s.p2 && isDone ? 'color: var(--tc-hot, #ef4444);' : 'color: var(--tc-ink);');
+              return `<span class="fs-match__score-set" style="${colorStyle}">${s.p1}</span>`;
+            }).join('')
           : `<span class="fs-match__status">${statusBadge}</span>`;
 
         const scores2Html = hasScore
-          ? `<span class="fs-match__score-overall">${p2SetsWon}</span>` +
-            sets.map(s => `<span class="fs-match__score-set ${s.p2 > s.p1 && isDone ? 'fs-match__score-set--won' : ''}">${s.p2}</span>`).join('')
+          ? sets.map(s => {
+              const colorStyle = s.p2 > s.p1 && isDone ? 'color: var(--tc-win, #22c55e); font-weight: 700;' : (s.p2 < s.p1 && isDone ? 'color: var(--tc-hot, #ef4444);' : 'color: var(--tc-ink);');
+              return `<span class="fs-match__score-set" style="${colorStyle}">${s.p2}</span>`;
+            }).join('')
           : `<span class="fs-match__status" style="visibility: hidden;">${statusBadge}</span>`;
 
         const timeChip = m.scheduled_time
@@ -242,6 +295,43 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           }).catch(() => {});
       }
 
+      // WDR checkbox toggle — wyłącza wpisywanie setów, pokazuje select "zwycięzca"
+      list.querySelectorAll<HTMLInputElement>('.ps-wdr-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const form = cb.closest('form') as HTMLFormElement;
+          const wdrWinner = form?.querySelector<HTMLElement>('.org-wdr-winner');
+          if (!wdrWinner) return;
+
+          const setInputs = form.querySelectorAll<HTMLInputElement>('.org-set-input');
+          const scoreboardGrid = form.querySelector<HTMLElement>('.amr-scoreboard-grid');
+
+          if (cb.checked) {
+            wdrWinner.style.display = 'flex';
+            setInputs.forEach(input => {
+              input.disabled = true;
+              input.dataset.oldValue = input.value;
+              input.value = '';
+            });
+            if (scoreboardGrid) {
+              scoreboardGrid.style.opacity = '0.5';
+              scoreboardGrid.style.pointerEvents = 'none';
+            }
+          } else {
+            wdrWinner.style.display = 'none';
+            setInputs.forEach(input => {
+              input.disabled = false;
+              if (input.dataset.oldValue !== undefined) {
+                input.value = input.dataset.oldValue;
+              }
+            });
+            if (scoreboardGrid) {
+              scoreboardGrid.style.opacity = '1';
+              scoreboardGrid.style.pointerEvents = 'auto';
+            }
+          }
+        });
+      });
+
       // Formularze submit
       list.querySelectorAll<HTMLFormElement>('.amr-ps-form').forEach(form => {
         const p1Input = form.querySelector<HTMLInputElement>('input[name="set1_p1"]');
@@ -266,9 +356,19 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           const msg = form.querySelector<HTMLElement>('.org-form-msg');
           if (!btn || !msg || !matchId) return;
 
+          // Check WDR
+          const wdrCb = form.querySelector<HTMLInputElement>('.ps-wdr-cb');
+          const isWalkover = wdrCb?.checked ?? false;
+          const winnerSelect = form.querySelector<HTMLSelectElement>('.ps-wdr-winner-select');
+          const winnerIdStr = winnerSelect?.value ?? '';
+
+          if (isWalkover && !winnerIdStr) {
+            msg.textContent = 'Wybierz zwycięzcę.';
+            msg.className = 'org-form-msg org-form-msg--err';
+            return;
+          }
+
           const fd = new FormData(form);
-          const g1 = fd.get('set1_p1');
-          const g2 = fd.get('set1_p2');
           const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
           let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
           if (stInput && !scheduledTimeVal) {
@@ -276,13 +376,24 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
             scheduledTimeVal = (new Date(Date.now() - tzoffset)).toISOString().slice(0, 16);
           }
 
-          const body = {
-            set1_p1: (g1 !== null && g1 !== '') ? parseInt(g1 as string, 10) : null,
-            set1_p2: (g2 !== null && g2 !== '') ? parseInt(g2 as string, 10) : null,
-            set2_p1: null, set2_p2: null,
-            set3_p1: null, set3_p2: null,
-            ...(scheduledTimeVal !== undefined ? { scheduled_time: scheduledTimeVal } : {}),
-          };
+          let body: Record<string, any>;
+          if (isWalkover) {
+            body = {
+              walkover: true,
+              winner_participant_id: parseInt(winnerIdStr, 10),
+              ...(scheduledTimeVal !== undefined ? { scheduled_time: scheduledTimeVal } : {}),
+            };
+          } else {
+            const g1 = fd.get('set1_p1');
+            const g2 = fd.get('set1_p2');
+            body = {
+              set1_p1: (g1 !== null && g1 !== '') ? parseInt(g1 as string, 10) : null,
+              set1_p2: (g2 !== null && g2 !== '') ? parseInt(g2 as string, 10) : null,
+              set2_p1: null, set2_p2: null,
+              set3_p1: null, set3_p2: null,
+              ...(scheduledTimeVal !== undefined ? { scheduled_time: scheduledTimeVal } : {}),
+            };
+          }
 
           btn.disabled = true;
           btn.textContent = 'Zapisuję…';

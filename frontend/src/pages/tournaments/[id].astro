@@ -187,7 +187,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
   }
 
   const teamAWon = m.winner_name 
-    ? (m.winner_name === teamAName) 
+    ? (m.winner_name === teamAName || m.winner_name === m.participant1_name || m.winner_name === m.participant4_name) 
     : (Number(sInfo.p1SetsWon) > Number(sInfo.p2SetsWon));
 
   const userWon = (userInTeamA && teamAWon) || (userInTeamB && !teamAWon);
@@ -967,13 +967,26 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
 
           <!-- Rundy z meczami — widok tabelkowy -->
           {tournament.matches.length > 0 ? (
-            <div class="tc-card" style="margin-bottom:24px;" id="amr-matches-card">
-              <div class="tc-card-header">
-                <span class="tc-card-title">Mecze ({tournament.matches.length})</span>
-                <span style="font-size:0.78rem; color:var(--tc-muted);">
-                  {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
+            <details class="tc-card" style="margin-bottom:24px;" id="amr-matches-card">
+              <summary class="tc-card-header" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center;">
+                <span class="tc-card-title">
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" style="display:inline-block;vertical-align:-2px;margin-right:6px;color:var(--tc-accent);">
+                    <path d="M15 4V3H5v1H1.5A1.5 1.5 0 000 5.5v1.6C0 8.7 1 10 2.45 10.38a5 5 0 004.55 3.52V16H4v2h12v-2h-3v-2.1a5 5 0 004.55-3.52c1.45-.38 2.45-1.68 2.45-3.28V5.5A1.5 1.5 0 0018.5 4H15zM2 7.1V5.5H5v3a3.5 3.5 0 01-3-1.4zm16-1.6v1.6a3.5 3.5 0 01-3 1.4v-3h3z" />
+                  </svg>
+                  Mecze ({tournament.matches.length})
                 </span>
-              </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span class="org-matches-stats" style="font-size:0.78rem; color:var(--tc-muted);" onclick="event.stopPropagation()">
+                    {completedMatches.length} rozegranych · {pendingMatches.length} pozostałych
+                  </span>
+                  <div class="org-toggle-hint">
+                    <span class="org-toggle-hint__label">rozwiń</span>
+                    <svg class="org-toggle-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </div>
+                </div>
+              </summary>
 
               <div class="org-search-box-row" style="padding: 12px 20px 0;">
                 <div class="org-search-wrap" style="width: 100%; max-width: 240px;">
@@ -1016,10 +1029,12 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                             <div class="fs-match__scores">
                               {sInfo.hasScore && (
                                 <>
-                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p1Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p1SetsWon}</span>
-                                  {sInfo.sets.map(s => (
-                                    <span class={`fs-match__score-set ${s.p1 > s.p2 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p1}</span>
-                                  ))}
+                                  {sInfo.sets.map(s => {
+                                    const style = s.p1 > s.p2 && sInfo.isDone 
+                                      ? 'color: var(--tc-win, #22c55e); font-weight: 700;' 
+                                      : (s.p1 < s.p2 && sInfo.isDone ? 'color: var(--tc-hot, #ef4444);' : 'color: var(--tc-ink);');
+                                    return <span class="fs-match__score-set" style={style}>{s.p1}</span>;
+                                  })}
                                 </>
                               )}
                               {!sInfo.hasScore && (
@@ -1032,10 +1047,12 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
                             <div class="fs-match__scores">
                               {sInfo.hasScore && (
                                 <>
-                                  <span class={`fs-match__score-overall ${sInfo.isDone ? (p2Won ? 'fs-match__score-overall--won' : 'fs-match__score-overall--lost') : ''}`}>{sInfo.p2SetsWon}</span>
-                                  {sInfo.sets.map(s => (
-                                    <span class={`fs-match__score-set ${s.p2 > s.p1 && sInfo.isDone ? 'fs-match__score-set--won' : ''}`}>{s.p2}</span>
-                                  ))}
+                                  {sInfo.sets.map(s => {
+                                    const style = s.p2 > s.p1 && sInfo.isDone 
+                                      ? 'color: var(--tc-win, #22c55e); font-weight: 700;' 
+                                      : (s.p2 < s.p1 && sInfo.isDone ? 'color: var(--tc-hot, #ef4444);' : 'color: var(--tc-ink);');
+                                    return <span class="fs-match__score-set" style={style}>{s.p2}</span>;
+                                  })}
                                 </>
                               )}
                               {!sInfo.hasScore && (
@@ -1053,7 +1070,7 @@ function getMatchResultClass(m: any, sInfo: any, teamAName: string) {
               <div class="pub-matches-empty" style="display:none; padding:12px 20px; font-size:0.82rem; color:var(--tc-muted);">
                 Brak meczów pasujących do wyszukiwania.
               </div>
-            </div>
+            </details>
           ) : (
             <div class="tc-card td-empty-section" style="margin-bottom:24px;">
               <span>Mecze pojawią się po zamknięciu rejestracji.</span>
