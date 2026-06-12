@@ -1186,7 +1186,8 @@ class AmrNextRoundView(APIView):
 
     def post(self, request, pk):
         from apps.tournaments.models import Tournament, TournamentsMatch, AmericanoConfig
-        from apps.tournaments.views import generate_next_mexicano_round, calculate_americano_standings
+        from apps.tournaments.bracket import generate_next_mexicano_round
+        from apps.tournaments.tools import calculate_americano_standings
 
         try:
             tournament = Tournament.objects.select_related('created_by').get(pk=pk)
@@ -1576,10 +1577,10 @@ class TournamentStatusView(APIView):
             try:
                 with db_transaction.atomic():
                     if tournament.tournament_type == 'RND':
-                        from apps.tournaments.views import generate_round_robin_matches_initial
+                        from apps.tournaments.bracket import generate_round_robin_matches_initial
                         match_count, gen_message = generate_round_robin_matches_initial(tournament, participants_qs)
                     elif tournament.tournament_type == 'SGL':
-                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.bracket import generate_elimination_matches_initial
                         from apps.tournaments.models import EliminationConfig
                         config, _ = EliminationConfig.objects.get_or_create(
                             tournament=tournament,
@@ -1587,7 +1588,7 @@ class TournamentStatusView(APIView):
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
                     elif tournament.tournament_type == 'DBE':
-                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.bracket import generate_elimination_matches_initial
                         from apps.tournaments.models import EliminationConfig, TournamentsMatch as _TM
                         config, _ = EliminationConfig.objects.get_or_create(
                             tournament=tournament,
@@ -1609,7 +1610,7 @@ class TournamentStatusView(APIView):
                         )
                         if config.scheduling_type == 'DYNAMIC':
                             # MEX DYNAMIC: generuj tylko rundę 1; kolejne rundy przez AmrNextRoundView
-                            from apps.tournaments.views import generate_next_mexicano_round
+                            from apps.tournaments.bracket import generate_next_mexicano_round
                             standings_list = [{'participant': p} for p in participants_qs.order_by('pk')]
                             match_count, gen_message = generate_next_mexicano_round(tournament, config, standings_list)
                             if match_count == 0:
@@ -1741,7 +1742,7 @@ class GenerateMatchesView(APIView):
 
     def post(self, request, pk):
         from apps.tournaments.models import Tournament as _T, Participant as _P, TournamentsMatch as _M
-        from apps.tournaments.views import generate_round_robin_matches_initial
+        from apps.tournaments.bracket import generate_round_robin_matches_initial
 
         try:
             tournament = _T.objects.select_related('created_by').get(pk=pk)
