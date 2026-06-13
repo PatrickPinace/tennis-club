@@ -114,3 +114,20 @@ class MyActiveMatchesViewTests(TestCase):
         self.assertIn(self.match3.id, match_ids)
         self.assertNotIn(self.match2.id, match_ids)  # match2 is CMP (completed)
         self.assertNotIn(self.match_draft.id, match_ids)  # match_draft is in draft tourn
+
+    def test_admin_sees_all_active_matches_even_if_not_organizer_or_player(self):
+        # Admin (is_staff), który nie stworzył turnieju ani w nim nie gra,
+        # ma pełny dostęp — widzi wszystkie aktywne mecze wszystkich aktywnych turniejów.
+        admin = User.objects.create_user(username='admin', password='pass', is_staff=True)
+        self.client.login(username='admin', password='pass')
+        url = reverse('tournament-my-active-matches')
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+
+        data = resp.json()
+        match_ids = [m['id'] for m in data]
+
+        self.assertIn(self.match1.id, match_ids)
+        self.assertIn(self.match3.id, match_ids)
+        self.assertNotIn(self.match2.id, match_ids)       # CMP (completed)
+        self.assertNotIn(self.match_draft.id, match_ids)  # turniej w DRF (nie ACT)

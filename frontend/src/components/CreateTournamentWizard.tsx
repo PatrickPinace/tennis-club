@@ -542,7 +542,7 @@ export default function CreateTournamentWizard({ manageUrl, tournamentBaseUrl }:
                 <div className="cfg-group-label">Mecze</div>
                 <div className="cfg-spinners-row">
                   <Spinner label="Liczba rund" value={amrRounds} onChange={setAmrRounds} min={1} max={99} hint="maks. n-1 dla n graczy" />
-                  <Spinner label="Punkty na mecz" value={amrPpm} onChange={setAmrPpm} min={1} max={999} step={4} hint="np. 32 = suma gemów w meczu" />
+                  <Spinner label="Punkty na mecz" value={amrPpm} onChange={setAmrPpm} min={1} max={999} step={4} hint="np. 32 = suma punktów w meczu" />
                 </div>
               </>
             )}

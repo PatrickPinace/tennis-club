@@ -287,7 +287,10 @@ def calculate_americano_standings(tournament):
         zgodnie z konwencją generatora meczów AMR.
     """
     participants = tournament.participants.filter(status__in=['ACT', 'REG'])
-    matches = tournament.matches.filter(status=TournamentsMatch.Status.COMPLETED.value)
+    matches = tournament.matches.filter(status__in=[
+        TournamentsMatch.Status.COMPLETED.value,
+        TournamentsMatch.Status.WITHDRAWN.value,
+    ])
 
     standings = {
         p.id: {

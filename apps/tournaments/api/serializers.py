@@ -370,6 +370,8 @@ class MyActiveMatchSerializer(serializers.ModelSerializer):
     participant3_name = serializers.CharField(source='participant3.display_name', read_only=True)
     participant4_name = serializers.CharField(source='participant4.display_name', read_only=True)
 
+    points_per_match = serializers.SerializerMethodField()
+
     class Meta:
         model = TournamentsMatch
         fields = [
@@ -380,5 +382,16 @@ class MyActiveMatchSerializer(serializers.ModelSerializer):
             'set1_p1_score', 'set1_p2_score',
             'set2_p1_score', 'set2_p2_score',
             'set3_p1_score', 'set3_p2_score',
+            'points_per_match',
         ]
+
+    def get_points_per_match(self, obj):
+        if obj.tournament.tournament_type == 'AMR':
+            try:
+                cfg = obj.tournament.americano_config
+                if cfg:
+                    return cfg.points_per_match
+            except Exception:
+                pass
+        return None
 

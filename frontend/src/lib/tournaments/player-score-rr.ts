@@ -87,22 +87,56 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         // Inputy setów: gdy user jest p2, lewy input (set_p1 w formularzu) = wynik p2 z backendu.
         // name atrybuty: lewy input = set${s}_p1 gdy nie swap, set${s}_p2 gdy swap — API czyta
         // set1_p1 jako wynik participant1, set1_p2 jako wynik participant2 i tak zostaje.
-        const setsHtml = [1,2,3].map(s => {
-          const origL = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
-          const origR = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
-          const [dispL, dispR] = iAmP2 ? [origR, origL] : [origL, origR];
-          const [nameL, nameR] = iAmP2 ? [`set${s}_p2`, `set${s}_p1`] : [`set${s}_p1`, `set${s}_p2`];
-          return `<div class="org-set-group">
-            <div class="org-set-label">Set ${s}</div>
-            <div class="org-set-inputs">
-              <input class="org-set-input" type="number" min="0" max="99"
-                name="${nameL}" placeholder="—" value="${dispL}">
-              <span class="org-set-sep">:</span>
-              <input class="org-set-input" type="number" min="0" max="99"
-                name="${nameR}" placeholder="—" value="${dispR}">
+        const formatNameShort = (fullName: string | null | undefined): string => {
+          if (!fullName) return '';
+          const parts = fullName.trim().split(/\s+/);
+          if (parts.length < 2) return fullName;
+          return `${parts[0]} ${parts[parts.length - 1].charAt(0)}.`;
+        };
+
+        const setsHtml = `
+        <div style="width: 100%;">
+          <div class="scoreboard-grid" style="background: var(--tc-chip-bg); border: 1px solid var(--tc-card-border); border-radius: 8px; overflow: hidden; margin-bottom: 12px; display: grid; grid-template-columns: 1fr 60px 60px 60px; align-items: center; width: 100%;">
+            <div style="padding: 10px 14px; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Gracz</div>
+            <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Set 1</div>
+            <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Set 2</div>
+            <div style="text-align: center; font-size: 0.68rem; font-weight: 700; color: var(--tc-muted); text-transform: uppercase;">Set 3</div>
+            
+            <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span class="player-name-full">${p1}</span>
+              <span class="player-name-short">${escHtml(formatNameShort(leftName))}</span>
             </div>
-          </div>`;
-        }).join('');
+            ${[1,2,3].map(s => {
+              const origL = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+              const origR = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+              const dispL = iAmP2 ? origR : origL;
+              const nameL = iAmP2 ? `set${s}_p2` : `set${s}_p1`;
+              return `
+              <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
+                <input class="org-set-input" type="number" min="0" max="99"
+                  name="${nameL}" placeholder="—" value="${dispL}"
+                  style="width: 42px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+              </div>`;
+            }).join('')}
+
+            <div style="padding: 10px 14px; font-size: 0.88rem; font-weight: 600; color: var(--tc-ink); border-top: 1px solid var(--tc-card-border-soft); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+              <span class="player-name-full">${p2}</span>
+              <span class="player-name-short">${escHtml(formatNameShort(rightName))}</span>
+            </div>
+            ${[1,2,3].map(s => {
+              const origL = v(s===1?m.set1_p1_score:s===2?m.set2_p1_score:m.set3_p1_score);
+              const origR = v(s===1?m.set1_p2_score:s===2?m.set2_p2_score:m.set3_p2_score);
+              const dispR = iAmP2 ? origL : origR;
+              const nameR = iAmP2 ? `set${s}_p1` : `set${s}_p2`;
+              return `
+              <div style="padding: 6px; display: flex; justify-content: center; border-top: 1px solid var(--tc-card-border-soft);">
+                <input class="org-set-input" type="number" min="0" max="99"
+                  name="${nameR}" placeholder="—" value="${dispR}"
+                  style="width: 42px; height: 32px; text-align: center; background: var(--tc-card-bg); border: 1px solid var(--tc-card-border); border-radius: 4px; color: var(--tc-ink); font-weight: 600;">
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
 
         const wdrSection = (leftId && rightId) ? `
           <div class="org-wdr-section">
@@ -112,11 +146,11 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
               Walkover (<abbr title="Walkover — zwycięstwo bez gry, gdy przeciwnik się wycofuje lub nie stawi">WDR</abbr>)
             </label>
             <div class="org-wdr-winner" style="display:none;">
-              <label style="font-size:0.78rem;color:var(--text-muted);">Kto się wycofuje:</label>
-              <select class="org-wdr-select ps-wdr-loser">
-                <option value="">— wybierz —</option>
-                <option value="${rightId}">${p1} wycofuje się</option>
-                <option value="${leftId}">${p2} wycofuje się</option>
+              <label style="font-size:0.78rem;color:var(--tc-muted);font-weight:600;">Zwycięzca:</label>
+              <select name="winner_participant_id" class="org-wdr-select ps-wdr-winner-select">
+                <option value="">— wybierz zwycięzcę —</option>
+                <option value="${leftId}">${p1}</option>
+                <option value="${rightId}">${p2}</option>
               </select>
             </div>
           </div>` : '';
@@ -128,18 +162,18 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         const form = (!isCnc) ? `
           <form class="org-score-form" data-match-id="${m.id}"
             data-p1-id="${m.participant1_id ?? ''}" data-p2-id="${m.participant2_id ?? ''}">
-            <div class="org-form-row ps-sets-wrap">
-              <div class="org-sets-row">${setsHtml}</div>
-              <div class="org-scheduled-group">
+            <div class="org-form-row ps-sets-wrap" style="width: 100%;">
+              <div class="org-sets-row" style="width: 100%;">${setsHtml}</div>
+              <div class="org-scheduled-group" style="width: 100%;">
                 <div class="org-scheduled-label">Termin</div>
                 <input id="st-${m.id}" class="org-datetime-input" type="datetime-local"
-                  name="scheduled_time" value="${stVal}">
+                  name="scheduled_time" value="${stVal}" style="width: 100%; box-sizing: border-box;">
               </div>
             </div>
             ${wdrSection}
-            <div class="org-form-actions">
+            <div class="org-form-actions" style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+              <span class="org-form-msg" data-match-id="${m.id}" style="margin-right: 8px;"></span>
               <button type="submit" class="org-save-btn">${isDone ? 'Koryguj' : 'Zapisz wynik'}</button>
-              <span class="org-form-msg" data-match-id="${m.id}"></span>
             </div>
           </form>` : '';
 
@@ -267,19 +301,39 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
         });
       });
 
-      // WDR checkbox toggle — chowa sety, pokazuje select "kto się wycofuje"
+      // WDR checkbox toggle — wyłącza wpisywanie setów, pokazuje select "zwycięzca"
       list.querySelectorAll<HTMLInputElement>('.ps-wdr-cb').forEach(cb => {
         cb.addEventListener('change', () => {
           const form = cb.closest('form') as HTMLFormElement;
           const wdrWinner = form?.querySelector<HTMLElement>('.org-wdr-winner');
-          const setsWrap  = form?.querySelector<HTMLElement>('.ps-sets-wrap');
-          if (!wdrWinner || !setsWrap) return;
+          if (!wdrWinner) return;
+
+          const setInputs = form.querySelectorAll<HTMLInputElement>('.org-set-input');
+          const scoreboardGrid = form.querySelector<HTMLElement>('.scoreboard-grid');
+
           if (cb.checked) {
-            setsWrap.style.display = 'none';
             wdrWinner.style.display = 'flex';
+            setInputs.forEach(input => {
+              input.disabled = true;
+              input.dataset.oldValue = input.value;
+              input.value = '';
+            });
+            if (scoreboardGrid) {
+              scoreboardGrid.style.opacity = '0.5';
+              scoreboardGrid.style.pointerEvents = 'none';
+            }
           } else {
-            setsWrap.style.display = '';
             wdrWinner.style.display = 'none';
+            setInputs.forEach(input => {
+              input.disabled = false;
+              if (input.dataset.oldValue !== undefined) {
+                input.value = input.dataset.oldValue;
+              }
+            });
+            if (scoreboardGrid) {
+              scoreboardGrid.style.opacity = '1';
+              scoreboardGrid.style.pointerEvents = 'auto';
+            }
           }
         });
       });
@@ -345,18 +399,14 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
           // Sprawdź WDR
           const wdrCb = form.querySelector<HTMLInputElement>('.ps-wdr-cb');
           const isWalkover = wdrCb?.checked ?? false;
-          const loserSelect = form.querySelector<HTMLSelectElement>('.ps-wdr-loser');
-          const loserId = loserSelect?.value ?? '';
+          const winnerSelect = form.querySelector<HTMLSelectElement>('.ps-wdr-winner-select');
+          const winnerIdStr = winnerSelect?.value ?? '';
 
-          if (isWalkover && !loserId) {
-            return reject('Wybierz kto się wycofuje.');
+          if (isWalkover && !winnerIdStr) {
+            return reject('Wybierz zwycięzcę.');
           }
 
-          // winner = ten który NIE jest loser
-          const p1Id = form.dataset.p1Id ? parseInt(form.dataset.p1Id, 10) : null;
-          const p2Id = form.dataset.p2Id ? parseInt(form.dataset.p2Id, 10) : null;
-          const loserIdInt = loserId ? parseInt(loserId, 10) : null;
-          const winnerId = loserIdInt === p1Id ? p2Id : p1Id;
+          const winnerId = winnerIdStr ? parseInt(winnerIdStr, 10) : null;
 
           const stInput = form.elements.namedItem('scheduled_time') as HTMLInputElement | null;
           let scheduledTimeVal = stInput ? (stInput.value || null) : undefined;
@@ -412,6 +462,8 @@ import { getCsrf, escHtml, getApiBase } from './helpers';
               msg.className = 'org-form-msg org-form-msg--ok';
               btn.textContent = 'Koryguj';
               btn.disabled = false;
+              // Przeładuj stronę po zapisie wyniku
+              setTimeout(() => window.location.reload(), 1000);
               // Zaktualizuj lokalny stan meczu
               const idx = myMatches.findIndex(m => m.id === Number(matchId));
               if (idx !== -1) {
