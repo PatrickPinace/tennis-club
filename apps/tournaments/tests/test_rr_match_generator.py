@@ -15,7 +15,7 @@ import datetime
 from django.test import TestCase
 from django.contrib.auth.models import User
 from apps.tournaments.models import Tournament, Participant, TournamentsMatch
-from apps.tournaments.views import generate_round_robin_matches_initial
+from apps.tournaments.bracket import generate_round_robin_matches_initial
 
 
 def _make_tournament(org, match_format='SNG'):

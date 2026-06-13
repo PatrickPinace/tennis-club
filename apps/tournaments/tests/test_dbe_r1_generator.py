@@ -19,7 +19,7 @@ from django.contrib.auth.models import User
 from apps.tournaments.models import (
     Tournament, Participant, TournamentsMatch, EliminationConfig,
 )
-from apps.tournaments.views import generate_elimination_matches_initial
+from apps.tournaments.bracket import generate_elimination_matches_initial
 
 
 def _make_tournament(org, t_type='DBE', match_format='SNG'):

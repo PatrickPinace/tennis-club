@@ -481,7 +481,7 @@ class RoundRobinMatchScoreView(APIView):
                             round_number=current_max_round + 1,
                         ).exists()
                         if not pending and current_max_round < config.number_of_rounds and not next_round_exists:
-                            from apps.tournaments.views import generate_next_mexicano_round
+                            from apps.tournaments.bracket import generate_next_mexicano_round
                             from apps.tournaments.tools import calculate_americano_standings
                             standings_list = calculate_americano_standings(locked_tournament)
                             generate_next_mexicano_round(locked_tournament, config, standings_list)
@@ -793,7 +793,7 @@ class RoundRobinMatchScoreView(APIView):
                             round_number=current_max_round + 1,
                         ).exists()
                         if not pending and current_max_round < config.number_of_rounds and not next_round_exists:
-                            from apps.tournaments.views import generate_next_mexicano_round
+                            from apps.tournaments.bracket import generate_next_mexicano_round
                             from apps.tournaments.tools import calculate_americano_standings
                             standings_list = calculate_americano_standings(locked_tournament)
                             generate_next_mexicano_round(locked_tournament, config, standings_list)
@@ -1248,7 +1248,7 @@ class AmrNextRoundView(APIView):
 
     def post(self, request, pk):
         from apps.tournaments.models import Tournament, TournamentsMatch, AmericanoConfig
-        from apps.tournaments.views import generate_next_mexicano_round
+        from apps.tournaments.bracket import generate_next_mexicano_round
         from apps.tournaments.tools import calculate_americano_standings
 
         try:
@@ -1639,10 +1639,10 @@ class TournamentStatusView(APIView):
             try:
                 with db_transaction.atomic():
                     if tournament.tournament_type == 'RND':
-                        from apps.tournaments.views import generate_round_robin_matches_initial
+                        from apps.tournaments.bracket import generate_round_robin_matches_initial
                         match_count, gen_message = generate_round_robin_matches_initial(tournament, participants_qs)
                     elif tournament.tournament_type == 'SGL':
-                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.bracket import generate_elimination_matches_initial
                         from apps.tournaments.models import EliminationConfig
                         config, _ = EliminationConfig.objects.get_or_create(
                             tournament=tournament,
@@ -1650,7 +1650,7 @@ class TournamentStatusView(APIView):
                         )
                         match_count, gen_message = generate_elimination_matches_initial(tournament, participants_qs, config)
                     elif tournament.tournament_type == 'DBE':
-                        from apps.tournaments.views import generate_elimination_matches_initial
+                        from apps.tournaments.bracket import generate_elimination_matches_initial
                         from apps.tournaments.models import EliminationConfig, TournamentsMatch as _TM
                         config, _ = EliminationConfig.objects.get_or_create(
                             tournament=tournament,
@@ -1672,7 +1672,7 @@ class TournamentStatusView(APIView):
                         )
                         if config.scheduling_type == 'DYNAMIC':
                             # MEX DYNAMIC: generuj tylko rundę 1; kolejne rundy przez AmrNextRoundView
-                            from apps.tournaments.views import generate_next_mexicano_round
+                            from apps.tournaments.bracket import generate_next_mexicano_round
                             standings_list = [{'participant': p} for p in participants_qs.order_by('pk')]
                             match_count, gen_message = generate_next_mexicano_round(tournament, config, standings_list)
                             if match_count == 0:
@@ -1804,7 +1804,7 @@ class GenerateMatchesView(APIView):
 
     def post(self, request, pk):
         from apps.tournaments.models import Tournament as _T, Participant as _P, TournamentsMatch as _M
-        from apps.tournaments.views import generate_round_robin_matches_initial
+        from apps.tournaments.bracket import generate_round_robin_matches_initial
 
         try:
             tournament = _T.objects.select_related('created_by').get(pk=pk)
@@ -2942,8 +2942,12 @@ class LadderChallengeActionView(APIView):
 class MyActiveMatchesView(generics.ListAPIView):
     """
     Zwraca listę meczów turniejowych z aktywnych turniejów (status 'ACT'),
-    które nie zostały jeszcze zakończone (status 'WAI', 'SCH', 'INP')
-    i w których zalogowany użytkownik jest uczestnikiem lub jest organizatorem tego turnieju.
+    które nie zostały jeszcze zakończone (status 'WAI', 'SCH', 'INP').
+
+    Widoczność (zgodnie z modelem ról):
+      - uczestnik: mecze, w których sam gra (p1-p4),
+      - organizator (created_by): wszystkie mecze turniejów, które utworzył,
+      - admin (is_staff): wszystkie mecze wszystkich aktywnych turniejów.
     """
     serializer_class = MyActiveMatchSerializer
     permission_classes = [IsAuthenticated]
@@ -2953,23 +2957,33 @@ class MyActiveMatchesView(generics.ListAPIView):
         from apps.tournaments.models import TournamentsMatch, Participant, Tournament
 
         user = self.request.user
-        
+
         # Uczestnicy, w których użytkownik jest kapitanem/graczem lub członkiem zespołu
         user_participants = Participant.objects.filter(
             Q(user=user) | Q(members__user=user)
         ).values_list('id', flat=True)
 
-        return TournamentsMatch.objects.filter(
+        base = TournamentsMatch.objects.filter(
             tournament__status='ACT',
             status__in=['WAI', 'SCH', 'INP']
         ).exclude(
             Q(participant1__isnull=True) | Q(participant2__isnull=True)
-        ).filter(
-            Q(participant1_id__in=user_participants) |
-            Q(participant2_id__in=user_participants) |
-            Q(participant3_id__in=user_participants) |
-            Q(participant4_id__in=user_participants)
-        ).distinct().select_related(
+        )
+
+        # Admin (is_staff) widzi wszystkie aktywne mecze — pełny dostęp.
+        if not user.is_staff:
+            # Organizator (created_by) widzi mecze swoich turniejów;
+            # zwykły uczestnik tylko te, w których sam gra.
+            created_tournaments = Tournament.objects.filter(created_by=user, status='ACT')
+            base = base.filter(
+                Q(tournament__in=created_tournaments) |
+                Q(participant1_id__in=user_participants) |
+                Q(participant2_id__in=user_participants) |
+                Q(participant3_id__in=user_participants) |
+                Q(participant4_id__in=user_participants)
+            )
+
+        return base.distinct().select_related(
             'tournament__americano_config', 'participant1', 'participant2', 'participant3', 'participant4'
         ).order_by('scheduled_time', 'id')
 
